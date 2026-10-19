@@ -44,7 +44,7 @@
 
   // ---- cells ----
   function Cell(x, y, gene, mr) {
-    this.x = x; this.y = y; var v = rand2D();
+    this.x = x; this.y = y; var v = rand2D(); this.popD = Math.random() * INTRO_MS;
     this.sv = rnd(-1, 1); this.maxSpeed = Math.max(0, P.baseMaxSpeed + this.sv * P.maxSpeedVariation);
     this.vx = v.x * this.maxSpeed; this.vy = v.y * this.maxSpeed;
     this.gene = gene; this.alive = true; this.radius = P.CELL_RADIUS; this.energy = 12; this.mutationRate = mr;
@@ -224,10 +224,13 @@
   }
   // ---- entrance: every element fades in from transparency at its own random time
   var fadeT0 = performance.now(), fadeK = {};
+  // intro: no fades. Every graphic element appears at once, at its own random moment within the first INTRO_MS
+  var INTRO_MS = 2200;
   function fadeA(key) {
-    var f = fadeK[key]; if (!f) f = fadeK[key] = { d: Math.random() * 2600, l: 1100 + Math.random() * 1500 };
-    var t = (performance.now() - fadeT0 - f.d) / f.l; if (t <= 0) return 0; if (t >= 1) return 1; return t * t * (3 - 2 * t);
+    var d = fadeK[key]; if (d === undefined) d = fadeK[key] = Math.random() * INTRO_MS;
+    return (performance.now() - fadeT0 >= d) ? 1 : 0;
   }
+  function introOn(d) { return performance.now() - fadeT0 >= d; }
   var firstSpawn = true; // the first plate after a load uses the configured values; later respawns randomize them
   function randomize(instant) {
     if (!instant && P.cellMorph && ready && cells.length) { startTrans(); return; }
@@ -392,7 +395,7 @@
     var dl = cells;
     for (var i = 0; i < dl.length; i++) {
       var c = dl[i];
-      if (!c.alive || c.x < cont.x || c.x > cont.x + cont.w || c.y < cont.y || c.y > cont.y + cont.h) continue;
+      if (!c.alive || !introOn(c.popD) || c.x < cont.x || c.x > cont.x + cont.w || c.y < cont.y || c.y > cont.y + cont.h) continue;
       var cx = (c.x - cont.x), cy = (c.y - cont.y), r2 = ms * c.radius * c.radius;
       var Rc = c.radius * Math.max(3, Math.sqrt(ms / (TH * 0.03)));
       var x0 = Math.max(0, Math.floor((cx - Rc) * S)), x1 = Math.min(bw - 1, Math.ceil((cx + Rc) * S));
@@ -418,7 +421,7 @@
     }
     octx.putImageData(img, 0, 0);
     ctx.imageSmoothingEnabled = S < DPR * 0.999; ctx.imageSmoothingQuality = 'high';
-    ctx.globalAlpha = fadeA('plate'); ctx.drawImage(off, 0, 0, bw, bh, cont.x, cont.y, cont.w, cont.h); ctx.globalAlpha = 1; // exact fit to the area rectangle
+    ctx.drawImage(off, 0, 0, bw, bh, cont.x, cont.y, cont.w, cont.h); ctx.globalAlpha = 1; // exact fit to the area rectangle
   }
   function colorAt(x, y) {
     if (img && x >= cont.x && x < cont.x + cont.w && y >= cont.y && y < cont.y + cont.h) {
@@ -441,16 +444,15 @@
     ctx.font = fs + 'px "Ca2-Thin", monospace';
     ctx.textAlign = 'left'; var mT = ctx.measureText(sT); ctx.textAlign = 'right'; var mX = ctx.measureText(sX);
     var hL = M + mT.actualBoundingBoxRight + G, hR = W - M - mX.actualBoundingBoxLeft - G, vTop = M + dh + G, vBot = H - M - dh - G, g = P.centerGap;
-    ctx.globalAlpha = fadeA('axis'); ctx.strokeStyle = css(eased.axis); ctx.lineWidth = P.axisWidth; ctx.lineCap = 'butt'; ctx.beginPath();
-    if (g > 0) {
-      ctx.moveTo(hL, cym); ctx.lineTo(cxm - g, cym); ctx.moveTo(cxm + g, cym); ctx.lineTo(hR, cym);
-      ctx.moveTo(cxm, vTop); ctx.lineTo(cxm, cym - g); ctx.moveTo(cxm, cym + g); ctx.lineTo(cxm, vBot);
-    } else { ctx.moveTo(hL, cym); ctx.lineTo(hR, cym); ctx.moveTo(cxm, vTop); ctx.lineTo(cxm, vBot); }
+    ctx.strokeStyle = css(eased.axis); ctx.lineWidth = P.axisWidth; ctx.lineCap = 'butt';
+    var segs = [];
+    if (g > 0) { segs.push([hL, cym, cxm - g, cym], [cxm + g, cym, hR, cym], [cxm, vTop, cxm, cym - g], [cxm, cym + g, cxm, vBot]); }
+    else segs.push([hL, cym, hR, cym], [cxm, vTop, cxm, vBot]);
     [[0, H], [W, H]].forEach(function (cn) {
       var ex = lerp(cxm, cn[0], P.diagLen), ey = lerp(cym, cn[1], P.diagLen), dx = ex - cxm, dy = ey - cym, len = Math.hypot(dx, dy);
-      if (len > g) { ctx.moveTo(cxm + dx / len * g, cym + dy / len * g); ctx.lineTo(ex, ey); }
+      if (len > g) segs.push([cxm + dx / len * g, cym + dy / len * g, ex, ey]);
     });
-    ctx.stroke(); ctx.globalAlpha = 1;
+    for (var si = 0; si < segs.length; si++) if (fadeA('ax' + si)) { ctx.beginPath(); ctx.moveTo(segs[si][0], segs[si][1]); ctx.lineTo(segs[si][2], segs[si][3]); ctx.stroke(); }
     axisInfo = { hL: hL, hR: hR, vTop: vTop, vBot: vBot };
   }
   var axisInfo = {};
@@ -524,9 +526,9 @@
     }
   }
   function drawBlobs() {
-    var ol = P.blobOutline; ctx.fillStyle = P.foodColor; ctx.strokeStyle = P.foodColor; ctx.lineWidth = 1.5; ctx.lineCap = 'round'; ctx.globalAlpha = P.foodAlpha * fadeA('food');
+    var ol = P.blobOutline; ctx.fillStyle = P.foodColor; ctx.strokeStyle = P.foodColor; ctx.lineWidth = 1.5; ctx.lineCap = 'round'; ctx.globalAlpha = P.foodAlpha;
     for (var i = 0; i < blobs.length; i++) {
-      var b = blobs[i], d = b.d; if (d.length < 3) { for (var q = 0; q < d.length; q++) { if (ol) ctx.strokeRect(d[q].x - P.foodSize / 2, d[q].y - P.foodSize / 2, P.foodSize, P.foodSize); else ctx.fillRect(d[q].x - P.foodSize / 2, d[q].y - P.foodSize / 2, P.foodSize, P.foodSize); } continue; }
+      var b = blobs[i], d = b.d; if (!introOn(((i * 0.6180339) % 1) * INTRO_MS)) continue; if (d.length < 3) { for (var q = 0; q < d.length; q++) { if (ol) ctx.strokeRect(d[q].x - P.foodSize / 2, d[q].y - P.foodSize / 2, P.foodSize, P.foodSize); else ctx.fillRect(d[q].x - P.foodSize / 2, d[q].y - P.foodSize / 2, P.foodSize, P.foodSize); } continue; }
       var pts = d.slice().sort(function (u, v) { return Math.atan2(u.y - b.y, u.x - b.x) - Math.atan2(v.y - b.y, v.x - b.x); }), n = pts.length;
       ctx.beginPath(); ctx.moveTo((pts[n - 1].x + pts[0].x) / 2, (pts[n - 1].y + pts[0].y) / 2);
       for (var k = 0; k < (ol ? n - 1 : n); k++) { var p1 = pts[k], p2 = pts[(k + 1) % n]; ctx.quadraticCurveTo(p1.x, p1.y, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2); }
@@ -657,7 +659,11 @@
     var mT, mX;
     if (P.showHud) {
       ctx.font = fs + 'px "Ca2-Thin", monospace'; ctx.textBaseline = 'alphabetic';
-      var hi = 0, put = function (txt, col, align, x, y) { ctx.globalAlpha = fadeA('h' + (hi++ % 7)); ctx.fillStyle = css(col); ctx.textAlign = align; ctx.fillText(txt, x, y); ctx.globalAlpha = 1; };
+      var hi = 0, put = function (txt, col, align, x, y) {
+        var hk = hi++, w = ctx.measureText(txt).width, x0 = align === 'right' ? x - w : align === 'center' ? x - w / 2 : x;
+        ctx.fillStyle = css(col); ctx.textAlign = 'left';
+        for (var ci = 0; ci < txt.length; ci++) if (fadeA('c' + hk + ':' + ci)) ctx.fillText(txt[ci], x0 + ctx.measureText(txt.slice(0, ci)).width, y);
+      };
       // ink-aligned margins: every edge has the same margin M
       var topBase = M + dh, botBase = H - M, midBase = cym + dh / 2;
       ctx.textAlign = 'left'; var lz = ctx.measureText('CELYLAR'); 
@@ -702,17 +708,14 @@
     }
     curS = DPR * res; drawMetaballs(curS);
 
-    if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha * fadeA('food'); ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; }
-    if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.globalAlpha = fadeA('para'); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { ctx.beginPath(); ctx.arc(parasites[i].x, parasites[i].y, 2.2, 0, 6.2832); ctx.fill(); } ctx.globalAlpha = 1; }
+    if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow && introOn(food[i].r * INTRO_MS)) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; }
+    if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { if (!fadeA('pa' + i)) continue; ctx.beginPath(); ctx.arc(parasites[i].x, parasites[i].y, 2.2, 0, 6.2832); ctx.fill(); } ctx.globalAlpha = 1; }
 
     // area outline: no rounded corners. Each side stops `corner` px short of both ends, so the corner lines never meet.
     var cr = Math.min(P.containerCorner, cont.w / 2, cont.h / 2);
-    ctx.globalAlpha = fadeA('box'); ctx.strokeStyle = css(dom, 1); ctx.lineWidth = 2; ctx.lineCap = 'butt'; ctx.beginPath();
-    ctx.moveTo(cont.x + cr, cont.y); ctx.lineTo(cont.x + cont.w - cr, cont.y);
-    ctx.moveTo(cont.x + cont.w, cont.y + cr); ctx.lineTo(cont.x + cont.w, cont.y + cont.h - cr);
-    ctx.moveTo(cont.x + cont.w - cr, cont.y + cont.h); ctx.lineTo(cont.x + cr, cont.y + cont.h);
-    ctx.moveTo(cont.x, cont.y + cont.h - cr); ctx.lineTo(cont.x, cont.y + cr);
-    ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = css(dom, 1); ctx.lineWidth = 2; ctx.lineCap = 'butt';
+    var bxs = [[cont.x + cr, cont.y, cont.x + cont.w - cr, cont.y], [cont.x + cont.w, cont.y + cr, cont.x + cont.w, cont.y + cont.h - cr], [cont.x + cont.w - cr, cont.y + cont.h, cont.x + cr, cont.y + cont.h], [cont.x, cont.y + cont.h - cr, cont.x, cont.y + cr]];
+    for (var bi = 0; bi < 4; bi++) if (fadeA('bx' + bi)) { ctx.beginPath(); ctx.moveTo(bxs[bi][0], bxs[bi][1]); ctx.lineTo(bxs[bi][2], bxs[bi][3]); ctx.stroke(); }
 
     if (P.axisLayer !== 0 && P.showAxis) drawAxis(L, sT, sX);
     // cursor: ring + dot drawn as a DOM overlay that follows the pointer (identical in every browser); the system cursor is hidden only while it shows
@@ -736,7 +739,7 @@
     } else { curEl.style.display = 'none'; cv.style.cursor = 'default'; curOn0 = false; lockCell = null; }
     curInfo = { on: curOn, ring: ringOn, dot: curInfo3.dot, dp: curInfo3.dp, lx: curInfo2.lx, ly: curInfo2.ly, locked: curInfo2.locked, maxR: curMaxR, cx: curX, cy: curY, rr: curRR, col: curCol, title: !!titleHit };
 
-     window.__ca2 = { drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
+     window.__ca2 = { fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
 
     if (autoRefresh && performance.now() - lastRefresh > refreshInterval * 1000) randomize();
     stepLive(t0);
