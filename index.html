@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CA2</title>
+<style>
+  @font-face { font-family: 'Ca2-Thin'; src: url('Ca2-Thin.ttf') format('truetype'); font-display: block; }
+  :root { --fg: #111; --fg-soft: rgba(17,17,17,.35); --bg: #fff; }
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); }
+  canvas#c { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  /* config: same language as the sketch - Ca2-Thin, hairlines, no boxes */
+  #tab { position: fixed; top: 0; right: 0; width: 18px; height: 100%; z-index: 9; }
+  #tab::after { content: ''; position: absolute; right: 8px; top: 50%; height: 120px; margin-top: -60px; border-right: 1.5px solid var(--fg-soft); transition: opacity .2s; }
+  #panel { position: fixed; top: 0; right: 0; height: 100%; width: 340px; max-width: 86vw; z-index: 10; box-sizing: border-box;
+    padding: 18px 26px 24px 26px; overflow-y: auto; scrollbar-width: none;
+    font-family: 'Fragment Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; line-height: 1.3; letter-spacing: .04em; color: var(--fg); background: var(--bg);
+    transform: translateX(100%); transition: transform .2s ease-out; will-change: transform; }
+  #panel::-webkit-scrollbar { display: none; }
+  #panel::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; border-left: 1.5px solid var(--fg-soft); }
+  #tab:hover + #panel, #panel:hover, #panel.open { transform: translateX(0); }
+  #tab:hover::after, #panel:hover ~ #tab::after { opacity: 0; }
+  #panel h1 { margin: 0 0 6px; font-weight: normal; font-size: 13px; letter-spacing: .3em; }
+  .n { font-family: 'Ca2-Thin', monospace; font-size: 54px; line-height: 1; letter-spacing: 0; }
+  .stats { display: grid; grid-template-columns: 1fr auto; padding: 8px 0 12px; border-bottom: 1.5px solid var(--fg-soft); margin-bottom: 10px; }
+  .stats span:nth-child(even) { text-align: right; }
+  .stats span:nth-child(odd) { align-self: center; }
+  .row { padding: 7px 0 4px; }
+  .row .lab { display: flex; justify-content: space-between; }
+  .row input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; margin: 2px 0 0; background: transparent; cursor: pointer; }
+  .row input[type=range]::-webkit-slider-runnable-track { height: 1.5px; background: var(--fg-soft); }
+  .row input[type=range]::-moz-range-track { height: 1.5px; background: var(--fg-soft); }
+  .row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: -5px; border-radius: 50%; border: 1.5px solid var(--fg); background: transparent; }
+  .row input[type=range]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--fg); background: transparent; }
+  .chk { display: flex; justify-content: space-between; padding: 7px 0; cursor: pointer; user-select: none; }
+  .chk b { font-weight: normal; }
+  .btns { display: flex; flex-wrap: wrap; gap: 4px 20px; padding-top: 12px; border-top: 1.5px solid var(--fg-soft); margin-top: 10px; }
+  .btns button { font: inherit; color: inherit; background: none; border: 0; padding: 4px 0; cursor: pointer; border-bottom: 1.5px solid transparent; }
+  .btns button:hover { border-bottom-color: var(--fg); }
+  .keys { margin-top: 14px; font-size: 22px; color: var(--fg-soft); line-height: 1.2; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="tab"></div>
+<div id="panel">
+  <h1>CONFIG</h1>
+  <div class="stats" id="stats"></div>
+  <div id="controls"></div>
+  <div class="btns" id="btns"></div>
+  <div class="keys">click: random action<br>a add  d kill  s respawn  b background (hold key + click)</div>
+</div>
+<script src="ca2.js"></script>
+</body>
+</html>
