@@ -19,7 +19,7 @@
     minRefreshInterval: 10, maxRefreshInterval: 20, slowDownRadius: 20, speedReductionFactor: 50.3,
     noiseStrength: 0, fps: 60, containerCorner: 18,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
-    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1
+    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0
   };
   var DEFAULTS = JSON.parse(JSON.stringify(P));
   var autoRefresh = true, lockParams = false;
@@ -282,8 +282,7 @@
 
     curS = DPR * res; drawMetaballs(curS);
 
-    ctx.fillStyle = 'rgb(200,100,0)';
-    for (i = 0; i < food.length; i++) ctx.fillRect(food[i].x, food[i].y, 1, 1);
+    if (P.showFood) { ctx.fillStyle = 'rgb(200,100,0)'; for (i = 0; i < food.length; i++) ctx.fillRect(food[i].x, food[i].y, 1, 1); }
     if (hovering && hoverCell) { ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hoverCell.x, hoverCell.y, hoverCell.radius, 0, 6.2832); ctx.stroke(); }
 
     var rc = 0, gc = 0, bc = 0;
@@ -425,6 +424,7 @@
   toggle('auto refresh', true, function (v) { autoRefresh = v; lastRefresh = performance.now(); });
   toggle('auto quality', !!P.autoQuality, function (v) { P.autoQuality = v ? 1 : 0; });
   toggle('typography', !!P.showHud, function (v) { P.showHud = v ? 1 : 0; });
+  toggle('food dots (still eaten when hidden)', !!P.showFood, function (v) { P.showFood = v ? 1 : 0; });
   toggle('axis lines', !!P.showAxis, function (v) { P.showAxis = v ? 1 : 0; });
   var bgRow = document.createElement('div'); bgRow.className = 'row';
   bgRow.innerHTML = '<div class="lab"><span>background</span><b style="font-weight:normal">#e9e9e9</b></div>';
