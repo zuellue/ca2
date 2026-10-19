@@ -828,7 +828,14 @@
   btn('randomize all', function () { lockParams = false; lockBox.checked = false; lockVal.textContent = 'off'; randomize(); });
   btn('background', cycleBg);
   btn('reset all', function () { Object.keys(live).forEach(function (k) { delete live[k]; }); Object.keys(DEFAULTS).forEach(function (k) { P[k] = DEFAULTS[k]; }); autoRefresh = true; lockParams = false; bgIndex = 0; bgTarget = BGS[0]; try { localStorage.removeItem(STORE); } catch (e) {} res = P.resolution; resize(); randomize(); location.reload(); });
-  btn('copy json', function () { var Pc = Object.assign({}, P); for (var lk in live) Pc[lk] = live[lk].orig; try { navigator.clipboard.writeText(JSON.stringify(Pc, null, 1)); } catch (e) {} });
+  btn('copy json', function (ev) {
+    var Pc = Object.assign({}, P); for (var lk in live) Pc[lk] = live[lk].orig;
+    var txt = JSON.stringify(Pc, null, 1), bt = ev.currentTarget, ok = false;
+    // execCommand first and synchronously (works on http pages, where navigator.clipboard does not exist)
+    try { var ta = document.createElement('textarea'); ta.value = txt; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;left:0;top:0;opacity:0;font-size:16px'; document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, txt.length); ok = document.execCommand('copy'); document.body.removeChild(ta); } catch (er) {}
+    if (!ok && navigator.clipboard && navigator.clipboard.writeText) { try { navigator.clipboard.writeText(txt).then(function () { bt.textContent = 'copied'; }, function () { bt.textContent = 'copy failed'; }); } catch (er) { bt.textContent = 'copy failed'; } return; }
+    bt.textContent = ok ? 'copied' : 'copy failed'; window.ca2copy = txt; setTimeout(function () { bt.textContent = 'copy json'; }, 1500);
+  });
   var panel = document.getElementById('panel');
   panel.addEventListener('click', function (e) { e.stopPropagation(); });
   var lastSync = 0;
