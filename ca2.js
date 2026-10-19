@@ -493,7 +493,11 @@
       var rx, ry, sp = Math.hypot(c.vx, c.vy), st = Math.min(0.35, sp * 0.03), ang = Math.atan2(c.vy, c.vx), rad = Math.max(2, c.radius) * (1 - 0.22 * (c.fear || 0)) * (1 + (c.pulse || 0));
       ctx.fillStyle = 'rgb(' + Math.round(r * 255) + ',' + Math.round(g * 255) + ',' + Math.round(b * 255) + ')';
       if (c.sq !== undefined) { st = 0; ang = c.exA; rx = rad * c.sq; ry = rad / Math.sqrt(c.sq); } else { rx = rad * (1 + st); ry = rad / (1 + st); }
-      ctx.beginPath(); ctx.ellipse(c.x, c.y, rx, ry, ang, 0, 6.2832); ctx.fill();
+      var tr = c.trail || (c.trail = []); if (!tr.length || Math.hypot(tr[tr.length - 1][0] - c.x, tr[tr.length - 1][1] - c.y) > 6) { tr.push([c.x, c.y]); if (tr.length > 14) tr.shift(); }
+      var fa = Math.max(0.2, Math.min(1, c.energy / 3)), base = ctx.globalAlpha;
+      for (var q = 0; q < tr.length; q++) { ctx.globalAlpha = base * fa * 0.18 * (q + 1) / tr.length; ctx.beginPath(); ctx.arc(tr[q][0], tr[q][1], rad * 0.35 * (q + 1) / tr.length, 0, 6.2832); ctx.fill(); }
+      ctx.globalAlpha = base * fa;
+      ctx.beginPath(); ctx.ellipse(c.x, c.y, rx, ry, ang, 0, 6.2832); ctx.fill(); ctx.globalAlpha = base;
     }
     ctx.globalAlpha = 1;
   }
