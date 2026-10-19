@@ -549,9 +549,10 @@
     } else { curEl.style.display = 'none'; cv.style.cursor = 'default'; }
     curInfo = { on: curOn, rr: curRR, col: curCol, title: !!titleHit };
 
-     window.__ca2 = { P: P, getCells: function () { return cells; }, getFood: function () { return food; }, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
+     window.__ca2 = { live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
 
     if (autoRefresh && performance.now() - lastRefresh > refreshInterval * 1000) randomize();
+    stepLive(t0);
     syncUI(rc + gc + bc);
     var lum = (0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2]), fgc = lum > 128 ? '17,17,17' : '240,240,240', root = document.documentElement.style;
     root.setProperty('--fg', 'rgb(' + fgc + ')'); root.setProperty('--fg-soft', 'rgba(' + fgc + ',.35)'); root.setProperty('--bg', css(bg, 1)); root.setProperty('--panel-bg', css(bg, P.panelAlpha));
@@ -574,6 +575,40 @@
     } else res = P.resolution;
   }
 
+  // ---- living knobs: double-click a knob and its parameter enters a 1-D cellular-automaton life cycle between its floor and ceiling
+  // (rule 110 on a ring; value = linear function of the alive fraction). Double-click again returns to the value from before. The stored config always holds the pre-CA value.
+  var live = {};
+  function hash(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function lcg(st) { st.s = (Math.imul(st.s, 1664525) + 1013904223) >>> 0; return st.s / 4294967296; }
+  var LIVE_N = 28, LIVE_RULE = 110, LIVE_MS = 110, LIVE_COLS = ['#ff0000', '#00ff00', '#0000ff'];
+  function liveStart(k, q, orig, row) {
+    var st = { s: hash(k) || 1 }, bits = [];
+    for (var i = 0; i < LIVE_N; i++) bits.push(lcg(st) < 0.5 ? 1 : 0);
+    live[k] = { orig: orig, bits: bits, st: st, t: performance.now(), cur: orig, q: q, row: row, col: LIVE_COLS[Math.floor(Math.random() * 3)], gen: 0, lastQ: orig };
+    row.classList.add('live'); row.style.setProperty('--kc', live[k].col);
+  }
+  function liveStop(k) {
+    var L = live[k]; if (!L) return; L.row.classList.remove('live'); L.row.style.removeProperty('--kc');
+    delete live[k]; P[k] = L.orig; applyKey(k, L.orig); save();
+  }
+  function stepLive(now) {
+    for (var k in live) {
+      var L = live[k], n = L.bits.length;
+      if (now - L.t >= LIVE_MS) {
+        L.t = now; L.gen++;
+        var nb = new Array(n), sum = 0, same = true, i;
+        for (i = 0; i < n; i++) { nb[i] = (LIVE_RULE >> (L.bits[(i + n - 1) % n] * 4 + L.bits[i] * 2 + L.bits[(i + 1) % n])) & 1; sum += nb[i]; if (nb[i] !== L.bits[i]) same = false; }
+        if (sum === 0 || sum === n || same) { for (i = 0; i < 3; i++) nb[Math.floor(lcg(L.st) * n)] ^= 1; if (sum === 0) nb[Math.floor(lcg(L.st) * n)] = 1; } // keep it alive, deterministically
+        L.bits = nb;
+        var a = clamp((nb.reduce(function (x, y) { return x + y; }, 0) / n - 0.2) / 0.6, 0, 1);
+        L.target = L.q[2] + (L.q[3] - L.q[2]) * a;
+      }
+      if (L.target === undefined) continue;
+      L.cur += (L.target - L.cur) * 0.2;
+      var v = clamp(Math.round((L.cur - L.q[2]) / L.q[4]) * L.q[4] + L.q[2], L.q[2], L.q[3]);
+      if (v !== L.lastQ) { L.lastQ = v; P[k] = v; applyKey(k, v); }
+    }
+  }
   // ---- persistence: every config key, versioned; unknown/removed keys are ignored, new keys keep defaults ----
   var STORE = 'ca2.config', STORE_V = 3;
   (function load() {
@@ -589,7 +624,7 @@
       if (typeof sv.bgIndex === 'number') bgIndex = sv.bgIndex;
     } catch (e) {}
   })();
-  function save() { try { localStorage.setItem(STORE, JSON.stringify({ v: STORE_V, P: P, autoRefresh: autoRefresh, lockParams: lockParams, bgTarget: bgTarget, bgIndex: bgIndex })); } catch (e) {} }
+  function save() { try { var Pc = Object.assign({}, P); for (var lk in live) Pc[lk] = live[lk].orig; localStorage.setItem(STORE, JSON.stringify({ v: STORE_V, P: Pc, autoRefresh: autoRefresh, lockParams: lockParams, bgTarget: bgTarget, bgIndex: bgIndex })); } catch (e) {} }
   // ---- config panel: every parameter ----
   var rows = {}, statsEl = document.getElementById('stats'), ctl = document.getElementById('controls'), btns = document.getElementById('btns');
   var GROUPS = [
@@ -657,7 +692,15 @@
       var d = document.createElement('div'); d.className = 'row';
       d.innerHTML = '<div class="lab"><span>' + q[1] + '</span><b style="font-weight:normal"></b></div><input type="range" min="' + q[2] + '" max="' + q[3] + '" step="' + q[4] + '">';
       var inp = d.querySelector('input'), val = d.querySelector('b');
+      var downVal = null;
+      inp.addEventListener('pointerdown', function () { if (!live[q[0]]) downVal = P[q[0]]; });
+      inp.addEventListener('dblclick', function () {
+        var k = q[0];
+        if (live[k]) { liveStop(k); inp.value = P[k]; val.textContent = fmt(P[k]); return; }
+        var o = downVal === null ? P[k] : downVal; P[k] = o; applyKey(k, o); inp.value = o; val.textContent = fmt(o); liveStart(k, q, o, d); save();
+      });
       inp.addEventListener('input', function () {
+        if (live[q[0]]) { inp.value = P[q[0]]; return; }
         var v = parseFloat(inp.value); P[q[0]] = v; val.textContent = fmt(v);
         applyKey(q[0], v);
         if (q[0] === 'fps') { /* nothing */ } else if (/UNIVERSE|CELL_RADIUS|Mutation|interaction|Rate/.test(q[0])) { lockParams = true; if (lockBox) { lockBox.checked = true; lockVal.textContent = 'on'; } }
@@ -717,14 +760,15 @@
   btn('respawn', function () { randomize(); });
   btn('randomize all', function () { lockParams = false; lockBox.checked = false; lockVal.textContent = 'off'; randomize(); });
   btn('background', cycleBg);
-  btn('reset all', function () { Object.keys(DEFAULTS).forEach(function (k) { P[k] = DEFAULTS[k]; }); autoRefresh = true; lockParams = false; bgIndex = 0; bgTarget = BGS[0]; try { localStorage.removeItem(STORE); } catch (e) {} res = P.resolution; resize(); randomize(); location.reload(); });
-  btn('copy json', function () { try { navigator.clipboard.writeText(JSON.stringify(P, null, 1)); } catch (e) {} });
+  btn('reset all', function () { Object.keys(live).forEach(function (k) { delete live[k]; }); Object.keys(DEFAULTS).forEach(function (k) { P[k] = DEFAULTS[k]; }); autoRefresh = true; lockParams = false; bgIndex = 0; bgTarget = BGS[0]; try { localStorage.removeItem(STORE); } catch (e) {} res = P.resolution; resize(); randomize(); location.reload(); });
+  btn('copy json', function () { var Pc = Object.assign({}, P); for (var lk in live) Pc[lk] = live[lk].orig; try { navigator.clipboard.writeText(JSON.stringify(Pc, null, 1)); } catch (e) {} });
   var panel = document.getElementById('panel');
   panel.addEventListener('click', function (e) { e.stopPropagation(); });
   var lastSync = 0;
   function syncUI(total) {
     var now = performance.now(); if (now - lastSync < 300) return; lastSync = now;
     statsEl.innerHTML = '<span>cells</span><span class="n">' + total + '</span><span>universe</span><span class="n">' + P.UNIVERSE_SIZE + '</span><span>refresh s</span><span class="n">' + Math.round(Math.max(0, refreshInterval - (now - lastRefresh) / 1000)) + '</span><span>fps</span><span class="n">' + Math.round(fps) + '</span><span>res</span><span class="n">' + Math.round(res * 100) + '</span>';
+    for (var lk in live) { var lr = rows[lk]; lr.inp.value = P[lk]; lr.val.textContent = fmt(P[lk]); }
     if (panel.matches(':hover')) return;
     GROUPS.forEach(function (g) { g[1].forEach(function (q) { var r = rows[q[0]], v = P[q[0]]; r.inp.value = v; r.val.textContent = fmt(v); }); });
   }
