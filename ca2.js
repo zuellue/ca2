@@ -19,7 +19,7 @@
     minRefreshInterval: 10, maxRefreshInterval: 20, slowDownRadius: 20, speedReductionFactor: 50.3,
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
-    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0
+    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1
   };
   var DEFAULTS = JSON.parse(JSON.stringify(P));
   var autoRefresh = true, lockParams = false;
@@ -153,7 +153,7 @@
       cells.push(new Cell(rnd(cont.tw) + gx, rnd(cont.th) + gy, Math.floor(rnd(P.GENE_MIN, P.GENE_MAX + 1)), P.baseMutationRate + rnd(-P.mutationRateRange, P.mutationRateRange)));
     }
     var nf = cont.tw * cont.th * P.foodDensity / 2;
-    for (var j = 0; j < nf; j++) food.push({ x: rnd(cont.tw) + gx, y: rnd(cont.th) + gy });
+    for (var j = 0; j < nf; j++) food.push({ x: rnd(cont.tw) + gx, y: rnd(cont.th) + gy, r: Math.random() });
     newRefresh();
   }
   function newRefresh() {
@@ -258,7 +258,7 @@
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     ctx.fillStyle = css(bg, 1); ctx.fillRect(0, 0, W, H);
 
-    if (Math.random() < P.foodDensity && food.length < cont.w * cont.h * P.foodDensity * 2) food.push({ x: rnd(cont.w) + cont.x, y: rnd(cont.h) + cont.y });
+    if (Math.random() < P.foodDensity && food.length < cont.w * cont.h * P.foodDensity * 2) food.push({ x: rnd(cont.w) + cont.x, y: rnd(cont.h) + cont.y, r: Math.random() });
     if (Math.random() < 0.001 && food.length) food.splice(Math.floor(rnd(food.length)), 1);
 
     hovering = false; var tmpHover = [255, 255, 255], hoverCell = null;
@@ -282,7 +282,7 @@
 
     curS = DPR * res; drawMetaballs(curS);
 
-    if (P.showFood) { ctx.fillStyle = 'rgb(200,100,0)'; for (i = 0; i < food.length; i++) ctx.fillRect(food[i].x, food[i].y, 1, 1); }
+    if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; }
     if (hovering && hoverCell) { ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hoverCell.x, hoverCell.y, hoverCell.radius, 0, 6.2832); ctx.stroke(); }
 
     var rc = 0, gc = 0, bc = 0;
@@ -381,6 +381,7 @@
       if (!sv || typeof sv !== 'object') return;
       var p = sv.P || {};
       Object.keys(p).forEach(function (k) { if (k in P && typeof p[k] === 'number' && isFinite(p[k])) P[k] = p[k]; });
+      if (typeof p.foodColor === 'string' && /^#[0-9a-f]{6}$/i.test(p.foodColor)) P.foodColor = p.foodColor;
       if (typeof sv.autoRefresh === 'boolean') autoRefresh = sv.autoRefresh;
       if (typeof sv.lockParams === 'boolean') lockParams = sv.lockParams;
       if (sv.bgTarget && sv.bgTarget.length === 3) { bgTarget = sv.bgTarget.slice(); bg = sv.bgTarget.slice(); }
@@ -412,6 +413,7 @@
     ['field', [
       ['THRESHOLD', 'metaball threshold', 0.05, 0.6, 0.01], ['metaballStrength', 'metaball strength', 0.005, 0.1, 0.001],
       ['foodDensity', 'food density', 0, 0.1, 0.005], ['foodEnergyValue', 'food energy', 0, 20, 0.5],
+      ['foodAlpha', 'food dot opacity', 0, 1, 0.01], ['foodSize', 'food dot size px', 0.5, 12, 0.5], ['foodShow', 'food dot frequency', 0, 1, 0.01],
       ['minRefreshInterval', 'refresh min s', 2, 60, 1], ['maxRefreshInterval', 'refresh max s', 3, 90, 1]]]
   ];
   var layoutKeys = { margin: 1, gap: 1, textScale: 1, areaMin: 1, areaMax: 1 };
@@ -452,6 +454,11 @@
   toggle('typography', !!P.showHud, function (v) { P.showHud = v ? 1 : 0; });
   toggle('food dots (still eaten when hidden)', !!P.showFood, function (v) { P.showFood = v ? 1 : 0; });
   toggle('axis lines', !!P.showAxis, function (v) { P.showAxis = v ? 1 : 0; });
+  var fcRow = document.createElement('div'); fcRow.className = 'row';
+  fcRow.innerHTML = '<div class="lab"><span>food dot color</span><b style="font-weight:normal">' + P.foodColor + '</b></div>';
+  var fcInp = document.createElement('input'); fcInp.type = 'color'; fcInp.value = P.foodColor; fcInp.style.cssText = 'width:100%;height:22px;border:0;background:none;padding:0;cursor:pointer';
+  fcInp.addEventListener('input', function () { P.foodColor = fcInp.value; fcRow.querySelector('b').textContent = fcInp.value; save(); });
+  fcRow.appendChild(fcInp); ctl.appendChild(fcRow);
   var bgRow = document.createElement('div'); bgRow.className = 'row';
   bgRow.innerHTML = '<div class="lab"><span>background</span><b style="font-weight:normal">#e9e9e9</b></div>';
   var colorInp = document.createElement('input'); colorInp.type = 'color'; colorInp.value = '#' + bgTarget.map(function (v) { return ('0' + (v | 0).toString(16)).slice(-2); }).join(''); colorInp.style.cssText = 'width:100%;height:22px;border:0;background:none;padding:0;cursor:pointer';
