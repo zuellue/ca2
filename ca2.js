@@ -179,7 +179,7 @@
       default: randomize();
     }
   }
-  var cursorScale = 1, targetCursorScale = 1;
+  var cursorScale = 1, targetCursorScale = 1, curKey = '', curCSS = '';
   function onClick(e) {
     if (e.target !== cv) return;
     var k = keyHeld;
@@ -347,14 +347,19 @@
     // cursor: system arrow normally; over a cell the pde's ring + dot (ring at diameter/5, dot scaled 3.5x while pressed)
     cursorScale += (targetCursorScale - cursorScale) * 0.75;
     if (hovering && mouse.over) {
-      cv.style.cursor = 'none';
-      var ic = invArea(mouse.x, mouse.y), rr = P.CELL_RADIUS * 2 / 5;
-      ctx.strokeStyle = css(ic, 1); ctx.fillStyle = css(ic, 1); ctx.lineWidth = 0.9;
-      ctx.beginPath(); ctx.arc(mouse.x, mouse.y, rr, 0, 6.2832); ctx.stroke();
-      ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 0.25 * cursorScale, 0, 6.2832); ctx.fill();
-    } else cv.style.cursor = 'default';
+      var ic = invArea(mouse.x, mouse.y), rr = Math.min(60, P.CELL_RADIUS * 2 / 5), key = css(ic, 1) + '|' + rr.toFixed(1) + '|' + cursorScale.toFixed(1);
+      if (key !== curKey) {
+        curKey = key;
+        var S = Math.min(128, Math.ceil(Math.max(rr, 0.25 * cursorScale) * 2) + 6), cc = document.createElement('canvas'); cc.width = cc.height = S;
+        var cx = cc.getContext('2d'); cx.strokeStyle = css(ic, 1); cx.fillStyle = css(ic, 1); cx.lineWidth = 0.9;
+        cx.beginPath(); cx.arc(S / 2, S / 2, rr, 0, 6.2832); cx.stroke();
+        cx.beginPath(); cx.arc(S / 2, S / 2, 0.25 * cursorScale, 0, 6.2832); cx.fill();
+        curCSS = 'url(' + cc.toDataURL() + ') ' + (S / 2) + ' ' + (S / 2) + ', crosshair';
+      }
+      cv.style.cursor = curCSS;
+    } else { cv.style.cursor = 'default'; curKey = ''; }
 
-    window.__ca2 = { vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: typeof hL === 'undefined' ? 0 : hL, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
+     window.__ca2 = { vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: typeof hL === 'undefined' ? 0 : hL, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
 
     if (autoRefresh && performance.now() - lastRefresh > refreshInterval * 1000) randomize();
     syncUI(rc + gc + bc);
