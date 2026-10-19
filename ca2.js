@@ -24,7 +24,7 @@
   };
   // owner's chosen defaults (23:04)
   P.audioFadeMs = 5000;
-  P.escOn = 1; P.escPersist = 90; P.escProb = 0.004; P.escExitMs = 700; P.escDrain = 0.5; P.escRoam = 0.35; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000;
+  P.dragMargin = 8; P.escOn = 1; P.escPersist = 90; P.escProb = 0.004; P.escExitMs = 700; P.escDrain = 0.5; P.escRoam = 0.35; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000;
   P.foodMode = 2; P.foodBlobR = 70; P.foodBlobDots = 8; P.foodLife = 1; P.foodLifeMs = 300; P.foodLifeCell = 4; P.foodEatR = 0.4;
   Object.assign(P, {"UNIVERSE_SIZE": 50.81997915394043, "baseMutationRate": 3.761271114104753, "mutationRateRange": 5.5, "interactionRadius": 10, "CELL_RADIUS": 21, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 1, "maxRadius": 150, "baseMaxSpeed": 0.5, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 0.22, "THRESHOLD": 0.34, "metaballStrength": 0.023, "foodDensity": 0.041931496850201304, "foodEnergyValue": 20, "minRefreshInterval": 5, "maxRefreshInterval": 25, "slowDownRadius": 9, "speedReductionFactor": 49.5, "grain": 1, "grainAmount": 2, "grainStrength": 10, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 24, "fps": 24, "containerCorner": 31, "resolution": 1, "margin": 13, "gap": 14, "textScale": 0.75, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.5, "morphEase": 0.69, "pixelRatio": 1.75, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 0, "axisLayer": 0, "genomeOn": 1, "genomeMut": 0.4, "divideOn": 1, "divideAt": 6, "eatMergeOn": 1, "eatRatio": 1.3, "eatChance": 0.15, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.35, "clusterMax": 9, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 3, "foodShrink": 0.01, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 6000, "boundAware": 1, "boundZone": 30, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 1, "panelAlpha": 0, "cursorSize": 1, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 1, "audioMode": 1, "audioTone": 1600, "audioMod": 0.6, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#c86400", "foodAlpha": 1, "foodSize": 1, "foodShow": 1});
   var DEFAULTS = JSON.parse(JSON.stringify(P));
@@ -258,11 +258,12 @@
     var a = Math.floor(rnd(2)) === 0 ? 5120 : 2160, b = Math.floor(rnd(2)) === 0 ? 5120 : 2160;
     var tw = a / (cWHf + Math.trunc(rnd(-3.5, 1))) * VS, th = b / cWHf * VS;
     // ceiling and floor: the area never leaves the band between the typography rows / side numbers
-    cont.rawW = tw; cont.rawH = th; clampTargets();
+    cont.user = false; cont.rawW = tw; cont.rawH = th; clampTargets();
   }
   function clampTargets() {
     var L = lay(), lo = Math.min(P.areaMin, P.areaMax), hi = Math.max(P.areaMin, P.areaMax);
     var ov = P.plateOverlap, ovW = 2 * (L.G + ov * L.sideW), ovH = 2 * (L.G + ov * L.dh); // the plate may reach over the texts by this share of their size
+    if (cont.user) { cont.tw = clamp(cont.rawW, 60, W - P.dragMargin * 2); cont.th = clamp(cont.rawH, 60, H - P.dragMargin * 2); return; } // a size the user pulled by hand: nearly the whole viewport
     cont.tw = clamp(cont.rawW, L.safeW * lo, (L.safeW + ovW) * hi);
     cont.th = clamp(cont.rawH, L.safeH * lo, (L.safeH + ovH) * hi);
   }
@@ -893,7 +894,7 @@
       ['mergeChance', 'merge chance', 0, 0.3, 0.005], ['mergeGene', 'merge gene distance', 0, 36, 1], ['clusterCohesion', 'cluster cohesion', 0, 1, 0.01], ['clusterMax', 'cluster max size', 2, 30, 1],
       ['parasiteFrac', 'parasite share', 0, 0.5, 0.01], ['parasiteDrain', 'parasite drain', 0, 0.2, 0.005], ['parasiteEff', 'parasite efficiency', 0, 1, 0.01], ['selStrength', 'selection strength', 0, 4, 0.05]]],
     ['life', [
-      ['boundZone', 'boundary awareness zone', 10, 200, 1], ['boundZoneR', 'zone grows with cell radius (x)', 0, 4, 0.1], ['edgeFit', 'wall at cell edge (x radius)', 0, 1.5, 0.05], ['escProb', 'escape chance per frame (after persisting)', 0, 0.05, 0.001], ['escPersist', 'escape persistence (frames at wall)', 10, 600, 5], ['escExitMs', 'exit squeeze ms', 200, 2000, 50], ['escDrain', 'free cell extra hunger (x)', 0, 3, 0.05], ['escRoam', 'free cell homing to plate', 0, 1, 0.05], ['edgeGrab', 'border grab width px', 3, 40, 1], ['restless', 'cell restlessness while resizing', 0, 3, 0.05], ['boundForce', 'boundary push', 0, 3, 0.05], ['cellMorphMs', 'metamorphosis time ms', 100, 6000, 50]]],
+      ['boundZone', 'boundary awareness zone', 10, 200, 1], ['boundZoneR', 'zone grows with cell radius (x)', 0, 4, 0.1], ['edgeFit', 'wall at cell edge (x radius)', 0, 1.5, 0.05], ['escProb', 'escape chance per frame (after persisting)', 0, 0.05, 0.001], ['escPersist', 'escape persistence (frames at wall)', 10, 600, 5], ['escExitMs', 'exit squeeze ms', 200, 2000, 50], ['escDrain', 'free cell extra hunger (x)', 0, 3, 0.05], ['escRoam', 'free cell homing to plate', 0, 1, 0.05], ['dragMargin', 'drag resize viewport margin px', 0, 100, 1], ['edgeGrab', 'border grab width px', 3, 40, 1], ['restless', 'cell restlessness while resizing', 0, 3, 0.05], ['boundForce', 'boundary push', 0, 3, 0.05], ['cellMorphMs', 'metamorphosis time ms', 100, 6000, 50]]],
     ['sound', [
       ['audioVol', 'volume', 0, 1, 0.01], ['audioTone', 'tone (cutoff Hz)', 200, 8000, 10], ['audioMod', 'CA modulation', 0, 1, 0.01],
       ['audioCrackle', 'micro events', 0, 1, 0.01], ['audioMicroPitch', 'micro pitch Hz', 200, 4000, 10], ['audioMicroDecay', 'micro decay ms', 10, 400, 1], ['audioMicroRand', 'micro randomness', 0, 1, 0.01], ['audioWidth', 'stereo width', 0, 1, 0.01]]],
@@ -1054,6 +1055,7 @@
   });
   window.addEventListener('mousemove', function (e) {
     if (!resizeDrag) return;
+    cont.user = true;
     if (resizeDrag.h) cont.rawW = Math.max(60, 2 * Math.abs(e.clientX - W / 2));
     if (resizeDrag.v) cont.rawH = Math.max(60, 2 * Math.abs(e.clientY - H / 2));
     clampTargets(); cont.ew = cont.tw; cont.eh = cont.th;
