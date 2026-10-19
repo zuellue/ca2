@@ -19,7 +19,7 @@
     minRefreshInterval: 10, maxRefreshInterval: 20, slowDownRadius: 20, speedReductionFactor: 50.3,
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
-    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, cellMorphMs: 1200, boundAware: 1, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, cursorRing: 0.2, titleCircles: 1, circleHold: 1,
+    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, cellMorphMs: 1200, boundAware: 1, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, cursorRing: 0.2, titleCircles: 1, circleHold: 1,
     audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1
   };
   var DEFAULTS = JSON.parse(JSON.stringify(P));
@@ -27,7 +27,7 @@
   var BGS = [[233,233,233],[22,22,22],[255,0,0],[0,255,0],[0,0,255]];
   var bgIndex = 0, bg = [255,255,255], bgTarget = [233,233,233];
   
-  var ready = false;
+  var ready = false, parasites = [], clusterSeq = 0, env = { spd: 1, app: 0.5, bnd: 1, col: null }, cmean = {};
   var cells = [], food = [], ev = { birth: 0, death: 0, hit: 0, oob: 0 }, maxOut = 0;
   var cont = { x: 0, y: 0, w: 0, h: 0, tw: 0, th: 0, ew: 0, eh: 0, rawW: 0, rawH: 0 };
   var mouse = { x: 0, y: 0, over: false };
@@ -44,7 +44,24 @@
     this.vx = v.x * this.maxSpeed; this.vy = v.y * this.maxSpeed;
     this.gene = gene; this.alive = true; this.radius = P.CELL_RADIUS; this.energy = 12; this.mutationRate = mr;
     this.hostility = Math.random(); this.speedModifier = rnd(0.7, 2.3);
+    var k0 = gene > 2 ? 0 : gene < -2 ? 1 : 2, cv = [0.12, 0.12, 0.12]; cv[k0] = 0.76;
+    this.g = { spd: 1 + rnd(-0.3, 0.3), app: rnd(0.05, 0.95), bnd: 1 + rnd(-0.4, 0.4), col: normCol([cv[0] + rnd(0, 0.1), cv[1] + rnd(0, 0.1), cv[2] + rnd(0, 0.1)]) };
+    this.cl = 0; this.maxSpeed = this.maxSpeed * (P.genomeOn ? this.g.spd : 1);
   }
+  function normCol(v) { var s = v[0] + v[1] + v[2] || 1; return [v[0] / s, v[1] / s, v[2] / s]; }
+  function speedOf(c) { return Math.max(0, P.baseMaxSpeed + c.sv * P.maxSpeedVariation) * (P.genomeOn ? c.g.spd : 1); }
+  function mutGenome(g, a) {
+    return { spd: clamp(g.spd * (1 + rnd(-a, a)), 0.5, 1.6), app: clamp(g.app + rnd(-a, a), 0, 1), bnd: clamp(g.bnd * (1 + rnd(-a, a)), 0.5, 2),
+      col: normCol([Math.max(0.001, g.col[0] + rnd(-a, a) * 0.5), Math.max(0.001, g.col[1] + rnd(-a, a) * 0.5), Math.max(0.001, g.col[2] + rnd(-a, a) * 0.5)]) };
+  }
+  function mixGenome(a, b) { return { spd: (a.spd + b.spd) / 2, app: (a.app + b.app) / 2, bnd: (a.bnd + b.bnd) / 2, col: normCol([(a.col[0] + b.col[0]) / 2, (a.col[1] + b.col[1]) / 2, (a.col[2] + b.col[2]) / 2]) }; }
+  // fitness against the current environment (0 = perfectly adapted, 1 = far off). A refresh draws a new environment.
+  function misfit(c) {
+    var e = env, g = c.g, m = (Math.abs(g.spd - e.spd) / 1.1 + Math.abs(g.app - e.app) + Math.abs(g.bnd - e.bnd) / 1.5) / 3;
+    if (e.col) { var cd = (Math.abs(g.col[0] - e.col[0]) + Math.abs(g.col[1] - e.col[1]) + Math.abs(g.col[2] - e.col[2])) / 2; m = (m * 3 + cd * 1.5) / 4.5; }
+    return Math.min(1, m);
+  }
+  function newEnv() { env = { spd: rnd(0.7, 1.35), app: rnd(0.2, 0.9), bnd: rnd(0.7, 1.6), col: normCol([rnd(0.05, 1), rnd(0.05, 1), rnd(0.05, 1)]) }; }
   function limit(c, m) { var s = Math.hypot(c.vx, c.vy); if (s > m && s > 0) { c.vx *= m / s; c.vy *= m / s; } }
   function mutateGene(g) {
     var r = Math.random(), a;
@@ -77,18 +94,29 @@
     limit(c, c.maxSpeed * sm * c.speedModifier);
     organic(c);
     c.x += c.vx; c.y += c.vy;
-    c.energy -= P.energyConsumptionRate;
+    var cm = c.cl && P.eatMergeOn ? cmean[c.cl] : null;
+    c.energy -= P.energyConsumptionRate * (cm ? 0.85 : 1);
+    if (P.selectOn && P.genomeOn) { var mf = misfit(c); c.energy -= P.selStrength * mf * 0.05; if (Math.random() < P.selStrength * 0.005 * Math.pow(mf, 1.5)) c.alive = false; }
     if (c.energy <= 0) c.alive = false;
-    for (var i = food.length - 1; i >= 0; i--) {
-      if (Math.hypot(c.x - food[i].x, c.y - food[i].y) < c.radius) { c.energy += P.foodEnergyValue; food.splice(i, 1); ev.ate = (ev.ate || 0) + 1; if (P.foodGrow) c.radius = Math.min(c.radius + P.foodGrowAmt, P.CELL_RADIUS * P.foodGrowMax); }
+    if (cm) {
+      var ch = P.clusterCohesion; c.vx = lerp(c.vx, cm.vx, ch); c.vy = lerp(c.vy, cm.vy, ch);
+      c.vx += (cm.x - c.x) * 0.01 * ch; c.vy += (cm.y - c.y) * 0.01 * ch; c.energy += (cm.e - c.energy) * 0.05;
     }
+    var reach = P.genomeOn ? c.radius * (2 + 6 * c.g.app) : 0, bestD = 1e9, bx = 0, by = 0;
+    for (var i = food.length - 1; i >= 0; i--) {
+      var fd = Math.hypot(c.x - food[i].x, c.y - food[i].y);
+      if (fd >= c.radius && fd < reach && fd < bestD) { bestD = fd; bx = food[i].x; by = food[i].y; }
+      if (fd < c.radius) { c.energy += P.foodEnergyValue; food.splice(i, 1); ev.ate = (ev.ate || 0) + 1; if (P.foodGrow) c.radius = Math.min(c.radius + P.foodGrowAmt, P.CELL_RADIUS * P.foodGrowMax); }
+    }
+    if (reach && bestD < 1e9) { c.vx += (bx - c.x) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); c.vy += (by - c.y) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); }
+    if (P.divideOn && P.foodGrow && c.radius >= P.CELL_RADIUS * P.divideAt && cells.length < Math.max(60, P.UNIVERSE_SIZE * 4) && c.energy > 1) divide(c);
     if (P.foodGrow && c.radius > P.CELL_RADIUS) c.radius = Math.max(P.CELL_RADIUS, c.radius - P.foodShrink);
     if (P.boundAware) keepIn(c);
     else if (c.x < cont.x || c.x > cont.x + cont.w || c.y < cont.y || c.y > cont.y + cont.h) { c.alive = false; ev.oob++; }
   }
   // boundary awareness: a soft push inside the zone turns cells before the wall; the wall itself reflects (flat world, no death at the edge)
   function keepIn(c) {
-    var z = Math.max(8, Math.min(P.boundZone, cont.w / 3, cont.h / 3)), F = P.boundForce, ms = c.maxSpeed + 1;
+    var z = Math.max(8, Math.min(P.boundZone * (P.genomeOn ? c.g.bnd : 1), cont.w / 3, cont.h / 3)), F = P.boundForce, ms = c.maxSpeed + 1;
     var x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h, d, t;
     d = c.x - x0; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vx += F * t * t * ms * 0.25; if (c.vx < 0) c.vx *= 1 - 0.25 * t; }
     d = x1 - c.x; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vx -= F * t * t * ms * 0.25; if (c.vx > 0) c.vx *= 1 - 0.25 * t; }
@@ -101,10 +129,32 @@
     if (c.y < y0) { ex = y0 - c.y; if (ex > 40) { c.y += ex * 0.3; c.vy = Math.abs(c.vy); } else { c.y = y0 + ex; c.vy = Math.abs(c.vy) * 0.7; } }
     else if (c.y > y1) { ex = c.y - y1; if (ex > 40) { c.y -= ex * 0.3; c.vy = -Math.abs(c.vy); } else { c.y = y1 - ex; c.vy = -Math.abs(c.vy) * 0.7; } }
   }
+  function divide(c) {
+    var ang = Math.random() * 6.2832, nr = Math.max(P.CELL_RADIUS, c.radius * 0.62);
+    c.radius = nr; c.energy /= 2;
+    var ch = new Cell(c.x + Math.cos(ang) * nr, c.y + Math.sin(ang) * nr, rnd(100) < c.mutationRate ? mutateGene(c.gene) : c.gene, c.mutationRate);
+    ch.radius = nr; ch.energy = c.energy; ch.g = mutGenome(c.g, P.genomeMut); ch.maxSpeed = speedOf(ch); ch.cl = c.cl; ev.birth++; ev.divide = (ev.divide || 0) + 1; cells.push(ch);
+  }
+  function clusterSize(id) { var n = 0; for (var i = 0; i < cells.length; i++) if (cells[i].cl === id) n++; return n; }
+  function joinCluster(a, b) {
+    if (a.cl && b.cl) { if (a.cl === b.cl) return; var from = b.cl, to = a.cl; if (clusterSize(to) + clusterSize(from) > P.clusterMax) return; cells.forEach(function (c) { if (c.cl === from) c.cl = to; }); }
+    else if (a.cl) { if (clusterSize(a.cl) >= P.clusterMax) return; b.cl = a.cl; } else if (b.cl) { if (clusterSize(b.cl) >= P.clusterMax) return; a.cl = b.cl; }
+    else { a.cl = b.cl = ++clusterSeq; }
+    ev.merge = (ev.merge || 0) + 1;
+  }
   function interact(a, b) {
     if (a === b || !a.alive || !b.alive) return;
     var dx = b.x - a.x, dy = b.y - a.y, dist = Math.hypot(dx, dy);
     if (dist >= P.interactionRadius) return;
+    if (P.eatMergeOn && dist < (a.radius + b.radius) * 0.85) {
+      var big = a.radius >= b.radius ? a : b, sm = big === a ? b : a, ratio = big.radius / Math.max(0.01, sm.radius);
+      if (ratio >= P.eatRatio) {
+        if (Math.random() < P.eatChance && (!big.cl || big.cl !== sm.cl)) {
+          big.radius = Math.min(Math.sqrt(big.radius * big.radius + 0.5 * sm.radius * sm.radius), P.CELL_RADIUS * P.foodGrowMax * 1.2);
+          big.energy += sm.energy * 0.6 + 1; sm.alive = false; ev.eaten = (ev.eaten || 0) + 1; return;
+        }
+      } else if (Math.abs(a.gene - b.gene) <= P.mergeGene && Math.random() < P.mergeChance) joinCluster(a, b);
+    }
     var infl = map(dist, 0, P.interactionRadius, 1, 0);
     var gc = Math.trunc(infl * (b.gene - a.gene) * 0.1);
     var et = P.energyGainFromInteraction * infl * (1 - Math.abs(a.gene - b.gene) / (P.GENE_MAX - P.GENE_MIN));
@@ -130,7 +180,7 @@
       if (rnd(100) < a.mutationRate) ng = mutateGene(ng);
       var nm = clamp(a.mutationRate + rnd(-P.mutationRateRange, P.mutationRateRange), 0.5, 20);
       var r = rand2D();
-      ev.birth++; cells.push(new Cell((a.x + b.x) / 2 + r.x * a.radius, (a.y + b.y) / 2 + r.y * a.radius, ng, nm));
+      ev.birth++; var kid = new Cell((a.x + b.x) / 2 + r.x * a.radius, (a.y + b.y) / 2 + r.y * a.radius, ng, nm); kid.g = mutGenome(mixGenome(a.g, b.g), P.genomeMut); kid.maxSpeed = speedOf(kid); cells.push(kid);
     }
   }
   function checkSurvival(c) {
@@ -165,7 +215,7 @@
   }
   function randomize(instant) {
     if (!instant && P.cellMorph && ready && cells.length) { startTrans(); return; }
-    trans = null; cells = []; food = [];
+    trans = null; cells = []; food = []; parasites = []; if (P.selectOn) newEnv();
     if (!lockParams) {
       P.UNIVERSE_SIZE = Math.floor(rnd(1, rnd(20, 200)));
       P.baseMutationRate = rnd(2, 8); P.mutationRateRange = rnd(1, 4);
@@ -191,6 +241,7 @@
     setTargets();
     // food outside the new plate is lost, the rest stays
     var x0 = (W - cont.tw) / 2, y0 = (H - cont.th) / 2; food = food.filter(function (f) { return f.x > x0 && f.x < x0 + cont.tw && f.y > y0 && f.y < y0 + cont.th; });
+    if (P.selectOn) newEnv();
     trans = { t0: performance.now(), dur: Math.max(100, P.cellMorphMs), tg: tg };
     newRefresh();
   }
@@ -203,10 +254,11 @@
     // population pressure uses the cells' own mechanisms: a parent reproduces with a mutated gene; the weakest of a few is let go
     if (n < target * 0.97 && n > 0 && Math.random() < Math.min(1, (target - n) * 0.1)) {
       var p = cells[Math.floor(Math.random() * n)], ang = Math.random() * 6.2832;
+      if (P.selectOn) for (i = 0; i < 2; i++) { var q2 = cells[Math.floor(Math.random() * n)]; if (misfit(q2) < misfit(p)) p = q2; }
       var ch = new Cell(p.x + Math.cos(ang) * p.radius, p.y + Math.sin(ang) * p.radius, mutateGene(p.gene), clamp(p.mutationRate + rnd(-P.mutationRateRange, P.mutationRateRange), 0.5, 20));
-      ch.radius = p.radius * 0.5; p.energy = Math.max(1, p.energy * 0.85); ch.energy = p.energy; cells.push(ch); ev.birth++;
+      ch.g = mutGenome(p.g, P.genomeMut); ch.maxSpeed = speedOf(ch); ch.radius = p.radius * 0.5; p.energy = Math.max(1, p.energy * 0.85); ch.energy = p.energy; cells.push(ch); ev.birth++;
     } else if (n > target * 1.03 && Math.random() < Math.min(1, (n - target) * 0.1)) {
-      var w = null; for (i = 0; i < 3; i++) { var q = cells[Math.floor(Math.random() * n)]; if (!w || q.energy < w.energy) w = q; }
+      var w = null; for (i = 0; i < 3; i++) { var q = cells[Math.floor(Math.random() * n)]; if (!w || (P.selectOn ? misfit(q) - 0.01 * q.energy > misfit(w) - 0.01 * w.energy : q.energy < w.energy)) w = q; }
       if (w) w.alive = false;
     }
     // each cell's radius drifts to the new trait at its own mutation pace
@@ -273,7 +325,7 @@
       var Rc = c.radius * Math.max(3, Math.sqrt(ms / (TH * 0.03)));
       var x0 = Math.max(0, Math.floor((cx - Rc) * S)), x1 = Math.min(bw - 1, Math.ceil((cx + Rc) * S));
       var y0 = Math.max(0, Math.floor((cy - Rc) * S)), y1 = Math.min(bh - 1, Math.ceil((cy + Rc) * S));
-      var wr = 0, wg = 0, wb = 0; if (c.cw) { wr = c.cw[0]; wg = c.cw[1]; wb = c.cw[2]; } else if (c.gene > 2) wr = 1; else if (c.gene < -2) wg = 1; else wb = 1;
+      var wr = 0, wg = 0, wb = 0, cwv = (P.genomeOn && c.g) ? c.g.col : c.cw; if (cwv) { wr = cwv[0]; wg = cwv[1]; wb = cwv[2]; } else if (c.gene > 2) wr = 1; else if (c.gene < -2) wg = 1; else wb = 1;
       for (var y = y0; y <= y1; y++) {
         var dy = (y + 0.5) * inv - cy, row = y * bw;
         for (var x = x0; x <= x1; x++) {
@@ -331,6 +383,32 @@
   }
   var axisInfo = {};
 
+  // ---- parasites: attach to a cluster/cell, drain its energy, balance themselves (no host = starvation, drained host = death) ----
+  function stepParasites() {
+    if (!P.parasiteOn || !cells.length) { parasites.length = 0; return; }
+    var target = Math.round(cells.length * P.parasiteFrac), i, c;
+    for (i = 0; i < cells.length; i++) cells[i].pc = 0;
+    for (i = 0; i < parasites.length; i++) if (parasites[i].host) parasites[i].host.pc++;
+    if (parasites.length < target && Math.random() < 0.08) { c = cells[Math.floor(Math.random() * cells.length)]; parasites.push({ x: c.x, y: c.y, e: 6, host: null, a: Math.random() * 6.2832 }); }
+    for (i = parasites.length - 1; i >= 0; i--) {
+      var p = parasites[i];
+      if (p.host && !p.host.alive) p.host = null;
+      if (!p.host) {
+        var best = null, bd = 220 * 220;
+        for (var j = 0; j < cells.length; j++) { var q = cells[j], d = (q.x - p.x) * (q.x - p.x) + (q.y - p.y) * (q.y - p.y); if (q.cl) d *= 0.5; if (d < bd) { bd = d; best = q; } }
+        if (best) {
+          var dd = Math.sqrt(bd) || 1; p.x += (best.x - p.x) / dd * Math.min(6, dd); p.y += (best.y - p.y) / dd * Math.min(6, dd);
+          if (Math.hypot(best.x - p.x, best.y - p.y) < best.radius) p.host = best;
+        }
+        p.e -= 0.03;
+      } else {
+        var h = p.host, tx = h.x + Math.cos(p.a) * h.radius * 0.85, ty = h.y + Math.sin(p.a) * h.radius * 0.85; p.x = lerp(p.x, tx, 0.5); p.y = lerp(p.y, ty, 0.5);
+        var crowd = Math.max(0, h.pc - 1), dr = P.parasiteDrain * (0.4 + Math.min(h.energy, 20) * 0.03) / (1 + 0.4 * crowd); h.energy -= dr; p.e += dr * P.parasiteEff - 0.012 * (1 + 0.7 * crowd);
+      }
+      if (p.e <= 0) { parasites.splice(i, 1); ev.pdeath = (ev.pdeath || 0) + 1; continue; }
+      if (p.e > 12 && parasites.length < cells.length * 0.8 + 3) { p.e /= 2; parasites.push({ x: p.x, y: p.y, e: p.e, host: p.host, a: Math.random() * 6.2832 }); ev.pbirth = (ev.pbirth || 0) + 1; }
+    }
+  }
   // ---- frame ----
   var res = 1, frameMs = 0;
   var lastFrameT = performance.now();
@@ -349,6 +427,14 @@
     if (Math.random() < 0.001 && food.length) food.splice(Math.floor(rnd(food.length)), 1);
 
     if (trans) stepTrans(t0, dtf);
+    // cluster state: shared motion and energy; a cluster of one dissolves, members sometimes leave on their own
+    cmean = {};
+    if (P.eatMergeOn) {
+      for (i = 0; i < cells.length; i++) { var cc0 = cells[i]; if (!cc0.cl) continue; var m0 = cmean[cc0.cl] || (cmean[cc0.cl] = { n: 0, vx: 0, vy: 0, x: 0, y: 0, e: 0 }); m0.n++; m0.vx += cc0.vx; m0.vy += cc0.vy; m0.x += cc0.x; m0.y += cc0.y; m0.e += cc0.energy; }
+      for (var kk in cmean) { var mm = cmean[kk]; mm.vx /= mm.n; mm.vy /= mm.n; mm.x /= mm.n; mm.y /= mm.n; mm.e /= mm.n; }
+      for (i = 0; i < cells.length; i++) { var c1 = cells[i]; if (c1.cl && (cmean[c1.cl].n < 2 || Math.random() < 0.0005)) c1.cl = 0; }
+    } else for (i = 0; i < cells.length; i++) cells[i].cl = 0;
+    var clusterCount = Object.keys(cmean).length;
     hovering = false; var tmpHover = [255, 255, 255], hoverCell = null;
     for (var i = cells.length - 1; i >= 0; i--) {
       var c = cells[i]; update(c); checkSurvival(c);
@@ -358,7 +444,7 @@
         for (var j = 0; j < cells.length; j++) {
           var o = cells[j]; if (!o.alive) continue;
           var d = Math.hypot(mouse.x - o.x, mouse.y - o.y), inf = P.metaballStrength * c.radius * c.radius / (d * d + 0.0001); inf *= inf;
-          if (o.gene > 2) r += inf; else if (o.gene < -2) g += inf; else b += inf;
+          if (P.genomeOn && o.g) { r += inf * o.g.col[0]; g += inf * o.g.col[1]; b += inf * o.g.col[2]; } else if (o.gene > 2) r += inf; else if (o.gene < -2) g += inf; else b += inf;
         }
         var t = r + g + b; if (t > 0) { r /= t; g /= t; b /= t; }
         tmpHover = [r * 255, g * 255, b * 255];
@@ -368,6 +454,7 @@
       if (!c.alive) { ev.death++; cells.splice(i, 1); }
     }
     hoverCol = hovering ? tmpHover : [255, 255, 255];
+    stepParasites();
 
     var Lx = lay(), sT0 = String(cells.length), sX0 = String(Math.round(mouse.x));
     var mv = mouse.over ? invAt(mouse.x, mouse.y) : [bg[0] > 128 ? 0 : 255, bg[0] > 128 ? 0 : 255, bg[0] > 128 ? 0 : 255], k2 = 0.3;
@@ -381,6 +468,7 @@
     curS = DPR * res; drawMetaballs(curS);
 
     if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; }
+    if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { ctx.beginPath(); ctx.arc(parasites[i].x, parasites[i].y, 2.2, 0, 6.2832); ctx.fill(); } }
     if (hovering && hoverCell) { ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hoverCell.x, hoverCell.y, hoverCell.radius, 0, 6.2832); ctx.stroke(); }
 
     var rc = 0, gc = 0, bc = 0;
@@ -461,7 +549,7 @@
     } else { curEl.style.display = 'none'; cv.style.cursor = 'default'; }
     curInfo = { on: curOn, rr: curRR, col: curCol, title: !!titleHit };
 
-     window.__ca2 = { P: P, getCells: function () { return cells; }, getFood: function () { return food; }, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
+     window.__ca2 = { P: P, getCells: function () { return cells; }, getFood: function () { return food; }, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
 
     if (autoRefresh && performance.now() - lastRefresh > refreshInterval * 1000) randomize();
     syncUI(rc + gc + bc);
@@ -525,6 +613,10 @@
       ['interactionRadius', 'interaction r', 5, 100, 1], ['baseMutationRate', 'mutation', 0.5, 20, 0.5], ['mutationRateRange', 'mutation range', 0.5, 8, 0.5],
       ['energyConsumptionRate', 'energy use', 0, 0.5, 0.002], ['energyGainFromInteraction', 'energy gain', 0, 0.05, 0.001], ['minEnergyForReproduction', 'repro energy', 0.05, 10, 0.05],
       ['slowDownRadius', 'mouse slow r', 0, 100, 1], ['speedReductionFactor', 'mouse slow x', 1, 100, 0.5]]],
+    ['evolution', [
+      ['genomeMut', 'genome mutation', 0, 0.5, 0.01], ['divideAt', 'divide at size (x radius)', 1.2, 6, 0.1], ['eatRatio', 'eat when size ratio >', 1.05, 3, 0.05], ['eatChance', 'eat chance', 0, 1, 0.01],
+      ['mergeChance', 'merge chance', 0, 0.3, 0.005], ['mergeGene', 'merge gene distance', 0, 36, 1], ['clusterCohesion', 'cluster cohesion', 0, 1, 0.01], ['clusterMax', 'cluster max size', 2, 30, 1],
+      ['parasiteFrac', 'parasite share', 0, 0.5, 0.01], ['parasiteDrain', 'parasite drain', 0, 0.2, 0.005], ['parasiteEff', 'parasite efficiency', 0, 1, 0.01], ['selStrength', 'selection strength', 0, 4, 0.05]]],
     ['life', [
       ['boundZone', 'boundary awareness zone', 10, 200, 1], ['boundForce', 'boundary push', 0, 3, 0.05], ['cellMorphMs', 'metamorphosis time ms', 100, 6000, 50]]],
     ['sound', [
@@ -544,7 +636,7 @@
     else if (k === 'pixelRatio') resizeCanvas();
     else if (k === 'resolution') res = v;
     else if (layoutKeys[k]) clampTargets();
-    else if (k === 'baseMaxSpeed' || k === 'maxSpeedVariation') cells.forEach(function (c) { c.maxSpeed = Math.max(0, P.baseMaxSpeed + c.sv * P.maxSpeedVariation); });
+    else if (k === 'baseMaxSpeed' || k === 'maxSpeedVariation') cells.forEach(function (c) { c.maxSpeed = speedOf(c); });
     else if (k === 'UNIVERSE_SIZE') {
       var n = Math.round(v), gx = cont.x, gy = cont.y;
       while (cells.length < n) cells.push(new Cell(gx + rnd(cont.w), gy + rnd(cont.h), Math.floor(rnd(P.GENE_MIN, P.GENE_MAX + 1)), P.baseMutationRate + rnd(-P.mutationRateRange, P.mutationRateRange)));
@@ -593,6 +685,11 @@
   choice('cells vs axis lines', 'axisLayer', ['above', 'behind']);
   choice('sound mode', 'audioMode', ['soft white', 'pink', 'brown', 'micro crackle', 'membrane']);
   toggle('sound (starts after first click)', !!P.audioOn, function (v) { P.audioOn = v ? 1 : 0; if (window.CA2Audio) CA2Audio.enable(v); });
+  toggle('genome (speed, appetite, boundary, color)', !!P.genomeOn, function (v) { P.genomeOn = v ? 1 : 0; cells.forEach(function (c) { c.maxSpeed = speedOf(c); }); });
+  toggle('divide at size', !!P.divideOn, function (v) { P.divideOn = v ? 1 : 0; });
+  toggle('eat or merge on contact', !!P.eatMergeOn, function (v) { P.eatMergeOn = v ? 1 : 0; });
+  toggle('parasites', !!P.parasiteOn, function (v) { P.parasiteOn = v ? 1 : 0; });
+  toggle('selection by environment', !!P.selectOn, function (v) { P.selectOn = v ? 1 : 0; });
   toggle('cells grow when they eat', !!P.foodGrow, function (v) { P.foodGrow = v ? 1 : 0; });
   toggle('boundary awareness', !!P.boundAware, function (v) { P.boundAware = v ? 1 : 0; });
   toggle('cell metamorphosis on refresh', !!P.cellMorph, function (v) { P.cellMorph = v ? 1 : 0; });
