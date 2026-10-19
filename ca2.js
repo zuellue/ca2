@@ -94,9 +94,12 @@
     d = x1 - c.x; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vx -= F * t * t * ms * 0.25; if (c.vx > 0) c.vx *= 1 - 0.25 * t; }
     d = c.y - y0; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vy += F * t * t * ms * 0.25; if (c.vy < 0) c.vy *= 1 - 0.25 * t; }
     d = y1 - c.y; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vy -= F * t * t * ms * 0.25; if (c.vy > 0) c.vy *= 1 - 0.25 * t; }
-    if (c.x < x0) { c.x = x0 + (x0 - c.x); c.vx = Math.abs(c.vx) * 0.7; } else if (c.x > x1) { c.x = x1 - (c.x - x1); c.vx = -Math.abs(c.vx) * 0.7; }
-    if (c.y < y0) { c.y = y0 + (y0 - c.y); c.vy = Math.abs(c.vy) * 0.7; } else if (c.y > y1) { c.y = y1 - (c.y - y1); c.vy = -Math.abs(c.vy) * 0.7; }
-    c.x = clamp(c.x, x0, x1); c.y = clamp(c.y, y0, y1);
+    // a wall that moved past a cell pulls it back gradually (no teleport); a plain wall hit reflects
+    var ex;
+    if (c.x < x0) { ex = x0 - c.x; if (ex > 40) { c.x += ex * 0.3; c.vx = Math.abs(c.vx); } else { c.x = x0 + ex; c.vx = Math.abs(c.vx) * 0.7; } }
+    else if (c.x > x1) { ex = c.x - x1; if (ex > 40) { c.x -= ex * 0.3; c.vx = -Math.abs(c.vx); } else { c.x = x1 - ex; c.vx = -Math.abs(c.vx) * 0.7; } }
+    if (c.y < y0) { ex = y0 - c.y; if (ex > 40) { c.y += ex * 0.3; c.vy = Math.abs(c.vy); } else { c.y = y0 + ex; c.vy = Math.abs(c.vy) * 0.7; } }
+    else if (c.y > y1) { ex = c.y - y1; if (ex > 40) { c.y -= ex * 0.3; c.vy = -Math.abs(c.vy); } else { c.y = y1 - ex; c.vy = -Math.abs(c.vy) * 0.7; } }
   }
   function interact(a, b) {
     if (a === b || !a.alive || !b.alive) return;
