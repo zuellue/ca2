@@ -463,7 +463,7 @@
     }
     // keep the dot population near the density target: seeds appear when it runs low
     var now = performance.now(); if (now - foodT < P.foodLifeMs) return; foodT = now;
-    var gs = Math.max(1, P.foodLifeCell), ox = x0, oy = y0, M = 100003, map = new Map(), counts = new Map(), keep = [], k, dx, dy;
+    var gs = Math.max(1, P.foodLifeCell), ox = 0, oy = 0, M = 100003, map = new Map(), counts = new Map(), keep = [], k, dx, dy;
     for (i = 0; i < food.length; i++) { f = food[i]; var ix = Math.floor((f.x - ox) / gs), iy = Math.floor((f.y - oy) / gs); k = (ix + 20000) * M + (iy + 20000); if (!map.has(k)) { map.set(k, f); f.k = k; f.ix = ix; f.iy = iy; } }
     map.forEach(function (ff) { for (dx = -1; dx <= 1; dx++) for (dy = -1; dy <= 1; dy++) if (dx || dy) { var kk = (ff.ix + dx + 20000) * M + (ff.iy + dy + 20000); counts.set(kk, (counts.get(kk) || 0) + 1); } });
     var out = [], died = 0, born = 0;
@@ -472,9 +472,9 @@
       if (n === 3 && !map.has(kk)) { var ix2 = Math.floor(kk / M) - 20000, iy2 = (kk % M) - 20000, nx = ox + (ix2 + 0.5) * gs, ny = oy + (iy2 + 0.5) * gs; if (nx > x0 && nx < x1 && ny > y0 && ny < y1) { out.push({ x: nx, y: ny, r: Math.random() }); born++; } }
     });
     // when the colony runs low, small random 3x3 blobs are seeded (isolated dots would die at once under Conway's rules)
-    var nf = cont.w * cont.h * P.foodDensity / 2, want = nf * 0.2, nb = out.length < want ? Math.min(60, Math.ceil((want - out.length) / 6)) : 0;
+    var nf = cont.w * cont.h * P.foodDensity / 2, want = Math.max(40, nf * 0.2), nb = out.length < want ? Math.min(60, Math.ceil((want - out.length) / 4)) : 0;
     for (var b = 0; b < nb; b++) {
-      var bx = Math.floor(rnd(cont.w / gs - 3)), by = Math.floor(rnd(cont.h / gs - 3));
+      var bx = Math.floor((x0 + rnd(Math.max(1, cont.w - 4 * gs))) / gs), by = Math.floor((y0 + rnd(Math.max(1, cont.h - 4 * gs))) / gs);
       for (dx = 0; dx < 3; dx++) for (dy = 0; dy < 3; dy++) if (Math.random() < 0.55) { out.push({ x: ox + (bx + dx + 0.5) * gs, y: oy + (by + dy + 0.5) * gs, r: Math.random() }); born++; }
     }
     food = out; foodStat.born += born; foodStat.died += died; foodStat.steps++;
