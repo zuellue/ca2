@@ -19,7 +19,7 @@
     minRefreshInterval: 10, maxRefreshInterval: 20, slowDownRadius: 20, speedReductionFactor: 50.3,
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
-    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, cursorRing: 0.2, titleCircles: 1, circleHold: 1,
+    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, cursorSize: 1, cursorLockMs: 900, titleCircles: 1, circleHold: 1,
     audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, audioMicro: 0, audioMicroPitch: 1200, audioMicroDecay: 70, audioMicroRand: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1
   };
   var DEFAULTS = JSON.parse(JSON.stringify(P));
@@ -347,7 +347,7 @@
     }
   }
   var aev = { b: 0, d: 0, h: 0 };
-  var cursorScale = 1, targetCursorScale = 1, curRRnow = 0, curInfo = {}, circlesNow = [], circleCol = {}, lastCircleHit = '';
+  var curOn0 = false, curInfo2 = {}, curMaxR = 0, lockCell = null, lockT0 = 0, curX = 0, curY = 0, cursorScale = 1, targetCursorScale = 1, curRRnow = 0, curInfo = {}, circlesNow = [], circleCol = {}, lastCircleHit = '';
   var curEl = document.getElementById('cur'), curDot = curEl.firstElementChild;
   var TL = 'CELYLAR', TR = 'AUTOMW';
   // circle centers (font units, 1000/em) per glyph of Ca2-Thin, measured from the font outlines
@@ -525,7 +525,6 @@
 
     if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; }
     if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { ctx.beginPath(); ctx.arc(parasites[i].x, parasites[i].y, 2.2, 0, 6.2832); ctx.fill(); } }
-    if (hovering && hoverCell) { ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hoverCell.x, hoverCell.y, hoverCell.radius, 0, 6.2832); ctx.stroke(); }
 
     var rc = 0, gc = 0, bc = 0;
     for (i = 0; i < cells.length; i++) { var gn = cells[i].gene; if (gn > 2) rc++; else if (gn < -2) gc++; else bc++; }
@@ -594,16 +593,21 @@
     // cursor: ring + dot drawn as a DOM overlay that follows the pointer (identical in every browser); the system cursor is hidden only while it shows
     cursorScale += (targetCursorScale - cursorScale) * 0.75;
     var curOn = false, curRR = 0, curCol = '#000';
-    if (hovering && mouse.over && hoverCell) { curOn = true; curRR = Math.max(3, hoverCell.radius * P.cursorRing); curCol = css(hoverCol, 1); }
+    if (hovering && mouse.over && hoverCell) { curOn = true; var mxr = 0; for (var q = 0; q < cells.length; q++) { var cq = cells[q]; if (cq.alive && cq.x > cont.x && cq.x < cont.x + cont.w && cq.y > cont.y && cq.y < cont.y + cont.h && cq.radius > mxr) mxr = cq.radius; }
+      curMaxR += (mxr - curMaxR) * 0.3; curRR = Math.max(3, curMaxR * P.cursorSize);
+      var tnow = performance.now(); if (hoverCell !== lockCell) { lockCell = hoverCell; lockT0 = tnow; } curCol = css(hoverCol, 1); }
     else if (titleHit) { curOn = true; curRR = Math.max(5, titleHit.c.r * 0.55 * (0.8 + 0.2 * cursorScale)); var iv = 255 - titleHit.v; curCol = 'rgb(' + iv + ',' + iv + ',' + iv + ')'; }
     if (curOn) {
       curEl.style.display = 'block'; curRRnow = curRR;
       curEl.style.width = curEl.style.height = (curRR * 2) + 'px'; curEl.style.borderWidth = P.axisWidth + 'px'; curEl.style.borderColor = curCol;
       var dp = 2 * cursorScale; curDot.style.width = curDot.style.height = dp + 'px'; curDot.style.background = curCol; curDot.style.display = (!(hovering && mouse.over && hoverCell) && titleHit) ? 'none' : '';
-      curEl.style.transform = 'translate(' + (mouse.x - curRR) + 'px,' + (mouse.y - curRR) + 'px)';
+      var tx = mouse.x, ty = mouse.y, locked = P.cursorLockMs > 0 && hovering && lockCell && lockCell.alive && performance.now() - lockT0 < P.cursorLockMs;
+      if (locked) { tx = lockCell.x; ty = lockCell.y; }
+      var ke = locked ? 0.6 : 0.5; curX = curOn0 ? curX + (tx - curX) * ke : tx; curY = curOn0 ? curY + (ty - curY) * ke : ty; curOn0 = true; curInfo2 = { locked: locked, x: curX, y: curY, lx: lockCell ? lockCell.x : 0, ly: lockCell ? lockCell.y : 0 };
+      curEl.style.transform = 'translate(' + (curX - curRR) + 'px,' + (curY - curRR) + 'px)';
       cv.style.cursor = 'none';
-    } else { curEl.style.display = 'none'; cv.style.cursor = 'default'; }
-    curInfo = { on: curOn, rr: curRR, col: curCol, title: !!titleHit };
+    } else { curEl.style.display = 'none'; cv.style.cursor = 'default'; curOn0 = false; lockCell = null; }
+    curInfo = { on: curOn, lx: curInfo2.lx, ly: curInfo2.ly, locked: curInfo2.locked, maxR: curMaxR, cx: curX, cy: curY, rr: curRR, col: curCol, title: !!titleHit };
 
      window.__ca2 = { live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
 
@@ -698,7 +702,7 @@
       ['margin', 'margin (all edges)', 0, 120, 1], ['gap', 'line gap to numbers', 0, 60, 1],
       ['textScale', 'type size', 0.4, 1.6, 0.01], ['containerCorner', 'corner gap', 0, 80, 1],
       ['centerGap', 'center gap (axis crossing)', 0, 120, 1], ['diagLen', 'diagonal length', 0.2, 1.3, 0.01], ['axisWidth', 'axis line width', 0.5, 6, 0.1],
-      ['cursorRing', 'cursor ring size', 0.05, 0.6, 0.01], ['panelAlpha', 'config opacity', 0, 1, 0.01],
+      ['cursorSize', 'cursor size (x largest cell)', 0.2, 2, 0.01], ['cursorLockMs', 'cursor lock ms', 0, 3000, 50], ['panelAlpha', 'config opacity', 0, 1, 0.01],
       ['areaMin', 'area floor', 0.1, 1, 0.01], ['areaMax', 'area ceiling', 0.1, 1, 0.01],
       ['morphEase', 'area morph speed', 0.02, 1, 0.01], ['colorSpeed', 'color speed', 0.02, 1, 0.01],
       ['fps', 'fps', 5, 120, 1]]],
