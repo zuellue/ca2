@@ -24,7 +24,7 @@
   };
   // owner's chosen defaults (23:04)
   P.audioFadeMs = 5000;
-  P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000;
+  P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000;
   P.foodMode = 2; P.foodBlobR = 70; P.foodBlobDots = 8; P.foodLife = 1; P.foodLifeMs = 300; P.foodLifeCell = 4; P.foodEatR = 0.4;
   Object.assign(P, {"UNIVERSE_SIZE": 50.81997915394043, "baseMutationRate": 3.761271114104753, "mutationRateRange": 5.5, "interactionRadius": 10, "CELL_RADIUS": 21, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 1, "maxRadius": 150, "baseMaxSpeed": 0.5, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 0.22, "THRESHOLD": 0.34, "metaballStrength": 0.023, "foodDensity": 0.041931496850201304, "foodEnergyValue": 20, "minRefreshInterval": 5, "maxRefreshInterval": 25, "slowDownRadius": 9, "speedReductionFactor": 49.5, "grain": 1, "grainAmount": 2, "grainStrength": 10, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 24, "fps": 24, "containerCorner": 31, "resolution": 1, "margin": 13, "gap": 14, "textScale": 0.75, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.5, "morphEase": 0.69, "pixelRatio": 1.75, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 0, "axisLayer": 0, "genomeOn": 1, "genomeMut": 0.4, "divideOn": 1, "divideAt": 6, "eatMergeOn": 1, "eatRatio": 1.3, "eatChance": 0.15, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.35, "clusterMax": 9, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 3, "foodShrink": 0.01, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 6000, "boundAware": 1, "boundZone": 30, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 1, "panelAlpha": 0, "cursorSize": 1, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 1, "audioMode": 1, "audioTone": 1600, "audioMod": 0.6, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#c86400", "foodAlpha": 1, "foodSize": 1, "foodShow": 1});
   var DEFAULTS = JSON.parse(JSON.stringify(P));
@@ -215,8 +215,9 @@
   }
   function clampTargets() {
     var L = lay(), lo = Math.min(P.areaMin, P.areaMax), hi = Math.max(P.areaMin, P.areaMax);
-    cont.tw = clamp(cont.rawW, L.safeW * lo, L.safeW * hi);
-    cont.th = clamp(cont.rawH, L.safeH * lo, L.safeH * hi);
+    var ov = P.plateOverlap, ovW = 2 * (L.G + ov * L.sideW), ovH = 2 * (L.G + ov * L.dh); // the plate may reach over the texts by this share of their size
+    cont.tw = clamp(cont.rawW, L.safeW * lo, (L.safeW + ovW) * hi);
+    cont.th = clamp(cont.rawH, L.safeH * lo, (L.safeH + ovH) * hi);
   }
   // ---- entrance: every element fades in from transparency at its own random time
   var fadeT0 = performance.now(), fadeK = {};
@@ -640,24 +641,10 @@
     eased.axis = lerpA(eased.axis, ta, k2); eased.r = lerpA(eased.r, trr, k2); eased.g = lerpA(eased.g, tgg, k2); eased.b = lerpA(eased.b, tbb, k2);
 
     if (P.axisLayer === 0 && P.showAxis) drawAxis(Lx, sT0, sX0);
-    curS = DPR * res; drawMetaballs(curS);
-
-    if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha * fadeA('food'); ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; }
-    if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.globalAlpha = fadeA('para'); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { ctx.beginPath(); ctx.arc(parasites[i].x, parasites[i].y, 2.2, 0, 6.2832); ctx.fill(); } ctx.globalAlpha = 1; }
-
     var rc = 0, gc = 0, bc = 0;
     for (i = 0; i < cells.length; i++) { var gn = cells[i].gene; if (gn > 2) rc++; else if (gn < -2) gc++; else bc++; }
     var dom = [0, 0, 0];
     if (rc > gc && rc > bc) dom = [255, 0, 0]; else if (gc > rc && gc > bc) dom = [0, 255, 0]; else if (bc > rc && bc > gc) dom = [0, 0, 255];
-
-    // area outline: no rounded corners. Each side stops `corner` px short of both ends, so the corner lines never meet.
-    var cr = Math.min(P.containerCorner, cont.w / 2, cont.h / 2);
-    ctx.globalAlpha = fadeA('box'); ctx.strokeStyle = css(dom, 1); ctx.lineWidth = 2; ctx.lineCap = 'butt'; ctx.beginPath();
-    ctx.moveTo(cont.x + cr, cont.y); ctx.lineTo(cont.x + cont.w - cr, cont.y);
-    ctx.moveTo(cont.x + cont.w, cont.y + cr); ctx.lineTo(cont.x + cont.w, cont.y + cont.h - cr);
-    ctx.moveTo(cont.x + cont.w - cr, cont.y + cont.h); ctx.lineTo(cont.x + cr, cont.y + cont.h);
-    ctx.moveTo(cont.x, cont.y + cont.h - cr); ctx.lineTo(cont.x, cont.y + cr);
-    ctx.stroke(); ctx.globalAlpha = 1;
 
     var L = lay(), M = L.M, G = L.G, fs = L.fs, dh = L.dh;
     var sY = String(Math.round(mouse.y)), sX = String(Math.round(mouse.x)), sT = String(cells.length);
@@ -685,7 +672,6 @@
       put(String(rc), eased.r, 'left', M + rzz.actualBoundingBoxLeft, botBase);
       put(String(gc), eased.g, 'center', cxm, botBase);
     }
-    if (P.axisLayer !== 0 && P.showAxis) drawAxis(L, sT, sX);
 
     // title circles: hover turns a circle to random black or white (new random pick on every hover); the cursor reacts
     var titleHit = null;
@@ -709,6 +695,21 @@
       circlesNow.forEach(function (c) { var v = circleCol[c.key]; if (v !== undefined) { ctx.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')'; ctx.beginPath(); ctx.arc(c.x, c.y, c.r + 0.6, 0, 6.2832); ctx.fill(); } });
       if (hitKey) titleHit = { c: hitC, v: circleCol[hitKey] };
     }
+    curS = DPR * res; drawMetaballs(curS);
+
+    if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha * fadeA('food'); ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; }
+    if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.globalAlpha = fadeA('para'); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { ctx.beginPath(); ctx.arc(parasites[i].x, parasites[i].y, 2.2, 0, 6.2832); ctx.fill(); } ctx.globalAlpha = 1; }
+
+    // area outline: no rounded corners. Each side stops `corner` px short of both ends, so the corner lines never meet.
+    var cr = Math.min(P.containerCorner, cont.w / 2, cont.h / 2);
+    ctx.globalAlpha = fadeA('box'); ctx.strokeStyle = css(dom, 1); ctx.lineWidth = 2; ctx.lineCap = 'butt'; ctx.beginPath();
+    ctx.moveTo(cont.x + cr, cont.y); ctx.lineTo(cont.x + cont.w - cr, cont.y);
+    ctx.moveTo(cont.x + cont.w, cont.y + cr); ctx.lineTo(cont.x + cont.w, cont.y + cont.h - cr);
+    ctx.moveTo(cont.x + cont.w - cr, cont.y + cont.h); ctx.lineTo(cont.x + cr, cont.y + cont.h);
+    ctx.moveTo(cont.x, cont.y + cont.h - cr); ctx.lineTo(cont.x, cont.y + cr);
+    ctx.stroke(); ctx.globalAlpha = 1;
+
+    if (P.axisLayer !== 0 && P.showAxis) drawAxis(L, sT, sX);
     // cursor: ring + dot drawn as a DOM overlay that follows the pointer (identical in every browser); the system cursor is hidden only while it shows
     cursorScale += (targetCursorScale - cursorScale) * 0.75;
     var curOn = false, curRR = 0, curCol = '#000', dotOnly = false;
@@ -730,7 +731,7 @@
     } else { curEl.style.display = 'none'; cv.style.cursor = 'default'; curOn0 = false; lockCell = null; }
     curInfo = { on: curOn, ring: ringOn, dot: curInfo3.dot, dp: curInfo3.dp, lx: curInfo2.lx, ly: curInfo2.ly, locked: curInfo2.locked, maxR: curMaxR, cx: curX, cy: curY, rr: curRR, col: curCol, title: !!titleHit };
 
-     window.__ca2 = { blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
+     window.__ca2 = { clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
 
     if (autoRefresh && performance.now() - lastRefresh > refreshInterval * 1000) randomize();
     stepLive(t0);
@@ -849,7 +850,7 @@
       ['audioCrackle', 'micro events', 0, 1, 0.01], ['audioMicroPitch', 'micro pitch Hz', 200, 4000, 10], ['audioMicroDecay', 'micro decay ms', 10, 400, 1], ['audioMicroRand', 'micro randomness', 0, 1, 0.01], ['audioWidth', 'stereo width', 0, 1, 0.01]]],
     ['field', [
       ['THRESHOLD', 'metaball threshold', 0.05, 0.6, 0.01], ['metaballStrength', 'metaball strength', 0.005, 0.1, 0.001],
-      ['foodDensity', 'food density', 0, 0.1, 0.005], ['foodEnergyValue', 'food energy', 0, 20, 0.5], ['foodGrowAmt', 'growth per food (px)', 0, 5, 0.05], ['parasiteHard', 'parasite resilience', 0, 40, 0.5], ['parasiteNerv', 'parasite nervousness', 0, 1, 0.01], ['parasiteHardMs', 'parasite starve delay ms', 0, 60000, 500], ['foodEatR', 'eating radius (x cell)', 0.05, 1, 0.01], ['foodLifeMs', 'food life step ms', 50, 2000, 10], ['foodLifeCell', 'food life lattice px', 1, 20, 0.5], ['foodGrowMax', 'max growth (x radius)', 1, 8, 0.1], ['foodShrink', 'shrink back (px/frame)', 0, 0.5, 0.005],
+      ['foodDensity', 'food density', 0, 0.1, 0.005], ['foodEnergyValue', 'food energy', 0, 20, 0.5], ['foodGrowAmt', 'growth per food (px)', 0, 5, 0.05], ['plateOverlap', 'plate over text (x text size)', 0, 0.5, 0.01], ['parasiteHard', 'parasite resilience', 0, 40, 0.5], ['parasiteNerv', 'parasite nervousness', 0, 1, 0.01], ['parasiteHardMs', 'parasite starve delay ms', 0, 60000, 500], ['foodEatR', 'eating radius (x cell)', 0.05, 1, 0.01], ['foodLifeMs', 'food life step ms', 50, 2000, 10], ['foodLifeCell', 'food life lattice px', 1, 20, 0.5], ['foodGrowMax', 'max growth (x radius)', 1, 8, 0.1], ['foodShrink', 'shrink back (px/frame)', 0, 0.5, 0.005],
       ['foodAlpha', 'food dot opacity', 0, 1, 0.01], ['foodSize', 'food dot size px', 0.5, 12, 0.5], ['foodShow', 'food dot frequency', 0, 1, 0.01],
       ['minRefreshInterval', 'refresh min s', 2, 60, 1], ['maxRefreshInterval', 'refresh max s', 3, 90, 1]]]
   ];
@@ -967,7 +968,7 @@
   var lastSync = 0;
   function syncUI(total) {
     var now = performance.now(); if (now - lastSync < 300) return; lastSync = now;
-    statsEl.innerHTML = '<span>cells</span><span class="n">' + total + '</span><span>universe</span><span class="n">' + P.UNIVERSE_SIZE + '</span><span>refresh s</span><span class="n">' + Math.round(Math.max(0, refreshInterval - (now - lastRefresh) / 1000)) + '</span><span>fps</span><span class="n">' + Math.round(fps) + '</span><span>res</span><span class="n">' + Math.round(res * 100) + '</span>';
+    statsEl.innerHTML = '<span>cells</span><span class="n">' + total + '</span><span>universe</span><span class="n">' + (Math.round(P.UNIVERSE_SIZE * 100) / 100) + '</span><span>refresh s</span><span class="n">' + Math.round(Math.max(0, refreshInterval - (now - lastRefresh) / 1000)) + '</span><span>fps</span><span class="n">' + Math.round(fps) + '</span><span>res</span><span class="n">' + Math.round(res * 100) + '</span>';
     for (var lk in live) { var lr = rows[lk]; lr.inp.value = P[lk]; lr.val.textContent = fmt(P[lk]); }
     if (panel.matches(':hover')) return;
     GROUPS.forEach(function (g) { g[1].forEach(function (q) { var r = rows[q[0]], v = P[q[0]]; r.inp.value = v; r.val.textContent = fmt(v); }); });
