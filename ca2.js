@@ -24,7 +24,7 @@
   };
   // owner's chosen defaults (23:04)
   P.audioFadeMs = 5000;
-  P.dragMargin = 8; P.escOn = 1; P.escPersist = 45; P.escProb = 0.01; P.escExitMs = 700; P.escDrain = 0.5; P.escRoam = 0.35; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000;
+  P.dragMargin = 8; P.escOn = 1; P.escPersist = 45; P.escProb = 0.01; P.escAweMs = 1400; P.escExplore = 1; P.escExitMs = 1100; P.escDrain = 0.5; P.escRoam = 0.35; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000;
   P.foodMode = 2; P.foodBlobR = 70; P.foodBlobDots = 8; P.foodLife = 1; P.foodLifeMs = 300; P.foodLifeCell = 4; P.foodEatR = 0.4;
   Object.assign(P, {"UNIVERSE_SIZE": 50.81997915394043, "baseMutationRate": 3.761271114104753, "mutationRateRange": 5.5, "interactionRadius": 10, "CELL_RADIUS": 21, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 1, "maxRadius": 150, "baseMaxSpeed": 0.5, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 0.22, "THRESHOLD": 0.34, "metaballStrength": 0.023, "foodDensity": 0.041931496850201304, "foodEnergyValue": 20, "minRefreshInterval": 5, "maxRefreshInterval": 25, "slowDownRadius": 9, "speedReductionFactor": 49.5, "grain": 1, "grainAmount": 2, "grainStrength": 10, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 24, "fps": 24, "containerCorner": 31, "resolution": 1, "margin": 13, "gap": 14, "textScale": 0.75, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.5, "morphEase": 0.69, "pixelRatio": 1.75, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 0, "axisLayer": 0, "genomeOn": 1, "genomeMut": 0.4, "divideOn": 1, "divideAt": 6, "eatMergeOn": 1, "eatRatio": 1.3, "eatChance": 0.15, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.35, "clusterMax": 9, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 3, "foodShrink": 0.01, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 6000, "boundAware": 1, "boundZone": 30, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 1, "panelAlpha": 0, "cursorSize": 1, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 1, "audioMode": 1, "audioTone": 1600, "audioMod": 0.6, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#c86400", "foodAlpha": 1, "foodSize": 1, "foodShow": 1});
   var DEFAULTS = JSON.parse(JSON.stringify(P));
@@ -121,7 +121,7 @@
   }
   // boundary awareness: a soft push inside the zone turns cells before the wall; the wall itself reflects (flat world, no death at the edge)
   // ---- escape and exploration: a persistent cell that keeps pressing the wall may rarely slip out; outside it is free for good
-  var fz = null, fzT = 0, escStat = { escaped: 0, died: 0, reentry: 0, hitsWall: 0, hitsLetter: 0 };
+  var fz = null, fzT = 0, escStat = { awe: 0, fright: 0, escaped: 0, died: 0, reentry: 0, hitsWall: 0, hitsLetter: 0 };
   function freeZone() {
     var now = performance.now();
     if (!fz || now - fzT > 400) { var L = lay(); fz = { x0: L.M + L.sideW, x1: W - L.M - L.sideW, y0: L.M + L.dh, y1: H - L.M - L.dh }; fzT = now; }
@@ -130,27 +130,44 @@
   function freeMove(c) {
     var now = performance.now(), k = cont, r = c.radius, z = freeZone(), ms = c.maxSpeed + 1;
     if (c.exitT !== undefined) {
-      var u = (now - c.exitT) / P.escExitMs;
-      if (u < 1) { c.radius = c.exitR * (1 - 0.3 * Math.sin(Math.PI * u)); c.vx += c.exN.x * ms * 0.05; c.vy += c.exN.y * ms * 0.05; return; }
-      c.radius = c.exitR; c.exitT = undefined; r = c.radius;
+      // squash and stretch: anticipation (press into the wall, pull back), launch (stretch through), overshoot and settle (damped wobble)
+      var u = (now - c.exitT) / P.escExitMs, n = c.exN, kk;
+      c.exA = Math.atan2(n.y, n.x); c.sq = c.sq || 1;
+      if (u < 0.3) { kk = u / 0.3; c.sq = 1 - 0.32 * Math.sin(kk * Math.PI / 2); c.vx = -n.x * ms * 0.1 * kk; c.vy = -n.y * ms * 0.1 * kk; return; }
+      if (u < 0.5) { kk = (u - 0.3) / 0.2; c.sq = 0.68 + 0.95 * kk; c.vx = n.x * ms * 1.0; c.vy = n.y * ms * 1.0; return; }
+      if (u < 1) { kk = (u - 0.5) / 0.5; c.sq = 1 + 0.63 * Math.exp(-4 * kk) * Math.cos(11 * kk); c.vx = n.x * ms * (1 - kk); c.vy = n.y * ms * (1 - kk); return; }
+      c.exitT = undefined; c.sq = undefined; c.moodT = undefined; r = c.radius;
     }
     c.cl = 0; c.energy -= P.energyConsumptionRate * P.escDrain;
-    if (c.radius > 14) c.radius -= 0.02; r = c.radius;
+    // mood: surprise right after the exit (freeze, look around), then curious exploring; fear when a parasite is near or the plate rejects it
+    if (c.moodT === undefined) { c.moodT = now; c.h = Math.atan2(c.vy, c.vx); escStat.awe = (escStat.awe || 0) + 1; }
+    var tm = now - c.moodT, fl = 0, fx = 0, fy = 0, pi2;
+    for (pi2 = 0; pi2 < parasites.length; pi2++) { var pp = parasites[pi2], pdx = c.x - pp.x, pdy = c.y - pp.y, pd = Math.hypot(pdx, pdy); if (pd < 40 + r * 2) { fl = 1; fx += pdx / (pd + 1); fy += pdy / (pd + 1); } }
+    if (fl) { if (!(c.fear > 0.5)) escStat.fright = (escStat.fright || 0) + 1; c.fear = 1; var fn = Math.hypot(fx, fy) || 1; c.vx += fx / fn * ms * 0.25; c.vy += fy / fn * ms * 0.25; c.h = Math.atan2(c.vy, c.vx); }
+    c.fear = (c.fear || 0) * 0.96; c.pulse = 0;
+    if (tm < P.escAweMs) { // awe: stop, tremble a little, turn the head left and right
+      c.vx *= 0.88; c.vy *= 0.88; c.h += Math.sin(tm / 160) * 0.08; c.pulse = 0.1 * Math.sin(tm / 70) * (1 - tm / P.escAweMs);
+    } else { // curiosity: unhurried wandering with a slowly turning heading
+      c.h += (Math.random() - 0.5) * 0.3; var sp0 = ms * 0.3 * P.escExplore * (1 + c.fear * 2);
+      c.vx += (Math.cos(c.h) * sp0 - c.vx) * 0.06; c.vy += (Math.sin(c.h) * sp0 - c.vy) * 0.06;
+    }
+    if (c.fear > 0.05) { c.x += (Math.random() - 0.5) * c.fear * 2.5; c.y += (Math.random() - 0.5) * c.fear * 2.5; }
+    if (c.radius > 14) c.radius -= Math.max(0.02, (c.radius - 30) * 0.03); r = c.radius;
     // tries to come back towards the plate, the plate does not take it
     c.vx += ((k.x + k.w / 2) - c.x) * 0.0006 * P.escRoam * ms; c.vy += ((k.y + k.h / 2) - c.y) * 0.0006 * P.escRoam * ms;
     var a, b;
     // screen edges and letter bands
-    a = Math.max(r, z.x0 + r * 0.6); b = Math.min(W - r, z.x1 - r * 0.6);
-    if (c.x < a) { c.x = a; c.vx = Math.abs(c.vx) * 0.8; escStat.hitsLetter++; } else if (c.x > b) { c.x = b; c.vx = -Math.abs(c.vx) * 0.8; escStat.hitsLetter++; }
-    a = Math.max(r, z.y0 + r * 0.6); b = Math.min(H - r, z.y1 - r * 0.6);
-    if (c.y < a) { c.y = a; c.vy = Math.abs(c.vy) * 0.8; escStat.hitsLetter++; } else if (c.y > b) { c.y = b; c.vy = -Math.abs(c.vy) * 0.8; escStat.hitsLetter++; }
+    a = Math.max(r, z.x0 + r * 0.6); b = Math.min(W - r, z.x1 - r * 0.6); if (a > b) a = b = (a + b) / 2;
+    if (c.x < a) { c.x = a; c.vx = Math.abs(c.vx) * 0.8; escStat.hitsLetter++; c.h = Math.atan2(c.vy, c.vx); } else if (c.x > b) { c.x = b; c.vx = -Math.abs(c.vx) * 0.8; escStat.hitsLetter++; c.h = Math.atan2(c.vy, c.vx); }
+    a = Math.max(r, z.y0 + r * 0.6); b = Math.min(H - r, z.y1 - r * 0.6); if (a > b) a = b = (a + b) / 2;
+    if (c.y < a) { c.y = a; c.vy = Math.abs(c.vy) * 0.8; escStat.hitsLetter++; c.h = Math.atan2(c.vy, c.vx); } else if (c.y > b) { c.y = b; c.vy = -Math.abs(c.vy) * 0.8; escStat.hitsLetter++; c.h = Math.atan2(c.vy, c.vx); }
     // the plate is solid from the outside
     var ex0 = k.x - r, ex1 = k.x + k.w + r, ey0 = k.y - r, ey1 = k.y + k.h + r;
     if (c.x > ex0 && c.x < ex1 && c.y > ey0 && c.y < ey1) {
       var dl = c.x - ex0, dr2 = ex1 - c.x, dt = c.y - ey0, db = ey1 - c.y, m = Math.min(dl, dr2, dt, db);
       if (m === dl) { c.x = ex0; c.vx = -Math.abs(c.vx) * 0.8; } else if (m === dr2) { c.x = ex1; c.vx = Math.abs(c.vx) * 0.8; }
       else if (m === dt) { c.y = ey0; c.vy = -Math.abs(c.vy) * 0.8; } else { c.y = ey1; c.vy = Math.abs(c.vy) * 0.8; }
-      escStat.hitsWall++;
+      escStat.hitsWall++; c.fear = Math.max(c.fear || 0, 0.7); c.h = Math.atan2(c.vy, c.vx);
     }
   }
   function keepIn(c) {
@@ -437,7 +454,7 @@
     var dl = cells;
     for (var i = 0; i < dl.length; i++) {
       var c = dl[i];
-      if (!c.alive || c.x < cont.x || c.x > cont.x + cont.w || c.y < cont.y || c.y > cont.y + cont.h) continue;
+      if (!c.alive || c.free || c.x < cont.x || c.x > cont.x + cont.w || c.y < cont.y || c.y > cont.y + cont.h) continue;
       var cx = (c.x - cont.x), cy = (c.y - cont.y), r2 = ms * c.radius * c.radius;
       var Rc = c.radius * Math.max(3, Math.sqrt(ms / (TH * 0.03)));
       var x0 = Math.max(0, Math.floor((cx - Rc) * S)), x1 = Math.min(bw - 1, Math.ceil((cx + Rc) * S));
@@ -464,6 +481,21 @@
     octx.putImageData(img, 0, 0);
     ctx.imageSmoothingEnabled = S < DPR * 0.999; ctx.imageSmoothingQuality = 'high';
     ctx.globalAlpha = fadeA('plate'); ctx.drawImage(off, 0, 0, bw, bh, cont.x, cont.y, cont.w, cont.h); ctx.globalAlpha = 1; // exact fit to the area rectangle
+    drawFree();
+  }
+  // escaped cells live outside the plate: drawn as soft ellipses stretched along their motion (the plate buffer cannot hold them)
+  function drawFree() {
+    ctx.globalAlpha = fadeA('plate');
+    for (var i = 0; i < cells.length; i++) {
+      var c = cells[i]; if (!c.alive || !c.free) continue;
+      var cw = (P.genomeOn && c.g) ? c.g.col : c.cw, r = 0, g = 0, b = 0;
+      if (cw) { r = cw[0]; g = cw[1]; b = cw[2]; } else if (c.gene > 2) r = 1; else if (c.gene < -2) g = 1; else b = 1;
+      var rx, ry, sp = Math.hypot(c.vx, c.vy), st = Math.min(0.35, sp * 0.03), ang = Math.atan2(c.vy, c.vx), rad = Math.max(2, c.radius) * (1 - 0.22 * (c.fear || 0)) * (1 + (c.pulse || 0));
+      ctx.fillStyle = 'rgb(' + Math.round(r * 255) + ',' + Math.round(g * 255) + ',' + Math.round(b * 255) + ')';
+      if (c.sq !== undefined) { st = 0; ang = c.exA; rx = rad * c.sq; ry = rad / Math.sqrt(c.sq); } else { rx = rad * (1 + st); ry = rad / (1 + st); }
+      ctx.beginPath(); ctx.ellipse(c.x, c.y, rx, ry, ang, 0, 6.2832); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
   }
   function colorAt(x, y) {
     if (img && x >= cont.x && x < cont.x + cont.w && y >= cont.y && y < cont.y + cont.h) {
@@ -894,7 +926,7 @@
       ['mergeChance', 'merge chance', 0, 0.3, 0.005], ['mergeGene', 'merge gene distance', 0, 36, 1], ['clusterCohesion', 'cluster cohesion', 0, 1, 0.01], ['clusterMax', 'cluster max size', 2, 30, 1],
       ['parasiteFrac', 'parasite share', 0, 0.5, 0.01], ['parasiteDrain', 'parasite drain', 0, 0.2, 0.005], ['parasiteEff', 'parasite efficiency', 0, 1, 0.01], ['selStrength', 'selection strength', 0, 4, 0.05]]],
     ['life', [
-      ['boundZone', 'boundary awareness zone', 10, 200, 1], ['boundZoneR', 'zone grows with cell radius (x)', 0, 4, 0.1], ['edgeFit', 'wall at cell edge (x radius)', 0, 1.5, 0.05], ['escProb', 'escape chance per frame (after persisting)', 0, 0.05, 0.001], ['escPersist', 'escape persistence (frames at wall)', 10, 600, 5], ['escExitMs', 'exit squeeze ms', 200, 2000, 50], ['escDrain', 'free cell extra hunger (x)', 0, 3, 0.05], ['escRoam', 'free cell homing to plate', 0, 1, 0.05], ['dragMargin', 'drag resize viewport margin px', 0, 100, 1], ['edgeGrab', 'border grab width px', 3, 40, 1], ['restless', 'cell restlessness while resizing', 0, 3, 0.05], ['boundForce', 'boundary push', 0, 3, 0.05], ['cellMorphMs', 'metamorphosis time ms', 100, 6000, 50]]],
+      ['boundZone', 'boundary awareness zone', 10, 200, 1], ['boundZoneR', 'zone grows with cell radius (x)', 0, 4, 0.1], ['edgeFit', 'wall at cell edge (x radius)', 0, 1.5, 0.05], ['escProb', 'escape chance per frame (after persisting)', 0, 0.05, 0.001], ['escPersist', 'escape persistence (frames at wall)', 10, 600, 5], ['escExitMs', 'exit squash and stretch ms', 400, 3000, 50], ['escAweMs', 'surprise pause ms', 0, 5000, 100], ['escExplore', 'curious exploring speed (x)', 0, 3, 0.05], ['escDrain', 'free cell extra hunger (x)', 0, 3, 0.05], ['escRoam', 'free cell homing to plate', 0, 1, 0.05], ['dragMargin', 'drag resize viewport margin px', 0, 100, 1], ['edgeGrab', 'border grab width px', 3, 40, 1], ['restless', 'cell restlessness while resizing', 0, 3, 0.05], ['boundForce', 'boundary push', 0, 3, 0.05], ['cellMorphMs', 'metamorphosis time ms', 100, 6000, 50]]],
     ['sound', [
       ['audioVol', 'volume', 0, 1, 0.01], ['audioTone', 'tone (cutoff Hz)', 200, 8000, 10], ['audioMod', 'CA modulation', 0, 1, 0.01],
       ['audioCrackle', 'micro events', 0, 1, 0.01], ['audioMicroPitch', 'micro pitch Hz', 200, 4000, 10], ['audioMicroDecay', 'micro decay ms', 10, 400, 1], ['audioMicroRand', 'micro randomness', 0, 1, 0.01], ['audioWidth', 'stereo width', 0, 1, 0.01]]],
