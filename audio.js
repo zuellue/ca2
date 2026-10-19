@@ -39,12 +39,29 @@
     N.src = A.ctx.createBufferSource(); N.src.buffer = bufs[type]; N.src.loop = true; N.src.connect(N.filt); N.src.start(0, Math.random() * 3);
     N.filt.type = m === 4 ? 'bandpass' : 'lowpass'; N.filt.Q.value = m === 4 ? 3 : 0.5;
   }
-  function grain(level, pan) {
-    var ctx = A.ctx, t = ctx.currentTime, dur = 0.006 + Math.random() * 0.016, s = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), g = ctx.createGain(), p = N.pan ? ctx.createStereoPanner() : null;
-    s.buffer = bufs.white; hp.type = 'highpass'; hp.frequency.value = 1500 + Math.random() * 4500;
-    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(level, t + 0.001); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(hp); hp.connect(g); if (p) { p.pan.value = pan; g.connect(p); p.connect(N.master); } else g.connect(N.master);
-    s.start(t, Math.random() * 3, dur + 0.01);
+  // micro events: six alternative voices, all soft; pitch, decay and randomness are tweakable
+  A.microNames = ['click', 'tick', 'drop', 'bubble', 'wood', 'bloom'];
+  var PENTA = [1, 1.125, 1.25, 1.5, 1.667, 2];
+  function micro(kind, level, pan, P) {
+    var ctx = A.ctx, rnd = P.audioMicroRand, t = ctx.currentTime + Math.random() * 0.05 * rnd, dec = Math.max(0.01, P.audioMicroDecay / 1000) * (1 + (Math.random() - 0.5) * rnd), f0 = P.audioMicroPitch * PENTA[Math.floor(Math.random() * PENTA.length)] * (1 + (Math.random() - 0.5) * 0.06 * rnd);
+    level *= 1 - Math.random() * 0.6 * rnd;
+    var g = ctx.createGain(), p = N.pan ? ctx.createStereoPanner() : null, src, end = t + dec * 3 + 0.05;
+    g.gain.setValueAtTime(0.0001, t);
+    if (kind === 1 || kind === 2 || kind === 3) {
+      var o = ctx.createOscillator(); o.type = 'sine'; src = o;
+      if (kind === 1) o.frequency.setValueAtTime(f0, t);
+      else if (kind === 2) { o.frequency.setValueAtTime(f0 * 1.8, t); o.frequency.exponentialRampToValueAtTime(Math.max(60, f0 * 0.55), t + dec); }
+      else { o.frequency.setValueAtTime(f0 * 0.6, t); o.frequency.exponentialRampToValueAtTime(f0 * 1.5, t + dec * 0.8); }
+      g.gain.linearRampToValueAtTime(level * 0.5, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + dec * 1.5);
+      o.connect(g); o.start(t); o.stop(end);
+    } else {
+      var s = ctx.createBufferSource(), fl = ctx.createBiquadFilter(); s.buffer = bufs.white; src = s;
+      if (kind === 0) { fl.type = 'highpass'; fl.frequency.value = 1500 + Math.random() * 4500; g.gain.linearRampToValueAtTime(level, t + 0.001); g.gain.exponentialRampToValueAtTime(0.0001, t + Math.min(dec, 0.03)); }
+      else if (kind === 4) { fl.type = 'bandpass'; fl.Q.value = 14; fl.frequency.value = f0; g.gain.linearRampToValueAtTime(level * 1.6, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + dec); }
+      else { fl.type = 'lowpass'; fl.frequency.value = Math.max(300, f0 * 1.2); g.gain.linearRampToValueAtTime(level * 0.9, t + dec * 0.5); g.gain.exponentialRampToValueAtTime(0.0001, t + dec * 2); }
+      s.connect(fl); fl.connect(g); s.start(t, Math.random() * 3, dec * 3 + 0.05);
+    }
+    if (p) { p.pan.value = pan; g.connect(p); p.connect(N.master); } else g.connect(N.master);
   }
   A.start = function () {
     if (!A.ok || !enabled) return;
@@ -68,9 +85,9 @@
     N.body.gain.setTargetAtTime(bodyG, t, 0.12);
     N.filt.frequency.setTargetAtTime(cut, t, 0.1);
     if (N.pan) N.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, s.pan * P.audioWidth * m * 2)), t, 0.15);
-    var rate = (s.birth * 3 + s.death * 2 + s.hit * 0.15) * P.audioCrackle * (mode === 3 ? 3 : 0.6), n = Math.floor(rate) + (Math.random() < rate % 1 ? 1 : 0);
+    var raw = (s.birth * 3 + s.death * 2 + s.hit * 0.15) * P.audioCrackle * (mode === 3 ? 3 : 0.6), rate = Math.pow(raw, 1.35), n = Math.floor(rate) + (Math.random() < rate % 1 ? 1 : 0);
     n = Math.min(n, 8);
-    for (var i = 0; i < n; i++) grain((0.25 + Math.random() * 0.35) * (mode === 3 ? 1 : 0.5), (Math.random() * 2 - 1) * P.audioWidth);
+    for (var i = 0; i < n; i++) micro(P.audioMicro | 0, (0.25 + Math.random() * 0.35) * (mode === 3 ? 1 : 0.5), (Math.random() * 2 - 1) * P.audioWidth, P);
   };
   A.level = function () {
     if (!A.analyser) return 0; var d = new Float32Array(A.analyser.fftSize); A.analyser.getFloatTimeDomainData(d);

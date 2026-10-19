@@ -19,8 +19,8 @@
     minRefreshInterval: 10, maxRefreshInterval: 20, slowDownRadius: 20, speedReductionFactor: 50.3,
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
-    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, cellMorphMs: 1200, boundAware: 1, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, cursorRing: 0.2, titleCircles: 1, circleHold: 1,
-    audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1
+    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, cursorRing: 0.2, titleCircles: 1, circleHold: 1,
+    audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, audioMicro: 0, audioMicroPitch: 1200, audioMicroDecay: 70, audioMicroRand: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1
   };
   var DEFAULTS = JSON.parse(JSON.stringify(P));
   var autoRefresh = true, lockParams = false;
@@ -243,9 +243,65 @@
     var x0 = (W - cont.tw) / 2, y0 = (H - cont.th) / 2; food = food.filter(function (f) { return f.x > x0 && f.x < x0 + cont.tw && f.y > y0 && f.y < y0 + cont.th; });
     if (P.selectOn) newEnv();
     trans = { t0: performance.now(), dur: Math.max(100, P.cellMorphMs), tg: tg };
+    if (P.respawnMorph) planComposition(tg);
     newRefresh();
   }
+  // ---- respawn morph: a new life cycle (new environment, fresh energy, fresh food) with a new random composition.
+  // Every cell gets a place in the new composition and flows there at its own pace; surplus cells die on arrival, missing ones are born from the nearest parent.
+  function planComposition(tg) {
+    var gx = (W - cont.tw) / 2, gy = (H - cont.th) / 2, nC = 2 + Math.floor(Math.random() * 4), ctr = [], i, j2;
+    for (i = 0; i < nC; i++) ctr.push([gx + cont.tw * rnd(0.12, 0.88), gy + cont.th * rnd(0.12, 0.88)]);
+    var sg = Math.min(cont.tw, cont.th) * rnd(0.08, 0.2), pts = [];
+    for (i = 0; i < Math.max(1, tg.U); i++) { var cc = ctr[i % nC]; pts.push([clamp(cc[0] + (Math.random() + Math.random() + Math.random() - 1.5) * 2 * sg, gx + 8, gx + cont.tw - 8), clamp(cc[1] + (Math.random() + Math.random() + Math.random() - 1.5) * 2 * sg, gy + 8, gy + cont.th - 8)]); }
+    for (i = 0; i < cells.length; i++) { cells[i].energy = 12; cells[i].cl = 0; cells[i].dst = null; cells[i].dying = false; cells[i].pace = rnd(0.5, 1.5); }
+    // greedy matching, cells in random order take the nearest free place
+    var free = pts.slice(), order = cells.slice().sort(function () { return Math.random() - 0.5; }), spawnN = 0;
+    for (i = 0; i < order.length; i++) {
+      var c = order[i];
+      if (free.length) { var bi = 0, bd = 1e18; for (j2 = 0; j2 < free.length; j2++) { var d = (free[j2][0] - c.x) * (free[j2][0] - c.x) + (free[j2][1] - c.y) * (free[j2][1] - c.y); if (d < bd) { bd = d; bi = j2; } } c.dst = free.splice(bi, 1)[0]; }
+      else { c.dst = pts[Math.floor(Math.random() * pts.length)]; c.dying = true; }
+    }
+    trans.pending = free; trans.plan = { points: pts.length, dying: order.filter(function (c) { return c.dying; }).length, birthsDue: free.length, from: cells.length };
+    // fresh food for the new cycle
+    var nf = cont.tw * cont.th * P.foodDensity / 2; food = [];
+    for (var f = 0; f < nf; f++) food.push({ x: gx + rnd(cont.tw), y: gy + rnd(cont.th), r: Math.random() });
+  }
+  function stepComposition(now, dt) {
+    var k0 = 1 - Math.exp(-dt * 3 / trans.dur), i, open = 0, late = now - trans.t0 > trans.dur * 1.5;
+    for (i = 0; i < cells.length; i++) {
+      var c = cells[i]; if (!c.dst || !c.alive) continue;
+      var dx = c.dst[0] - c.x, dy = c.dst[1] - c.y, d = Math.hypot(dx, dy), k = Math.min(1, k0 * c.pace);
+      c.x += dx * k + (Math.random() - 0.5) * 0.6; c.y += dy * k + (Math.random() - 0.5) * 0.6;
+      if (c.dying && (d < 14 || (late && Math.random() < 0.08))) { c.alive = false; ev.death++; continue; }
+      if (d > 14) open++;
+    }
+    var pend = trans.pending, n = cells.length;
+    if (pend.length && n > 0) {
+      var cnt = Math.min(pend.length, 1 + Math.floor(pend.length * k0 * 2));
+      for (i = 0; i < cnt; i++) {
+        var pt = pend.pop(), par = null, bd = 1e18;
+        for (var m = 0; m < 12; m++) { var q = cells[Math.floor(Math.random() * n)]; if (!q.alive) continue; var dd = (q.x - pt[0]) * (q.x - pt[0]) + (q.y - pt[1]) * (q.y - pt[1]); if (dd < bd) { bd = dd; par = q; } }
+        if (!par) continue;
+        var ch = new Cell(par.x + rnd(-2, 2), par.y + rnd(-2, 2), mutateGene(par.gene), clamp(par.mutationRate + rnd(-P.mutationRateRange, P.mutationRateRange), 0.5, 20));
+        ch.g = mutGenome(par.g, P.genomeMut); ch.maxSpeed = speedOf(ch); ch.radius = par.radius * 0.5; ch.dst = pt; ch.pace = rnd(0.5, 1.5); cells.push(ch); ev.birth++;
+      }
+    }
+    return open;
+  }
   function stepTrans(now, dt) {
+    if (P.respawnMorph && trans.plan) {
+      var kk = 1 - Math.exp(-dt * 3 / trans.dur), tg2 = trans.tg;
+      P.baseMutationRate = lerp(P.baseMutationRate, tg2.mut, kk); P.mutationRateRange = lerp(P.mutationRateRange, tg2.mr, kk);
+      P.interactionRadius = lerp(P.interactionRadius, tg2.ir, kk); P.CELL_RADIUS = lerp(P.CELL_RADIUS, tg2.cr, kk); P.UNIVERSE_SIZE = lerp(P.UNIVERSE_SIZE, tg2.U, kk);
+      for (var ii = 0; ii < cells.length; ii++) { var cc = cells[ii]; cc.radius += (P.CELL_RADIUS - cc.radius) * Math.min(1, 0.004 * cc.mutationRate); }
+      var open = stepComposition(now, dt);
+      trans.open = open;
+      if (now - trans.t0 > trans.dur * 5 || (now - trans.t0 > trans.dur && open === 0 && !trans.pending.length && Math.abs(cont.ew - cont.tw) < 1 && Math.abs(cont.eh - cont.th) < 1)) {
+        for (ii = 0; ii < cells.length; ii++) { cells[ii].dst = null; cells[ii].dying = false; }
+        P.UNIVERSE_SIZE = tg2.U; P.CELL_RADIUS = tg2.cr; P.baseMutationRate = tg2.mut; P.mutationRateRange = tg2.mr; P.interactionRadius = tg2.ir; trans = null; window.__ca2 && (window.__ca2.lastTransDone = performance.now());
+      }
+      return;
+    }
     var k = 1 - Math.exp(-dt * 3 / trans.dur), tg = trans.tg;
     P.baseMutationRate = lerp(P.baseMutationRate, tg.mut, k); P.mutationRateRange = lerp(P.mutationRateRange, tg.mr, k);
     P.interactionRadius = lerp(P.interactionRadius, tg.ir, k); P.CELL_RADIUS = lerp(P.CELL_RADIUS, tg.cr, k);
@@ -581,10 +637,17 @@
   function hash(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
   function lcg(st) { st.s = (Math.imul(st.s, 1664525) + 1013904223) >>> 0; return st.s / 4294967296; }
   var LIVE_N = 28, LIVE_RULE = 110, LIVE_MS = 110, LIVE_COLS = ['#ff0000', '#00ff00', '#0000ff'];
+  var LIVE_CAP = { audioVol: 0.35 }; // keep live volume gentle
+  // plate occupancy ring: the plate is cut into n vertical sectors; a sector is 'alive' when it holds at least the average number of cells
+  function plateOcc(n) {
+    var cnt = new Array(n).fill(0), i, tot = 0;
+    for (i = 0; i < cells.length; i++) { var c = cells[i], s = clamp(Math.floor((c.x - cont.x) / Math.max(1, cont.w) * n), 0, n - 1); cnt[s]++; tot++; }
+    var mean = tot / n, out = new Array(n); for (i = 0; i < n; i++) out[i] = cnt[i] > mean ? 1 : 0; return out;
+  }
   function liveStart(k, q, orig, row) {
     var st = { s: hash(k) || 1 }, bits = [];
     for (var i = 0; i < LIVE_N; i++) bits.push(lcg(st) < 0.5 ? 1 : 0);
-    live[k] = { orig: orig, bits: bits, st: st, t: performance.now(), cur: orig, q: q, row: row, col: LIVE_COLS[Math.floor(Math.random() * 3)], gen: 0, lastQ: orig };
+    live[k] = { orig: orig, bits: bits, st: st, t: performance.now(), cur: orig, q: q, row: row, col: LIVE_COLS[Math.floor(Math.random() * 3)], gen: 0, lastQ: orig, plate: /^audio/.test(k), shift: hash(k) % LIVE_N, rule: /^audio/.test(k) ? [110, 30, 90, 54][hash(k) % 4] : LIVE_RULE };
     row.classList.add('live'); row.style.setProperty('--kc', live[k].col);
   }
   function liveStop(k) {
@@ -597,14 +660,16 @@
       if (now - L.t >= LIVE_MS) {
         L.t = now; L.gen++;
         var nb = new Array(n), sum = 0, same = true, i;
-        for (i = 0; i < n; i++) { nb[i] = (LIVE_RULE >> (L.bits[(i + n - 1) % n] * 4 + L.bits[i] * 2 + L.bits[(i + 1) % n])) & 1; sum += nb[i]; if (nb[i] !== L.bits[i]) same = false; }
+        for (i = 0; i < n; i++) { nb[i] = (L.rule >> (L.bits[(i + n - 1) % n] * 4 + L.bits[i] * 2 + L.bits[(i + 1) % n])) & 1; sum += nb[i]; if (nb[i] !== L.bits[i]) same = false; }
+        if (L.plate) { var occ = plateOcc(n); sum = 0; for (i = 0; i < n; i++) { nb[i] ^= occ[(i + L.shift) % n]; sum += nb[i]; } same = false; }
         if (sum === 0 || sum === n || same) { for (i = 0; i < 3; i++) nb[Math.floor(lcg(L.st) * n)] ^= 1; if (sum === 0) nb[Math.floor(lcg(L.st) * n)] = 1; } // keep it alive, deterministically
         L.bits = nb;
         var a = clamp((nb.reduce(function (x, y) { return x + y; }, 0) / n - 0.2) / 0.6, 0, 1);
-        L.target = L.q[2] + (L.q[3] - L.q[2]) * a;
+        if (L.plate) a = clamp(a * 0.45 + 0.55 * clamp(cells.length / 250, 0, 1), 0, 1);
+        L.target = L.q[2] + (L.q[3] - L.q[2]) * a * (LIVE_CAP[k] || 1);
       }
       if (L.target === undefined) continue;
-      L.cur += (L.target - L.cur) * 0.2;
+      L.cur += (L.target - L.cur) * (L.plate ? 0.07 : 0.2);
       var v = clamp(Math.round((L.cur - L.q[2]) / L.q[4]) * L.q[4] + L.q[2], L.q[2], L.q[3]);
       if (v !== L.lastQ) { L.lastQ = v; P[k] = v; applyKey(k, v); }
     }
@@ -656,7 +721,7 @@
       ['boundZone', 'boundary awareness zone', 10, 200, 1], ['boundForce', 'boundary push', 0, 3, 0.05], ['cellMorphMs', 'metamorphosis time ms', 100, 6000, 50]]],
     ['sound', [
       ['audioVol', 'volume', 0, 1, 0.01], ['audioTone', 'tone (cutoff Hz)', 200, 8000, 10], ['audioMod', 'CA modulation', 0, 1, 0.01],
-      ['audioCrackle', 'micro events', 0, 1, 0.01], ['audioWidth', 'stereo width', 0, 1, 0.01]]],
+      ['audioCrackle', 'micro events', 0, 1, 0.01], ['audioMicroPitch', 'micro pitch Hz', 200, 4000, 10], ['audioMicroDecay', 'micro decay ms', 10, 400, 1], ['audioMicroRand', 'micro randomness', 0, 1, 0.01], ['audioWidth', 'stereo width', 0, 1, 0.01]]],
     ['field', [
       ['THRESHOLD', 'metaball threshold', 0.05, 0.6, 0.01], ['metaballStrength', 'metaball strength', 0.005, 0.1, 0.001],
       ['foodDensity', 'food density', 0, 0.1, 0.005], ['foodEnergyValue', 'food energy', 0, 20, 0.5], ['foodGrowAmt', 'growth per food (px)', 0, 5, 0.05], ['foodGrowMax', 'max growth (x radius)', 1, 8, 0.1], ['foodShrink', 'shrink back (px/frame)', 0, 0.5, 0.005],
@@ -726,6 +791,7 @@
   }
   var gh = document.createElement('div'); gh.className = 'grp'; gh.textContent = 'switches'; ctl.appendChild(gh);
   choice('cells vs axis lines', 'axisLayer', ['above', 'behind']);
+  choice('micro event sound', 'audioMicro', ['click', 'tick', 'drop', 'bubble', 'wood', 'bloom']);
   choice('sound mode', 'audioMode', ['soft white', 'pink', 'brown', 'micro crackle', 'membrane']);
   toggle('sound (starts after first click)', !!P.audioOn, function (v) { P.audioOn = v ? 1 : 0; if (window.CA2Audio) CA2Audio.enable(v); });
   toggle('genome (speed, appetite, boundary, color)', !!P.genomeOn, function (v) { P.genomeOn = v ? 1 : 0; cells.forEach(function (c) { c.maxSpeed = speedOf(c); }); });
@@ -735,6 +801,7 @@
   toggle('selection by environment', !!P.selectOn, function (v) { P.selectOn = v ? 1 : 0; });
   toggle('cells grow when they eat', !!P.foodGrow, function (v) { P.foodGrow = v ? 1 : 0; });
   toggle('boundary awareness', !!P.boundAware, function (v) { P.boundAware = v ? 1 : 0; });
+  toggle('respawn: new life cycle morph', !!P.respawnMorph, function (v) { P.respawnMorph = v ? 1 : 0; });
   toggle('cell metamorphosis on refresh', !!P.cellMorph, function (v) { P.cellMorph = v ? 1 : 0; });
   toggle('title circles react to hover', !!P.titleCircles, function (v) { P.titleCircles = v ? 1 : 0; });
   toggle('keep circle color after hover', !!P.circleHold, function (v) { P.circleHold = v ? 1 : 0; });
