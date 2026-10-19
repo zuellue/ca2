@@ -1,7 +1,7 @@
 // CA2 - browser port of rr2ll2ia3target11.pde (sim, HUD, axis lines) with a redesigned config panel.
 (function () {
   'use strict';
-  var cv = document.getElementById('c');
+  var cv = document.getElementById('c'), cvg = document.getElementById('g');
   var ctx = cv.getContext('2d');
   var W = 0, H = 0, DPR = 1;
   var rnd = function (a, b) { if (b === undefined) { b = a; a = 0; } return a + Math.random() * (b - a); };
@@ -17,7 +17,7 @@
     energyConsumptionRate: 0.058, energyGainFromInteraction: 0.004, minEnergyForReproduction: 0.22,
     THRESHOLD: 0.2, metaballStrength: 0.02, foodDensity: 0.025, foodEnergyValue: 5,
     minRefreshInterval: 10, maxRefreshInterval: 20, slowDownRadius: 20, speedReductionFactor: 50.3,
-    noiseStrength: 0, fps: 60, containerCorner: 18,
+    grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
     colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0
   };
@@ -160,7 +160,7 @@
     var lo = Math.min(P.minRefreshInterval, P.maxRefreshInterval), hi = Math.max(P.minRefreshInterval, P.maxRefreshInterval);
     refreshInterval = rnd(lo, hi); lastRefresh = performance.now();
   }
-  function cycleBg() { bgIndex = (bgIndex + 1) % BGS.length; bgTarget = BGS[bgIndex]; }
+  function cycleBg() { bgIndex = (bgIndex + 1) % BGS.length; bgTarget = BGS[bgIndex]; save(); }
   function createCell() { cells.push(new Cell(mouse.x, mouse.y, Math.floor(rnd(P.GENE_MIN, P.GENE_MAX + 1)), P.baseMutationRate + rnd(-P.mutationRateRange, P.mutationRateRange))); }
   function killNear() { for (var i = cells.length - 1; i >= 0; i--) if (Math.hypot(mouse.x - cells[i].x, mouse.y - cells[i].y) < 22) cells.splice(i, 1); }
   function randomizeOne() {
@@ -217,7 +217,7 @@
         }
       }
     }
-    var br = bg[0] | 0, bgc = bg[1] | 0, bb = bg[2] | 0, ns = P.noiseStrength, band = TH * 0.08, p = 0, n = bw * bh;
+    var br = bg[0] | 0, bgc = bg[1] | 0, bb = bg[2] | 0, ns = 0, band = TH * 0.08, p = 0, n = bw * bh;
     var data = img.data;
     for (p = 0; p < n; p++) {
       var s = fSum[p], q = p << 2;
@@ -360,6 +360,10 @@
     syncUI(rc + gc + bc);
     var lum = (0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2]), fgc = lum > 128 ? '17,17,17' : '240,240,240', root = document.documentElement.style;
     root.setProperty('--fg', 'rgb(' + fgc + ')'); root.setProperty('--fg-soft', 'rgba(' + fgc + ',.35)'); root.setProperty('--bg', css(bg, 1));
+    if (window.CA2Grain && CA2Grain.ok && P.grain) {
+      cvg.style.display = 'block';
+      CA2Grain.render(cv, { amount: P.grainAmount, strength: P.grainStrength, size: P.grainSize, softness: P.grainSoft, chroma: P.grainChroma, development: P.grainDev, fine: P.grainFine, crystal: P.grainCrystal, cloud: P.grainCloud }, P.grainFps > 0 ? Math.floor(performance.now() / 1000 * P.grainFps) : 0, DPR);
+    } else cvg.style.display = 'none';
     // quality governor: keeps the frame rate by lowering resolution, raises it back when there is room
     frameMs = lerp(frameMs, performance.now() - t0, 0.1);
     if (P.autoQuality) {
@@ -369,6 +373,21 @@
     } else res = P.resolution;
   }
 
+  // ---- persistence: every config key, versioned; unknown/removed keys are ignored, new keys keep defaults ----
+  var STORE = 'ca2.config', STORE_V = 3;
+  (function load() {
+    try {
+      var sv = JSON.parse(localStorage.getItem(STORE) || 'null');
+      if (!sv || typeof sv !== 'object') return;
+      var p = sv.P || {};
+      Object.keys(p).forEach(function (k) { if (k in P && typeof p[k] === 'number' && isFinite(p[k])) P[k] = p[k]; });
+      if (typeof sv.autoRefresh === 'boolean') autoRefresh = sv.autoRefresh;
+      if (typeof sv.lockParams === 'boolean') lockParams = sv.lockParams;
+      if (sv.bgTarget && sv.bgTarget.length === 3) { bgTarget = sv.bgTarget.slice(); bg = sv.bgTarget.slice(); }
+      if (typeof sv.bgIndex === 'number') bgIndex = sv.bgIndex;
+    } catch (e) {}
+  })();
+  function save() { try { localStorage.setItem(STORE, JSON.stringify({ v: STORE_V, P: P, autoRefresh: autoRefresh, lockParams: lockParams, bgTarget: bgTarget, bgIndex: bgIndex })); } catch (e) {} }
   // ---- config panel: every parameter ----
   var rows = {}, statsEl = document.getElementById('stats'), ctl = document.getElementById('controls'), btns = document.getElementById('btns');
   var GROUPS = [
@@ -378,7 +397,12 @@
       ['textScale', 'type size', 0.4, 1.6, 0.01], ['containerCorner', 'corner gap', 0, 80, 1],
       ['areaMin', 'area floor', 0.1, 1, 0.01], ['areaMax', 'area ceiling', 0.1, 1, 0.01],
       ['morphEase', 'area morph speed', 0.02, 1, 0.01], ['colorSpeed', 'color speed', 0.02, 1, 0.01],
-      ['noiseStrength', 'grain', 0, 40, 1], ['fps', 'fps', 5, 120, 1]]],
+      ['fps', 'fps', 5, 120, 1]]],
+    ['photon grain', [
+      ['grainAmount', 'amount', 0, 2, 0.01], ['grainStrength', 'strength', 0, 10, 0.1], ['grainSize', 'size px', 0.3, 6, 0.1],
+      ['grainSoft', 'softness', 0, 1, 0.01], ['grainChroma', 'chroma split', 0, 1, 0.01], ['grainDev', 'development', 0.1, 1.5, 0.01],
+      ['grainFine', 'fine weight', 0, 1, 0.01], ['grainCrystal', 'crystal weight', 0, 1, 0.01], ['grainCloud', 'cloud weight', 0, 1, 0.01],
+      ['grainFps', 'grain fps (0 = still)', 0, 60, 1]]],
     ['cells', [
       ['UNIVERSE_SIZE', 'universe', 1, 400, 1], ['CELL_RADIUS', 'cell r', 2, 100, 1], ['minRadius', 'cell r min', 1, 50, 1], ['maxRadius', 'cell r max', 5, 150, 1],
       ['baseMaxSpeed', 'speed', 0.5, 25, 0.5], ['maxSpeedVariation', 'speed variation', 0, 30, 0.5],
@@ -408,6 +432,7 @@
         if (q[0] === 'fps') { /* nothing */ } else if (/UNIVERSE|CELL_RADIUS|Mutation|interaction|Rate/.test(q[0])) { lockParams = true; if (lockBox) { lockBox.checked = true; lockVal.textContent = 'on'; } }
         save();
       });
+      inp.value = P[q[0]]; val.textContent = fmt(P[q[0]]);
       ctl.appendChild(d); rows[q[0]] = { inp: inp, val: val };
     });
   });
@@ -419,27 +444,27 @@
     ctl.appendChild(l); return { box: c, val: b };
   }
   var gh = document.createElement('div'); gh.className = 'grp'; gh.textContent = 'switches'; ctl.appendChild(gh);
-  var lockT = toggle('lock values on refresh', false, function (v) { lockParams = v; });
+  var lockT = toggle('lock values on refresh', lockParams, function (v) { lockParams = v; });
   lockBox = lockT.box; lockVal = lockT.val;
-  toggle('auto refresh', true, function (v) { autoRefresh = v; lastRefresh = performance.now(); });
+  toggle('auto refresh', autoRefresh, function (v) { autoRefresh = v; lastRefresh = performance.now(); });
   toggle('auto quality', !!P.autoQuality, function (v) { P.autoQuality = v ? 1 : 0; });
+  toggle('photon grain', !!P.grain, function (v) { P.grain = v ? 1 : 0; });
   toggle('typography', !!P.showHud, function (v) { P.showHud = v ? 1 : 0; });
   toggle('food dots (still eaten when hidden)', !!P.showFood, function (v) { P.showFood = v ? 1 : 0; });
   toggle('axis lines', !!P.showAxis, function (v) { P.showAxis = v ? 1 : 0; });
   var bgRow = document.createElement('div'); bgRow.className = 'row';
   bgRow.innerHTML = '<div class="lab"><span>background</span><b style="font-weight:normal">#e9e9e9</b></div>';
-  var colorInp = document.createElement('input'); colorInp.type = 'color'; colorInp.value = '#e9e9e9'; colorInp.style.cssText = 'width:100%;height:22px;border:0;background:none;padding:0;cursor:pointer';
-  colorInp.addEventListener('input', function () { var v = colorInp.value; bgTarget = [parseInt(v.substr(1, 2), 16), parseInt(v.substr(3, 2), 16), parseInt(v.substr(5, 2), 16)]; bgRow.querySelector('b').textContent = v; });
+  var colorInp = document.createElement('input'); colorInp.type = 'color'; colorInp.value = '#' + bgTarget.map(function (v) { return ('0' + (v | 0).toString(16)).slice(-2); }).join(''); colorInp.style.cssText = 'width:100%;height:22px;border:0;background:none;padding:0;cursor:pointer';
+  colorInp.addEventListener('input', function () { var v = colorInp.value; bgTarget = [parseInt(v.substr(1, 2), 16), parseInt(v.substr(3, 2), 16), parseInt(v.substr(5, 2), 16)]; bgRow.querySelector('b').textContent = v; save(); });
   bgRow.appendChild(colorInp); ctl.appendChild(bgRow);
   function btn(label, fn) { var b = document.createElement('button'); b.textContent = label; b.addEventListener('click', fn); btns.appendChild(b); }
   btn('respawn', function () { randomize(); });
   btn('randomize all', function () { lockParams = false; lockBox.checked = false; lockVal.textContent = 'off'; randomize(); });
   btn('background', cycleBg);
-  btn('reset all', function () { Object.keys(DEFAULTS).forEach(function (k) { P[k] = DEFAULTS[k]; }); res = P.resolution; resize(); randomize(); save(); });
+  btn('reset all', function () { Object.keys(DEFAULTS).forEach(function (k) { P[k] = DEFAULTS[k]; }); autoRefresh = true; lockParams = false; bgIndex = 0; bgTarget = BGS[0]; try { localStorage.removeItem(STORE); } catch (e) {} res = P.resolution; resize(); randomize(); location.reload(); });
   btn('copy json', function () { try { navigator.clipboard.writeText(JSON.stringify(P, null, 1)); } catch (e) {} });
   var panel = document.getElementById('panel');
   panel.addEventListener('click', function (e) { e.stopPropagation(); });
-  function save() { try { localStorage.setItem('ca2.settings.v2', JSON.stringify(P)); } catch (e) {} }
   var lastSync = 0;
   function syncUI(total) {
     var now = performance.now(); if (now - lastSync < 300) return; lastSync = now;
@@ -473,7 +498,6 @@
     last = now; frame(); fcount++;
     if (now - ftime >= 1000) { fps = fcount * 1000 / (now - ftime); fcount = 0; ftime = now; }
   }
-  try { var sv = JSON.parse(localStorage.getItem('ca2.settings.v2') || 'null'); if (sv) Object.keys(sv).forEach(function (k) { if (k in P) P[k] = sv[k]; }); } catch (e) {}
   res = P.resolution;
   (document.fonts && document.fonts.load ? document.fonts.load('40px "Ca2-Thin"') : Promise.resolve()).catch(function () {}).then(function () {
     resize(); randomize(); ready = true; requestAnimationFrame(loop);
