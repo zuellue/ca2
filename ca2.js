@@ -23,6 +23,7 @@
     audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, audioMicro: 0, audioMicroPitch: 1200, audioMicroDecay: 70, audioMicroRand: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1
   };
   // owner's chosen defaults (23:04)
+  P.audioFadeMs = 5000;
   P.foodLife = 1; P.foodLifeMs = 300; P.foodLifeCell = 4; P.foodEatR = 0.4;
   Object.assign(P, {"UNIVERSE_SIZE": 50.81997915394043, "baseMutationRate": 3.761271114104753, "mutationRateRange": 5.5, "interactionRadius": 10, "CELL_RADIUS": 21, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 1, "maxRadius": 150, "baseMaxSpeed": 0.5, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 0.22, "THRESHOLD": 0.34, "metaballStrength": 0.023, "foodDensity": 0.041931496850201304, "foodEnergyValue": 20, "minRefreshInterval": 5, "maxRefreshInterval": 25, "slowDownRadius": 9, "speedReductionFactor": 49.5, "grain": 1, "grainAmount": 2, "grainStrength": 10, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 24, "fps": 24, "containerCorner": 31, "resolution": 1, "margin": 13, "gap": 14, "textScale": 0.75, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.5, "morphEase": 0.69, "pixelRatio": 1.75, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 0, "axisLayer": 0, "genomeOn": 1, "genomeMut": 0.4, "divideOn": 1, "divideAt": 6, "eatMergeOn": 1, "eatRatio": 1.3, "eatChance": 0.15, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.35, "clusterMax": 9, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 3, "foodShrink": 0.01, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 6000, "boundAware": 1, "boundZone": 30, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 1, "panelAlpha": 0, "cursorSize": 1, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 1, "audioMode": 1, "audioTone": 1600, "audioMod": 0.6, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#c86400", "foodAlpha": 1, "foodSize": 1, "foodShow": 1});
   var DEFAULTS = JSON.parse(JSON.stringify(P));
@@ -216,6 +217,12 @@
     cont.tw = clamp(cont.rawW, L.safeW * lo, L.safeW * hi);
     cont.th = clamp(cont.rawH, L.safeH * lo, L.safeH * hi);
   }
+  // ---- entrance: every element fades in from transparency at its own random time
+  var fadeT0 = performance.now(), fadeK = {};
+  function fadeA(key) {
+    var f = fadeK[key]; if (!f) f = fadeK[key] = { d: Math.random() * 2600, l: 1100 + Math.random() * 1500 };
+    var t = (performance.now() - fadeT0 - f.d) / f.l; if (t <= 0) return 0; if (t >= 1) return 1; return t * t * (3 - 2 * t);
+  }
   var firstSpawn = true; // the first plate after a load uses the configured values; later respawns randomize them
   function randomize(instant) {
     if (!instant && P.cellMorph && ready && cells.length) { startTrans(); return; }
@@ -351,7 +358,7 @@
     }
   }
   var aev = { b: 0, d: 0, h: 0 };
-  var curOn0 = false, curInfo2 = {}, curMaxR = 0, lockCell = null, lockT0 = 0, curX = 0, curY = 0, cursorScale = 1, targetCursorScale = 1, curRRnow = 0, curInfo = {}, circlesNow = [], circleCol = {}, lastCircleHit = '';
+  var curInfo3 = {}, curOn0 = false, curInfo2 = {}, curMaxR = 0, lockCell = null, lockT0 = 0, curX = 0, curY = 0, cursorScale = 1, targetCursorScale = 1, curRRnow = 0, curInfo = {}, circlesNow = [], circleCol = {}, lastCircleHit = '';
   var curEl = document.getElementById('cur'), curDot = curEl.firstElementChild;
   var TL = 'CELYLAR', TR = 'AUTOMW';
   // circle centers (font units, 1000/em) per glyph of Ca2-Thin, measured from the font outlines
@@ -406,7 +413,7 @@
     }
     octx.putImageData(img, 0, 0);
     ctx.imageSmoothingEnabled = S < DPR * 0.999; ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(off, 0, 0, bw, bh, cont.x, cont.y, cont.w, cont.h); // exact fit to the area rectangle
+    ctx.globalAlpha = fadeA('plate'); ctx.drawImage(off, 0, 0, bw, bh, cont.x, cont.y, cont.w, cont.h); ctx.globalAlpha = 1; // exact fit to the area rectangle
   }
   function colorAt(x, y) {
     if (img && x >= cont.x && x < cont.x + cont.w && y >= cont.y && y < cont.y + cont.h) {
@@ -429,7 +436,7 @@
     ctx.font = fs + 'px "Ca2-Thin", monospace';
     ctx.textAlign = 'left'; var mT = ctx.measureText(sT); ctx.textAlign = 'right'; var mX = ctx.measureText(sX);
     var hL = M + mT.actualBoundingBoxRight + G, hR = W - M - mX.actualBoundingBoxLeft - G, vTop = M + dh + G, vBot = H - M - dh - G, g = P.centerGap;
-    ctx.strokeStyle = css(eased.axis); ctx.lineWidth = P.axisWidth; ctx.lineCap = 'butt'; ctx.beginPath();
+    ctx.globalAlpha = fadeA('axis'); ctx.strokeStyle = css(eased.axis); ctx.lineWidth = P.axisWidth; ctx.lineCap = 'butt'; ctx.beginPath();
     if (g > 0) {
       ctx.moveTo(hL, cym); ctx.lineTo(cxm - g, cym); ctx.moveTo(cxm + g, cym); ctx.lineTo(hR, cym);
       ctx.moveTo(cxm, vTop); ctx.lineTo(cxm, cym - g); ctx.moveTo(cxm, cym + g); ctx.lineTo(cxm, vBot);
@@ -438,7 +445,7 @@
       var ex = lerp(cxm, cn[0], P.diagLen), ey = lerp(cym, cn[1], P.diagLen), dx = ex - cxm, dy = ey - cym, len = Math.hypot(dx, dy);
       if (len > g) { ctx.moveTo(cxm + dx / len * g, cym + dy / len * g); ctx.lineTo(ex, ey); }
     });
-    ctx.stroke();
+    ctx.stroke(); ctx.globalAlpha = 1;
     axisInfo = { hL: hL, hR: hR, vTop: vTop, vBot: vBot };
   }
   var axisInfo = {};
@@ -555,8 +562,8 @@
     if (P.axisLayer === 0 && P.showAxis) drawAxis(Lx, sT0, sX0);
     curS = DPR * res; drawMetaballs(curS);
 
-    if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; }
-    if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { ctx.beginPath(); ctx.arc(parasites[i].x, parasites[i].y, 2.2, 0, 6.2832); ctx.fill(); } }
+    if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha * fadeA('food'); ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; }
+    if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.globalAlpha = fadeA('para'); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { ctx.beginPath(); ctx.arc(parasites[i].x, parasites[i].y, 2.2, 0, 6.2832); ctx.fill(); } ctx.globalAlpha = 1; }
 
     var rc = 0, gc = 0, bc = 0;
     for (i = 0; i < cells.length; i++) { var gn = cells[i].gene; if (gn > 2) rc++; else if (gn < -2) gc++; else bc++; }
@@ -565,12 +572,12 @@
 
     // area outline: no rounded corners. Each side stops `corner` px short of both ends, so the corner lines never meet.
     var cr = Math.min(P.containerCorner, cont.w / 2, cont.h / 2);
-    ctx.strokeStyle = css(dom, 1); ctx.lineWidth = 2; ctx.lineCap = 'butt'; ctx.beginPath();
+    ctx.globalAlpha = fadeA('box'); ctx.strokeStyle = css(dom, 1); ctx.lineWidth = 2; ctx.lineCap = 'butt'; ctx.beginPath();
     ctx.moveTo(cont.x + cr, cont.y); ctx.lineTo(cont.x + cont.w - cr, cont.y);
     ctx.moveTo(cont.x + cont.w, cont.y + cr); ctx.lineTo(cont.x + cont.w, cont.y + cont.h - cr);
     ctx.moveTo(cont.x + cont.w - cr, cont.y + cont.h); ctx.lineTo(cont.x + cr, cont.y + cont.h);
     ctx.moveTo(cont.x, cont.y + cont.h - cr); ctx.lineTo(cont.x, cont.y + cr);
-    ctx.stroke();
+    ctx.stroke(); ctx.globalAlpha = 1;
 
     var L = lay(), M = L.M, G = L.G, fs = L.fs, dh = L.dh;
     var sY = String(Math.round(mouse.y)), sX = String(Math.round(mouse.x)), sT = String(cells.length);
@@ -578,7 +585,7 @@
     var mT, mX;
     if (P.showHud) {
       ctx.font = fs + 'px "Ca2-Thin", monospace'; ctx.textBaseline = 'alphabetic';
-      var put = function (txt, col, align, x, y) { ctx.fillStyle = css(col); ctx.textAlign = align; ctx.fillText(txt, x, y); };
+      var hi = 0, put = function (txt, col, align, x, y) { ctx.globalAlpha = fadeA('h' + (hi++ % 7)); ctx.fillStyle = css(col); ctx.textAlign = align; ctx.fillText(txt, x, y); ctx.globalAlpha = 1; };
       // ink-aligned margins: every edge has the same margin M
       var topBase = M + dh, botBase = H - M, midBase = cym + dh / 2;
       ctx.textAlign = 'left'; var lz = ctx.measureText('CELYLAR'); 
@@ -624,22 +631,24 @@
     }
     // cursor: ring + dot drawn as a DOM overlay that follows the pointer (identical in every browser); the system cursor is hidden only while it shows
     cursorScale += (targetCursorScale - cursorScale) * 0.75;
-    var curOn = false, curRR = 0, curCol = '#000';
+    var curOn = false, curRR = 0, curCol = '#000', dotOnly = false;
     if (hovering && mouse.over && hoverCell) { curOn = true; var mxr = 0; for (var q = 0; q < cells.length; q++) { var cq = cells[q]; if (cq.alive && cq.x > cont.x && cq.x < cont.x + cont.w && cq.y > cont.y && cq.y < cont.y + cont.h && cq.radius > mxr) mxr = cq.radius; }
       curMaxR += (mxr - curMaxR) * 0.3; curRR = Math.max(3, curMaxR * P.cursorSize);
       var tnow = performance.now(); if (hoverCell !== lockCell) { lockCell = hoverCell; lockT0 = tnow; } curCol = css(hoverCol, 1); }
     else if (titleHit) { curOn = true; curRR = Math.max(5, titleHit.c.r * 0.55 * (0.8 + 0.2 * cursorScale)); var iv = 255 - titleHit.v; curCol = 'rgb(' + iv + ',' + iv + ',' + iv + ')'; }
+    var ringOn = curOn;
+    if (!curOn && mouse.over && !panel.matches(':hover')) { curOn = true; dotOnly = true; }
     if (curOn) {
       curEl.style.display = 'block'; curRRnow = curRR;
-      curEl.style.width = curEl.style.height = (curRR * 2) + 'px'; curEl.style.borderWidth = P.axisWidth + 'px'; curEl.style.borderColor = curCol;
-      var dp = 2 * cursorScale; curDot.style.width = curDot.style.height = dp + 'px'; curDot.style.background = curCol; curDot.style.display = (!(hovering && mouse.over && hoverCell) && titleHit) ? 'none' : '';
+      curEl.style.width = curEl.style.height = (curRR * 2) + 'px'; curEl.style.borderWidth = dotOnly ? '0px' : P.axisWidth + 'px'; curEl.style.borderColor = curCol;
+      var dp = 4.4, dcol = titleHit && !(hovering && hoverCell) ? 'rgb(' + (255 - titleHit.v) + ',' + (255 - titleHit.v) + ',' + (255 - titleHit.v) + ')' : css(invAt(mouse.x, mouse.y), 1); curDot.style.width = curDot.style.height = dp + 'px'; curDot.style.background = dcol; curDot.style.display = ''; curInfo3 = { dot: dcol, dp: dp };
       var tx = mouse.x, ty = mouse.y, locked = P.cursorLockMs > 0 && hovering && lockCell && lockCell.alive && performance.now() - lockT0 < P.cursorLockMs;
       if (locked) { tx = lockCell.x; ty = lockCell.y; }
       var ke = locked ? 0.6 : 0.5; curX = curOn0 ? curX + (tx - curX) * ke : tx; curY = curOn0 ? curY + (ty - curY) * ke : ty; curOn0 = true; curInfo2 = { locked: locked, x: curX, y: curY, lx: lockCell ? lockCell.x : 0, ly: lockCell ? lockCell.y : 0 };
       curEl.style.transform = 'translate(' + (curX - curRR) + 'px,' + (curY - curRR) + 'px)';
       cv.style.cursor = 'none';
     } else { curEl.style.display = 'none'; cv.style.cursor = 'default'; curOn0 = false; lockCell = null; }
-    curInfo = { on: curOn, lx: curInfo2.lx, ly: curInfo2.ly, locked: curInfo2.locked, maxR: curMaxR, cx: curX, cy: curY, rr: curRR, col: curCol, title: !!titleHit };
+    curInfo = { on: curOn, ring: ringOn, dot: curInfo3.dot, dp: curInfo3.dp, lx: curInfo2.lx, ly: curInfo2.ly, locked: curInfo2.locked, maxR: curMaxR, cx: curX, cy: curY, rr: curRR, col: curCol, title: !!titleHit };
 
      window.__ca2 = { live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
 
@@ -829,7 +838,7 @@
   choice('cells vs axis lines', 'axisLayer', ['above', 'behind']);
   choice('micro event sound', 'audioMicro', ['click', 'tick', 'drop', 'bubble', 'wood', 'bloom']);
   choice('sound mode', 'audioMode', ['soft white', 'pink', 'brown', 'micro crackle', 'membrane']);
-  toggle('sound (starts after first click)', !!P.audioOn, function (v) { P.audioOn = v ? 1 : 0; if (window.CA2Audio) CA2Audio.enable(v); });
+  toggle('sound (fades in over 5 s)', !!P.audioOn, function (v) { P.audioOn = v ? 1 : 0; if (window.CA2Audio) CA2Audio.enable(v); });
   toggle('genome (speed, appetite, boundary, color)', !!P.genomeOn, function (v) { P.genomeOn = v ? 1 : 0; cells.forEach(function (c) { c.maxSpeed = speedOf(c); }); });
   toggle('divide at size', !!P.divideOn, function (v) { P.divideOn = v ? 1 : 0; });
   toggle('eat or merge on contact', !!P.eatMergeOn, function (v) { P.eatMergeOn = v ? 1 : 0; });
@@ -902,7 +911,7 @@
   window.addEventListener('mouseup', function () { targetCursorScale = 1; });
   window.addEventListener('keydown', function (e) { keyHeld = e.key.toLowerCase(); if (keyHeld === 'c') panel.classList.toggle('open'); });
   window.addEventListener('keyup', function () { keyHeld = ''; });
-  ['pointerdown', 'keydown', 'touchend', 'click'].forEach(function (n) { window.addEventListener(n, function () { if (window.CA2Audio && P.audioOn) CA2Audio.start(); }, { passive: true }); });
+  ['pointerdown', 'pointerup', 'pointermove', 'mousemove', 'mousedown', 'wheel', 'scroll', 'touchstart', 'keydown', 'touchend', 'click'].forEach(function (n) { window.addEventListener(n, function () { if (window.CA2Audio && P.audioOn) CA2Audio.start(); }, { passive: true }); });
   window.addEventListener('touchstart', function (e) { var t = e.touches[0]; mouse.x = t.clientX; mouse.y = t.clientY; mouse.over = true; }, { passive: true });
 
   var last = performance.now(), fcount = 0, ftime = last;
@@ -915,8 +924,10 @@
   }
   res = P.resolution;
   (document.fonts && document.fonts.load ? document.fonts.load('40px "Ca2-Thin"') : Promise.resolve()).catch(function () {}).then(function () {
-    resize(); randomize(true); firstSpawn = false; ready = true; requestAnimationFrame(loop);
+    resize(); randomize(true); firstSpawn = false; ready = true; if (window.CA2Audio && P.audioOn) CA2Audio.start(); requestAnimationFrame(loop);
   });
   document.getElementById('tab').addEventListener('click', function () { panel.classList.toggle('open'); });
   if (/open/.test(location.hash)) panel.classList.add('open');
+  [].forEach.call(panel.children, function (el) { el.style.animation = 'ca2in ' + (1.1 + Math.random() * 1.5).toFixed(2) + 's ease both'; el.style.animationDelay = (Math.random() * 2.6).toFixed(2) + 's'; });
+  [].forEach.call(document.querySelectorAll('#controls .row'), function (el) { el.style.animation = 'ca2in ' + (1.1 + Math.random() * 1.5).toFixed(2) + 's ease both'; el.style.animationDelay = (Math.random() * 2.6).toFixed(2) + 's'; });
 })();

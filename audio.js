@@ -81,7 +81,10 @@
     var cut = P.audioTone * (1 - m * 0.5 + m * 1.2 * s.activity);
     if (mode === 4) cut = 250 + cut * 0.6;
     cut = Math.max(120, Math.min(12000, cut));
-    N.master.gain.setTargetAtTime(P.audioVol, t, 0.08);
+    // entrance: 5 s fade from silence, counted from the moment the browser lets the audio run
+    if (!A.fadeT0) A.fadeT0 = performance.now();
+    var fr = Math.max(0, Math.min(1, (performance.now() - A.fadeT0) / (P.audioFadeMs || 5000))); A.fade = fr * fr * (3 - 2 * fr);
+    N.master.gain.setTargetAtTime(P.audioVol * A.fade, t, 0.08);
     N.body.gain.setTargetAtTime(bodyG, t, 0.12);
     N.filt.frequency.setTargetAtTime(cut, t, 0.1);
     if (N.pan) N.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, s.pan * P.audioWidth * m * 2)), t, 0.15);
