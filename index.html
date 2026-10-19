@@ -25,6 +25,7 @@
   .stats { display: grid; grid-template-columns: 1fr auto; padding: 8px 0 12px; border-bottom: 1.5px solid var(--fg-soft); margin-bottom: 10px; }
   .stats span:nth-child(even) { text-align: right; }
   .stats span:nth-child(odd) { align-self: center; }
+  .grp { margin: 14px 0 2px; letter-spacing: .3em; text-transform: uppercase; font-size: 11px; color: var(--fg-soft); border-bottom: 1.5px solid var(--fg-soft); padding-bottom: 3px; }
   .row { padding: 7px 0 4px; }
   .row .lab { display: flex; justify-content: space-between; }
   .row input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; margin: 2px 0 0; background: transparent; cursor: pointer; }
@@ -48,7 +49,7 @@
   <div class="stats" id="stats"></div>
   <div id="controls"></div>
   <div class="btns" id="btns"></div>
-  <div class="keys">click: random action<br>a add  d kill  s respawn  b background (hold key + click)</div>
+  <div class="keys">click: random action. hold a add, d kill, s respawn, b background + click. c: this panel</div>
 </div>
 <script src="ca2.js"></script>
 </body>

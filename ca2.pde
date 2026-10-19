@@ -330,6 +330,8 @@ void randomizeSimulation() {
   targetContainerWidth = (((int) random(2) == 0) ? 5120 : 2160) / (cWHf+(int) random(-3.5, 1));
   targetContainerHeight = (((int) random(2) == 0) ? 5120 : 2160) / cWHf;
 
+  targetContainerWidth = (int) constrain(targetContainerWidth, areaSafeWidth() * 0.3, areaSafeWidth());
+  targetContainerHeight = (int) constrain(targetContainerHeight, areaSafeHeight() * 0.3, areaSafeHeight());
   println("Target Container Size set to: " + targetContainerWidth + "x" + targetContainerHeight);
 }
 
@@ -587,7 +589,11 @@ void draw() {
   stroke(dominantColor);
   strokeWeight(2);
   noFill();
-  rect(containerX, containerY, containerWidth, containerHeight, containerCornerRadius);
+  float cg = min(containerCornerRadius, min(containerWidth, containerHeight) / 2.0);  // corner gap, lines never meet
+  line(containerX + cg, containerY, containerX + containerWidth - cg, containerY);
+  line(containerX + containerWidth, containerY + cg, containerX + containerWidth, containerY + containerHeight - cg);
+  line(containerX + containerWidth - cg, containerY + containerHeight, containerX + cg, containerY + containerHeight);
+  line(containerX, containerY + containerHeight - cg, containerX, containerY + cg);
 
   drawAxisLines();
   image(container, containerX, containerY);
@@ -603,41 +609,16 @@ void drawAxisLines() {
   String dcc2 = "" + cells.size();
   float dcc = textWidth(dcc2);
 
-  float dynamicGapRight = max(fixedGapSize, mouseXWidth + 15);
-  float dynamicGapLeft = max(fixedGapSize, dcc + 15);
+  float dynamicGapRight = EDGE_MARGIN + mouseXWidth + LINE_GAP;
+  float dynamicGapLeft = EDGE_MARGIN + dcc + LINE_GAP;
 
   float diagonalLineLengthFactor = 0.75;
 
-  // --- Vertical line ends: gap to the top/bottom numbers == horizontal line's gap to the side numbers ---
-  float baseW = 2560, baseH = 1600;
-  float hs = height / baseH;
-  float ws = width / baseW;
-  float fontPx = 210 * min(ws, hs);
-  textFont(monoFont, fontPx);
-  float glyphScale = fontPx / monoFont.getSize();
-  float digitTopAbove = 0;
-  float digitBottomAbove = 1e9;
-  for (char ch = '0'; ch <= '9'; ch++) {
-    PFont.Glyph g = monoFont.getGlyph(ch);
-    if (g == null) continue;
-    digitTopAbove = max(digitTopAbove, g.topExtent * glyphScale);
-    digitBottomAbove = min(digitBottomAbove, (g.topExtent - g.height) * glyphScale);
-  }
-  if (digitBottomAbove > 1e8) digitBottomAbove = 0;
-  float topDigitsBottomY = 2 * hs + textAscent() - digitBottomAbove;
-  float bottomDigitsTopY = (baseH + 27) * hs - textDescent() - digitTopAbove;
-  // ink edges of the side numbers (advance width minus side bearings)
-  PFont.Glyph lastG = monoFont.getGlyph(dcc2.charAt(dcc2.length() - 1));
-  PFont.Glyph firstG = monoFont.getGlyph(mouseXString.charAt(0));
-  float leftNumberRightX = 12 * ws + dcc;
-  if (lastG != null) leftNumberRightX = 12 * ws + dcc - lastG.setWidth * glyphScale + (lastG.leftExtent + lastG.width) * glyphScale;
-  float rightNumberLeftX = (baseW + 6) * ws - mouseXWidth;
-  if (firstG != null) rightNumberLeftX += firstG.leftExtent * glyphScale;
-  float gapLeftH = dynamicGapLeft - leftNumberRightX;
-  float gapRightH = rightNumberLeftX - (width - dynamicGapRight);
-  float sideGap = max(0, min(gapLeftH, gapRightH));
-  float vLineTop = topDigitsBottomY + sideGap;
-  float vLineBottom = bottomDigitsTopY - sideGap;
+  // --- Vertical line: fixed, depends only on margin, digit height and LINE_GAP (never on the changing numbers) ---
+  computeTypeMetrics();
+  textFont(monoFont, typePx);
+  float vLineTop = EDGE_MARGIN + (digitTopAbove - digitBottomAbove) + LINE_GAP;
+  float vLineBottom = height - vLineTop;
 
   PGraphics axisLines = createGraphics(width, height);
   axisLines.beginDraw();
@@ -742,6 +723,38 @@ color easedRedColor, easedGreenColor, easedBlueColor;
 color easedAxisColor;
 float easeFactor = 0.3;
 
+
+// --- Equal-margin typography layout (shared by text, axis lines and container bounds) ---
+float EDGE_MARGIN = 28;      // same margin on every edge (ink to window edge)
+float LINE_GAP = 15;         // gap between the axis lines and the numbers
+float digitTopAbove, digitBottomAbove, typePx, glyphScale2;
+void computeTypeMetrics() {
+  float ws = width / 2560.0, hs = height / 1600.0;
+  typePx = 210 * min(ws, hs);
+  textFont(monoFont, typePx);
+  glyphScale2 = typePx / monoFont.getSize();
+  digitTopAbove = 0;
+  digitBottomAbove = 1e9;
+  for (char ch = '0'; ch <= '9'; ch++) {
+    PFont.Glyph g = monoFont.getGlyph(ch);
+    if (g == null) continue;
+    digitTopAbove = max(digitTopAbove, g.topExtent * glyphScale2);
+    digitBottomAbove = min(digitBottomAbove, (g.topExtent - g.height) * glyphScale2);
+  }
+  if (digitBottomAbove > 1e8) digitBottomAbove = 0;
+}
+// y positions that put the digit ink exactly EDGE_MARGIN from the top / bottom edge
+float topTextY() { return EDGE_MARGIN - (textAscent() - digitTopAbove); }                 // for textAlign(.., TOP)
+float bottomTextY() { return height - EDGE_MARGIN + textDescent() + digitBottomAbove; }   // for textAlign(.., BOTTOM)
+float widestSideNumber() {
+  float w = 0;
+  for (char ch = '0'; ch <= '9'; ch++) w = max(w, textWidth("" + ch));
+  return w * 4;
+}
+// area never leaves the band between the top and bottom typography rows (and the side numbers)
+float areaSafeHeight() { computeTypeMetrics(); return max(60, height - 2 * (EDGE_MARGIN + digitTopAbove - digitBottomAbove + LINE_GAP)); }
+float areaSafeWidth() { computeTypeMetrics(); return max(60, width - 2 * (EDGE_MARGIN + widestSideNumber() + LINE_GAP)); }
+
 void displayCellInformation() {
   textFont(monoFont);
 
@@ -785,11 +798,13 @@ void displayCellInformation() {
   float dynamicTextSize = originalTextSize * textScale;
   textFont(monoFont, dynamicTextSize);
 
-  float leftMargin = originalLeftMargin * widthScale;
-  float rightMargin = originalRightMargin * widthScale;
-  float topMargin = originalTopMargin * heightScale;
+  computeTypeMetrics();
+  textFont(monoFont, dynamicTextSize);
+  float leftMargin = EDGE_MARGIN;
+  float rightMargin = width - EDGE_MARGIN;
+  float topMargin = topTextY();
   float centerY = originalCenterY * heightScale;
-  float bottomTextOffset = originalBottomTextOffset * heightScale;
+  float bottomTextOffset = bottomTextY();
 
   // --- Draw the Text ---
   fill(easedTitleColor);
@@ -945,6 +960,8 @@ void changeContainerSize() {
     targetContainerWidth = (((int)random(2) == 0) ? 5120 : 2160) / cWHf;
     targetContainerHeight = (((int)random(2) == 0) ? 3840 : 1620) / cWHf;
 
+    targetContainerWidth = (int) constrain(targetContainerWidth, areaSafeWidth() * 0.3, areaSafeWidth());
+    targetContainerHeight = (int) constrain(targetContainerHeight, areaSafeHeight() * 0.3, areaSafeHeight());
     println("New target container size: " + targetContainerWidth + "x" + targetContainerHeight);
 }
 
