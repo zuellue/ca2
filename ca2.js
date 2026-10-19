@@ -599,7 +599,7 @@
     if (curOn) {
       curEl.style.display = 'block'; curRRnow = curRR;
       curEl.style.width = curEl.style.height = (curRR * 2) + 'px'; curEl.style.borderWidth = P.axisWidth + 'px'; curEl.style.borderColor = curCol;
-      var dp = 2 * cursorScale; curDot.style.width = curDot.style.height = dp + 'px'; curDot.style.background = curCol;
+      var dp = 2 * cursorScale; curDot.style.width = curDot.style.height = dp + 'px'; curDot.style.background = curCol; curDot.style.display = (!(hovering && mouse.over && hoverCell) && titleHit) ? 'none' : '';
       curEl.style.transform = 'translate(' + (mouse.x - curRR) + 'px,' + (mouse.y - curRR) + 'px)';
       cv.style.cursor = 'none';
     } else { curEl.style.display = 'none'; cv.style.cursor = 'default'; }
