@@ -37,11 +37,13 @@
   .row input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; margin: 2px 0 0; background: transparent; cursor: pointer; }
   .row input[type=range]::-webkit-slider-runnable-track { height: 1.5px; background: var(--fg-soft); }
   .row input[type=range]::-moz-range-track { height: 1.5px; background: var(--fg-soft); }
-  .row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: -5px; border-radius: 50%; border: 1.5px solid var(--fg); background: transparent; }
-  .row input[type=range]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--fg); background: transparent; }
+  .row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: -5px; border-radius: 50%; border: 1.5px solid var(--fg-soft); background: transparent; }
+  .row input[type=range]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--fg-soft); background: transparent; }
   /* knob hover: CA-driven drift of the thumb (visual only; the value does not change) */
   .row input[type=range]::-webkit-slider-thumb { transform: translate(var(--kx, 0px), 0) scale(var(--ks, 1)); transition: transform .1s linear; }
   .row input[type=range]::-moz-range-thumb { transform: translate(var(--kx, 0px), 0) scale(var(--ks, 1)); transition: transform .1s linear; }
+  .row input[type=range]:hover::-webkit-slider-thumb { background: var(--hc, transparent); border-color: var(--hc, var(--fg-soft)); }
+  .row input[type=range]:hover::-moz-range-thumb { background: var(--hc, transparent); border-color: var(--hc, var(--fg-soft)); }
   .row.live .lab b { color: var(--kc); }
   .row.live input[type=range]::-webkit-slider-thumb { background: var(--kc); border-color: var(--kc); }
   .row.live input[type=range]::-moz-range-thumb { background: var(--kc); border-color: var(--kc); }
@@ -57,11 +59,17 @@
   .keys { margin-top: 14px; border-top: 1.5px solid var(--fg-soft); padding-top: 10px; color: var(--fg-soft); }
   .keys div { display: flex; justify-content: space-between; padding: 2px 0; }
   /* section circles: right lane of the config panel, title-dot size, tangent stacking */
-  #secc { position: absolute; right: 8px; z-index: 5; display: flex; flex-direction: column; align-items: center; }
+  #secc { position: fixed; right: 8px; z-index: 5; display: flex; flex-direction: column; align-items: center; }
   #secc .sci { display: flex; flex-direction: column; align-items: center; }
   #secc .sc { border-radius: 50%; box-sizing: border-box; cursor: pointer; flex: none; }
-  #secc .sl { writing-mode: vertical-rl; text-transform: uppercase; letter-spacing: .3em; font-size: 13px; overflow: hidden; height: 0; transition: height .25s ease; pointer-events: none; white-space: nowrap; }
-  #secc .sl span { opacity: 0; transition: opacity .06s linear; }
+  #secc .sl { text-transform: uppercase; font-size: 13px; overflow: hidden; height: 0; transition: height .25s ease; pointer-events: none; margin-top: 10px; text-align: center; }
+  #secc .sl span { display: block; opacity: 0; transition: opacity .06s linear; line-height: 17px; }
+  /* admin entry: 4 hollow circles stacked at the bottom right, on the section-circle axis */
+  #adm { display: none; position: fixed; right: 8px; bottom: 14px; z-index: 11; flex-direction: column; align-items: center; cursor: text; }
+  #adm.on { display: flex; }
+  #adm .ac { border-radius: 50%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: var(--fg); font-family: 'Fragment Mono', ui-monospace, monospace; }
+  #adm .ac span { line-height: 1; }
+  #adm.err .ac { border-color: #ff3c3c !important; color: #ff3c3c; }
   #cur { position: fixed; left: 0; top: 0; display: none; pointer-events: none; z-index: 8; box-sizing: border-box; border: 1px solid #000; border-radius: 50%; will-change: transform; }
   #cur i { position: absolute; left: 50%; top: 50%; width: 2px; height: 2px; border-radius: 50%; transform: translate(-50%, -50%); background: #000; }
 </style>

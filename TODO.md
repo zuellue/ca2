@@ -13,3 +13,4 @@ Pending, in order:
 8. config backdrop blur: right-to-left gradient to sharp, width parameter (in preset)
 9. config panel width parameter (in preset)
 11. remove line under config section titles
+Done + live (UI team, 20 Oct 13:3x, after 0a9c58b): admin entry moved out of the panel to 4 stacked circles bottom-right on the section-circle axis (digits top-to-bottom, ADMN on success, blurs after entry so 'c' works); section labels upright stacked letters with spacing; one click opens the section level with its circle (fold/unfold removed); circle lane no longer rides the scroll; section circles stir rule-110 on hover; knob outline = track colour; knob hover fills random R/G/B; food drawn under cells; cold-load pull no longer wipes CA knob modes; admin push writes only knob-touched keys (trans values no longer leak to the global preset).

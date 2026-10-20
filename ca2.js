@@ -739,9 +739,8 @@
       circlesNow.forEach(function (c) { var v = circleCol[c.key]; if (v !== undefined) { ctx.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')'; ctx.beginPath(); ctx.arc(c.x, c.y, c.r + 0.6, 0, 6.2832); ctx.fill(); } });
       if (hitKey) titleHit = { c: hitC, v: circleCol[hitKey] };
     }
+    if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow && introOn(CELL_END + food[i].r * (FOOD_END - CELL_END))) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; } // food first: it sits under the cells
     curS = DPR * res; if (cells.length || t0 - fadeT0 > INTRO_MS) drawMetaballs(curS); // an empty intro plate skips the full-buffer pass
-
-    if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow && introOn(CELL_END + food[i].r * (FOOD_END - CELL_END))) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; }
     if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { if (!fadeA('pa' + i)) continue; ctx.beginPath(); ctx.arc(parasites[i].x, parasites[i].y, 2.2, 0, 6.2832); ctx.fill(); } ctx.globalAlpha = 1; }
 
     // area outline: no rounded corners. Each side stops `corner` px short of both ends, so the corner lines never meet.
@@ -836,7 +835,7 @@
   }
   function liveStop(k) {
     var L = live[k]; if (!L) return; L.row.classList.remove('live'); L.row.style.removeProperty('--kc');
-    delete live[k]; P[k] = L.orig; applyKey(k, L.orig); save();
+    delete live[k]; P[k] = L.orig; if (typeof touched === 'object') touched[k] = 1; applyKey(k, L.orig); save();
   }
   function stepLive(now) {
     for (var k in live) {
@@ -943,6 +942,7 @@
   }
   function fmt(v) { return Math.abs(v) >= 100 ? String(Math.round(v)) : String(Math.round(v * 1000) / 1000); }
   var lockBox, lockVal;
+  var touched = {}; // keys the user actually edited; admin push writes only these
   var SECS = [];
   GROUPS.forEach(function (grp) {
     var h = document.createElement('div'); h.className = 'grp'; h.textContent = grp[0]; ctl.appendChild(h);
@@ -968,7 +968,7 @@
             var v = parseFloat(t);
             if (isFinite(v)) {
               if (live[k]) liveStop(k);
-              P[k] = v; applyKey(k, v); inp.value = v; val.textContent = fmt(v);
+              P[k] = v; touched[k] = 1; applyKey(k, v); inp.value = v; val.textContent = fmt(v);
               if (/UNIVERSE|CELL_RADIUS|Mutation|interaction|Rate/.test(k)) { lockParams = true; if (lockBox) { lockBox.checked = true; lockVal.textContent = 'on'; } }
               save();
             }
@@ -983,10 +983,11 @@
       inp.addEventListener('dblclick', function () {
         var k = q[0];
         if (live[k]) { liveStop(k); inp.value = P[k]; val.textContent = fmt(P[k]); return; }
-        var o = downVal === null ? P[k] : downVal; P[k] = o; applyKey(k, o); inp.value = o; val.textContent = fmt(o); liveStart(k, q, o, d); save();
+        var o = downVal === null ? P[k] : downVal; P[k] = o; touched[k] = 1; applyKey(k, o); inp.value = o; val.textContent = fmt(o); liveStart(k, q, o, d); save();
       });
       // hover: the thumb stirs with a small rule-110 life of its own (visual only, value untouched)
       inp.addEventListener('pointerenter', function () {
+        inp.style.setProperty('--hc', ['#ff0000', '#00ff00', '#0000ff'][Math.floor(Math.random() * 3)]);
         var k = q[0]; if (hovCA[k]) return;
         var st = { s: (hash(k) ^ 0x9e37) || 7 }, bits = [];
         for (var i = 0; i < 16; i++) bits.push(lcg(st) < 0.5 ? 1 : 0);
@@ -1008,7 +1009,7 @@
       });
       inp.addEventListener('input', function () {
         if (live[q[0]]) { inp.value = P[q[0]]; return; }
-        var v = parseFloat(inp.value); P[q[0]] = v; val.textContent = fmt(v);
+        var v = parseFloat(inp.value); P[q[0]] = v; touched[q[0]] = 1; val.textContent = fmt(v);
         applyKey(q[0], v);
         if (q[0] === 'fps') { /* nothing */ } else if (/UNIVERSE|CELL_RADIUS|Mutation|interaction|Rate/.test(q[0])) { lockParams = true; if (lockBox) { lockBox.checked = true; lockVal.textContent = 'on'; } }
         save();
@@ -1025,14 +1026,14 @@
     var l = document.createElement('label'); l.className = 'chk';
     l.innerHTML = '<span>' + label + '</span><b>' + (init ? 'on' : 'off') + '</b><input type="checkbox" style="display:none"' + (init ? ' checked' : '') + '>';
     var c = l.querySelector('input'), b = l.querySelector('b');
-    c.addEventListener('change', function () { b.textContent = c.checked ? 'on' : 'off'; fn(c.checked); save(); });
+    c.addEventListener('change', function () { b.textContent = c.checked ? 'on' : 'off'; var bef = Object.assign({}, P); fn(c.checked); for (var k in P) if (P[k] !== bef[k]) touched[k] = 1; save(); });
     ctl.appendChild(l); return { box: c, val: b, el: l };
   }
   function choice(label, key, opts, fn) {
     var l = document.createElement('label'); l.className = 'chk';
     l.innerHTML = '<span>' + label + '</span><b>' + opts[P[key]] + '</b>';
     var b = l.querySelector('b');
-    l.addEventListener('click', function () { P[key] = (P[key] + 1) % opts.length; b.textContent = opts[P[key]]; if (fn) fn(P[key]); save(); });
+    l.addEventListener('click', function () { P[key] = (P[key] + 1) % opts.length; touched[key] = 1; b.textContent = opts[P[key]]; if (fn) fn(P[key]); save(); });
     ctl.appendChild(l); return { el: l };
   }
   var gh = document.createElement('div'); gh.className = 'grp'; gh.textContent = 'switches'; ctl.appendChild(gh);
@@ -1068,7 +1069,7 @@
   var fcRow = document.createElement('div'); fcRow.className = 'row';
   fcRow.innerHTML = '<div class="lab"><span>food dot color</span><b style="font-weight:normal">' + P.foodColor + '</b></div>';
   var fcInp = document.createElement('input'); fcInp.type = 'color'; fcInp.value = P.foodColor; fcInp.style.cssText = 'width:100%;height:22px;border:0;background:none;padding:0;cursor:pointer';
-  fcInp.addEventListener('input', function () { P.foodColor = fcInp.value; fcRow.querySelector('b').textContent = fcInp.value; save(); });
+  fcInp.addEventListener('input', function () { P.foodColor = fcInp.value; touched.foodColor = 1; fcRow.querySelector('b').textContent = fcInp.value; save(); });
   fcRow.appendChild(fcInp); ctl.insertBefore(fcRow, gh); SECS[8].els.push(fcRow);
   var bgRow = document.createElement('div'); bgRow.className = 'row';
   bgRow.innerHTML = '<div class="lab"><span>background</span><b style="font-weight:normal">#e9e9e9</b></div>';
@@ -1103,42 +1104,64 @@
     var txt = sec.name.toUpperCase(), spans = [];
     for (var i = 0; i < txt.length; i++) { var sp = document.createElement('span'); sp.textContent = txt[i]; lb.appendChild(sp); spans.push(sp); }
     it.appendChild(c); it.appendChild(lb); secc.appendChild(it); sec.circ = c;
+    var caT = null, caSt = null;
     c.addEventListener('pointerenter', function () {
       var col = CIRC_COLS[Math.floor(Math.random() * 3)];
       c.style.background = col; c.style.borderColor = col; lb.style.color = col;
-      lb.style.height = (txt.length * 17 + 6) + 'px';
+      lb.style.height = (txt.length * 17 + 14) + 'px';
       spans.forEach(function (sp) { sp.style.opacity = '0'; sp.style.transitionDelay = (Math.random() * 0.35).toFixed(2) + 's'; });
       void lb.offsetWidth;
       spans.forEach(function (sp) { sp.style.opacity = '1'; });
+      // the circle stirs with a small rule-110 life of its own, like the knobs (visual only)
+      caSt = { s: (hash(sec.name) ^ 0x51f3) || 9 }; var bits = [];
+      for (var i = 0; i < 16; i++) bits.push(lcg(caSt) < 0.5 ? 1 : 0);
+      var dx = 0;
+      caT = setInterval(function () {
+        var nb = new Array(16), sum = 0;
+        for (var i = 0; i < 16; i++) { nb[i] = (110 >> (bits[(i + 15) % 16] * 4 + bits[i] * 2 + bits[(i + 1) % 16])) & 1; sum += nb[i]; }
+        if (sum === 0 || sum === 16) nb[Math.floor(lcg(caSt) * 16)] ^= 1;
+        bits = nb;
+        dx = clamp(dx + (nb[0] + nb[5] + nb[10] - 1.5) * 1.5 + (lcg(caSt) - 0.5) * 2, -6, 6);
+        c.style.transform = 'translate(' + dx.toFixed(1) + 'px,0) scale(' + (1 + sum / 16 * 0.4).toFixed(2) + ')';
+      }, 110);
     });
     c.addEventListener('pointerleave', function () {
       c.style.background = 'transparent'; c.style.borderColor = '';
       spans.forEach(function (sp) { sp.style.opacity = '0'; sp.style.transitionDelay = '0s'; });
       lb.style.height = '0px';
+      if (caT) { clearInterval(caT); caT = null; }
+      c.style.transform = '';
     });
     c.addEventListener('click', function (e) {
       e.stopPropagation();
-      sec.folded = !sec.folded;
-      sec.els.forEach(function (el) { el.style.display = sec.folded ? 'none' : ''; });
-      c.style.opacity = sec.folded ? '.35' : '1';
-      if (!sec.folded) sec.hdr.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      // one click opens the section: unfold if needed, then scroll so the header sits level with this circle
+      if (sec.folded) { sec.folded = false; sec.els.forEach(function (el) { el.style.display = ''; }); c.style.opacity = '1'; }
+      var pR = panel.getBoundingClientRect(), cR = c.getBoundingClientRect(), hR = sec.hdr.getBoundingClientRect();
+      var targetY = cR.top + cR.height / 2 - pR.top;
+      panel.scrollTo({ top: panel.scrollTop + (hR.top - pR.top) - targetY, behavior: 'smooth' });
     });
   });
+  var admCircles = []; // filled by adminInit: 4 stacked digit circles, same lane and size as the section circles
   var circSig = '';
   function placeCircles() {
     var L = lay(), u = L.fs / 1000, R0 = 166.5 * u, D = 2 * R0;
-    var sig = [D.toFixed(2), L.M, L.dh, P.axisWidth, panel.scrollTop, P.panelWidth].join('|');
+    var sig = [D.toFixed(2), L.M, L.dh, P.axisWidth, P.panelWidth].join('|');
     if (sig === circSig) return; circSig = sig;
     var y0 = Math.max(4, L.M + L.dh - 500 * u - R0); // first circle centred on the title's topmost circle
-    secc.style.top = (y0 + panel.scrollTop) + 'px';
+    secc.style.top = y0 + 'px'; // sticky lane: the panel's transform makes fixed stick to the panel, so the circles never ride the scroll
     panel.style.paddingRight = (D + 16) + 'px';
     for (var i = 0; i < secc.childNodes.length; i++) {
       var c = secc.childNodes[i].firstChild;
       c.style.width = D + 'px'; c.style.height = D + 'px';
       c.style.border = P.axisWidth + 'px solid var(--fg)';
+      var lb2 = secc.childNodes[i].querySelector('.sl'); if (lb2) lb2.style.width = D + 'px';
+    }
+    for (var j = 0; j < admCircles.length; j++) {
+      admCircles[j].style.width = D + 'px'; admCircles[j].style.height = D + 'px';
+      admCircles[j].style.border = P.axisWidth + 'px solid var(--fg)';
+      admCircles[j].style.fontSize = Math.max(8, D * 0.62) + 'px';
     }
   }
-  panel.addEventListener('scroll', placeCircles);
   placeCircles();
   panel.addEventListener('click', function (e) { e.stopPropagation(); });
   var lastSync = 0;
@@ -1163,33 +1186,58 @@
         if (!g || !g._v || g._v === lastV) return; lastV = g._v;
         try { localStorage.setItem(GK, JSON.stringify(g)); } catch (e) {}
         if (admin) return;
-        if (applyG(g)) { Object.keys(live).forEach(function (k) { delete live[k]; }); lastSync = 0; syncUI(0); }
+        if (applyG(g)) { lastSync = 0; syncUI(0); }
       }).catch(function () {});
     }
     try { var cg = JSON.parse(localStorage.getItem(GK) || 'null'); if (cg) { applyG(cg); lastV = cg._v || 0; } } catch (e) {}
     pullG(true); setInterval(pullG, 4000);
     window.__adminPush = function () {
-      if (!admin) return; var patch = {}, any = false;
-      Object.keys(P).forEach(function (k) { var v = P[k]; if (live[k]) v = live[k].orig; if ((typeof v === 'number' && isFinite(v) || typeof v === 'string') && sent[k] !== v) { patch[k] = v; sent[k] = v; any = true; } });
-      var lm = JSON.stringify(liveMap()); if (sent._live !== lm) { patch._live = lm; sent._live = lm; any = true; } // the Worker stores primitives only
-      if (any) post({ code: admin, patch: patch }).then(function (r) { if (r && r.v) lastV = r.v; }).catch(function () {});
+      if (!admin) return; var patch = {}, keys = [];
+      for (var k in touched) { var v = P[k]; if (live[k]) v = live[k].orig; if ((typeof v === 'number' && isFinite(v) || typeof v === 'string') && sent[k] !== v) { patch[k] = v; keys.push(k); } }
+      var lm = JSON.stringify(liveMap()); if (sent._live !== lm) { patch._live = lm; } // the Worker stores primitives only
+      if (!keys.length && patch._live === undefined) return;
+      post({ code: admin, patch: patch }).then(function (r) {
+        if (r && !r.error) { keys.forEach(function (k) { sent[k] = patch[k]; delete touched[k]; }); if (patch._live !== undefined) sent._live = patch._live; if (r.v) lastV = r.v; }
+      }).catch(function () {});
     };
+    // entry widget: 4 hollow circles stacked on the section-circle axis at the bottom right; the code fills them
+    // top to bottom (2 2 2 2); a good code turns them into A D M N. The real input is invisible and only catches keys.
+    var adm = document.createElement('div'); adm.id = 'adm';
+    var aglyphs = [];
+    for (var ai = 0; ai < 4; ai++) {
+      var ac = document.createElement('div'); ac.className = 'ac';
+      var ag = document.createElement('span'); ac.appendChild(ag); adm.appendChild(ac);
+      admCircles.push(ac); aglyphs.push(ag);
+    }
+    document.body.appendChild(adm); circSig = ''; placeCircles();
     var box = document.createElement('input'); box.type = 'text'; box.maxLength = 4; box.setAttribute('inputmode', 'numeric'); box.autocomplete = 'off'; box.spellcheck = false;
-    box.style.cssText = 'display:none;position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:88px;text-align:center;letter-spacing:.35em;font:12px "Fragment Mono",monospace;color:#fff;background:transparent;border:1px solid rgba(255,255,255,.6);padding:6px 4px;outline:none;z-index:5';
-    document.getElementById('panel').appendChild(box);
+    box.style.cssText = 'position:fixed;left:-200px;top:0;width:20px;height:20px;opacity:0;border:0;padding:0;outline:none';
+    document.body.appendChild(box);
+    function admShow(v) { adm.classList.toggle('on', v); if (v) { box.value = ''; aglyphs.forEach(function (g) { g.textContent = ''; }); setTimeout(function () { box.focus(); }, 0); } }
+    adm.addEventListener('click', function () { box.focus(); });
     box.addEventListener('input', function () {
-      box.value = box.value.replace(/\D/g, '');
-      if (box.value.length === 4) post({ code: box.value, check: true }).then(function (r) {
-        if (r && r.ok) { admin = box.value; sent = {}; Object.keys(P).forEach(function (k) { sent[k] = P[k]; }); box.value = ''; box.placeholder = 'admin'; box.style.borderColor = '#fff'; window.__adminOn = true; }
-        else { box.value = ''; box.style.borderColor = 'rgba(255,60,60,.9)'; setTimeout(function () { box.style.borderColor = 'rgba(255,255,255,.6)'; }, 600); }
-      }).catch(function () { box.value = ''; });
+      box.value = box.value.replace(/\D/g, '').slice(0, 4);
+      for (var i = 0; i < 4; i++) aglyphs[i].textContent = box.value[i] || '';
+      if (box.value.length === 4) {
+        var code = box.value;
+        post({ code: code, check: true }).then(function (r) {
+          if (r && r.ok) {
+            admin = code; sent = {}; Object.keys(P).forEach(function (k) { sent[k] = P[k]; });
+            var ADMN = 'ADMN'; for (var i = 0; i < 4; i++) aglyphs[i].textContent = ADMN[i];
+            window.__adminOn = true;
+          } else {
+            adm.classList.add('err'); setTimeout(function () { adm.classList.remove('err'); aglyphs.forEach(function (g) { g.textContent = ''; }); }, 600);
+          }
+          box.value = ''; box.blur(); // hand the keys back: 'c' and the rest belong to the sketch again
+        }).catch(function () { box.value = ''; box.blur(); });
+      }
     });
     box.addEventListener('keydown', function (e) { e.stopPropagation(); });
     window.addEventListener('dblclick', function () {
       if (!/^R0_/.test(lastCircleHit || '')) return;
-      if (admin) { __adminPush(); admin = null; window.__adminOn = false; box.style.display = 'none'; box.placeholder = ''; }
-      else if (box.style.display === 'none') { box.style.display = 'block'; box.value = ''; setTimeout(function () { box.focus(); }, 0); }
-      else box.style.display = 'none';
+      if (admin) { __adminPush(); admin = null; window.__adminOn = false; admShow(false); }
+      else if (!adm.classList.contains('on')) admShow(true);
+      else admShow(false);
     });
   })();
   function syncUI(total) {
