@@ -835,7 +835,29 @@
   }
   // mode 3 swarm: continuous dots that flock; Life-like thinning: isolated dots fade away, dots with 2-3 near neighbours may bud a child, crowded ones die
   var swT = 0, swStat = { born: 0, died: 0 };
+  function stepSwarmW() { // Rust/wasm swarm step (swarm.rs); returns false when unavailable so the JS body below runs (?nowasm=1, ?nosim=1)
+    var E = WC.e; if (!E || !E.sw_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
+    try {
+      var n = food.length, i, f, b, x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h, ar = cont.w * cont.h * P.foodDensity;
+      var ip = E.sw_in(n), buf = new Float64Array(WC.mem.buffer, ip, n * 6 + 6);
+      for (i = 0; i < n; i++) { f = food[i]; if (f.vx === undefined) { f.vx = (Math.random() - 0.5) * 0.4; f.vy = (Math.random() - 0.5) * 0.4; } b = i * 6; buf[b] = f.x; buf[b + 1] = f.y; buf[b + 2] = f.vx; buf[b + 3] = f.vy; buf[b + 4] = f.r; }
+      var life = performance.now() - swT >= P.foodLifeMs * 2;
+      var m = E.sw_run(n, x0, x1, y0, y1, life ? 1 : 0, n < ar ? 1 : 0, ar * 0.1, Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
+      if (m < 0) return false;
+      if (life) swT = performance.now();
+      var o = new Float64Array(WC.mem.buffer, E.sw_out(), m * 7), st = new Float64Array(WC.mem.buffer, E.sw_stat(), 4), out = new Array(m), kept = new Uint8Array(n), k, src;
+      swStat.died += st[0]; swStat.born += st[1];
+      for (k = 0; k < m; k++) {
+        b = k * 7; src = o[b + 5];
+        if (src >= 0) { f = food[src]; kept[src] = 1; f.x = o[b]; f.y = o[b + 1]; f.vx = o[b + 2]; f.vy = o[b + 3]; out[k] = f; }
+        else out[k] = { x: o[b], y: o[b + 1], r: o[b + 4], vx: 0, vy: 0 };
+      }
+      for (i = 0; i < n; i++) if (!kept[i]) food[i].gone = 1;
+      food = out; return true;
+    } catch (e) { return false; }
+  }
   function stepSwarm() {
+    if (stepSwarmW()) return;
     var i, f, x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h, n = food.length, G = 18, grid = new Map(), K = 10007;
     for (i = 0; i < n; i++) { f = food[i]; if (f.vx === undefined) { f.vx = (Math.random() - 0.5) * 0.4; f.vy = (Math.random() - 0.5) * 0.4; } f.gx = Math.floor(f.x / G); f.gy = Math.floor(f.y / G); var key = f.gx * K + f.gy; var arr = grid.get(key); if (arr) arr.push(f); else grid.set(key, [f]); }
     var life = performance.now() - swT >= P.foodLifeMs * 2; if (life) swT = performance.now();
@@ -1028,11 +1050,12 @@
     if (Math.random() < P.foodDensity && food.length < cont.w * cont.h * P.foodDensity * 2) food.push({ x: rnd(cont.w) + cont.x, y: rnd(cont.h) + cont.y, r: Math.random() });
     if (Math.random() < 0.001 && food.length) food.splice(Math.floor(rnd(food.length)), 1);
     if (P.foodMode === 1 || (P.foodMode === undefined && P.foodLife)) stepFood(); else if (P.foodMode === 2) stepBlobs(); else if (P.foodMode === 3) stepSwarm(); else if (P.foodMode === 4) stepWorms(); else if (P.foodMode === 5) stepSpores();
+    pfm('food step');
     if (P.foodMode !== 4 && worms.length) wipeWorms(); if (P.foodMode !== 5 && spores.length) wipeSpores();
-    foodKeepIn();
+    foodKeepIn(); pfm('foodKeepIn');
 
     if (trans) stepTrans(t0, dtf);
-    pfm('setup');
+    pfm('stepTrans');
     // cluster state: shared motion and energy; a cluster of one dissolves, members sometimes leave on their own
     cmean = {};
     if (P.eatMergeOn) {
@@ -1041,7 +1064,7 @@
       for (i = 0; i < cells.length; i++) { var c1 = cells[i]; if (c1.cl && (cmean[c1.cl].n < 2 || Math.random() < 0.0005)) c1.cl = 0; }
     } else for (i = 0; i < cells.length; i++) cells[i].cl = 0;
     var clusterCount = Object.keys(cmean).length;
-    hovering = false; var tmpHover = [255, 255, 255], hoverCell = null;
+    pfm('cluster state'); hovering = false; var tmpHover = [255, 255, 255], hoverCell = null;
     var tmpR = { v: null }, tj0 = performance.now(), simDone = simW(tmpR); SIMW.frames = (SIMW.frames || 0) + 1; if (simDone) { tmpHover = tmpR.v; hoverCell = tmpR.hc; }
     if (!simDone) for (var i = cells.length - 1; i >= 0; i--) {
       var c = cells[i]; update(c); checkSurvival(c);
@@ -1063,7 +1086,7 @@
     }
     if (!simDone) SIMW.js = (SIMW.js || 0) * 0.9 + (performance.now() - tj0) * 0.1;
     hoverCol = hovering ? tmpHover : [255, 255, 255];
-    stepParasites();
+    stepParasites(); pfm('sim loop+parasites');
 
     var Lx = lay(), sT0 = String(cells.length), sX0 = String(Math.round(mouse.x));
     var mv = mouse.over ? invAt(mouse.x, mouse.y) : [bg[0] > 128 ? 0 : 255, bg[0] > 128 ? 0 : 255, bg[0] > 128 ? 0 : 255], k2 = 0.3;
@@ -1079,7 +1102,7 @@
     var dom = [0, 0, 0];
     if (rc > gc && rc > bc) dom = [255, 0, 0]; else if (gc > rc && gc > bc) dom = [0, 255, 0]; else if (bc > rc && bc > gc) dom = [0, 0, 255];
 
-    var L = lay(), M = L.M, G = L.G, fs = L.fs, dh = L.dh;
+    pfm('axis+tally'); var L = lay(), M = L.M, G = L.G, fs = L.fs, dh = L.dh;
     var sY = String(Math.round(mouse.y)), sX = String(Math.round(mouse.x)), sT = String(cells.length);
     var vTop = M + dh + L.row + G, vBot = H - M - dh - G, cxm = W / 2, cym = H / 2, topBase0 = M + dh;
     if (P.showHud) {
@@ -1102,6 +1125,7 @@
       put(String(gc), eased.g, 'center', cxm, botBase);
     }
 
+    pfm('hud text');
     // title circles: hover turns a circle to random black or white (new random pick on every hover); the cursor reacts
     var titleHit = null;
     if (P.showHud && P.titleCircles) {
