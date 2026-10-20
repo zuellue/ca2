@@ -1,5 +1,6 @@
 mod parasites;
 mod sim;
+mod tr;
 mod spores;
 mod swarm;
 mod worms;
@@ -196,6 +197,10 @@ pub extern "C" fn mb_field_f32(n: usize, bw: usize, bh: usize, s: f64, ms: f64, 
 #[no_mangle] pub extern "C" fn sp_run(n: usize, x0: f64, x1: f64, y0: f64, y1: f64, dtms: f64, cap: f64, s0: f64, s1: f64) -> f64 { spores::sp().step(n, x0, x1, y0, y1, dtms, cap, s0, s1) as f64 }
 #[no_mangle] pub extern "C" fn sp_out() -> *const f64 { spores::sp().out.as_ptr() }
 #[no_mangle] pub extern "C" fn sp_stat() -> *const f64 { spores::sp().stat.as_ptr() }
+
+#[no_mangle] pub extern "C" fn tr_cells(cap: usize) -> *mut f64 { let s = tr::tr(); s.cells.resize(cap * 13 + 13, 0.0); s.cells.as_mut_ptr() }
+#[no_mangle] pub extern "C" fn tr_run(n: usize, now: f64, dt: f64, t0: f64, dur: f64, cr: f64, plan: f64, s0: f64, s1: f64) -> f64 { tr::tr().step(n, now, dt, t0, dur, cr, plan != 0.0, s0, s1) as f64 }
+#[no_mangle] pub extern "C" fn tr_stat() -> *const f64 { tr::tr().stat.as_ptr() }
 
 #[no_mangle] pub extern "C" fn pa_cells(cap: usize) -> *mut f64 { let s = parasites::pa(); s.ci.resize(cap * 5 + 5, 0.0); s.ci.as_mut_ptr() }
 #[no_mangle] pub extern "C" fn pa_energy(cap: usize) -> *mut f64 { let s = parasites::pa(); s.en.resize(cap + 1, 0.0); s.en.as_mut_ptr() }

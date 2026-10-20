@@ -34,12 +34,14 @@ Wasm i64 returns become BigInt in JS: return f64 from exports.
 - live knob CA (stepLive): MEASURED, skipped. liveTest headless: 6.1-9.5 us per 110 ms generation per knob INCLUDING applyKey side effects (~0.001 ms/frame/knob EMA; 10 live knobs ~0.014 ms/frame). Wasm marshal overhead exceeds the whole compute; the real cost is applyKey DOM/config side effects, which must stay JS.
 - stepTrans active cost MEASURED (t87, forced refresh, transition active): 0.07 ms at 52 cells rising to 0.27 ms at 189 cells (~1.4 us/cell/frame, O(n) composition chase + radius drift + spawn bursts). Owner config refreshes every 2-9 s so transitions are frequent. Porting the fused per-cell pass (chase + drift); spawns (newShape body plans) stay in JS per the body-plan TODO.
 
+- stepTrans fused pass -> wasm/src/tr.rs (transPassW in ca2.js; JS drift loops + stepComposition kept as fallback via ?nowasm=1 / ?nosim=1). Port covers the O(n) radius drift (both paths) + composition chase (ease curve, jitter, bend, dying kills, open count); P lerps, spawn/kill population pressure, compSpawns (newShape body plans) and completion checks stay JS. Unit check (t88b, node, 200 mixed cells x 120 frames): radius drift bit-exact (0 diff), deaths 8=8, alive mismatch 0, open totals 17878 js vs 17871 wasm (chaotic jitter boundary flips only), avg positional divergence 1.39 px. Bench (node, 5000 cells, step only): JS 0.2809 -> wasm 0.2248 ms/frame incl pack/unpack. Live engagement (t88, headless, forced refresh): WC.fwTr increments with every transition, 0 errors; per-cell live EMA ~1.8 us/cell js (?nowasm=1, 0.132 ms at 72 cells) vs ~0.9-1.1 us/cell wasm (0.105 ms at 96, 0.123 at 136) - populations chaotic so per-cell at similar n is the comparable read.
+
 ## Measured JS cost left (sandbox, ms/frame EMA, ?perf=1)
 worms food step 1.27 (542 food), spores 1.88 (517 food), axis+tally 1.5-2.0 (drawAxis = canvas, stays JS), stepTrans 0.1-0.8, foodKeepIn 0.05-0.4, buildSources 0.5 ms/s in spores.
 
 ## TODO (order)
 0. DONE (t83-t85): engagement proven, no throws; sandbox A/B is environment-dominated (0.7 fps pathology with full visuals; tiny populations after mode switches) - node benches are the clean numbers, owner-machine HUD read via ?nofoodwasm=1 is the clean live one.
-1. stepTrans fused pass IN PROGRESS; then stepFood (mode 1), stepBlobs (mode 2), foodKeepIn (0.05-0.4 ms) -> wasm. live knob CA measured+skipped (see Done).
+1. stepTrans fused pass DONE (tr.rs, see Done). Next: stepFood (mode 1), stepBlobs (mode 2), foodKeepIn (0.05-0.4 ms) -> wasm. live knob CA measured+skipped (see Done).
 2. buildSources / emitCell.
 4. body-plan logic (newShape/mixShape/simSwim) after desktop team finishes.
 5. keepIn root cause (boundary/zone=0) hash+diff from desktop team -> port into sim.rs keep_in (zone floor already 0).
