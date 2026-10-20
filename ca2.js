@@ -1189,41 +1189,14 @@
     l.innerHTML = '<span>' + label + '</span><b>' + (init ? words[0] : words[1]) + '</b><input type="checkbox" style="display:none"' + (init ? ' checked' : '') + '>';
     var c = l.querySelector('input'), b = l.querySelector('b');
     c.addEventListener('change', function () { b.textContent = c.checked ? words[0] : words[1]; var bef = Object.assign({}, P); fn(c.checked); for (var k in P) if (P[k] !== bef[k]) touched[k] = 1; save(); });
-    ctl.appendChild(l); hookChkHover(l); return { box: c, val: b, el: l };
+    ctl.appendChild(l); return { box: c, val: b, el: l };
   }
   function choice(label, key, opts, fn) {
     var l = document.createElement('label'); l.className = 'chk';
     l.innerHTML = '<span>' + label + '</span><b>' + opts[P[key]] + '</b>';
     var b = l.querySelector('b');
     l.addEventListener('click', function () { P[key] = (P[key] + 1) % opts.length; touched[key] = 1; b.textContent = opts[P[key]]; if (fn) fn(P[key]); save(); });
-    ctl.appendChild(l); hookChkHover(l); return { el: l };
-  }
-  var CHK_COLS = ['#ff0000', '#00ff00', '#0000ff'];
-  function hookChkHover(l) {
-    var st = null;
-    function stop() { if (!st) return; clearTimeout(st.t); st.restore.forEach(function (f) { f(); }); st = null; }
-    l.addEventListener('pointerenter', function () {
-      stop();
-      var sp = l.querySelector('span'), b = l.querySelector('b'), seed = { s: (hash(l.textContent) ^ 0x77aa) || 5 }, bits = [], i;
-      for (i = 0; i < 16; i++) bits.push(lcg(seed) < 0.5 ? 1 : 0);
-      var fx = ['tint', 'spacing', 'slide', 'flicker'].sort(function () { return Math.random() - 0.5; }).slice(0, 1 + (Math.random() < 0.4 ? 1 : 0));
-      var restore = [], dx = 0;
-      if (fx.indexOf('tint') >= 0) { var col = CHK_COLS[Math.floor(Math.random() * 3)]; l.style.color = col; restore.push(function () { l.style.color = ''; }); }
-      if (fx.indexOf('spacing') >= 0) restore.push(function () { sp.style.letterSpacing = ''; });
-      if (fx.indexOf('slide') >= 0) { b.style.display = 'inline-block'; restore.push(function () { b.style.transform = ''; b.style.display = ''; }); }
-      if (fx.indexOf('flicker') >= 0) restore.push(function () { b.style.opacity = ''; });
-      st = { t: 0, restore: restore };
-      (function tick() {
-        var nb = new Array(16), sum = 0;
-        for (i = 0; i < 16; i++) { nb[i] = (110 >> (bits[(i + 15) % 16] * 4 + bits[i] * 2 + bits[(i + 1) % 16])) & 1; sum += nb[i]; }
-        if (sum === 0 || sum === 16) nb[Math.floor(lcg(seed) * 16)] ^= 1; bits = nb;
-        if (fx.indexOf('spacing') >= 0) sp.style.letterSpacing = (0.04 + sum / 16 * 0.5).toFixed(2) + 'em';
-        if (fx.indexOf('slide') >= 0) { dx = clamp(dx + (bits[0] + bits[5] + bits[10] - 1.5) * 2 + (lcg(seed) - 0.5) * 2, -8, 8); b.style.transform = 'translateX(' + dx.toFixed(1) + 'px)'; }
-        if (fx.indexOf('flicker') >= 0) b.style.opacity = (0.25 + (sum / 16) * 0.75).toFixed(2);
-        st.t = setTimeout(tick, 50 + Math.random() * 150);
-      })();
-    });
-    l.addEventListener('pointerleave', stop);
+    ctl.appendChild(l); return { el: l };
   }
   var CFG_FONTS = ['default', 'Fragment Mono', 'Times New Roman', 'Ca2-Thin', 'system sans', 'system mono'], CFG_STACK = [null, "'Fragment Mono', ui-monospace, monospace", "'Times New Roman', Times, serif", "'Ca2-Thin', monospace", "system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif", "ui-monospace, 'SF Mono', Menlo, monospace"], CFG_CASES = ['default', 'UPPER', 'lower', 'Sentence'];
   var gh = document.createElement('div'); gh.className = 'grp'; gh.textContent = 'switches'; ctl.appendChild(gh);
