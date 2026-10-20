@@ -754,11 +754,12 @@
     var eHit = resizeDrag || (mouse.over && !panel.matches(':hover') ? edgeHit(mouse.x, mouse.y) : null);
     if (eHit) {
       var Le = Math.max(10, lay().dh / 2), gE = Math.max(4, Le * 0.22), dE, offE = Le + 2; // vertex one full arm-length out: no arm ever crosses the boundary line
-      var rightE = mouse.x >= W / 2, downE = mouse.y >= H / 2;
+      var rightE = eHit.rx !== undefined ? eHit.rx : mouse.x >= W / 2, downE = eHit.dy !== undefined ? eHit.dy : mouse.y >= H / 2; // a drag keeps the corner it grabbed
       var bxE = rightE ? cont.x + cont.w : cont.x, byE = downE ? cont.y + cont.h : cont.y;
       if (eHit.h && eHit.v) { // corner: the edge icon rotated onto the diagonal, vertex outside the corner, tip facing the plate
         var a0 = rightE ? (downE ? 45 : -45) : (downE ? 135 : -135), r0 = a0 * Math.PI / 180;
-        dE = anglePath(a0 + 180, Le, gE, bxE + Math.cos(r0) * offE, byE + Math.sin(r0) * offE); // tip faces the plate
+        var gC = gE * 1.8, offC = 4.5; // wider gap between the two arms; arms lengthened by the same amount so the visible strokes keep their length; vertex hugs the corner
+        dE = anglePath(a0 + 180, Le + (gC - gE), gC, bxE + Math.cos(r0) * offC, byE + Math.sin(r0) * offC); // tip faces the plate
       } else if (eHit.h) { // vertical edge: vertex just outside it, at the pointer's height, tip facing the plate
         dE = anglePath(rightE ? 0 : 180, Le, gE, bxE + (rightE ? offE : -offE), clamp(mouse.y, cont.y, cont.y + cont.h));
       } else { // horizontal edge
@@ -791,7 +792,7 @@
     curInfo = { on: curOn, ring: ringOn, dot: curInfo3.dot, dp: curInfo3.dp, lx: curInfo2.lx, ly: curInfo2.ly, locked: curInfo2.locked, maxR: curMaxR, cx: curX, cy: curY, rr: curRR, col: curCol, title: !!titleHit };
     }
 
-     window.__ca2 = { introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
+     window.__ca2 = { cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
 
     if (autoRefresh && performance.now() - lastRefresh > refreshInterval * 1000) randomize();
     stepLive(t0);
@@ -854,6 +855,16 @@
         L.bits = nb;
         var a = clamp((nb.reduce(function (x, y) { return x + y; }, 0) / n - 0.2) / 0.6, 0, 1);
         if (L.plate) a = clamp(a * 0.45 + 0.55 * clamp(cells.length / 250, 0, 1), 0, 1);
+        // the CA density alone parks near the middle; the value is a walker over the whole range: the CA row steers its
+        // steps, it bounces off both ends, and a diversity pressure turns it towards the least-visited tenth of the range
+        if (L.walk === undefined) { L.walk = a; L.vis = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; L.dir = lcg(L.st) < 0.5 ? 1 : -1; }
+        var cs = (nb[0] + nb[7] + nb[14] + nb[21] - 2) * 0.5 + (lcg(L.st) - 0.5) * 0.4;
+        L.walk += L.dir * 0.012 + cs * 0.012;
+        if (L.walk > 1) { L.walk = 2 - L.walk; L.dir = -1; } else if (L.walk < 0) { L.walk = -L.walk; L.dir = 1; }
+        L.walk = clamp(L.walk, 0, 1);
+        L.vis[Math.min(9, Math.floor(L.walk * 10))]++;
+        if (L.gen % 25 === 0) { var lv = 0; for (i = 1; i < 10; i++) if (L.vis[i] < L.vis[lv]) lv = i; L.dir = (lv + 0.5) / 10 > L.walk ? 1 : -1; }
+        a = L.walk;
         L.target = L.q[2] + (L.q[3] - L.q[2]) * a * (LIVE_CAP[k] || 1);
       }
       if (L.target === undefined) continue;
@@ -1112,7 +1123,7 @@
     for (var i = 0; i < txt.length; i++) { var sp = document.createElement('span'); sp.textContent = txt[i]; lb.appendChild(sp); spans.push(sp); }
     it.appendChild(c); it.appendChild(lb); secc.appendChild(it); sec.circ = c;
     var caT = null, caSt = null, t1 = null, t2 = null, clone = null, dividing = false;
-    c.addEventListener('pointerenter', function () {
+    it.addEventListener('pointerenter', function () {
       var col = CIRC_COLS[Math.floor(Math.random() * 3)];
       c.style.background = col; c.style.borderColor = col; lb.style.color = col;
       lb.style.height = (txt.length * 17 + 14) + 'px';
@@ -1162,7 +1173,7 @@
       }, 110);
       var oc = caT; caT = { _a: oc, _b: life };
     });
-    c.addEventListener('pointerleave', function () {
+    it.addEventListener('pointerleave', function () {
       c.style.background = 'transparent'; c.style.borderColor = '';
       spans.forEach(function (sp) { sp.style.opacity = '0'; sp.style.transitionDelay = '0s'; });
       lb.style.height = '0px';
@@ -1173,12 +1184,12 @@
       if (clone) { clone.remove(); clone = null; }
       c.style.transition = ''; c.style.transform = '';
     });
-    c.addEventListener('click', function (e) {
+    it.addEventListener('click', function (e) {
       e.stopPropagation();
       if (sec.name === 'config') { solo(null); panel.scrollTo({ top: 0, behavior: 'smooth' }); return; }
       // one click: only this section stays visible, smooth-scrolled so its header middle sits on the circle's middle
       solo(sec);
-      var pR = panel.getBoundingClientRect(), cR = c.getBoundingClientRect(), hR = sec.hdr.getBoundingClientRect();
+      var pR = panel.getBoundingClientRect(), cR = it.getBoundingClientRect(), hR = sec.hdr.getBoundingClientRect();
       var targetY = cR.top + cR.height / 2 - pR.top - hR.height / 2;
       panel.scrollTo({ top: panel.scrollTop + (hR.top - pR.top) - targetY, behavior: 'smooth' });
     });
@@ -1195,6 +1206,29 @@
   // the topmost button is the CONFIG title: one click shows every section again, scrolled to the start
   addCirc({ name: 'config', hdr: panel.querySelector('h1'), els: [] });
   SECS.forEach(addCirc);
+
+  // config blur: depth of field that pulls into focus like a lens - edge layer first, then inward, easing in with a small
+  // overshoot and a settle; closing relaxes softly. Driven by CSS vars --bk1..4 (0..1.x), no sliding.
+  (function () {
+    var tab = document.getElementById('tab'), want = false, t0 = 0, from = [0, 0, 0, 0], cur = [0, 0, 0, 0], dur = 1900;
+    function openNow() { return panel.classList.contains('open') || panel.matches(':hover') || tab.matches(':hover'); }
+    function ease(x) { x = clamp(x, 0, 1); return 1 - Math.pow(1 - x, 3); }
+    function focusCurve(x) { // 0..1 with a hunt: overshoots to ~1.12, dips to ~0.96, settles at 1
+      x = clamp(x, 0, 1); return ease(x) + Math.sin(x * Math.PI * 2.2) * 0.12 * (1 - x) * Math.min(1, x * 4);
+    }
+    function loop(now) {
+      var o = openNow(); if (o !== want) { want = o; t0 = now; from = cur.slice(); }
+      var el = now - t0, root = document.documentElement.style;
+      for (var i = 0; i < 4; i++) {
+        var delay = (3 - i) * 0.14 * dur / (want ? 1 : 2.5), x = (el - delay) / (want ? dur : dur * 0.55), tgt = want ? 1 : 0, v;
+        if (want) v = from[i] + (tgt - from[i]) * focusCurve(x) ; else v = from[i] * (1 - ease(x));
+        if (x <= 0) v = from[i];
+        cur[i] = want ? clamp(v, 0, 1.2) : Math.max(0, v); root.setProperty('--bk' + (i + 1), cur[i].toFixed(3));
+      }
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
   var admCircles = []; // filled by adminInit: 4 stacked digit circles, same lane and size as the section circles
   var circSig = '';
   function placeCircles() {
@@ -1213,7 +1247,7 @@
     for (var j = 0; j < admCircles.length; j++) {
       admCircles[j].style.width = D + 'px'; admCircles[j].style.height = D + 'px';
       admCircles[j].style.border = P.axisWidth + 'px solid var(--fg)';
-      admCircles[j].style.fontSize = Math.max(8, D * 0.62) + 'px';
+      admCircles[j].style.fontSize = '13px';
     }
   }
   placeCircles();
@@ -1333,7 +1367,7 @@
   window.addEventListener('mousedown', function (e) {
     if (e.target !== cv) return;
     var hit = edgeHit(e.clientX, e.clientY);
-    if (hit) { resizeDrag = hit; e.preventDefault(); return; }
+    if (hit) { hit.rx = e.clientX >= W / 2; hit.dy = e.clientY >= H / 2; resizeDrag = hit; e.preventDefault(); return; }
     targetCursorScale = 3.5, cursorScale = 3.5;
   });
   window.addEventListener('mousemove', function (e) {

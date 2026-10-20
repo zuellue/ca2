@@ -20,20 +20,19 @@
   #tab:hover + #panel, #panel:hover, #panel.open { transform: translateX(0); }
   /* backdrop blur: full at the right edge, fading to sharp leftwards; width is a parameter (blurWidth) */
   #blur { position: fixed; top: 0; right: 0; height: 100%; width: 340px; z-index: 9; pointer-events: none;
-    transform: translateX(100%); transition: transform .2s ease-out; will-change: transform; }
-  #tab:hover + #panel + #blur, #panel:hover + #blur, #panel.open + #blur { transform: translateX(0); }
+    }
   /* depth of field: stacked progressive blur layers, strongest at the screen edge, easing to sharp inward */
   .bf { position: absolute; inset: 0; pointer-events: none; }
-  #blur .bf1 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .25)); backdrop-filter: blur(calc(var(--bmax, 16px) * .25)); -webkit-mask-image: linear-gradient(to left, #000 55%, rgba(0,0,0,0) 100%); mask-image: linear-gradient(to left, #000 55%, rgba(0,0,0,0) 100%); }
-  #blur .bf2 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .5)); backdrop-filter: blur(calc(var(--bmax, 16px) * .5)); -webkit-mask-image: linear-gradient(to left, #000 35%, rgba(0,0,0,0) 75%); mask-image: linear-gradient(to left, #000 35%, rgba(0,0,0,0) 75%); }
-  #blur .bf3 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .75)); backdrop-filter: blur(calc(var(--bmax, 16px) * .75)); -webkit-mask-image: linear-gradient(to left, #000 15%, rgba(0,0,0,0) 50%); mask-image: linear-gradient(to left, #000 15%, rgba(0,0,0,0) 50%); }
-  #blur .bf4 { -webkit-backdrop-filter: blur(var(--bmax, 16px)); backdrop-filter: blur(var(--bmax, 16px)); -webkit-mask-image: linear-gradient(to left, #000 0%, rgba(0,0,0,0) 25%); mask-image: linear-gradient(to left, #000 0%, rgba(0,0,0,0) 25%); }
+  #blur .bf1 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .25 * var(--bk1, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .25 * var(--bk1, 0))); -webkit-mask-image: linear-gradient(to left, #000 55%, rgba(0,0,0,0) 100%); mask-image: linear-gradient(to left, #000 55%, rgba(0,0,0,0) 100%); }
+  #blur .bf2 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .5 * var(--bk2, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .5 * var(--bk2, 0))); -webkit-mask-image: linear-gradient(to left, #000 35%, rgba(0,0,0,0) 75%); mask-image: linear-gradient(to left, #000 35%, rgba(0,0,0,0) 75%); }
+  #blur .bf3 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .75 * var(--bk3, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .75 * var(--bk3, 0))); -webkit-mask-image: linear-gradient(to left, #000 15%, rgba(0,0,0,0) 50%); mask-image: linear-gradient(to left, #000 15%, rgba(0,0,0,0) 50%); }
+  #blur .bf4 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * var(--bk4, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * var(--bk4, 0))); -webkit-mask-image: linear-gradient(to left, #000 0%, rgba(0,0,0,0) 25%); mask-image: linear-gradient(to left, #000 0%, rgba(0,0,0,0) 25%); }
   /* flipped twin on the left while the config is open: a depth-of-field field across the page */
   #blurl { position: fixed; top: 0; left: 0; height: 100%; width: 340px; z-index: 9; pointer-events: none; opacity: 0; transition: opacity .35s ease .1s; }
-  #blurl .bf1 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .25)); backdrop-filter: blur(calc(var(--bmax, 16px) * .25)); -webkit-mask-image: linear-gradient(to right, #000 55%, rgba(0,0,0,0) 100%); mask-image: linear-gradient(to right, #000 55%, rgba(0,0,0,0) 100%); }
-  #blurl .bf2 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .5)); backdrop-filter: blur(calc(var(--bmax, 16px) * .5)); -webkit-mask-image: linear-gradient(to right, #000 35%, rgba(0,0,0,0) 75%); mask-image: linear-gradient(to right, #000 35%, rgba(0,0,0,0) 75%); }
-  #blurl .bf3 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .75)); backdrop-filter: blur(calc(var(--bmax, 16px) * .75)); -webkit-mask-image: linear-gradient(to right, #000 15%, rgba(0,0,0,0) 50%); mask-image: linear-gradient(to right, #000 15%, rgba(0,0,0,0) 50%); }
-  #blurl .bf4 { -webkit-backdrop-filter: blur(var(--bmax, 16px)); backdrop-filter: blur(var(--bmax, 16px)); -webkit-mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,0) 25%); mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,0) 25%); }
+  #blurl .bf1 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .25 * var(--bk1, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .25 * var(--bk1, 0))); -webkit-mask-image: linear-gradient(to right, #000 55%, rgba(0,0,0,0) 100%); mask-image: linear-gradient(to right, #000 55%, rgba(0,0,0,0) 100%); }
+  #blurl .bf2 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .5 * var(--bk2, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .5 * var(--bk2, 0))); -webkit-mask-image: linear-gradient(to right, #000 35%, rgba(0,0,0,0) 75%); mask-image: linear-gradient(to right, #000 35%, rgba(0,0,0,0) 75%); }
+  #blurl .bf3 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .75 * var(--bk3, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .75 * var(--bk3, 0))); -webkit-mask-image: linear-gradient(to right, #000 15%, rgba(0,0,0,0) 50%); mask-image: linear-gradient(to right, #000 15%, rgba(0,0,0,0) 50%); }
+  #blurl .bf4 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * var(--bk4, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * var(--bk4, 0))); -webkit-mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,0) 25%); mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,0) 25%); }
   #tab:hover ~ #blurl, #panel:hover ~ #blurl, #panel.open ~ #blurl { opacity: 1; }
 
   @keyframes ca2in { from { opacity: 0 } to { opacity: 1 } }
