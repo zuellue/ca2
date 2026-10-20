@@ -25,13 +25,17 @@ Wasm i64 returns become BigInt in JS: return f64 from exports.
 
 - stepParasites -> wasm/src/parasites.rs (stepParasitesW in ca2.js, JS stepParasites kept as fallback). Host seek/attach/orbit/drain/starve/split in wasm; hosts come back as cell indices (stale-host identity validated in the pack), energy drains write back to packed rows. Behavioral check (node, 200 cells, 400 frames): parasites 43-60 both sides, hosted 38-55, 0 NaN, 0 stale hosts; rehost counter is chaotic (wasm 27, JS runs 31-95). Bench (node, step only): JS 0.0506 -> wasm 0.0084 ms/frame; live before: olculmedi (inside the sim-loop perf mark), live after: olculmedi. Minor deviation: the e>12 split cap uses the output count, not JS's mid-loop parasites.length.
 
+- t81 live headless boot (headless chrome, sandbox): all three wrappers engage, 0 page errors, food grows (mode5 1451, mode4 924). "food step" EMA with wasm wrappers: mode5 1.25 ms, mode4 0.72 ms (includes pack/unpack; prior team JS-only EMAs on this setup: spores 1.88, worms 1.27 - different session/config, indicative not strict A/B).
+- t82 simOff-toggle A/B attempt: CONFOUNDED - WC.simOff=1 also disables the sim wasm, and food populations collapsed between toggles (mode switches wipe), so the marks are not a clean before/after. A clean live read needs a food-only fallback flag (e.g. ?nofoodwasm=1 honored by stepSporesW/stepWormsW/stepParasitesW only) or two full boots (default vs ?nowasm=1) at steady state. Live before/after for spores/worms/parasites: olculmedi (clean method pending, first job next run).
+
 ## Measured JS cost left (sandbox, ms/frame EMA, ?perf=1)
 worms food step 1.27 (542 food), spores 1.88 (517 food), axis+tally 1.5-2.0 (drawAxis = canvas, stays JS), stepTrans 0.1-0.8, foodKeepIn 0.05-0.4, buildSources 0.5 ms/s in spores.
 
 ## TODO (order)
+0. FIRST: clean live before/after for spores/worms/parasites (parent order: no 'olculmedi' left) - add food-only fallback flag or two-boot method, measure 'food step' + 'sim loop+parasites' EMA steady-state.
 1. live knob CA, stepTrans, stepFood (mode 1), stepBlobs (mode 2), foodKeepIn (0.05-0.4 ms) -> wasm (spores + worms + parasites done; profile first, port by ms share).
 2. buildSources / emitCell.
 4. body-plan logic (newShape/mixShape/simSwim) after desktop team finishes.
 5. keepIn root cause (boundary/zone=0) hash+diff from desktop team -> port into sim.rs keep_in (zone floor already 0).
 6. body-plan distribution comparison (frozen parameters) + f32 metaball difference (~500-700 bytes / 1.8M, max 198 levels): decide f64 path.
-Tools: devtools/t70 (interact iso), t71 (CDP profiler, node devtools/t71-prof.js "?perf=1" secs name [preJS]), t72 (keepIn iso), t73 (swarm bench), t74 (full-frame iso: A exact RNG-lockstep, B statistical, C birth-pressure, D debug flags).
+Tools: devtools/t70 (interact iso), t71 (CDP profiler, node devtools/t71-prof.js "?perf=1" secs name [preJS]), t72 (keepIn iso), t73 (swarm bench), t74 (full-frame iso: A exact RNG-lockstep, B statistical, C birth-pressure, D debug flags), t81 (living-food boot check), t82 (simOff-toggle A/B, confounded - see above).
