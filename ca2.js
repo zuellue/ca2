@@ -547,9 +547,37 @@
     }
     o.x.push(bx); o.y.push(by); o.r.push(c.radius); o.n++;
   }
+  function buildSourcesW(t0) { // Rust/wasm buildSources+emitCell (bs.rs); returns false so the JS body below runs (?nowasm=1, ?nosim=1)
+    var E = WC.e; if (!E || !E.bs_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
+    try {
+      var n = cells.length, i, c, b;
+      var rp = E.bs_alloc(n), rb = new Float64Array(WC.mem.buffer, rp, n * 17 + 17);
+      var elapsed = performance.now() - fadeT0;
+      for (i = 0; i < n; i++) {
+        c = cells[i]; b = i * 17; var sh = c.shp || null;
+        rb[b] = c.x; rb[b + 1] = c.y; rb[b + 2] = c.radius; rb[b + 3] = c.popD || 0; rb[b + 4] = c.alive ? 1 : 0;
+        rb[b + 5] = sh ? sh.t : 0; rb[b + 6] = sh ? sh.th || 0 : 0; rb[b + 7] = sh ? sh.asp || 0 : 0; rb[b + 8] = sh ? sh.dir || 0 : 0;
+        rb[b + 9] = sh ? sh.wsp || 0 : 0; rb[b + 10] = sh ? sh.ph || 0 : 0; rb[b + 11] = sh ? sh.wig || 0 : 0; rb[b + 12] = sh ? sh.sat || 0 : 0; rb[b + 13] = sh ? sh.ph2 || 0 : 0;
+        var cwv = (P.genomeOn && c.g) ? c.g.col : c.cw;
+        if (cwv) { rb[b + 14] = cwv[0]; rb[b + 15] = cwv[1]; rb[b + 16] = cwv[2]; }
+        else if (c.gene > 2) { rb[b + 14] = 1; rb[b + 15] = 0; rb[b + 16] = 0; }
+        else if (c.gene < -2) { rb[b + 14] = 0; rb[b + 15] = 1; rb[b + 16] = 0; }
+        else { rb[b + 14] = 0; rb[b + 15] = 0; rb[b + 16] = 1; }
+      }
+      var m = E.bs_run(n, elapsed, t0, cont.x, cont.y, cont.w, cont.h, P.cellShapes ? 1 : 0, SRC_MAX);
+      if (m < 0) return false;
+      var st = new Float64Array(WC.mem.buffer, E.bs_stat(), 4), ob = E.bs_out(), c12 = st[2];
+      srcGrow(m + 8);
+      var obuf = WC.mem.buffer, rows = Math.floor(st[0]);
+      SRC.x.set(new Float32Array(obuf, ob + 0 * c12 * 4, rows)); SRC.y.set(new Float32Array(obuf, ob + 1 * c12 * 4, rows)); SRC.r.set(new Float32Array(obuf, ob + 2 * c12 * 4, rows));
+      SRC.wr.set(new Float32Array(obuf, ob + 3 * c12 * 4, rows)); SRC.wg.set(new Float32Array(obuf, ob + 4 * c12 * 4, rows)); SRC.wb.set(new Float32Array(obuf, ob + 5 * c12 * 4, rows));
+      SRC.n = rows; SRC.cells = st[1]; WC.fwBs = (WC.fwBs || 0) + 1; return true;
+    } catch (e) { WC.fwBsErr = String(e && e.stack || e); return false; }
+  }
   function buildSources() {
     var t0 = frameT; if (t0 && SRC.built === t0) return SRC;
     SRC.built = t0;
+    if (buildSourcesW(t0)) return SRC;
     var i, c, alive = 0;
     for (i = 0; i < cells.length; i++) { c = cells[i]; if (c.alive && introOn(c.popD) && c.x >= cont.x && c.x <= cont.x + cont.w && c.y >= cont.y && c.y <= cont.y + cont.h) alive++; }
     var allowance = alive > 1 ? Math.max(1, Math.floor(SRC_MAX / alive)) : SRC_MAX, n = 0, o = { x: [], y: [], r: [], n: 0 };
