@@ -946,7 +946,7 @@
   var SECS = [];
   GROUPS.forEach(function (grp) {
     var h = document.createElement('div'); h.className = 'grp'; h.textContent = grp[0]; ctl.appendChild(h);
-    var sec = { name: grp[0], hdr: h, els: [], folded: false }; SECS.push(sec);
+    var sec = { name: grp[0], hdr: h, els: [] }; SECS.push(sec);
     grp[1].forEach(function (q) {
       var d = document.createElement('div'); d.className = 'row';
       d.innerHTML = '<div class="lab"><span>' + q[1] + '</span><b style="font-weight:normal"></b></div><input type="range" min="' + q[2] + '" max="' + q[3] + '" step="' + q[4] + '">';
@@ -1037,7 +1037,7 @@
     ctl.appendChild(l); return { el: l };
   }
   var gh = document.createElement('div'); gh.className = 'grp'; gh.textContent = 'switches'; ctl.appendChild(gh);
-  var swSec = { name: 'switches', hdr: gh, els: [], folded: false }; SECS.push(swSec);
+  var swSec = { name: 'switches', hdr: gh, els: [] }; SECS.push(swSec);
   var _toggle = toggle, _choice = choice;
   toggle = function () { var r = _toggle.apply(null, arguments); swSec.els.push(r.el); return r; };
   choice = function () { var r = _choice.apply(null, arguments); swSec.els.push(r.el); return r; };
@@ -1134,15 +1134,14 @@
     });
     c.addEventListener('click', function (e) {
       e.stopPropagation();
-      // one click opens the section: unfold if needed, then scroll so the header sits level with this circle
-      if (sec.folded) { sec.folded = false; sec.els.forEach(function (el) { el.style.display = ''; }); c.style.opacity = '1'; }
+      // one click: smooth-scroll the column so the section's header middle sits exactly on the circle's middle
       var pR = panel.getBoundingClientRect(), cR = c.getBoundingClientRect(), hR = sec.hdr.getBoundingClientRect();
-      var targetY = cR.top + cR.height / 2 - pR.top;
+      var targetY = cR.top + cR.height / 2 - pR.top - hR.height / 2;
       panel.scrollTo({ top: panel.scrollTop + (hR.top - pR.top) - targetY, behavior: 'smooth' });
     });
   }
   // the topmost button is the CONFIG title: one click scrolls the column back to the start
-  addCirc({ name: 'config', hdr: panel.querySelector('h1'), els: [], folded: false });
+  addCirc({ name: 'config', hdr: panel.querySelector('h1'), els: [] });
   SECS.forEach(addCirc);
   var admCircles = []; // filled by adminInit: 4 stacked digit circles, same lane and size as the section circles
   var circSig = '';
