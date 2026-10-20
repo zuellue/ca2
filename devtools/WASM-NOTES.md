@@ -48,7 +48,7 @@ worms food step 1.27 (542 food), spores 1.88 (517 food), axis+tally 1.5-2.0 (dra
 ## TODO (order)
 0. DONE (t83-t85): engagement proven, no throws; sandbox A/B is environment-dominated (0.7 fps pathology with full visuals; tiny populations after mode switches) - node benches are the clean numbers, owner-machine HUD read via ?nofoodwasm=1 is the clean live one.
 1. stepTrans + stepFood + stepBlobs + foodKeepIn DONE (tr.rs, fd1.rs, fd2.rs, fd3.rs, see Done). Next: buildSources/emitCell. live knob CA measured+skipped (see Done).
-2. buildSources / emitCell.
+2. buildSources / emitCell — SCOPED (2026-10-21 run): emitCell (ca2.js ~530) is PURE math on shp fields (t, th, asp, dir, wsp, ph, wig, sat, ph2) + x/y/radius — it does NOT call newShape/mixShape, so it is portable now without the body-plan TODO. buildSources (~550) adds the alive/introOn/in-plate filter, the SRC_MAX=384 allowance split, and the genome/gene color pick (wr/wg/wb). Plan: pack per cell 17 f64 [x, y, radius, aliveInPlateIntroOk (JS-computed flag), th, asp, dir, wsp, ph, wig, sat, ph2, shpT, cellShapesOk, wr, wg, wb]; scalars t0, cont x/y/w/h, SRC_MAX; wasm computes allowance + emits rows straight into an f32 out buffer laid out as 6 arrays (x, y, r, wr, wg, wb); JS SRC.x.set(...) etc. introOn stays JS (flag input). Measured JS cost to beat: buildSources 0.5 ms/s in spores mode (per-second aggregate), frame-level EMA not yet measured.
 4. body-plan logic (newShape/mixShape/simSwim) after desktop team finishes.
 5. keepIn root cause (boundary/zone=0) hash+diff from desktop team -> port into sim.rs keep_in (zone floor already 0).
 6. body-plan distribution comparison (frozen parameters) + f32 metaball difference (~500-700 bytes / 1.8M, max 198 levels): decide f64 path.
