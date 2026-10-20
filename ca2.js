@@ -26,7 +26,7 @@
   P.audioFadeMs = 5000;
   P.dragMargin = 8; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000;
   P.foodMode = 2; P.foodBlobR = 70; P.foodBlobDots = 8; P.foodLife = 1; P.foodLifeMs = 300; P.foodLifeCell = 4; P.foodEatR = 0.4;
-  Object.assign(P, {"UNIVERSE_SIZE": 20.456399064226844, "baseMutationRate": 7.5425781659400934, "mutationRateRange": 2.6268439511457253, "interactionRadius": 17.289757276935884, "CELL_RADIUS": 48.722090463094005, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 1, "maxRadius": 150, "baseMaxSpeed": 0.5, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 0.22, "THRESHOLD": 0.34, "metaballStrength": 0.023, "foodDensity": 0.041931496850201304, "foodEnergyValue": 20, "minRefreshInterval": 2, "maxRefreshInterval": 9, "slowDownRadius": 9, "speedReductionFactor": 49.5, "grain": 1, "grainAmount": 2, "grainStrength": 10, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 24, "fps": 24, "containerCorner": 29, "resolution": 1, "margin": 30, "gap": 26, "textScale": 0.95, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.5, "morphEase": 0.69, "pixelRatio": 1.5, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 1, "axisLayer": 0, "genomeOn": 1, "genomeMut": 0.4, "divideOn": 1, "divideAt": 6, "eatMergeOn": 1, "eatRatio": 1.3, "eatChance": 0.15, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.35, "clusterMax": 9, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 3, "foodShrink": 0.01, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 4350, "boundAware": 1, "boundZone": 20, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 2.9, "panelAlpha": 0, "cursorSize": 0.31, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 0, "audioOn": 1, "audioVol": 1, "audioMode": 1, "audioTone": 2120, "audioMod": 1, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#ff40ff", "foodAlpha": 1, "foodSize": 4, "foodShow": 1, "audioFadeMs": 5000, "dragMargin": 24, "edgeGrab": 20, "restless": 3, "edgeFit": 0.3, "boundZoneR": 0.1, "blobOutline": 1, "plateOverlap": 0.25, "parasiteHard": 12, "parasiteSight": 4000, "parasiteNerv": 0.6, "parasiteHardMs": 20000, "foodMode": 3, "foodBlobR": 70, "foodBlobDots": 8, "foodLife": 1, "foodLifeMs": 300, "foodLifeCell": 4, "foodEatR": 0.4});
+  Object.assign(P, {"UNIVERSE_SIZE": 55.95868745026389, "baseMutationRate": 9.628232288701716, "mutationRateRange": 2.6268439511457253, "interactionRadius": 12.016352372548786, "CELL_RADIUS": 34.57106164334512, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 50, "maxRadius": 150, "baseMaxSpeed": 2, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 2.5, "THRESHOLD": 0.19, "metaballStrength": 0.024, "foodDensity": 0.023801395385356694, "foodEnergyValue": 20, "minRefreshInterval": 2, "maxRefreshInterval": 9, "slowDownRadius": 9, "speedReductionFactor": 37.5, "grain": 1, "grainAmount": 1.22, "grainStrength": 9.2, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 12, "fps": 12, "containerCorner": 29, "resolution": 1, "margin": 10, "gap": 26, "textScale": 0.8, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.74, "morphEase": 0.7, "pixelRatio": 2, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 1, "axisLayer": 0, "genomeOn": 1, "genomeMut": 0.5, "divideOn": 1, "divideAt": 6, "eatMergeOn": 1, "eatRatio": 3, "eatChance": 1, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.19, "clusterMax": 10, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 8, "foodShrink": 0.1, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 2350, "boundAware": 1, "boundZone": 20, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 2.3, "panelAlpha": 0, "cursorSize": 0.31, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 0.53, "audioMode": 1, "audioTone": 2120, "audioMod": 1, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#000000", "foodAlpha": 1, "foodSize": 3.5, "foodShow": 0.51, "audioFadeMs": 5000, "dragMargin": 24, "edgeGrab": 20, "restless": 3, "edgeFit": 0.3, "boundZoneR": 0.1, "blobOutline": 1, "plateOverlap": 0.5, "parasiteHard": 39.5, "parasiteSight": 4000, "parasiteNerv": 1, "parasiteHardMs": 20000, "foodMode": 3, "foodBlobR": 70, "foodBlobDots": 8, "foodLife": 1, "foodLifeMs": 300, "foodLifeCell": 4, "foodEatR": 0.26});
   var DEFAULTS = JSON.parse(JSON.stringify(P));
   var autoRefresh = true, lockParams = false;
   var BGS = [[233,233,233],[22,22,22],[255,0,0],[0,255,0],[0,0,255]];
@@ -810,7 +810,7 @@
     }
   }
   // ---- persistence: every config key, versioned; unknown/removed keys are ignored, new keys keep defaults ----
-  var STORE = 'ca2.config', STORE_V = 5;
+  var STORE = 'ca2.config', STORE_V = 6;
   (function load() {
     try {
       var sv = JSON.parse(localStorage.getItem(STORE) || 'null');
@@ -824,7 +824,7 @@
       if (typeof sv.bgIndex === 'number') bgIndex = sv.bgIndex;
     } catch (e) {}
   })();
-  function save() { try { var Pc = Object.assign({}, P); for (var lk in live) Pc[lk] = live[lk].orig; localStorage.setItem(STORE, JSON.stringify({ v: STORE_V, P: Pc, autoRefresh: autoRefresh, lockParams: lockParams, bgTarget: bgTarget, bgIndex: bgIndex })); } catch (e) {} }
+  function save() { try { var Pc = Object.assign({}, P); for (var lk in live) Pc[lk] = live[lk].orig; localStorage.setItem(STORE, JSON.stringify({ v: STORE_V, P: Pc, autoRefresh: autoRefresh, lockParams: lockParams, bgTarget: bgTarget, bgIndex: bgIndex })); } catch (e) {} if (window.__adminPush) window.__adminPush(); }
   // ---- config panel: every parameter ----
   var rows = {}, statsEl = document.getElementById('stats'), ctl = document.getElementById('controls'), btns = document.getElementById('btns');
   var GROUPS = [
@@ -976,6 +976,49 @@
   var panel = document.getElementById('panel');
   panel.addEventListener('click', function (e) { e.stopPropagation(); });
   var lastSync = 0;
+
+  // ---- admin session + global presets (Cloudflare Worker + KV, free plan) ----
+  (function adminInit() {
+    var WK = 'https://ca2-presets.middots.workers.dev/', admin = null, sent = {}, lastV = 0, GK = 'ca2.global';
+    function post(b) { return fetch(WK, { method: 'POST', body: JSON.stringify(b) }).then(function (r) { return r.json(); }); }
+    function applyG(g) {
+      if (!g || typeof g !== 'object') return false; var n = 0;
+      Object.keys(g).forEach(function (k) { if (k === '_v' || !(k in P)) return; var v = g[k]; if (typeof v === typeof P[k] && (typeof v !== 'number' || isFinite(v)) && P[k] !== v) { P[k] = v; n++; } });
+      return n;
+    }
+    function pullG(first) {
+      fetch(WK, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (g) {
+        if (!g || !g._v || g._v === lastV) return; lastV = g._v;
+        try { localStorage.setItem(GK, JSON.stringify(g)); } catch (e) {}
+        if (admin) return;
+        if (applyG(g)) { Object.keys(live).forEach(function (k) { delete live[k]; }); lastSync = 0; syncUI(0); }
+      }).catch(function () {});
+    }
+    try { var cg = JSON.parse(localStorage.getItem(GK) || 'null'); if (cg) { applyG(cg); lastV = cg._v || 0; } } catch (e) {}
+    pullG(true); setInterval(pullG, 4000);
+    window.__adminPush = function () {
+      if (!admin) return; var patch = {}, any = false;
+      Object.keys(P).forEach(function (k) { var v = P[k]; if (live[k]) v = live[k].orig; if ((typeof v === 'number' && isFinite(v) || typeof v === 'string') && sent[k] !== v) { patch[k] = v; sent[k] = v; any = true; } });
+      if (any) post({ code: admin, patch: patch }).then(function (r) { if (r && r.v) lastV = r.v; }).catch(function () {});
+    };
+    var box = document.createElement('input'); box.type = 'text'; box.maxLength = 4; box.setAttribute('inputmode', 'numeric'); box.autocomplete = 'off'; box.spellcheck = false;
+    box.style.cssText = 'display:none;position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:88px;text-align:center;letter-spacing:.35em;font:12px "Fragment Mono",monospace;color:#fff;background:transparent;border:1px solid rgba(255,255,255,.6);padding:6px 4px;outline:none;z-index:5';
+    document.getElementById('panel').appendChild(box);
+    box.addEventListener('input', function () {
+      box.value = box.value.replace(/\D/g, '');
+      if (box.value.length === 4) post({ code: box.value, check: true }).then(function (r) {
+        if (r && r.ok) { admin = box.value; sent = {}; Object.keys(P).forEach(function (k) { sent[k] = P[k]; }); box.value = ''; box.placeholder = 'admin'; box.style.borderColor = '#fff'; window.__adminOn = true; }
+        else { box.value = ''; box.style.borderColor = 'rgba(255,60,60,.9)'; setTimeout(function () { box.style.borderColor = 'rgba(255,255,255,.6)'; }, 600); }
+      }).catch(function () { box.value = ''; });
+    });
+    box.addEventListener('keydown', function (e) { e.stopPropagation(); });
+    window.addEventListener('dblclick', function () {
+      if (!/^R0_/.test(lastCircleHit || '')) return;
+      if (admin) { __adminPush(); admin = null; window.__adminOn = false; box.style.display = 'none'; box.placeholder = ''; }
+      else if (box.style.display === 'none') { box.style.display = 'block'; box.value = ''; setTimeout(function () { box.focus(); }, 0); }
+      else box.style.display = 'none';
+    });
+  })();
   function syncUI(total) {
     var now = performance.now(); if (now - lastSync < 300) return; lastSync = now;
     statsEl.innerHTML = '<span>cells</span><span class="n">' + total + '</span><span>universe</span><span class="n">' + Math.round(P.UNIVERSE_SIZE) + '</span><span>refresh s</span><span class="n">' + Math.round(Math.max(0, refreshInterval - (now - lastRefresh) / 1000)) + '</span><span>fps</span><span class="n">' + Math.round(fps) + '</span><span>res</span><span class="n">' + Math.round(res * 100) + '</span>';
