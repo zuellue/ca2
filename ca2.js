@@ -890,7 +890,43 @@
     worms.push(w); wormStat.born++; return w;
   }
   function wipeWorms() { for (var i = food.length - 1; i >= 0; i--) if (food[i].worm) food.splice(i, 1); worms = []; }
+  function stepWormsW() { // Rust/wasm worm step (worms.rs); returns false when unavailable so the JS body below runs (?nowasm=1, ?nosim=1)
+    var E = WC.e; if (!E || !E.wm_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
+    try {
+      var i, k, w, f, now = performance.now();
+      for (i = worms.length - 1; i >= 0; i--) { // eaten links drop out; a worm with too little body left dissolves
+        w = worms[i];
+        for (k = w.d.length - 1; k >= 0; k--) if (w.d[k].gone) { w.d.splice(k, 1); wormStat.eaten++; }
+        if (w.d.length < 2) { w.d.forEach(function (f) { f.gone = 1; var fi = food.indexOf(f); if (fi >= 0) food.splice(fi, 1); }); worms.splice(i, 1); wormStat.died++; }
+      }
+      var nw = worms.length, nl = 0; for (i = 0; i < nw; i++) nl += worms[i].d.length;
+      var hp = E.wm_hdr(nw), lp = E.wm_lnk(nl); // alloc before reading the buffer: a resize can grow memory and detach it
+      var hb = new Float64Array(WC.mem.buffer, hp, nw * 6 + 6), lb = new Float64Array(WC.mem.buffer, lp, nl * 4 + 4);
+      var all = [], li = 0, b, q;
+      for (i = 0; i < nw; i++) { w = worms[i]; b = i * 6; hb[b] = w.x; hb[b + 1] = w.y; hb[b + 2] = w.a; hb[b + 3] = w.sp; hb[b + 4] = w.fr; hb[b + 5] = w.ph;
+        for (k = 0; k < w.d.length; k++) { f = w.d[k]; all.push(f); q = li * 4; lb[q] = f.x; lb[q + 1] = f.y; lb[q + 2] = f.r; lb[q + 3] = i; li++; } }
+      var life = now - wormT >= P.foodLifeMs * 2;
+      var want = Math.round(cont.w * cont.h * P.foodDensity / 2 / 14);
+      var m = E.wm_run(nw, nl, cont.x, cont.x + cont.w, cont.y, cont.y + cont.h, now / 1000, Math.max(3, P.foodSize * 1.6), life ? 1 : 0, want, Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
+      if (m < 0) return false;
+      if (life) wormT = now;
+      var oh = new Float64Array(WC.mem.buffer, E.wm_ohdr(), m * 7), st = new Float64Array(WC.mem.buffer, E.wm_stat(), 4);
+      var lq = st[2], ol = new Float64Array(WC.mem.buffer, E.wm_olnk(), lq * 5);
+      wormStat.split += st[0]; wormStat.born += st[1];
+      var outW = new Array(m);
+      for (i = 0; i < m; i++) { b = i * 7; var src = oh[b + 6];
+        if (src >= 0) { w = worms[src]; w.x = oh[b]; w.y = oh[b + 1]; w.a = oh[b + 2]; w.sp = oh[b + 3]; w.fr = oh[b + 4]; w.ph = oh[b + 5]; w.d = []; }
+        else w = { x: oh[b], y: oh[b + 1], a: oh[b + 2], sp: oh[b + 3], fr: oh[b + 4], ph: oh[b + 5], d: [] };
+        outW[i] = w; }
+      for (k = 0; k < lq; k++) { b = k * 5; var widx = ol[b + 3], lsrc = ol[b + 4]; w = outW[widx];
+        if (lsrc >= 0) { f = all[lsrc]; f.x = ol[b]; f.y = ol[b + 1]; f.r = ol[b + 2]; f.worm = w; }
+        else { f = { x: ol[b], y: ol[b + 1], r: ol[b + 2], worm: w }; food.push(f); }
+        w.d.push(f); }
+      worms = outW; return true;
+    } catch (e) { return false; }
+  }
   function stepWorms() {
+    if (stepWormsW()) return;
     var i, k, w, now = performance.now(), tt = now / 1000, x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h;
     for (i = worms.length - 1; i >= 0; i--) { // eaten links drop out; a worm with too little body left dissolves
       w = worms[i];

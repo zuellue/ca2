@@ -21,11 +21,13 @@ Wasm i64 returns become BigInt in JS: return f64 from exports.
 
 - spores food step (foodMode 5) -> wasm/src/spores.rs (stepSporesW in ca2.js, JS stepSpores kept as fallback). Port covers maturation/burst/mote drift/landing/spawn; object identity and food[] membership stay in JS (same contract as swarm.rs). Behavioral check (node, 500 spores, 400 frames): populations 965 wasm vs 962 JS, burst 110 vs 117, settled 480 vs 452, born 1248 vs 1256, 0 NaN, 0 out-of-bounds. Bench (node, step only): JS 0.0866 -> wasm 0.0195 ms/frame; live before 1.88 ms EMA (?perf=1, 517 food), live after: olculmedi.
 
+- worms food step (foodMode 4) -> wasm/src/worms.rs (stepWormsW in ca2.js, JS stepWorms kept as fallback). Head wander + follow chain + growth-tick tail growth/fission/spawn in wasm; JS keeps the eaten-link/dissolve pre-pass, object identity, food[] membership and the tick timer. Behavioral check (node, 40 worms, 400 frames): worms 130 vs 133, links 944 vs 950, split 40 vs 43, born 90 vs 93, 0 NaN, chain integrity ok. Bench (node, step only): JS 0.0909 -> wasm 0.0330 ms/frame; live before 1.27 ms EMA (?perf=1, 542 food), live after: olculmedi. Known minor deviation: on a growth tick the JS split can include the just-grown tail link; the wasm port assigns it to the parent (RNG differs anyway).
+
 ## Measured JS cost left (sandbox, ms/frame EMA, ?perf=1)
 worms food step 1.27 (542 food), spores 1.88 (517 food), axis+tally 1.5-2.0 (drawAxis = canvas, stays JS), stepTrans 0.1-0.8, foodKeepIn 0.05-0.4, buildSources 0.5 ms/s in spores.
 
 ## TODO (order)
-1. worms step (foodMode 4, stepWorms 1.27 ms), stepParasites, live knob CA, stepTrans -> wasm (spores done; profile first, port by ms share).
+1. stepParasites, live knob CA, stepTrans -> wasm (spores + worms done; profile first, port by ms share). Remaining JS food pieces: stepFood (mode 1), stepBlobs (mode 2), foodKeepIn 0.05-0.4 ms.
 2. buildSources / emitCell.
 4. body-plan logic (newShape/mixShape/simSwim) after desktop team finishes.
 5. keepIn root cause (boundary/zone=0) hash+diff from desktop team -> port into sim.rs keep_in (zone floor already 0).
