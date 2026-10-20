@@ -1,6 +1,8 @@
 # ca2 todo (owner orders pending, 20 Oct 2026; each is a verbatim owner order relayed by main)
 Done + live (sim side): intro jank deferral (staged first spawn after UI intro, metaball/grain/audio deferred, introStat in __ca2), eating radius fixed px (foodEatR migrated: factor x preset CELL_RADIUS), boundary zone independent of cell radius (boundZoneR/edgeFit knobs removed, keys kept), boundary edge/corner hover cursors.
 Done + live: preset 2 default (STORE_V 6), admin/global preset (Worker https://ca2-presets.middots.workers.dev/, KV ca2-presets, binding PRESETS; code 2222 checked server-side), config left thin line removed.
+Done + live (UI/config team, 20 Oct 13:1x, commits 8b72cda..): 1 section circles, 2 knob hover CA, 3 dblclick manual value, 5 cursor sensitivity, 6 hierarchy, 7 CA-mode in preset (_live), 8 blur gradient + width, 9 panel width, 11 title underline.
+Pending (sim team): 4 intro async/defer, 10 eating/boundary radius + edge/corner cursors (partly landed 5e288fb).
 Pending, in order:
 1. section circles on config right edge (title-dot size, stroke-only, hover fills random R/G/B + vertical typewriter label, Fragment Mono uppercase; stacked from title top circle, no margin, hover pushes the ones below, click folds/unfolds section)
 2. config knobs animate cellular-automata style on hover

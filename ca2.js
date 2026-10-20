@@ -817,7 +817,7 @@
 
   // ---- living knobs: double-click a knob and its parameter enters a 1-D cellular-automaton life cycle between its floor and ceiling
   // (rule 110 on a ring; value = linear function of the alive fraction). Double-click again returns to the value from before. The stored config always holds the pre-CA value.
-  var live = {};
+  var live = {}, hovCA = {};
   function hash(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
   function lcg(st) { st.s = (Math.imul(st.s, 1664525) + 1013904223) >>> 0; return st.s / 4294967296; }
   var LIVE_N = 28, LIVE_RULE = 110, LIVE_MS = 110, LIVE_COLS = ['#ff0000', '#00ff00', '#0000ff'];
@@ -984,6 +984,27 @@
         var k = q[0];
         if (live[k]) { liveStop(k); inp.value = P[k]; val.textContent = fmt(P[k]); return; }
         var o = downVal === null ? P[k] : downVal; P[k] = o; applyKey(k, o); inp.value = o; val.textContent = fmt(o); liveStart(k, q, o, d); save();
+      });
+      // hover: the thumb stirs with a small rule-110 life of its own (visual only, value untouched)
+      inp.addEventListener('pointerenter', function () {
+        var k = q[0]; if (hovCA[k]) return;
+        var st = { s: (hash(k) ^ 0x9e37) || 7 }, bits = [];
+        for (var i = 0; i < 16; i++) bits.push(lcg(st) < 0.5 ? 1 : 0);
+        hovCA[k] = { bits: bits, st: st, dx: 0, t: setInterval(function () {
+          var hh = hovCA[k]; if (!hh || inp.matches(':active')) return;
+          var nb = new Array(16), sum = 0;
+          for (var i = 0; i < 16; i++) { nb[i] = (110 >> (hh.bits[(i + 15) % 16] * 4 + hh.bits[i] * 2 + hh.bits[(i + 1) % 16])) & 1; sum += nb[i]; }
+          if (sum === 0 || sum === 16) nb[Math.floor(lcg(hh.st) * 16)] ^= 1;
+          hh.bits = nb;
+          hh.dx = clamp(hh.dx + (nb[0] + nb[5] + nb[10] - 1.5) * 2 + (lcg(hh.st) - 0.5) * 2, -6, 6);
+          inp.style.setProperty('--kx', hh.dx.toFixed(1) + 'px');
+          inp.style.setProperty('--ks', (1 + sum / 16 * 0.4).toFixed(2));
+        }, LIVE_MS) };
+      });
+      inp.addEventListener('pointerleave', function () {
+        var k = q[0], hh = hovCA[k]; if (!hh) return;
+        clearInterval(hh.t); delete hovCA[k];
+        inp.style.setProperty('--kx', '0px'); inp.style.setProperty('--ks', '1');
       });
       inp.addEventListener('input', function () {
         if (live[q[0]]) { inp.value = P[q[0]]; return; }
