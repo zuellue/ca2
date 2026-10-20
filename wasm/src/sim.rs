@@ -31,7 +31,7 @@ const P_BFORCE: usize = 24; const P_RESTL: usize = 25; const P_EATRATIO: usize =
 const P_SYMG: usize = 30; const P_EGAIN: usize = 31; const P_GMIN: usize = 32; const P_GMAX: usize = 33; const P_MINREP: usize = 34; const P_CLMAX: usize = 35;
 const P_GMUT: usize = 36; const P_MRR: usize = 37; const P_MBS: usize = 38; const P_ESPD: usize = 39; const P_EAPP: usize = 40; const P_EBND: usize = 41;
 const P_ECOL: usize = 42; const P_EC0: usize = 43; const P_MX: usize = 46; const P_MY: usize = 47; const P_MOVER: usize = 48; const P_CX: usize = 49; const P_CY: usize = 50;
-const P_CW: usize = 51; const P_CH: usize = 52; const P_RDRAG: usize = 53; const P_CLSEQ: usize = 54; const P_NCM: usize = 55;
+const P_CW: usize = 51; const P_CH: usize = 52; const P_RDRAG: usize = 53; const P_CLSEQ: usize = 54; const P_NCM: usize = 55; const P_ONLYINT: usize = 56; // debug: interact-only frame (isolation tests)
 // out indices
 // 0 birth 1 divide 2 eaten 3 merge 4 fuse 5 pair 6 hit 7 oob 8 ate 9 death 10 clusterSeq 11 hovering 12-14 hoverCol 15 n_final
 
@@ -368,7 +368,8 @@ impl Sim {
         let (cx, cy, cw, ch) = (self.p[P_CX], self.p[P_CY], self.p[P_CW], self.p[P_CH]);
         let mut hov_i: f64 = -1.0; let mut hovering = false; let mut hc = [255.0f64, 255.0, 255.0];
         for i in (0..n0).rev() {
-            self.update(i); self.check_survival(i);
+            let oi = self.p[P_ONLYINT] != 0.0;
+            if !oi { self.update(i); self.check_survival(i); }
             let (x, y, rad) = (self.g(i, X), self.g(i, Y), self.g(i, RAD));
             if over && hyp(mx - x, my - y) < rad && x > cx && x < cx + cw && y > cy && y < cy + ch {
                 hovering = true; hov_i = i as f64;
@@ -390,7 +391,7 @@ impl Sim {
                 let (a1, a2) = (self.rnd01(), self.rnd01());
                 self.set(i, VX, self.g(i, VX) + (a1 - 0.5) * ms2 * 2.0); self.set(i, VY, self.g(i, VY) + (a2 - 0.5) * ms2 * 2.0);
             }
-            if self.p[P_BOUND] != 0.0 && self.alive(i) { self.keep_in(i); }
+            if self.p[P_BOUND] != 0.0 && !oi && self.alive(i) { self.keep_in(i); }
             if !self.alive(i) { self.out[9] += 1.0; self.set(i, REM, 1.0); self.live -= 1; }
         }
         self.out[10] = self.p[P_CLSEQ]; self.out[11] = if hovering { 1.0 } else { 0.0 };
