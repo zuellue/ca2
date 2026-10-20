@@ -38,12 +38,14 @@ Wasm i64 returns become BigInt in JS: return f64 from exports.
 
 - stepFood (foodMode 1, Conway lattice) -> wasm/src/fd1.rs (stepFoodW in ca2.js, JS stepFood kept as fallback via ?nowasm=1 / ?nosim=1). Port covers the inflow pull + the full lattice tick (dedup, 8-neighbor counts, survival, births, 3x3 blob seeding, insertion-order semantics matched); JS keeps the tick timer, foodStat bookkeeping and object identity on non-tick frames. No-marshal fast path: frames with no tick due and zero out-of-plate dots skip the wasm call entirely (a wasm flow on a clean frame costs more in marshal than the JS clamp loop - measured 0.006 js vs 0.014 wasm at 2000 dots). Unit check (t89b, node): survivors 190/190 bit-exact (order+coords+r), died 1762=1762, births 305=305 exact positions, flow bit-exact over 50 frames. Bench (node, 2000 dots): tick js 1.45 -> wasm 0.72 ms. Live A/B (t89, headless, foodMode 1, ~200 dots, 12 ticks): food-step EMA wasm ~0.7 ms vs js ~2.4 ms (?nowasm=1), fwFd tracks every tick, 0 errors.
 
+- stepBlobs per-frame pass (foodMode 2) -> wasm/src/fd2.rs (stepBlobsPassW in ca2.js, JS loop kept as fallback). Port covers blob drift + soft neighbor push (in-place sequential semantics preserved) + inflow pull + dot wobble placement; the life tick (grow/split/shrink/seed, food[] object churn) and gone-dot cleanup stay JS. Unit check (t90b, node, 40 blobs x 200 frames): 0 NaN, dot ring placement sane, blob divergence 17.8 px avg (chaotic jitter decorrelation, expected). Bench (node, 200 blobs, step only): js 0.124 vs wasm 0.149 ms (parity, marshal-bound in node). Live A/B (t90, headless, foodMode 2, ~50 blobs): food-step EMA wasm ~1.0-1.1 ms vs js ~1.7-1.9 ms (?nowasm=1) - browser JIT/GC picture favors wasm unlike node; fwBl tracks frames, 0 errors. ca2.js wrapper allocs both buffers before wrapping (detached-buffer hazard hit and fixed).
+
 ## Measured JS cost left (sandbox, ms/frame EMA, ?perf=1)
 worms food step 1.27 (542 food), spores 1.88 (517 food), axis+tally 1.5-2.0 (drawAxis = canvas, stays JS), stepTrans 0.1-0.8, foodKeepIn 0.05-0.4, buildSources 0.5 ms/s in spores.
 
 ## TODO (order)
 0. DONE (t83-t85): engagement proven, no throws; sandbox A/B is environment-dominated (0.7 fps pathology with full visuals; tiny populations after mode switches) - node benches are the clean numbers, owner-machine HUD read via ?nofoodwasm=1 is the clean live one.
-1. stepTrans + stepFood DONE (tr.rs, fd1.rs, see Done). Next: stepBlobs (mode 2), foodKeepIn (0.05-0.4 ms) -> wasm. live knob CA measured+skipped (see Done).
+1. stepTrans + stepFood + stepBlobs DONE (tr.rs, fd1.rs, fd2.rs, see Done). Next: foodKeepIn (0.05-0.4 ms) -> wasm, then buildSources/emitCell. live knob CA measured+skipped (see Done).
 2. buildSources / emitCell.
 4. body-plan logic (newShape/mixShape/simSwim) after desktop team finishes.
 5. keepIn root cause (boundary/zone=0) hash+diff from desktop team -> port into sim.rs keep_in (zone floor already 0).

@@ -837,12 +837,29 @@
   var blobs = [], blobT = 0, blobStat = { grow: 0, shrink: 0, split: 0, die: 0, born: 0 };
   function newBlob(x, y) { var b = { x: x, y: y, vx: 0, vy: 0, r: 8 + Math.random() * 10, ph: Math.random() * 6.28, w: 0.3 + Math.random() * 0.6, d: [] }; for (var k = 0; k < 4; k++) addBlobDot(b); blobs.push(b); blobStat.born++; return b; }
   function addBlobDot(b) { var f = { x: b.x, y: b.y, r: Math.random(), a: Math.random() * 6.28, f: 0.5 + Math.random() * 1.5, q: Math.random() * 6.28, blob: b }; b.d.push(f); food.push(f); }
+  function stepBlobsPassW(tt, x0, y0, x1, y1) { // Rust/wasm blob per-frame pass (fd2.rs); returns false so the JS loop below runs (?nowasm=1, ?nosim=1)
+    var E = WC.e; if (!E || !E.fb_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
+    try {
+      var nb = blobs.length, nd = 0, i, k, b, f;
+      for (i = 0; i < nb; i++) nd += blobs[i].d.length;
+      var bp = E.fb_blobs(nb), dp = E.fb_dots(nd); // alloc both before wrapping: a resize can grow memory and detach an earlier view
+      var bb = new Float64Array(WC.mem.buffer, bp, nb * 7 + 7), db = new Float64Array(WC.mem.buffer, dp, nd * 6 + 6);
+      var j = 0;
+      for (i = 0; i < nb; i++) { b = blobs[i]; bb[i * 7] = b.x; bb[i * 7 + 1] = b.y; bb[i * 7 + 2] = b.vx; bb[i * 7 + 3] = b.vy; bb[i * 7 + 4] = b.r; bb[i * 7 + 5] = b.ph; bb[i * 7 + 6] = b.w;
+        for (k = 0; k < b.d.length; k++) { f = b.d[k]; db[j * 6] = f.a; db[j * 6 + 1] = f.f; db[j * 6 + 2] = f.q; db[j * 6 + 3] = i; j++; } }
+      if (E.fb_run(nb, nd, tt, x0, y0, x1, y1, Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296)) < 0) return false;
+      j = 0;
+      for (i = 0; i < nb; i++) { b = blobs[i]; b.x = bb[i * 7]; b.y = bb[i * 7 + 1]; b.vx = bb[i * 7 + 2]; b.vy = bb[i * 7 + 3];
+        for (k = 0; k < b.d.length; k++) { f = b.d[k]; f.x = db[j * 6 + 4]; f.y = db[j * 6 + 5]; j++; } }
+      WC.fwBl = (WC.fwBl || 0) + 1; return true;
+    } catch (e) { WC.fwBlErr = String(e && e.stack || e); return false; }
+  }
   function stepBlobs() {
     var i, k, b, now = performance.now(), tt = now / 1000, x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h;
     if (!blobs.length && food.length) { blobs = []; for (i = 0; i < food.length; i++) { delete food[i].blob; } food = []; }
     for (i = blobs.length - 1; i >= 0; i--) { b = blobs[i]; b.d = b.d.filter(function (f) { return !f.gone; }); if (!b.d.length) { blobs.splice(i, 1); blobStat.die++; } }
     var R = P.foodBlobR;
-    for (i = 0; i < blobs.length; i++) {
+    if (!stepBlobsPassW(tt, x0, y0, x1, y1)) for (i = 0; i < blobs.length; i++) {
       b = blobs[i];
       // drift, soft push from neighbours, pulled into the plate when outside
       b.vx = b.vx * 0.95 + (Math.random() - 0.5) * 0.12; b.vy = b.vy * 0.95 + (Math.random() - 0.5) * 0.12;
