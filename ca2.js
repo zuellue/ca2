@@ -880,7 +880,12 @@
 
      window.__ca2 = { PF: PF, cmp: function () { if (!gOK) return 'nogl'; var S = curS, sv = ctx.drawImage; var saved = ctx.drawImage; ctx.drawImage = function () {}; var t0 = performance.now(); drawMetaballs(S); var tg = performance.now() - t0; t0 = performance.now(); drawMetaballsCPU(S); var tc = performance.now() - t0; ctx.drawImage = saved; var tmp = document.createElement('canvas'); tmp.width = glc.width; tmp.height = glc.height; var tx = tmp.getContext('2d'); tx.drawImage(glc, 0, 0); var gd = tx.getImageData(0, 0, tmp.width, tmp.height).data, cd = img.data, n = tmp.width * tmp.height, bad = 0, mx = 0, sum = 0, lit = 0; for (var p = 0; p < n; p++) { var q = p * 4, ga = gd[q + 3], ca = cd[q + 3]; var d = Math.abs(ga - ca); if (ca > 0 || ga > 0) { lit++; if (ca > 250 && ga > 250) d = Math.max(d, Math.abs(gd[q] - cd[q]), Math.abs(gd[q + 1] - cd[q + 1]), Math.abs(gd[q + 2] - cd[q + 2])); } if (d > 8) bad++; if (d > mx) mx = d; sum += d; } return JSON.stringify({ px: n, lit: lit, bad: bad, maxd: mx, tGPUms: +tg.toFixed(1), tCPUms: +tc.toFixed(1), cells: gSnap && gSnap.n }); }, gpuState: function () { return { ok: gOK, on: gOn, n: gSnap && gSnap.n }; }, setGPU: function (v) { gOK = !!v && !!gl; }, colorAt: colorAt, setKey: function (k, v) { P[k] = v; applyKey(k, v); if (k === 'lineColor' || k === 'ruleColor' || k === 'circColor') applyLineColor(); touched[k] = 1; save(); }, cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var lastF, lastF2, run = 0, maxRun = 0, sumAbs = 0, bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; if (Math.abs(f - (lastF === undefined ? -9 : lastF)) < 0.01) { run++; maxRun = Math.max(maxRun, run); } else run = 0; lastF = f; sumAbs += lastF2 === undefined ? 0 : Math.abs(f - lastF2); lastF2 = f; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins, maxRunGens: maxRun, meanStep: sumAbs / gens }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
 
-    if (autoRefresh && performance.now() - lastRefresh > refreshInterval * 1000) randomize();
+    if (autoRefresh && performance.now() - lastRefresh > refreshInterval * 1000) {
+      // never re-deal the universe mid-configuration: while the config area is in use (panel open, lane/panel hovered,
+      // plate dragged) the timer just postpones, so the plate and its lines stay put under the user's hands (owner 20 Oct)
+      if (panel.classList.contains('open') || panel.classList.contains('hov') || resizeDrag) lastRefresh = performance.now();
+      else randomize();
+    }
     stepLive(t0);
     syncUI(rc + gc + bc);
     var lum = (0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2]), fgc = lum > 128 ? '17,17,17' : '240,240,240', root = document.documentElement.style;
@@ -1385,7 +1390,11 @@
       cleanup();
       var col = CIRC_COLS[Math.floor(Math.random() * 3)];
       c.style.background = col; c.style.borderColor = col; c.style.borderWidth = '0px'; lb.style.color = col; c.dataset.col = col; // coloured and splitting: no stroke at all
-      spans.forEach(function (sp) { sp.style.lineHeight = ''; });
+      // measure only the resting line-height: on a re-entry while the closing squeeze is still applied (or its
+      // transition still attached) the live computed value is the squeezed 0.9x one and the label comes out short,
+      // clipping the last letters against the button below (owner 20 Oct)
+      spans.forEach(function (sp) { sp.style.transition = 'none'; sp.style.lineHeight = ''; sp.style.transform = ''; });
+      void lb.offsetWidth;
       lb.style.height = (txt.length * (parseFloat(getComputedStyle(spans[0]).lineHeight) || 17) + 14) + 'px';
       // opening: letters start slightly tight vertically, line spacing eases open into place (very subtle)
       spans.forEach(function (sp) { sp.style.transition = 'none'; sp.style.opacity = '0'; sp.style.lineHeight = 'calc(var(--cfs, 13px) * 0.98)'; sp.style.transform = 'scaleY(.88)'; });
@@ -1689,9 +1698,12 @@
   function resize() {
     resizeCanvas();
     VS = Math.min(W / 1280, H / 800);
-    setTargets(); cont.ew = cont.tw; cont.eh = cont.th;
+    if (!cont.tw) { setTargets(); cont.ew = cont.tw; cont.eh = cont.th; } // first layout: deal the opening plate
+    else clampTargets(); // later resizes keep the current universe and plate; the plate only re-fits into the new safe band, eased by the frame loop
   }
-  window.addEventListener('resize', function () { resize(); randomize(true); });
+  // a viewport change (rotation, window drag, browser chrome collapsing while scrolling) re-fits the world; it must not
+  // wipe it or deal a new random plate - that read as the whole page slipping mid-scroll (owner 20 Oct)
+  window.addEventListener('resize', function () { resize(); });
   window.addEventListener('mousemove', function (e) { mouse.x = e.clientX; mouse.y = e.clientY; mouse.over = (e.target === cv); if (curEl.style.display === 'block') curEl.style.transform = 'translate(' + (mouse.x - curRRnow) + 'px,' + (mouse.y - curRRnow) + 'px)'; });
   document.addEventListener('mouseleave', function () { mouse.over = false; curEl.style.display = 'none'; curEdge.style.display = 'none'; });
   window.addEventListener('click', onClick);
