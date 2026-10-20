@@ -1,3 +1,4 @@
+mod sim;
 // ca2core: metaball field + pixel pass (port of drawMetaballsCPU). No DOM, no deps.
 static mut CELLS: Vec<f64> = Vec::new(); // per cell: cx, cy, radius, wr, wg, wb
 static mut F_SUM: Vec<f32> = Vec::new();
@@ -169,3 +170,18 @@ pub extern "C" fn mb_field_f32(n: usize, bw: usize, bh: usize, s: f64, ms: f64, 
     }
     0
 }
+
+// ---- sim exports ----
+#[no_mangle] pub extern "C" fn sim_cells(cap: usize) -> *mut f64 { let s = sim::sim(); s.cap = cap; s.cells.resize(cap * sim::ST, 0.0); s.cells.as_mut_ptr() }
+#[no_mangle] pub extern "C" fn sim_set_n(n: usize) { sim::sim().n = n; }
+#[no_mangle] pub extern "C" fn sim_food(cap: usize) -> *mut f64 { let s = sim::sim(); s.fx.resize(cap, 0.0); s.fy.resize(cap, 0.0); s.fgone.resize(cap, 0.0); s.fx.as_mut_ptr() }
+#[no_mangle] pub extern "C" fn sim_food_y() -> *mut f64 { sim::sim().fy.as_mut_ptr() }
+#[no_mangle] pub extern "C" fn sim_food_gone() -> *mut f64 { sim::sim().fgone.as_mut_ptr() }
+#[no_mangle] pub extern "C" fn sim_set_nf(n: usize) { let s = sim::sim(); s.nf = n; for i in 0..n { s.fgone[i] = 0.0; } }
+#[no_mangle] pub extern "C" fn sim_cm(cap: usize) -> *mut f64 { let s = sim::sim(); s.cm.resize(cap * 5, 0.0); s.cm_id.resize(cap, 0.0); s.cm.as_mut_ptr() }
+#[no_mangle] pub extern "C" fn sim_cm_ids() -> *mut f64 { sim::sim().cm_id.as_mut_ptr() }
+#[no_mangle] pub extern "C" fn sim_cm_count(n: usize) { let s = sim::sim(); s.cm_id.truncate(n); }
+#[no_mangle] pub extern "C" fn sim_params() -> *mut f64 { sim::sim().p.as_mut_ptr() }
+#[no_mangle] pub extern "C" fn sim_out() -> *const f64 { sim::sim().out.as_ptr() }
+#[no_mangle] pub extern "C" fn sim_step(s0: f64, s1: f64) { sim::sim().step(s0, s1); }
+#[no_mangle] pub extern "C" fn sim_log() -> *const f64 { sim::sim().log.as_ptr() }
