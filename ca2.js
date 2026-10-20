@@ -416,7 +416,7 @@
   // ---- metaballs: splatted per cell (cut off where a cell adds <3% of the threshold), device-resolution buffer ----
   var off = document.createElement('canvas'), octx = off.getContext('2d'), img = null, u32 = null;
   var bufW = 0, bufH = 0, fSum, fR, fG, fB, curS = 1;
-  function drawMetaballs(S) {
+  function drawMetaballsCPU(S) {
     var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
     if (bw !== bufW || bh !== bufH) {
       bufW = bw; bufH = bh; off.width = bw; off.height = bh; img = octx.createImageData(bw, bh); u32 = new Uint32Array(img.data.buffer);
@@ -454,7 +454,72 @@
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(off, 0, 0, bw, bh, cont.x, cont.y, cont.w, cont.h); ctx.globalAlpha = 1; pfm('mb:drawImage'); // exact fit to the area rectangle
   }
+
+  // ---- GPU metaball field (WebGL fragment shader): same formula as the CPU splat, evaluated per pixel on the GPU.
+  // The CPU path above stays as the fallback (no WebGL, too many cells, or ?cpu=1). colorAt() evaluates the same field analytically at one point (no GPU readback).
+  var GMAX = 160, gl = null, glc = null, gProg = null, gU = {}, gOK = false, gSnap = null, gOn = false;
+  (function initGL() {
+    if (/[?&]cpu=1/.test(location.search)) return;
+    try {
+      glc = document.createElement('canvas'); glc.width = glc.height = 1;
+      gl = glc.getContext('webgl', { premultipliedAlpha: true, alpha: true, antialias: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
+      if (!gl) return;
+      var dbg = gl.getExtension('WEBGL_debug_renderer_info'), rn = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) : '';
+      if (/swiftshader|llvmpipe|software|softpipe/i.test(rn) && !/[?&]gpu=1/.test(location.search)) { gl = null; return; } // a software GL is slower than the CPU splat
+      var vs = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0., 1.); }';
+      var fsrc = 'precision highp float;\n#define GMAX ' + GMAX + '\nuniform vec4 uC[GMAX]; uniform vec4 uW[GMAX]; uniform int uN; uniform float uS; uniform float uH; uniform float uTH; uniform float uBand;\n' +
+        'void main(){ float px = gl_FragCoord.x / uS, py = (uH - gl_FragCoord.y) / uS; float s = 0.; vec3 w = vec3(0.);\n' +
+        ' for (int i = 0; i < GMAX; i++) { if (i >= uN) break; vec4 c = uC[i]; float dx = px - c.x, dy = py - c.y; if (abs(dx) > c.w || abs(dy) > c.w) continue;\n' +
+        '  float inf = c.z / (dx*dx + dy*dy + 0.0001); s += inf; w += uW[i].xyz * (inf*inf); }\n' +
+        ' float lim = uTH * 0.96; if (s > lim) { float t = w.x + w.y + w.z; vec3 col = t > 0. ? w / t : vec3(0.); float a = min(1., (s - lim) / uBand); gl_FragColor = vec4(col * a, a); } else gl_FragColor = vec4(0.); }';
+      function sh(t, src) { var o = gl.createShader(t); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; }
+      gProg = gl.createProgram(); gl.attachShader(gProg, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(gProg, sh(gl.FRAGMENT_SHADER, fsrc)); gl.linkProgram(gProg);
+      if (!gl.getProgramParameter(gProg, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(gProg));
+      gl.useProgram(gProg);
+      var buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      var loc = gl.getAttribLocation(gProg, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+      ['uC', 'uW', 'uN', 'uS', 'uH', 'uTH', 'uBand'].forEach(function (n) { gU[n] = gl.getUniformLocation(gProg, n); });
+      gOK = true;
+    } catch (e) { gOK = false; gl = null; if (window.console) console.warn('ca2: WebGL field off, CPU path', e && e.message); }
+  })();
+  var gT0 = 0, gN = 0, gC = new Float32Array(GMAX * 4), gW = new Float32Array(GMAX * 4);
+  function drawMetaballs(S) {
+    gOn = false;
+    if (gOK && !gl.isContextLost()) {
+      var ms = P.metaballStrength, TH = P.THRESHOLD, n = 0, dl = cells, i;
+      for (i = 0; i < dl.length; i++) {
+        var c = dl[i];
+        if (!c.alive || !introOn(c.popD) || c.x < cont.x || c.x > cont.x + cont.w || c.y < cont.y || c.y > cont.y + cont.h) continue;
+        if (n >= GMAX) { n = -1; break; }
+        var wr = 0, wg = 0, wb = 0, cwv = (P.genomeOn && c.g) ? c.g.col : c.cw; if (cwv) { wr = cwv[0]; wg = cwv[1]; wb = cwv[2]; } else if (c.gene > 2) wr = 1; else if (c.gene < -2) wg = 1; else wb = 1;
+        gC[n * 4] = c.x - cont.x; gC[n * 4 + 1] = c.y - cont.y; gC[n * 4 + 2] = ms * c.radius * c.radius; gC[n * 4 + 3] = c.radius * Math.max(3, Math.sqrt(ms / (TH * 0.03)));
+        gW[n * 4] = wr; gW[n * 4 + 1] = wg; gW[n * 4 + 2] = wb; n++;
+      }
+      if (n >= 0) {
+        var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
+        if (glc.width !== bw || glc.height !== bh) { glc.width = bw; glc.height = bh; }
+        gl.viewport(0, 0, bw, bh); gl.useProgram(gProg);
+        gl.uniform4fv(gU.uC, gC); gl.uniform4fv(gU.uW, gW); gl.uniform1i(gU.uN, n); gl.uniform1f(gU.uS, S); gl.uniform1f(gU.uH, bh); gl.uniform1f(gU.uTH, TH); gl.uniform1f(gU.uBand, TH * 0.08);
+        gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        pfm('gpu:draw+field'); gT0 = performance.now();
+        ctx.imageSmoothingEnabled = false; ctx.drawImage(glc, 0, 0, bw, bh, cont.x, cont.y, cont.w, cont.h); ctx.globalAlpha = 1; pfm('gpu:drawImage'); if (++gN > 40 && PF['gpu:drawImage'] + PF['gpu:draw+field'] > 90 && !/[?&]gpu=1/.test(location.search)) gOK = false; // too slow on this machine: back to the CPU path
+        gSnap = { n: n, S: S, bw: bw, bh: bh, TH: TH }; gOn = true; return;
+      }
+    }
+    drawMetaballsCPU(S);
+  }
+  function colorAtGPU(x, y) {
+    var S = gSnap.S, bx = Math.min(gSnap.bw - 1, Math.floor((x - cont.x) * S)), by = Math.min(gSnap.bh - 1, Math.floor((y - cont.y) * S));
+    var px = (bx + 0.5) / S, py = (by + 0.5) / S, s = 0, r = 0, g = 0, b = 0, TH = gSnap.TH;
+    for (var i = 0; i < gSnap.n; i++) {
+      var dx = px - gC[i * 4], dy = py - gC[i * 4 + 1], R = gC[i * 4 + 3]; if (Math.abs(dx) > R || Math.abs(dy) > R) continue;
+      var inf = gC[i * 4 + 2] / (dx * dx + dy * dy + 0.0001), i2 = inf * inf; s += inf; r += i2 * gW[i * 4]; g += i2 * gW[i * 4 + 1]; b += i2 * gW[i * 4 + 2];
+    }
+    if (s > TH * 0.96) { var t = r + g + b; if (t > 0) { r /= t; g /= t; b /= t; } var al = Math.min(1, (s - TH * 0.96) / (TH * 0.08)); return [bg[0] + (r * 255 - bg[0]) * al, bg[1] + (g * 255 - bg[1]) * al, bg[2] + (b * 255 - bg[2]) * al]; }
+    return [bg[0], bg[1], bg[2]];
+  }
   function colorAt(x, y) {
+    if (gOn && gSnap && x >= cont.x && x < cont.x + cont.w && y >= cont.y && y < cont.y + cont.h) return colorAtGPU(x, y);
     if (img && x >= cont.x && x < cont.x + cont.w && y >= cont.y && y < cont.y + cont.h) {
       var bx = Math.min(bufW - 1, Math.floor((x - cont.x) * curS)), by = Math.min(bufH - 1, Math.floor((y - cont.y) * curS)), q = (by * bufW + bx) * 4;
       var al = img.data[q + 3] / 255;
@@ -813,7 +878,7 @@
     curInfo = { on: curOn, ring: ringOn, dot: curInfo3.dot, dp: curInfo3.dp, lx: curInfo2.lx, ly: curInfo2.ly, locked: curInfo2.locked, maxR: curMaxR, cx: curX, cy: curY, rr: curRR, col: curCol, title: !!titleHit };
     }
 
-     window.__ca2 = { PF: PF, setKey: function (k, v) { P[k] = v; applyKey(k, v); if (k === 'lineColor' || k === 'ruleColor' || k === 'circColor') applyLineColor(); touched[k] = 1; save(); }, cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var lastF, lastF2, run = 0, maxRun = 0, sumAbs = 0, bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; if (Math.abs(f - (lastF === undefined ? -9 : lastF)) < 0.01) { run++; maxRun = Math.max(maxRun, run); } else run = 0; lastF = f; sumAbs += lastF2 === undefined ? 0 : Math.abs(f - lastF2); lastF2 = f; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins, maxRunGens: maxRun, meanStep: sumAbs / gens }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
+     window.__ca2 = { PF: PF, cmp: function () { if (!gOK) return 'nogl'; var S = curS, sv = ctx.drawImage; var saved = ctx.drawImage; ctx.drawImage = function () {}; var t0 = performance.now(); drawMetaballs(S); var tg = performance.now() - t0; t0 = performance.now(); drawMetaballsCPU(S); var tc = performance.now() - t0; ctx.drawImage = saved; var tmp = document.createElement('canvas'); tmp.width = glc.width; tmp.height = glc.height; var tx = tmp.getContext('2d'); tx.drawImage(glc, 0, 0); var gd = tx.getImageData(0, 0, tmp.width, tmp.height).data, cd = img.data, n = tmp.width * tmp.height, bad = 0, mx = 0, sum = 0, lit = 0; for (var p = 0; p < n; p++) { var q = p * 4, ga = gd[q + 3], ca = cd[q + 3]; var d = Math.abs(ga - ca); if (ca > 0 || ga > 0) { lit++; if (ca > 250 && ga > 250) d = Math.max(d, Math.abs(gd[q] - cd[q]), Math.abs(gd[q + 1] - cd[q + 1]), Math.abs(gd[q + 2] - cd[q + 2])); } if (d > 8) bad++; if (d > mx) mx = d; sum += d; } return JSON.stringify({ px: n, lit: lit, bad: bad, maxd: mx, tGPUms: +tg.toFixed(1), tCPUms: +tc.toFixed(1), cells: gSnap && gSnap.n }); }, gpuState: function () { return { ok: gOK, on: gOn, n: gSnap && gSnap.n }; }, setGPU: function (v) { gOK = !!v && !!gl; }, colorAt: colorAt, setKey: function (k, v) { P[k] = v; applyKey(k, v); if (k === 'lineColor' || k === 'ruleColor' || k === 'circColor') applyLineColor(); touched[k] = 1; save(); }, cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var lastF, lastF2, run = 0, maxRun = 0, sumAbs = 0, bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; if (Math.abs(f - (lastF === undefined ? -9 : lastF)) < 0.01) { run++; maxRun = Math.max(maxRun, run); } else run = 0; lastF = f; sumAbs += lastF2 === undefined ? 0 : Math.abs(f - lastF2); lastF2 = f; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins, maxRunGens: maxRun, meanStep: sumAbs / gens }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
 
     if (autoRefresh && performance.now() - lastRefresh > refreshInterval * 1000) randomize();
     stepLive(t0);
