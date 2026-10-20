@@ -1302,14 +1302,16 @@
       dividing = false;
       c.style.transition = ''; c.style.transform = ''; c.style.opacity = ''; c.style.background = 'transparent'; c.style.borderColor = 'var(--kc, var(--fg))'; c.style.borderWidth = LW() + 'px';
     }
-    it.addEventListener('pointerenter', function () {
+    c.addEventListener('pointerenter', function () { // hover area is the button only: the label under it is not part of it (hovering the title closes the button)
       cleanup();
       var col = CIRC_COLS[Math.floor(Math.random() * 3)];
       c.style.background = col; c.style.borderColor = col; c.style.borderWidth = '0px'; lb.style.color = col; c.dataset.col = col; // coloured and splitting: no stroke at all
+      spans.forEach(function (sp) { sp.style.lineHeight = ''; });
       lb.style.height = (txt.length * (parseFloat(getComputedStyle(spans[0]).lineHeight) || 17) + 14) + 'px';
-      spans.forEach(function (sp) { sp.style.opacity = '0'; sp.style.transitionDelay = (Math.random() * 0.35).toFixed(2) + 's'; });
+      // opening: letters start slightly tight vertically, line spacing eases open into place (very subtle)
+      spans.forEach(function (sp) { sp.style.transition = 'none'; sp.style.opacity = '0'; sp.style.lineHeight = 'calc(var(--cfs, 13px) * 0.98)'; sp.style.transform = 'scaleY(.88)'; });
       void lb.offsetWidth;
-      spans.forEach(function (sp) { sp.style.opacity = '1'; });
+      spans.forEach(function (sp) { sp.style.transition = 'opacity .12s linear, line-height .3s cubic-bezier(.2,.8,.3,1), transform .3s cubic-bezier(.2,.8,.3,1)'; sp.style.transitionDelay = (Math.random() * 0.2).toFixed(2) + 's'; sp.style.opacity = '1'; sp.style.lineHeight = ''; sp.style.transform = 'scaleY(1)'; });
       // the circle stirs with a small rule-110 life of its own, like the knobs - shrinking, not growing (visual only)
       caSt = { s: (hash(sec.name) ^ 0x51f3) || 9 }; var bits = [];
       for (var i = 0; i < 16; i++) bits.push(lcg(caSt) < 0.5 ? 1 : 0);
@@ -1368,9 +1370,10 @@
       }, 110);
       var oc = caT; caT = { _a: oc, _b: life };
     });
-    it.addEventListener('pointerleave', function () {
+    c.addEventListener('pointerleave', function () {
       var col = c.dataset.col || '#000';
-      spans.forEach(function (sp) { sp.style.opacity = '0'; sp.style.transitionDelay = '0s'; });
+      // closing: letters squeeze together vertically a little and fade
+      spans.forEach(function (sp) { sp.style.transition = 'opacity .2s ease-in, line-height .2s ease-in, transform .2s ease-in'; sp.style.transitionDelay = '0s'; sp.style.opacity = '0'; sp.style.lineHeight = 'calc(var(--cfs, 13px) * 0.9)'; sp.style.transform = 'scaleY(.8)'; });
       lb.style.height = '0px';
       // stop the hover life; the pieces now die one by one at random moments, one random survivor wanders cellular-automaton style,
       // grows back to the full button size, is pierced from its centre and settles as the button's hollow ring
@@ -1648,6 +1651,12 @@
   });
   document.getElementById('tab').addEventListener('click', function () { panel.classList.toggle('open'); });
   if (/open/.test(location.hash)) panel.classList.add('open');
-  [].forEach.call(panel.children, function (el) { el.style.animation = 'ca2in ' + (1.1 + Math.random() * 1.5).toFixed(2) + 's ease both'; el.style.animationDelay = (Math.random() * 2.6).toFixed(2) + 's'; });
-  [].forEach.call(document.querySelectorAll('#controls .row'), function (el) { el.style.animation = 'ca2in ' + (1.1 + Math.random() * 1.5).toFixed(2) + 's ease both'; el.style.animationDelay = (Math.random() * 2.6).toFixed(2) + 's'; });
+  // reveal: panel blocks fade in fast; every part of a parameter row (label, value, slider/knob, swatch, button) has its own short fade and its own random delay
+  function partIn(el, base) { el.style.animation = 'ca2in ' + (0.16 + Math.random() * 0.2).toFixed(2) + 's ease-out both'; el.style.animationDelay = (base + Math.random() * 0.14).toFixed(3) + 's'; }
+  [].forEach.call(panel.children, function (el) { if (el.id !== 'controls') partIn(el, Math.random() * 0.25); });
+  [].forEach.call(document.querySelectorAll('#controls .row'), function (el, ri) {
+    var base = Math.min(ri, 14) * 0.02, ps = el.querySelectorAll('.lab > span, .lab > b, input, button, .cswatch, select');
+    if (!ps.length) { partIn(el, base); return; }
+    [].forEach.call(ps, function (p) { partIn(p, base); });
+  });
 })();

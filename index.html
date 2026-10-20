@@ -99,7 +99,7 @@
   #secc .sci { display: flex; flex-direction: column; align-items: center; }
   #secc .sc { border-radius: 50%; box-sizing: border-box; cursor: pointer; flex: none; }
   #secc .sl { text-transform: uppercase; font-size: var(--cfs, 13px); overflow: hidden; height: 0; transition: height .25s ease; pointer-events: none; margin-top: 10px; text-align: center; }
-  #secc .sl span { display: block; opacity: 0; transition: opacity .06s linear; line-height: calc(var(--cfs, 13px) * 1.3077); }
+  #secc .sl span { display: block; opacity: 0; transform-origin: 50% 0; transition: opacity .06s linear; line-height: calc(var(--cfs, 13px) * 1.3077); }
   /* admin entry: 4 hollow circles stacked at the bottom right, on the section-circle axis */
   #adm { display: none; position: fixed; right: 8px; bottom: 14px; z-index: 11; flex-direction: column; align-items: center; cursor: text; opacity: 0; pointer-events: none; transition: opacity .2s ease-out; }
   #adm.on { display: flex; }
