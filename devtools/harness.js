@@ -7,7 +7,7 @@ function serve(port){return new Promise(res=>{const s=http.createServer((req,rsp
   fs.readFile(p,(e,d)=>{if(e){rsp.writeHead(404);rsp.end('nf');return;}rsp.writeHead(200,{'content-type':M[path.extname(p)]||'application/octet-stream','cache-control':'no-store'});rsp.end(d);});
 }).listen(port,()=>res(s));});}
 async function launch(port,url,extra){
-  const ch=spawn('google-chrome',['--headless=new','--no-sandbox','--disable-gpu','--autoplay-policy=no-user-gesture-required','--remote-debugging-port='+port,'--window-size=1300,800',...(extra||[]),url],{stdio:'ignore'});
+  const ch=spawn('google-chrome',['--headless=new','--no-sandbox','--disable-gpu','--autoplay-policy=no-user-gesture-required','--remote-debugging-port='+port,'--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--window-size=1300,800',...(extra||[]),url],{stdio:'ignore'});
   let tabs=null;
   for(let i=0;i<40;i++){await new Promise(r=>setTimeout(r,500));try{tabs=await (await fetch('http://127.0.0.1:'+port+'/json')).json();if(tabs&&tabs.length)break;}catch(e){}}
   if(!tabs||!tabs.length)throw new Error('chrome debug port never came up');
