@@ -761,6 +761,13 @@
         var a0 = rightE ? (downE ? 45 : -45) : (downE ? 135 : -135), r0 = a0 * Math.PI / 180;
         var gC = gE * 1.8, offC = 4.5; // wider gap between the two arms; arms lengthened by the same amount so the visible strokes keep their length; vertex hugs the corner
         dE = anglePath(a0 + 180, Le + (gC - gE), gC, bxE + Math.cos(r0) * offC, byE + Math.sin(r0) * offC); // tip faces the plate
+        if (resizeDrag) { // while a corner is dragged all four corner icons stay visible (the plate resizes symmetrically; owner 20 Oct)
+          dE = '';
+          [[false, false, -135], [true, false, -45], [false, true, 135], [true, true, 45]].forEach(function (q) {
+            var rq = q[2] * Math.PI / 180, vx = (q[0] ? cont.x + cont.w : cont.x) + Math.cos(rq) * offC, vy = (q[1] ? cont.y + cont.h : cont.y) + Math.sin(rq) * offC;
+            dE += anglePath(q[2] + 180, Le + (gC - gE), gC, vx, vy);
+          });
+        }
       } else if (eHit.h) { // vertical edge: vertex just outside it, at the pointer's height, tip facing the plate
         dE = anglePath(rightE ? 0 : 180, Le, gE, bxE + (rightE ? offE : -offE), clamp(mouse.y, cont.y, cont.y + cont.h));
       } else { // horizontal edge
@@ -1124,10 +1131,23 @@
     var txt = sec.name.toUpperCase(), spans = [];
     for (var i = 0; i < txt.length; i++) { var sp = document.createElement('span'); sp.textContent = txt[i]; lb.appendChild(sp); spans.push(sp); }
     it.appendChild(c); it.appendChild(lb); secc.appendChild(it); sec.circ = c;
-    var caT = null, caSt = null, t1 = null, t2 = null, clone = null, dividing = false;
+    var caT = null, caSt = null, t1 = null, t2 = null, dividing = false, parts = [], home = null, D0 = 0, endTimers = [], endIv = null;
+    function put(p) { p.el.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + p.y.toFixed(1) + 'px) scale(' + p.k.toFixed(2) + ')'; }
+    // stop everything that animates this circle and put it back to its resting hollow state (also used when the pointer returns mid-ending)
+    function cleanup() {
+      if (caT) { clearInterval(caT); if (caT._a) clearInterval(caT._a); if (caT._b) clearInterval(caT._b); caT = null; }
+      if (t1) { clearTimeout(t1); t1 = null; }
+      if (t2) { clearInterval(t2); t2 = null; }
+      if (endIv) { clearInterval(endIv); endIv = null; }
+      endTimers.forEach(clearTimeout); endTimers = [];
+      parts.forEach(function (p) { if (p.el !== c) p.el.remove(); }); parts = [];
+      dividing = false;
+      c.style.transition = ''; c.style.transform = ''; c.style.opacity = ''; c.style.background = 'transparent'; c.style.borderColor = '';
+    }
     it.addEventListener('pointerenter', function () {
+      cleanup();
       var col = CIRC_COLS[Math.floor(Math.random() * 3)];
-      c.style.background = col; c.style.borderColor = col; lb.style.color = col;
+      c.style.background = col; c.style.borderColor = col; lb.style.color = col; c.dataset.col = col;
       lb.style.height = (txt.length * 17 + 14) + 'px';
       spans.forEach(function (sp) { sp.style.opacity = '0'; sp.style.transitionDelay = (Math.random() * 0.35).toFixed(2) + 's'; });
       void lb.offsetWidth;
@@ -1145,27 +1165,25 @@
         if (!dividing) c.style.transform = 'translate(' + dx.toFixed(1) + 'px,0) scale(' + (1 - sum / 16 * 0.4).toFixed(2) + ')';
       }, 110);
       // hover keeps going: in place the circle splits into four, and the pieces keep living as a tiny vector cellular
-      // automaton - every 1.3 s each piece divides into four again (the crowd is capped, extra pieces die)
-      var D0 = c.offsetWidth, home = { x: c.offsetLeft, y: c.offsetTop }, parts = [{ el: c, x: 0, y: 0, vx: 0, vy: 0, k: 0.6 }];
+      // automaton - every 1.3 s each piece divides into four again, always in multiples of four (the crowd is capped at 24, extra pieces die)
+      D0 = c.offsetWidth; home = { x: c.offsetLeft, y: c.offsetTop }; parts = [{ el: c, x: 0, y: 0, vx: 0, vy: 0, k: 0.6 }];
       c.parentNode.style.position = 'relative'; dividing = true;
       c.style.transition = 'transform .25s ease';
-      function put(p) { p.el.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + p.y.toFixed(1) + 'px) scale(' + p.k.toFixed(2) + ')'; }
+      function mk() { var n = c.cloneNode(false); n.style.position = 'absolute'; n.style.left = home.x + 'px'; n.style.top = home.y + 'px'; n.style.pointerEvents = 'none'; n.style.margin = '0'; n.style.transition = 'transform .25s ease'; n.style.background = c.style.background; n.style.borderColor = c.style.borderColor; c.parentNode.appendChild(n); return n; }
       function split() {
         var out = [];
         parts.forEach(function (p) {
           var off = D0 * p.k * 0.25;
           [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (d, j) {
-            var el = j === 0 && p.el === c ? c : (function () { var n = c.cloneNode(false); n.style.position = 'absolute'; n.style.left = home.x + 'px'; n.style.top = home.y + 'px'; n.style.pointerEvents = 'none'; n.style.margin = '0'; n.style.transition = 'transform .25s ease'; n.style.background = c.style.background; n.style.borderColor = c.style.borderColor; c.parentNode.appendChild(n); return n; })();
-            if (j === 0 && p.el !== c) { p.el.remove(); }
+            var el = j === 0 ? p.el : mk();
             out.push({ el: el, x: p.x + d[0] * off, y: p.y + d[1] * off, vx: d[0] * 0.8, vy: d[1] * 0.8, k: Math.max(0.12, p.k * 0.5) });
           });
-          if (p.el === c) return;
         });
-        // cap: extra pieces die; the original circle always survives
-        while (out.length > 24) { var i = 1 + Math.floor(lcg(caSt) * (out.length - 1)); if (out[i].el !== c) { out[i].el.remove(); } out.splice(i, 1); }
+        // cap at 24 (a multiple of 4): extra pieces die, the original circle always survives
+        while (out.length > 24) { var i = 1 + Math.floor(lcg(caSt) * (out.length - 1)); out[i].el.remove(); out.splice(i, 1); }
         parts = out; parts.forEach(put);
       }
-      t1 = setTimeout(function () { t1 = null; split(); t2 = setInterval(function () { split(); }, 1300); clone = { remove: function () { parts.forEach(function (p) { if (p.el !== c) p.el.remove(); }); parts = []; } }; }, 700);
+      t1 = setTimeout(function () { t1 = null; split(); t2 = setInterval(split, 1300); }, 700);
       var life = setInterval(function () {
         parts.forEach(function (p, i) {
           var r = (110 >> (((i + 1) & 1) * 4 + (Math.round(p.x) & 1) * 2 + (Math.round(p.y) & 1))) & 1;
@@ -1176,15 +1194,40 @@
       var oc = caT; caT = { _a: oc, _b: life };
     });
     it.addEventListener('pointerleave', function () {
-      c.style.background = 'transparent'; c.style.borderColor = '';
+      var col = c.dataset.col || '#000';
       spans.forEach(function (sp) { sp.style.opacity = '0'; sp.style.transitionDelay = '0s'; });
       lb.style.height = '0px';
+      // stop the hover life; the pieces now die one by one at random moments, one random survivor wanders cellular-automaton style,
+      // grows back to the full button size, is pierced from its centre and settles as the button's hollow ring
       if (caT) { clearInterval(caT); if (caT._a) clearInterval(caT._a); if (caT._b) clearInterval(caT._b); caT = null; }
       if (t1) { clearTimeout(t1); t1 = null; }
-      if (t2) { clearTimeout(t2); clearInterval(t2); t2 = null; }
-      dividing = false;
-      if (clone) { clone.remove(); clone = null; }
-      c.style.transition = ''; c.style.transform = '';
+      if (t2) { clearInterval(t2); t2 = null; }
+      if (!parts.length) { cleanup(); return; }
+      var sv = parts[Math.floor(Math.random() * parts.length)];
+      parts.forEach(function (p) {
+        if (p === sv) return;
+        endTimers.push(setTimeout(function () { p.el.style.transition = 'transform .3s ease, opacity .3s ease'; p.k = 0; put(p); p.el.style.opacity = '0'; }, Math.random() * 900));
+      });
+      sv.el.style.transition = 'transform .06s linear';
+      var bits = []; for (var i = 0; i < 16; i++) bits.push(lcg(caSt) < 0.5 ? 1 : 0);
+      var phase = 0, tS = performance.now(), k0 = sv.k, x0 = sv.x, y0 = sv.y, tP = 0;
+      endIv = setInterval(function () {
+        var now = performance.now();
+        if (phase === 0) {
+          var nb = new Array(16), sum = 0;
+          for (var i = 0; i < 16; i++) { nb[i] = (110 >> (bits[(i + 15) % 16] * 4 + bits[i] * 2 + bits[(i + 1) % 16])) & 1; sum += nb[i]; }
+          if (sum === 0 || sum === 16) nb[Math.floor(lcg(caSt) * 16)] ^= 1; bits = nb;
+          var f = Math.min(1, (now - tS) / 1600), e = f * f * (3 - 2 * f), wob = (1 - f) * 5;
+          sv.k = k0 + (1 - k0) * e;
+          sv.x = x0 * (1 - e) + (nb[0] + nb[5] + nb[10] - 1.5) * wob; sv.y = y0 * (1 - e) + (nb[2] + nb[7] + nb[12] - 1.5) * wob;
+          if (f >= 1) { sv.k = 1; sv.x = 0; sv.y = 0; phase = 1; tP = now; }
+          put(sv);
+        } else if (phase === 1) {
+          var h = Math.min(100, (now - tP) / 450 * 100);
+          sv.el.style.background = 'radial-gradient(circle closest-side, transparent ' + h.toFixed(1) + '%, ' + col + ' ' + h.toFixed(1) + '%)';
+          if (h >= 100) { phase = 2; sv.el.style.background = 'transparent'; sv.el.style.transition = 'border-color .25s ease'; sv.el.style.borderColor = ''; endTimers.push(setTimeout(function () { cleanup(); }, 300)); }
+        }
+      }, 40);
     });
     it.addEventListener('click', function (e) {
       e.stopPropagation();
@@ -1366,7 +1409,7 @@
     setTargets(); cont.ew = cont.tw; cont.eh = cont.th;
   }
   window.addEventListener('resize', function () { resize(); randomize(true); });
-  window.addEventListener('mousemove', function (e) { mouse.x = e.clientX; mouse.y = e.clientY; mouse.over = (e.target === cv); if (curEl.style.display === 'block') curEl.style.transform = 'translate(' + (mouse.x - curRRnow) + 'px,' + (mouse.y - curRRnow) + 'px)'; if (curEdge.style.display === 'block') curEdge.style.transform = 'translate(' + mouse.x + 'px,' + mouse.y + 'px)'; });
+  window.addEventListener('mousemove', function (e) { mouse.x = e.clientX; mouse.y = e.clientY; mouse.over = (e.target === cv); if (curEl.style.display === 'block') curEl.style.transform = 'translate(' + (mouse.x - curRRnow) + 'px,' + (mouse.y - curRRnow) + 'px)'; });
   document.addEventListener('mouseleave', function () { mouse.over = false; curEl.style.display = 'none'; curEdge.style.display = 'none'; });
   window.addEventListener('click', onClick);
   // grab the plate border with the mouse and pull to resize it (symmetric around the centre); cells get restless while dragging
