@@ -890,8 +890,8 @@
     worms.push(w); wormStat.born++; return w;
   }
   function wipeWorms() { for (var i = food.length - 1; i >= 0; i--) if (food[i].worm) food.splice(i, 1); worms = []; }
-  function stepWormsW() { // Rust/wasm worm step (worms.rs); returns false when unavailable so the JS body below runs (?nowasm=1, ?nosim=1)
-    var E = WC.e; if (!E || !E.wm_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
+  function stepWormsW() { // Rust/wasm worm step (worms.rs); returns false when unavailable so the JS body below runs (?nowasm=1, ?nosim=1, ?nofoodwasm=1)
+    var E = WC.e; if (!E || !E.wm_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1|nofoodwasm=1/.test(location.search)) return false;
     try {
       var i, k, w, f, now = performance.now();
       for (i = worms.length - 1; i >= 0; i--) { // eaten links drop out; a worm with too little body left dissolves
@@ -977,8 +977,8 @@
   var spores = [], sporeLast = 0, sporeStat = { born: 0, burst: 0, died: 0, eaten: 0, settled: 0 };
   function newSpore(x, y, st) { var s = { x: x, y: y, r: Math.random(), st: st || 0, age: 0, ph: Math.random() * 6.2832, vx: 0, vy: 0, spore: 1 }; spores.push(s); food.push(s); sporeStat.born++; return s; }
   function wipeSpores() { for (var i = food.length - 1; i >= 0; i--) if (food[i].spore) food.splice(i, 1); spores = []; }
-  function stepSporesW() { // Rust/wasm spore step (spores.rs); returns false when unavailable so the JS body below runs (?nowasm=1, ?nosim=1)
-    var E = WC.e; if (!E || !E.sp_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
+  function stepSporesW() { // Rust/wasm spore step (spores.rs); returns false when unavailable so the JS body below runs (?nowasm=1, ?nosim=1, ?nofoodwasm=1)
+    var E = WC.e; if (!E || !E.sp_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1|nofoodwasm=1/.test(location.search)) return false;
     try {
       var n = spores.length, i, s, b, k, src;
       var ip = E.sp_in(n), buf = new Float64Array(WC.mem.buffer, ip, n * 9 + 9);
@@ -1053,8 +1053,8 @@
     ctx.globalAlpha = 1;
   }
   var parStat = { rehost: 0 };
-  function stepParasitesW() { // Rust/wasm parasite step (parasites.rs); returns false when unavailable so the JS body below runs (?nowasm=1, ?nosim=1)
-    var E = WC.e; if (!E || !E.pa_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
+  function stepParasitesW() { // Rust/wasm parasite step (parasites.rs); returns false when unavailable so the JS body below runs (?nowasm=1, ?nosim=1, ?nofoodwasm=1)
+    var E = WC.e; if (!E || !E.pa_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1|nofoodwasm=1/.test(location.search)) return false;
     try {
       if (!P.parasiteOn || !cells.length) { parasites.length = 0; return true; }
       var n = cells.length, m = parasites.length, i, c, p, b;
