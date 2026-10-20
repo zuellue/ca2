@@ -859,11 +859,12 @@
     }
   }
   // ---- persistence: every config key, versioned; unknown/removed keys are ignored, new keys keep defaults ----
-  var STORE = 'ca2.config', STORE_V = 6;
+  var STORE = 'ca2.config', STORE_V = 6, savedLive = {};
   (function load() {
     try {
       var sv = JSON.parse(localStorage.getItem(STORE) || 'null');
       if (!sv || typeof sv !== 'object') return;
+      if (sv.live && typeof sv.live === 'object') savedLive = sv.live;
       var p = sv.P || {};
       Object.keys(p).forEach(function (k) { if (k in P && typeof p[k] === 'number' && isFinite(p[k])) P[k] = p[k]; });
       if (typeof p.foodColor === 'string' && /^#[0-9a-f]{6}$/i.test(p.foodColor)) P.foodColor = p.foodColor;
@@ -875,7 +876,8 @@
   })();
   // old configs stored foodEatR as a factor of the cell radius; the fixed px radius migrates them once
   if (P.foodEatR <= 1) P.foodEatR = Math.round(P.foodEatR * DEFAULTS.CELL_RADIUS * 100) / 100;
-  function save() { try { var Pc = Object.assign({}, P); for (var lk in live) Pc[lk] = live[lk].orig; localStorage.setItem(STORE, JSON.stringify({ v: STORE_V, P: Pc, autoRefresh: autoRefresh, lockParams: lockParams, bgTarget: bgTarget, bgIndex: bgIndex })); } catch (e) {} if (window.__adminPush) window.__adminPush(); }
+  function liveMap() { var m = {}; for (var lk in live) m[lk] = live[lk].orig; return m; }
+  function save() { try { var Pc = Object.assign({}, P); for (var lk in live) Pc[lk] = live[lk].orig; localStorage.setItem(STORE, JSON.stringify({ v: STORE_V, P: Pc, live: liveMap(), autoRefresh: autoRefresh, lockParams: lockParams, bgTarget: bgTarget, bgIndex: bgIndex })); } catch (e) {} if (window.__adminPush) window.__adminPush(); }
   // ---- config panel: every parameter ----
   var rows = {}, statsEl = document.getElementById('stats'), ctl = document.getElementById('controls'), btns = document.getElementById('btns');
   var GROUPS = [
@@ -945,6 +947,33 @@
       var d = document.createElement('div'); d.className = 'row';
       d.innerHTML = '<div class="lab"><span>' + q[1] + '</span><b style="font-weight:normal"></b></div><input type="range" min="' + q[2] + '" max="' + q[3] + '" step="' + q[4] + '">';
       var inp = d.querySelector('input'), val = d.querySelector('b');
+      // double-click the value: type it by hand (may pass the knob's floor/ceiling; the knob itself stays inside them)
+      val.addEventListener('dblclick', function (e) {
+        e.stopPropagation();
+        if (d.querySelector('.man')) return;
+        var k = q[0];
+        var ed = document.createElement('input'); ed.type = 'text'; ed.className = 'man'; ed.value = fmt(P[k]);
+        ed.setAttribute('inputmode', 'decimal'); ed.spellcheck = false; ed.autocomplete = 'off';
+        val.style.display = 'none'; val.parentNode.appendChild(ed);
+        ed.focus(); ed.setSelectionRange(ed.value.length, ed.value.length);
+        var done = false;
+        var fin = function (commit) {
+          if (done) return; done = true;
+          var t = ed.value.trim().replace(',', '.');
+          if (commit && /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t)) {
+            var v = parseFloat(t);
+            if (isFinite(v)) {
+              if (live[k]) liveStop(k);
+              P[k] = v; applyKey(k, v); inp.value = v; val.textContent = fmt(v);
+              if (/UNIVERSE|CELL_RADIUS|Mutation|interaction|Rate/.test(k)) { lockParams = true; if (lockBox) { lockBox.checked = true; lockVal.textContent = 'on'; } }
+              save();
+            }
+          }
+          ed.remove(); val.style.display = '';
+        };
+        ed.addEventListener('keydown', function (ev) { ev.stopPropagation(); if (ev.key === 'Enter') fin(true); else if (ev.key === 'Escape') fin(false); });
+        ed.addEventListener('blur', function () { fin(true); });
+      });
       var downVal = null;
       inp.addEventListener('pointerdown', function () { if (!live[q[0]]) downVal = P[q[0]]; });
       inp.addEventListener('dblclick', function () {
@@ -960,8 +989,12 @@
         save();
       });
       inp.value = P[q[0]]; val.textContent = fmt(P[q[0]]);
-      ctl.appendChild(d); rows[q[0]] = { inp: inp, val: val };
+      ctl.appendChild(d); rows[q[0]] = { inp: inp, val: val, row: d };
     });
+  });
+  var keyToQ = {}; GROUPS.forEach(function (g) { g[1].forEach(function (q) { keyToQ[q[0]] = q; }); });
+  Object.keys(savedLive).forEach(function (k) {
+    if (keyToQ[k] && rows[k] && typeof savedLive[k] === 'number' && isFinite(savedLive[k])) liveStart(k, keyToQ[k], savedLive[k], rows[k].row);
   });
   function toggle(label, init, fn) {
     var l = document.createElement('label'); l.className = 'chk';
@@ -1037,7 +1070,11 @@
     function post(b) { return fetch(WK, { method: 'POST', body: JSON.stringify(b) }).then(function (r) { return r.json(); }); }
     function applyG(g) {
       if (!g || typeof g !== 'object') return false; var n = 0;
-      Object.keys(g).forEach(function (k) { if (k === '_v' || !(k in P)) return; var v = g[k]; if (typeof v === typeof P[k] && (typeof v !== 'number' || isFinite(v)) && P[k] !== v) { P[k] = v; n++; } });
+      Object.keys(g).forEach(function (k) { if (k === '_v' || k === '_live' || !(k in P)) return; var v = g[k]; if (typeof v === typeof P[k] && (typeof v !== 'number' || isFinite(v)) && P[k] !== v) { P[k] = v; n++; } });
+      if (g._live && typeof g._live === 'object') {
+        Object.keys(g._live).forEach(function (k) { if (!live[k] && keyToQ[k] && rows[k] && typeof g._live[k] === 'number' && isFinite(g._live[k])) { liveStart(k, keyToQ[k], g._live[k], rows[k].row); n++; } });
+        Object.keys(live).forEach(function (k) { if (!(k in g._live)) { liveStop(k); n++; } });
+      }
       if (n && P.foodEatR <= 1) P.foodEatR = Math.round(P.foodEatR * DEFAULTS.CELL_RADIUS * 100) / 100;
       return n;
     }
@@ -1054,6 +1091,7 @@
     window.__adminPush = function () {
       if (!admin) return; var patch = {}, any = false;
       Object.keys(P).forEach(function (k) { var v = P[k]; if (live[k]) v = live[k].orig; if ((typeof v === 'number' && isFinite(v) || typeof v === 'string') && sent[k] !== v) { patch[k] = v; sent[k] = v; any = true; } });
+      var lm = JSON.stringify(liveMap()); if (sent._live !== lm) { patch._live = liveMap(); sent._live = lm; any = true; }
       if (any) post({ code: admin, patch: patch }).then(function (r) { if (r && r.v) lastV = r.v; }).catch(function () {});
     };
     var box = document.createElement('input'); box.type = 'text'; box.maxLength = 4; box.setAttribute('inputmode', 'numeric'); box.autocomplete = 'off'; box.spellcheck = false;
