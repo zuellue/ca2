@@ -10,6 +10,7 @@
   html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); }
   canvas#c, canvas#g { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; }
   canvas#g { pointer-events: none; }
+  canvas#c, canvas#g { image-rendering: pixelated; image-rendering: crisp-edges; image-rendering: pixelated; }
   canvas#ln { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 9; }
   /* config: same language as the sketch - Ca2-Thin, hairlines, no boxes */
   #tab { position: fixed; top: 0; right: 0; width: 18px; height: 100%; z-index: 9; }

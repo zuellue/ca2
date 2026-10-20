@@ -451,7 +451,7 @@
       } else { data[q] = br; data[q + 1] = bgc; data[q + 2] = bb; data[q + 3] = 0; }
     }
     octx.putImageData(img, 0, 0);
-    ctx.imageSmoothingEnabled = S < DPR * 0.999; ctx.imageSmoothingQuality = 'high';
+    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(off, 0, 0, bw, bh, cont.x, cont.y, cont.w, cont.h); ctx.globalAlpha = 1; // exact fit to the area rectangle
   }
   function colorAt(x, y) {
