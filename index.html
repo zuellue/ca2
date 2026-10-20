@@ -10,6 +10,7 @@
   html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); }
   canvas#c, canvas#g { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; }
   canvas#g { pointer-events: none; }
+  canvas#ln { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 9; }
   /* config: same language as the sketch - Ca2-Thin, hairlines, no boxes */
   #tab { position: fixed; top: 0; right: 0; width: 18px; height: 100%; z-index: 9; }
   #panel { position: fixed; top: 0; right: 0; height: 100%; width: 340px; max-width: 86vw; z-index: 10; box-sizing: border-box;
@@ -54,7 +55,7 @@
   .stats span:nth-child(odd) { align-self: center; }
   .grp { position: relative; width: fit-content; margin: 14px 0 2px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; font-size: var(--cfs, 13px); color: var(--fg-soft); padding-top: 8px; padding-bottom: 3px; }
   /* the rule above a section title is exactly as wide as the title text (letter-spacing tail excluded); thickness = the one line-width parameter */
-  .grp::before { content: ''; position: absolute; left: 0; top: 0; width: calc(100% - .3em - 1px); border-top: var(--lw) solid var(--fg-soft); }
+  .grp::before { content: ''; position: absolute; left: 0; top: 0; width: calc(100% - .3em - 1px); border-top: var(--lw) solid var(--kl, #111); }
   .row { padding: 7px 0 4px; }
   .row .lab { display: flex; justify-content: space-between; }
   .row input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; margin: 2px 0 0; background: transparent; cursor: pointer; }
@@ -81,7 +82,7 @@
   .btns button::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; border-bottom: var(--lw) solid transparent; }
   .btns button:hover::after { border-bottom-color: var(--fg); }
   .keys { position: relative; margin-top: 14px; padding-top: 10px; color: var(--fg-soft); }
-  .keys::before { content: ''; position: absolute; left: 0; right: 0; top: 0; border-top: var(--lw) solid var(--fg-soft); }
+  .keys::before { content: ''; position: absolute; left: 0; right: 0; top: 0; border-top: var(--lw) solid var(--kl, #111); }
   .keys div { display: flex; justify-content: space-between; padding: 2px 0; }
   /* section circles: right lane of the config panel, title-dot size, tangent stacking */
   #secc { position: fixed; top: 0; right: 8px; z-index: 11; display: flex; flex-direction: column; align-items: center; transform: translateX(150%); transition: transform .2s ease-out; }

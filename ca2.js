@@ -4,6 +4,12 @@
   var cv = document.getElementById('c'), cvg = document.getElementById('g');
   var ctx = cv.getContext('2d');
   var W = 0, H = 0, DPR = 1;
+  // line layer: axis and boundary lines live on their own canvas at the exact device resolution (the plate canvas can run at a
+  // different pixel ratio and would resample them). One effective width in whole device pixels feeds every line, CSS and canvas.
+  var lnc = document.createElement('canvas'); lnc.id = 'ln'; document.body.appendChild(lnc); var lctx = lnc.getContext('2d'), DD = 1;
+  function LW() { return P.axisWidth > 0 ? Math.max(1, Math.round(P.axisWidth * DD)) / DD : 0; }
+  function snapC(c) { var wd = Math.round(LW() * DD), h = (wd % 2) / 2; return (Math.round(c * DD - h) + h) / DD; }
+  function applyLW() { document.documentElement.style.setProperty('--lw', LW() + 'px'); }
   var rnd = function (a, b) { if (b === undefined) { b = a; a = 0; } return a + Math.random() * (b - a); };
   var clamp = function (v, a, b) { return v < a ? a : v > b ? b : v; };
   var lerp = function (a, b, t) { return a + (b - a) * t; };
@@ -477,7 +483,7 @@
     ctx.font = fs + 'px "Ca2-Thin", monospace';
     ctx.textAlign = 'left'; var lrT = inkLR(sT), lrX = inkLR(sX);
     var hL = M + (lrT[1] - lrT[0]) + G, hR = (W - M) - (lrX[1] - lrX[0]) - G, vTop = M + dh + L.row + G, vBot = H - M - dh - G, g = P.centerGap;
-    ctx.strokeStyle = css(eased.axis); ctx.lineWidth = P.axisWidth; ctx.lineCap = 'butt';
+    lctx.strokeStyle = css(eased.axis); lctx.lineWidth = LW(); lctx.lineCap = 'butt';
     var segs = [];
     if (g > 0) { segs.push([hL, cym, cxm - g, cym], [cxm + g, cym, hR, cym], [cxm, vTop, cxm, cym - g], [cxm, cym + g, cxm, vBot]); }
     else segs.push([hL, cym, hR, cym], [cxm, vTop, cxm, vBot]);
@@ -485,7 +491,7 @@
       var ex = lerp(cxm, cn[0], P.diagLen), ey = lerp(cym, cn[1], P.diagLen), dx = ex - cxm, dy = ey - cym, len = Math.hypot(dx, dy);
       if (len > g) segs.push([cxm + dx / len * g, cym + dy / len * g, ex, ey]);
     });
-    for (var si = 0; si < segs.length; si++) if (P.axisWidth > 0 && fadeA('ax' + si)) { ctx.beginPath(); ctx.moveTo(segs[si][0], segs[si][1]); ctx.lineTo(segs[si][2], segs[si][3]); ctx.stroke(); }
+    for (var si = 0; si < segs.length; si++) if (P.axisWidth > 0 && fadeA('ax' + si)) { var sg = segs[si].slice(); if (sg[0] === sg[2] || sg[1] === sg[3]) for (var q = 0; q < 4; q++) sg[q] = snapC(sg[q]); lctx.beginPath(); lctx.moveTo(sg[0], sg[1]); lctx.lineTo(sg[2], sg[3]); lctx.stroke(); }
     axisInfo = { hL: hL, hR: hR, vTop: vTop, vBot: vBot };
   }
   var axisInfo = {};
@@ -559,7 +565,7 @@
     }
   }
   function drawBlobs() {
-    var ol = P.blobOutline; if (ol && !(P.axisWidth > 0)) return; ctx.fillStyle = P.foodColor; ctx.strokeStyle = P.foodColor; ctx.lineWidth = P.axisWidth; ctx.lineCap = 'round'; ctx.globalAlpha = P.foodAlpha;
+    var ol = P.blobOutline; if (ol && !(P.axisWidth > 0)) return; ctx.fillStyle = P.foodColor; ctx.strokeStyle = P.foodColor; ctx.lineWidth = LW(); ctx.lineCap = 'round'; ctx.globalAlpha = P.foodAlpha;
     for (var i = 0; i < blobs.length; i++) {
       var b = blobs[i], d = b.d; if (!introOn(CELL_END + ((i * 0.6180339) % 1) * (FOOD_END - CELL_END))) continue; if (d.length < 3) { for (var q = 0; q < d.length; q++) { if (ol) ctx.strokeRect(d[q].x - P.foodSize / 2, d[q].y - P.foodSize / 2, P.foodSize, P.foodSize); else ctx.fillRect(d[q].x - P.foodSize / 2, d[q].y - P.foodSize / 2, P.foodSize, P.foodSize); } continue; }
       var pts = d.slice().sort(function (u, v) { return Math.atan2(u.y - b.y, u.x - b.x) - Math.atan2(v.y - b.y, v.x - b.x); }), n = pts.length;
@@ -643,6 +649,7 @@
     }
 
     bg = lerpC(bg, bgTarget, P.colorSpeed);
+    lctx.setTransform(DD, 0, 0, DD, 0, 0); lctx.clearRect(0, 0, W, H);
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     ctx.fillStyle = css(bg, 1); ctx.fillRect(0, 0, W, H);
 
@@ -747,9 +754,9 @@
 
     // area outline: no rounded corners. Each side stops `corner` px short of both ends, so the corner lines never meet.
     var cr = Math.min(P.containerCorner, cont.w / 2, cont.h / 2);
-    ctx.strokeStyle = css(dom, 1); ctx.lineWidth = P.axisWidth; ctx.lineCap = 'butt';
+    lctx.strokeStyle = css(dom, 1); lctx.lineWidth = LW(); lctx.lineCap = 'butt';
     var bxs = [[cont.x + cr, cont.y, cont.x + cont.w - cr, cont.y], [cont.x + cont.w, cont.y + cr, cont.x + cont.w, cont.y + cont.h - cr], [cont.x + cont.w - cr, cont.y + cont.h, cont.x + cr, cont.y + cont.h], [cont.x, cont.y + cont.h - cr, cont.x, cont.y + cr]];
-    for (var bi = 0; bi < 4; bi++) if (P.axisWidth > 0 && fadeA('bx' + bi)) { ctx.beginPath(); ctx.moveTo(bxs[bi][0], bxs[bi][1]); ctx.lineTo(bxs[bi][2], bxs[bi][3]); ctx.stroke(); }
+    for (var bi = 0; bi < 4; bi++) if (P.axisWidth > 0 && fadeA('bx' + bi)) { var bq = bxs[bi].map(snapC); lctx.beginPath(); lctx.moveTo(bq[0], bq[1]); lctx.lineTo(bq[2], bq[3]); lctx.stroke(); }
 
     if (P.axisLayer !== 0 && P.showAxis) drawAxis(L, sT, sX);
     // cursor: ring + dot drawn as a DOM overlay that follows the pointer (identical in every browser); the system cursor is hidden only while it shows
@@ -774,7 +781,7 @@
       } else { // horizontal edge
         dE = anglePath(downE ? 90 : -90, Le, gE, clamp(mouse.x, cont.x, cont.x + cont.w), byE + (downE ? offE : -offE));
       }
-      curEdgePath.setAttribute('d', dE); curEdgePath.setAttribute('stroke', css(dom, 1)); curEdgePath.setAttribute('stroke-width', P.axisWidth);
+      curEdgePath.setAttribute('d', dE); curEdgePath.setAttribute('stroke', css(dom, 1)); curEdgePath.setAttribute('stroke-width', LW());
       curEdge.style.display = P.axisWidth > 0 ? 'block' : 'none'; curEdge.style.transform = 'translate(0px,0px)';
       curEl.style.display = 'none'; cv.style.cursor = 'none'; curOn0 = false; lockCell = null;
       curInfo = { on: true, edge: true, corner: !!(eHit.h && eHit.v), ring: false };
@@ -790,7 +797,7 @@
     if (!curOn && mouse.over && !panel.matches(':hover')) { curOn = true; dotOnly = true; }
     if (curOn) {
       curEl.style.display = 'block'; curRRnow = curRR;
-      curEl.style.width = curEl.style.height = (curRR * 2) + 'px'; curEl.style.borderWidth = dotOnly ? '0px' : P.axisWidth + 'px'; curEl.style.borderColor = curCol;
+      curEl.style.width = curEl.style.height = (curRR * 2) + 'px'; curEl.style.borderWidth = dotOnly ? '0px' : LW() + 'px'; curEl.style.borderColor = curCol;
       var dp = 4.4, dcol = titleHit && !(hovering && hoverCell) ? 'rgb(' + (255 - titleHit.v) + ',' + (255 - titleHit.v) + ',' + (255 - titleHit.v) + ')' : css(invAt(mouse.x, mouse.y), 1); curDot.style.width = curDot.style.height = dp + 'px'; curDot.style.background = dcol; curDot.style.display = ''; curInfo3 = { dot: dcol, dp: dp };
       var tx = mouse.x, ty = mouse.y, locked = P.cursorLockMs > 0 && hovering && lockCell && lockCell.alive && performance.now() - lockT0 < P.cursorLockMs;
       if (locked) { tx = lockCell.x; ty = lockCell.y; }
@@ -959,7 +966,7 @@
     else if (k === 'blurWidth') { if (blurEl) blurEl.style.width = v + 'px'; if (blurLEl) blurLEl.style.width = v + 'px'; }
     else if (k === 'blurStrength') document.documentElement.style.setProperty('--bmax', v + 'px');
     else if (k === 'resolution') res = v;
-    else if (k === 'axisWidth') document.documentElement.style.setProperty('--lw', v + 'px');
+    else if (k === 'axisWidth') applyLW();
     else if (k === 'cfgFontSize') applyTypo();
     else if (layoutKeys[k]) clampTargets();
     else if (k === 'baseMaxSpeed' || k === 'maxSpeedVariation') cells.forEach(function (c) { c.maxSpeed = speedOf(c); });
@@ -1191,7 +1198,7 @@
       endTimers.forEach(clearTimeout); endTimers = [];
       parts.forEach(function (p) { if (p.el !== c) p.el.remove(); }); parts = [];
       dividing = false;
-      c.style.transition = ''; c.style.transform = ''; c.style.opacity = ''; c.style.background = 'transparent'; c.style.borderColor = ''; c.style.borderWidth = P.axisWidth + 'px';
+      c.style.transition = ''; c.style.transform = ''; c.style.opacity = ''; c.style.background = 'transparent'; c.style.borderColor = ''; c.style.borderWidth = LW() + 'px';
     }
     it.addEventListener('pointerenter', function () {
       cleanup();
@@ -1276,7 +1283,7 @@
         } else if (phase === 1) {
           var h = Math.min(100, (now - tP) / 450 * 100);
           sv.el.style.background = 'radial-gradient(circle closest-side, transparent ' + h.toFixed(1) + '%, ' + col + ' ' + h.toFixed(1) + '%)';
-          if (h >= 100) { phase = 2; sv.el.style.background = 'transparent'; sv.el.style.transition = 'border-color .25s ease'; sv.el.style.borderWidth = P.axisWidth + 'px'; sv.el.style.borderColor = ''; endTimers.push(setTimeout(function () { cleanup(); }, 300)); }
+          if (h >= 100) { phase = 2; sv.el.style.background = 'transparent'; sv.el.style.transition = 'border-color .25s ease'; sv.el.style.borderWidth = LW() + 'px'; sv.el.style.borderColor = ''; endTimers.push(setTimeout(function () { cleanup(); }, 300)); }
         }
       }, 40);
     });
@@ -1340,7 +1347,7 @@
   function placeCircles() {
     var L = lay(), u = L.fs / 1000, R0 = 166.5 * u, D = 2 * R0;
     document.documentElement.style.setProperty('--sd', D.toFixed(2) + 'px');
-    var sig = [D.toFixed(2), L.M, L.dh, P.axisWidth, P.panelWidth].join('|');
+    var sig = [D.toFixed(2), L.M, L.dh, LW(), P.panelWidth].join('|');
     if (sig === circSig) return; circSig = sig;
     var y0 = Math.max(4, L.M + L.dh - 500 * u - R0); // first circle centred on the title's topmost circle
     secc.style.top = y0 + 'px'; // body-level fixed lane: never rides the panel scroll
@@ -1348,16 +1355,16 @@
     for (var i = 0; i < secc.childNodes.length; i++) {
       var c = secc.childNodes[i].firstChild;
       c.style.width = D + 'px'; c.style.height = D + 'px';
-      c.style.border = P.axisWidth + 'px solid var(--fg)';
+      c.style.border = LW() + 'px solid var(--kl)';
       var lb2 = secc.childNodes[i].querySelector('.sl'); if (lb2) lb2.style.width = D + 'px';
     }
     for (var j = 0; j < admCircles.length; j++) {
       admCircles[j].style.width = D + 'px'; admCircles[j].style.height = D + 'px';
-      admCircles[j].style.border = P.axisWidth + 'px solid var(--fg)';
+      admCircles[j].style.border = LW() + 'px solid var(--kl)';
       admCircles[j].style.fontSize = '13px';
     }
   }
-  placeCircles(); document.documentElement.style.setProperty('--lw', P.axisWidth + 'px'); applyLineColor(); applyTypo();
+  placeCircles(); applyLW(); applyLineColor(); applyTypo();
   panel.addEventListener('click', function (e) { e.stopPropagation(); });
   var lastSync = 0;
 
@@ -1453,6 +1460,7 @@
   function resizeCanvas() {
     DPR = P.pixelRatio > 0 ? P.pixelRatio : Math.min(window.devicePixelRatio || 1, 3); W = window.innerWidth; H = window.innerHeight;
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    DD = Math.min(window.devicePixelRatio || 1, 3); lnc.width = Math.round(W * DD); lnc.height = Math.round(H * DD); applyLW();
   }
   function resize() {
     resizeCanvas();
