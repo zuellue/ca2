@@ -59,7 +59,8 @@
   .keys { margin-top: 14px; border-top: 1.5px solid var(--fg-soft); padding-top: 10px; color: var(--fg-soft); }
   .keys div { display: flex; justify-content: space-between; padding: 2px 0; }
   /* section circles: right lane of the config panel, title-dot size, tangent stacking */
-  #secc { position: fixed; right: 8px; z-index: 5; display: flex; flex-direction: column; align-items: center; }
+  #secc { position: fixed; top: 0; right: 8px; z-index: 11; display: flex; flex-direction: column; align-items: center; transform: translateX(150%); transition: transform .2s ease-out; }
+  #tab:hover ~ #secc, #panel:hover ~ #secc, #panel.open ~ #secc { transform: translateX(0); }
   #secc .sci { display: flex; flex-direction: column; align-items: center; }
   #secc .sc { border-radius: 50%; box-sizing: border-box; cursor: pointer; flex: none; }
   #secc .sl { text-transform: uppercase; font-size: 13px; overflow: hidden; height: 0; transition: height .25s ease; pointer-events: none; margin-top: 10px; text-align: center; }

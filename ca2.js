@@ -753,14 +753,19 @@
     // cursor: ring + dot drawn as a DOM overlay that follows the pointer (identical in every browser); the system cursor is hidden only while it shows
     var eHit = resizeDrag || (mouse.over && !panel.matches(':hover') ? edgeHit(mouse.x, mouse.y) : null);
     if (eHit) {
-      var Le = Math.max(10, lay().dh / 2), gE = Math.max(4, Le * 0.22), dE;
+      var Le = Math.max(10, lay().dh / 2), gE = Math.max(4, Le * 0.22), dE, offE = Math.max(8, Le * 0.3);
       var rightE = mouse.x >= W / 2, downE = mouse.y >= H / 2;
-      if (eHit.h && eHit.v) { // corner: the angle and its mirror, so both resize directions read at once
-        var a0 = rightE ? (downE ? 45 : -45) : (downE ? 135 : -135), oE = Le * 0.35, uxE = Math.cos(a0 * Math.PI / 180) * oE, uyE = Math.sin(a0 * Math.PI / 180) * oE;
-        dE = anglePath(a0, Le, gE, uxE, uyE) + anglePath(a0 + 180, Le, gE, -uxE, -uyE);
-      } else dE = anglePath(eHit.h ? (rightE ? 0 : 180) : (downE ? 90 : -90), Le, gE, 0, 0);
+      var bxE = rightE ? cont.x + cont.w : cont.x, byE = downE ? cont.y + cont.h : cont.y;
+      if (eHit.h && eHit.v) { // corner: the edge icon rotated onto the diagonal, vertex outside the corner, tip facing the plate
+        var a0 = rightE ? (downE ? 45 : -45) : (downE ? 135 : -135), r0 = a0 * Math.PI / 180;
+        dE = anglePath(a0, Le, gE, bxE + Math.cos(r0) * offE, byE + Math.sin(r0) * offE);
+      } else if (eHit.h) { // vertical edge: vertex just outside it, at the pointer's height, tip facing the plate
+        dE = anglePath(rightE ? 0 : 180, Le, gE, bxE + (rightE ? offE : -offE), clamp(mouse.y, cont.y, cont.y + cont.h));
+      } else { // horizontal edge
+        dE = anglePath(downE ? 90 : -90, Le, gE, clamp(mouse.x, cont.x, cont.x + cont.w), byE + (downE ? offE : -offE));
+      }
       curEdgePath.setAttribute('d', dE); curEdgePath.setAttribute('stroke', css(dom, 1)); curEdgePath.setAttribute('stroke-width', 2);
-      curEdge.style.display = 'block'; curEdge.style.transform = 'translate(' + mouse.x + 'px,' + mouse.y + 'px)';
+      curEdge.style.display = 'block'; curEdge.style.transform = 'translate(0px,0px)';
       curEl.style.display = 'none'; cv.style.cursor = 'none'; curOn0 = false; lockCell = null;
       curInfo = { on: true, edge: true, corner: !!(eHit.h && eHit.v), ring: false };
     } else {
@@ -1095,7 +1100,7 @@
   // ---- section circles: one per config section in the panel's right lane ----
   // title-dot size (166.5 font units), axis-line stroke, hollow; hover fills a random R/G/B (stroke too) and shows the
   // section name vertically with a typewriter animation; the circles below slide away from the label; click folds the section.
-  var secc = document.createElement('div'); secc.id = 'secc'; panel.appendChild(secc);
+  var secc = document.createElement('div'); secc.id = 'secc'; document.body.appendChild(secc);
   var CIRC_COLS = ['#ff0000', '#00ff00', '#0000ff'];
   function addCirc(sec) {
     var it = document.createElement('div'); it.className = 'sci';
@@ -1161,7 +1166,7 @@
     var sig = [D.toFixed(2), L.M, L.dh, P.axisWidth, P.panelWidth].join('|');
     if (sig === circSig) return; circSig = sig;
     var y0 = Math.max(4, L.M + L.dh - 500 * u - R0); // first circle centred on the title's topmost circle
-    secc.style.top = y0 + 'px'; // sticky lane: the panel's transform makes fixed stick to the panel, so the circles never ride the scroll
+    secc.style.top = y0 + 'px'; // body-level fixed lane: never rides the panel scroll
     panel.style.paddingRight = (D + 16) + 'px';
     for (var i = 0; i < secc.childNodes.length; i++) {
       var c = secc.childNodes[i].firstChild;
