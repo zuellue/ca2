@@ -1050,6 +1050,7 @@
 
     if (Math.random() < P.foodDensity && food.length < cont.w * cont.h * P.foodDensity * 2) food.push({ x: rnd(cont.w) + cont.x, y: rnd(cont.h) + cont.y, r: Math.random() });
     if (Math.random() < 0.001 && food.length) food.splice(Math.floor(rnd(food.length)), 1);
+    pfm('setup');
     if (P.foodMode === 1 || (P.foodMode === undefined && P.foodLife)) stepFood(); else if (P.foodMode === 2) stepBlobs(); else if (P.foodMode === 3) stepSwarm(); else if (P.foodMode === 4) stepWorms(); else if (P.foodMode === 5) stepSpores();
     pfm('food step');
     if (P.foodMode !== 4 && worms.length) wipeWorms(); if (P.foodMode !== 5 && spores.length) wipeSpores();
@@ -1553,6 +1554,11 @@
     if (!ok && navigator.clipboard && navigator.clipboard.writeText) { try { navigator.clipboard.writeText(txt).then(function () { bt.textContent = 'copied'; }, function () { bt.textContent = 'copy failed'; }); } catch (er) { bt.textContent = 'copy failed'; } return; }
     bt.textContent = ok ? 'copied' : 'copy failed'; window.ca2copy = txt; setTimeout(function () { bt.textContent = 'copy json'; }, 1500);
   });
+  // perf section: its whole pool is one live timing block, placed between the copy and save buttons.
+  // Soloing the perf circle hides every knob section and leaves just this block; CONFIG brings all back.
+  var perfEl = document.createElement('div'); perfEl.className = 'perf';
+  btns.appendChild(perfEl);
+  SECS.push({ name: 'perf', hdr: perfEl, els: [] });
   // save: write the settings now (independent of the autosave), read them back from storage and compare every key
   btn('save', function (ev) {
     var bt = ev.currentTarget, ok = false, n = 0, bad = [];
@@ -2033,6 +2039,8 @@
     placeCircles();
     var now = performance.now(); if (now - lastSync < 300) return; lastSync = now;
     statsEl.innerHTML = '<span>Cells</span><span class="n">' + total + '</span><span>Universe</span><span class="n">' + Math.round(P.UNIVERSE_SIZE) + '</span><span>Refresh S</span><span class="n">' + Math.round(Math.max(0, refreshInterval - (now - lastRefresh) / 1000)) + '</span><span>FPS</span><span class="n">' + Math.round(fps) + '</span><span>Res</span><span class="n">' + Math.round(res * 100) + '</span>';
+    var pf1 = function (k) { return PF[k] === undefined ? '...' : PF[k].toFixed(2); };
+    perfEl.innerHTML = '<span>frame</span><b>' + frameMs.toFixed(1) + '</b><span>setup</span><b>' + pf1('setup') + '</b><span>sim+ui draw</span><b>' + pf1('sim+ui draw') + '</b><span>grain+rest</span><b>' + pf1('grain+rest') + '</b><span>gpu:draw+field</span><b>' + pf1('gpu:draw+field') + '</b><span>gpu:drawImage</span><b>' + pf1('gpu:drawImage') + '</b>';
     for (var lk in live) { var lr = rows[lk]; lr.inp.value = P[lk]; lr.val.textContent = fmt(P[lk]); }
     if (panel.matches(':hover')) return;
     GROUPS.forEach(function (g) { g[1].forEach(function (q) { var r = rows[q[0]], v = P[q[0]]; r.inp.value = v; r.val.textContent = fmt(v); }); });

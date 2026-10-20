@@ -103,9 +103,13 @@
   .btns button { font: inherit; color: inherit; background: none; border: 0; padding: 4px 0; cursor: pointer; position: relative; }
   .btns button::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; border-bottom: var(--lw) solid transparent; }
   .btns button:hover::after { border-bottom-color: var(--fg); }
-  .keys { position: relative; margin-top: 14px; padding-top: 10px; color: var(--fg-soft); }
+  .keys { position: relative; margin-top: 14px; padding-top: 10px; color: var(--fg-soft); display: grid; grid-template-columns: auto 1fr; column-gap: 12px; white-space: nowrap; }
   .keys::before { content: ''; position: absolute; left: 0; right: 0; top: 0; border-top: var(--lw) solid var(--kr, var(--kl, #111)); }
-  .keys div { display: flex; justify-content: space-between; padding: 2px 0; }
+  .keys div { display: contents; }
+  .keys div span:nth-child(odd) { align-self: center; }
+  .keys div span:nth-child(even) { text-align: right; }
+  .perf { grid-column: 1/-1; display: grid; grid-template-columns: auto 1fr; column-gap: 12px; white-space: nowrap; padding: 6px 0 8px; margin: 4px 0 6px; border-top: var(--lw) solid var(--kr, var(--kl, #111)); border-bottom: var(--lw) solid var(--kr, var(--kl, #111)); }
+  .perf b { text-align: right; font-weight: normal; font-family: var(--cff, 'Fragment Mono', ui-monospace, monospace); }
   /* section circles: right lane of the config panel, title-dot size, tangent stacking */
   #secc { position: fixed; top: 0; right: 8px; z-index: 11; display: flex; flex-direction: column; align-items: center; transform: translateX(150%); transition: transform .2s ease-out; }
   #panel.open ~ #secc, #panel.hov ~ #secc { transform: translateX(0); }
@@ -138,12 +142,12 @@
   <div id="controls"></div>
   <div class="btns" id="btns"></div>
   <div class="keys">
-    <div><span>click</span><span>random action</span></div>
-    <div><span>a + click</span><span>add cell</span></div>
-    <div><span>d + click</span><span>kill cells</span></div>
-    <div><span>s + click</span><span>respawn</span></div>
-    <div><span>b + click</span><span>background</span></div>
-    <div><span>c</span><span>this panel</span></div>
+    <div><span>click</span><span class="n">random action</span></div>
+    <div><span>a + click</span><span class="n">add cell</span></div>
+    <div><span>d + click</span><span class="n">kill cells</span></div>
+    <div><span>s + click</span><span class="n">respawn</span></div>
+    <div><span>b + click</span><span class="n">background</span></div>
+    <div><span>c</span><span class="n">this panel</span></div>
   </div>
 </div>
 <div id="blur"><div class="bf bf1"></div><div class="bf bf2"></div><div class="bf bf3"></div><div class="bf bf4"></div></div>
