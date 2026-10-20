@@ -1131,36 +1131,44 @@
         dx = clamp(dx + (nb[0] + nb[5] + nb[10] - 1.5) * 1.5 + (lcg(caSt) - 0.5) * 2, -6, 6);
         if (!dividing) c.style.transform = 'translate(' + dx.toFixed(1) + 'px,0) scale(' + (1 - sum / 16 * 0.4).toFixed(2) + ')';
       }, 110);
-      // hover longer than 2 s: the circle divides like a cell
-      t1 = setTimeout(function () {
-        t1 = null; dividing = true;
-        clone = c.cloneNode(false);
-        clone.style.position = 'absolute'; clone.style.left = c.offsetLeft + 'px'; clone.style.top = c.offsetTop + 'px';
-        clone.style.pointerEvents = 'none'; clone.style.margin = '0'; clone.style.transform = 'translate(0,0) scale(1)';
-        clone.style.transition = 'transform .5s ease, opacity .5s ease';
-        c.parentNode.style.position = 'relative'; c.parentNode.appendChild(clone);
-        void clone.offsetWidth;
-        var half = c.offsetWidth / 2 + 2;
-        c.style.transition = 'transform .5s ease';
-        c.style.transform = 'translate(0,' + (-half) + 'px) scale(.55)';
-        clone.style.transform = 'translate(0,' + half + 'px) scale(.55)';
-        // the mouse stays: one daughter dies, the survivor grows back into a stroke-only line button
-        t2 = setTimeout(function () {
-          t2 = null;
-          if (clone) { clone.style.opacity = '0'; setTimeout(function () { if (clone) { clone.remove(); clone = null; } }, 550); }
-          c.style.transition = 'transform .5s ease, background .5s ease';
-          c.style.transform = 'translate(0,0) scale(1)';
-          c.style.background = 'transparent';
-        }, 1200);
-      }, 2000);
+      // hover keeps going: in place the circle splits into four, and the pieces keep living as a tiny vector cellular
+      // automaton - every 1.3 s each piece divides into four again (the crowd is capped, extra pieces die)
+      var D0 = c.offsetWidth, home = { x: c.offsetLeft, y: c.offsetTop }, parts = [{ el: c, x: 0, y: 0, vx: 0, vy: 0, k: 0.6 }];
+      c.parentNode.style.position = 'relative'; dividing = true;
+      c.style.transition = 'transform .25s ease';
+      function put(p) { p.el.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + p.y.toFixed(1) + 'px) scale(' + p.k.toFixed(2) + ')'; }
+      function split() {
+        var out = [];
+        parts.forEach(function (p) {
+          var off = D0 * p.k * 0.25;
+          [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (d, j) {
+            var el = j === 0 && p.el === c ? c : (function () { var n = c.cloneNode(false); n.style.position = 'absolute'; n.style.left = home.x + 'px'; n.style.top = home.y + 'px'; n.style.pointerEvents = 'none'; n.style.margin = '0'; n.style.transition = 'transform .25s ease'; n.style.background = c.style.background; n.style.borderColor = c.style.borderColor; c.parentNode.appendChild(n); return n; })();
+            if (j === 0 && p.el !== c) { p.el.remove(); }
+            out.push({ el: el, x: p.x + d[0] * off, y: p.y + d[1] * off, vx: d[0] * 0.8, vy: d[1] * 0.8, k: Math.max(0.12, p.k * 0.5) });
+          });
+          if (p.el === c) return;
+        });
+        // cap: extra pieces die; the original circle always survives
+        while (out.length > 24) { var i = 1 + Math.floor(lcg(caSt) * (out.length - 1)); if (out[i].el !== c) { out[i].el.remove(); } out.splice(i, 1); }
+        parts = out; parts.forEach(put);
+      }
+      t1 = setTimeout(function () { t1 = null; split(); t2 = setInterval(function () { split(); }, 1300); clone = { remove: function () { parts.forEach(function (p) { if (p.el !== c) p.el.remove(); }); parts = []; } }; }, 700);
+      var life = setInterval(function () {
+        parts.forEach(function (p, i) {
+          var r = (110 >> (((i + 1) & 1) * 4 + (Math.round(p.x) & 1) * 2 + (Math.round(p.y) & 1))) & 1;
+          p.vx = clamp(p.vx * 0.9 + (r ? 1 : -1) * (lcg(caSt) - 0.4) * 1.2, -2.5, 2.5); p.vy = clamp(p.vy * 0.9 + (lcg(caSt) - 0.5) * 1.8, -2.5, 2.5);
+          p.x = clamp(p.x + p.vx, -D0 * 1.1, D0 * 1.1); p.y = clamp(p.y + p.vy, -D0 * 1.3, D0 * 1.3); put(p);
+        });
+      }, 110);
+      var oc = caT; caT = { _a: oc, _b: life };
     });
     c.addEventListener('pointerleave', function () {
       c.style.background = 'transparent'; c.style.borderColor = '';
       spans.forEach(function (sp) { sp.style.opacity = '0'; sp.style.transitionDelay = '0s'; });
       lb.style.height = '0px';
-      if (caT) { clearInterval(caT); caT = null; }
+      if (caT) { clearInterval(caT); if (caT._a) clearInterval(caT._a); if (caT._b) clearInterval(caT._b); caT = null; }
       if (t1) { clearTimeout(t1); t1 = null; }
-      if (t2) { clearTimeout(t2); t2 = null; }
+      if (t2) { clearTimeout(t2); clearInterval(t2); t2 = null; }
       dividing = false;
       if (clone) { clone.remove(); clone = null; }
       c.style.transition = ''; c.style.transform = '';
@@ -1215,7 +1223,7 @@
   // ---- admin session + global presets (Cloudflare Worker + KV, free plan) ----
   (function adminInit() {
     var WK = 'https://ca2-presets.middots.workers.dev/', admin = null, sent = {}, lastV = 0, GK = 'ca2.global';
-    function post(b) { return fetch(WK, { method: 'POST', body: JSON.stringify(b) }).then(function (r) { return r.json(); }); }
+    function post(b) { return fetch(WK, { method: 'POST', keepalive: true, body: JSON.stringify(b) }).then(function (r) { return r.json(); }); }
     function applyG(g) {
       if (!g || typeof g !== 'object') return false; var n = 0;
       Object.keys(g).forEach(function (k) { if (k === '_v' || k === '_live' || !(k in P)) return; var v = g[k]; if (typeof v === typeof P[k] && (typeof v !== 'number' || isFinite(v)) && P[k] !== v) { P[k] = v; n++; } });
@@ -1228,7 +1236,7 @@
       return n;
     }
     function pullG(first) {
-      fetch(WK, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (g) {
+      fetch(WK + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (g) {
         if (!g || !g._v || g._v === lastV) return; lastV = g._v;
         try { localStorage.setItem(GK, JSON.stringify(g)); } catch (e) {}
         if (admin) return;
@@ -1239,6 +1247,9 @@
     pullG(true); setInterval(pullG, 4000);
     window.__adminPush = function () {
       if (!admin) return; var patch = {}, keys = [];
+      var TRANS = { UNIVERSE_SIZE: 1, CELL_RADIUS: 1, baseMutationRate: 1, mutationRateRange: 1, interactionRadius: 1 };
+      // every key that differs from what the global already holds goes out, not only knob-touched ones (transition-driven keys still need a real touch)
+      for (var pk in P) if (!(pk in TRANS) && !(pk in touched) && pk in sent && P[pk] !== sent[pk] && !live[pk]) touched[pk] = 1;
       for (var k in touched) { var v = P[k]; if (live[k]) v = live[k].orig; if ((typeof v === 'number' && isFinite(v) || typeof v === 'string') && sent[k] !== v) { patch[k] = v; keys.push(k); } }
       var lm = JSON.stringify(liveMap()); if (sent._live !== lm) { patch._live = lm; } // the Worker stores primitives only
       if (!keys.length && patch._live === undefined) return;
@@ -1246,6 +1257,8 @@
         if (r && !r.error) { keys.forEach(function (k) { sent[k] = patch[k]; delete touched[k]; }); if (patch._live !== undefined) sent._live = patch._live; if (r.v) lastV = r.v; }
       }).catch(function () {});
     };
+    setInterval(function () { if (admin && window.__adminPush) window.__adminPush(); }, 1000);
+    window.addEventListener('pagehide', function () { if (admin && window.__adminPush) window.__adminPush(); });
     // entry widget: 4 hollow circles stacked on the section-circle axis at the bottom right; the code fills them
     // top to bottom (2 2 2 2); a good code turns them into A D M N. The real input is invisible and only catches keys.
     var adm = document.createElement('div'); adm.id = 'adm';
