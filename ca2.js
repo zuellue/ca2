@@ -916,7 +916,7 @@
   // old configs stored foodEatR as a factor of the cell radius; the fixed px radius migrates them once
   if (P.foodEatR <= 1) P.foodEatR = Math.round(P.foodEatR * DEFAULTS.CELL_RADIUS * 100) / 100;
   function liveMap() { var m = {}; for (var lk in live) m[lk] = live[lk].orig; return m; }
-  function save() { try { var Pc = Object.assign({}, P); for (var lk in live) Pc[lk] = live[lk].orig; localStorage.setItem(STORE, JSON.stringify({ v: STORE_V, P: Pc, live: liveMap(), autoRefresh: autoRefresh, lockParams: lockParams, bgTarget: bgTarget, bgIndex: bgIndex })); } catch (e) {} if (window.__adminPush) window.__adminPush(); }
+  function save() { try { var Pc = Object.assign({}, P); for (var lk in live) Pc[lk] = live[lk].orig; localStorage.setItem(STORE, JSON.stringify({ v: STORE_V, P: Pc, live: liveMap(), autoRefresh: autoRefresh, lockParams: lockParams, bgTarget: bgTarget, bgIndex: bgIndex })); } catch (e) {} }
   // ---- config panel: every parameter ----
   var rows = {}, statsEl = document.getElementById('stats'), ctl = document.getElementById('controls'), btns = document.getElementById('btns');
   var GROUPS = [
@@ -1163,6 +1163,7 @@
     } catch (er) { ok = false; }
     window.ca2saveCheck = { ok: ok, keys: n, mismatched: bad, t: Date.now() };
     bt.textContent = ok ? 'saved' : 'save failed'; setTimeout(function () { bt.textContent = 'save'; }, 1500);
+    if (window.__adminOn && window.__adminPush) { bt.textContent = 'saving'; window.__adminPush().then(function (r) { bt.textContent = r === 'fail' ? 'saved here, server full' : (ok ? 'saved' : 'save failed'); setTimeout(function () { bt.textContent = 'save'; }, r === 'fail' ? 4000 : 1500); }); }
   });
   function applyTypo() {
     var r = document.documentElement.style;
@@ -1516,26 +1517,25 @@
     try { var cg = JSON.parse(localStorage.getItem(GK) || 'null'); if (cg) { applyG(cg); lastV = cg._v || 0; } } catch (e) {}
     // edits not yet accepted by the server stay ahead of the (older) global on reload
     try { var pd0 = JSON.parse(localStorage.getItem('ca2.pending') || '{}'); Object.keys(pd0).forEach(function (k) { if (k !== '_live' && k in P && typeof pd0[k] === typeof P[k]) { P[k] = pd0[k]; touched[k] = 1; } }); } catch (e) {}
-    pullG(true); setInterval(pullG, 4000);
+    pullG(true); setInterval(pullG, 15000);
     var PK = 'ca2.pending', pushFail = 0, pushNext = 0, pushBusy = false;
     window.__adminPush = function () {
-      if (!admin) return; var patch = {}, keys = [];
+      if (!admin) return Promise.resolve('noadmin'); var patch = {}, keys = [];
       var TRANS = { UNIVERSE_SIZE: 1, CELL_RADIUS: 1, baseMutationRate: 1, mutationRateRange: 1, interactionRadius: 1 };
       // every key that differs from what the global already holds goes out, not only knob-touched ones (transition-driven keys still need a real touch)
       for (var pk in P) if (!(pk in TRANS) && !(pk in touched) && pk in sent && P[pk] !== sent[pk] && !live[pk]) touched[pk] = 1;
       for (var k in touched) { var v = P[k]; if (live[k]) v = live[k].orig; if ((typeof v === 'number' && isFinite(v) || typeof v === 'string') && sent[k] !== v) { patch[k] = v; keys.push(k); } }
       var lm = JSON.stringify(liveMap()); if (sent._live !== lm) { patch._live = lm; } // the Worker stores primitives only
-      if (!keys.length && patch._live === undefined) return;
-      var nowT = Date.now(); if (nowT < pushNext || pushBusy) return; pushBusy = true;
+      if (!keys.length && patch._live === undefined) return Promise.resolve('nochange');
+      if (pushBusy) return Promise.resolve('busy'); pushBusy = true;
       try { var pend = JSON.parse(localStorage.getItem(PK) || '{}'); for (var pj in patch) pend[pj] = patch[pj]; localStorage.setItem(PK, JSON.stringify(pend)); } catch (e) {}
-      post({ code: admin, patch: patch }).then(function (r) {
+      return post({ code: admin, patch: patch }).then(function (r) {
         pushBusy = false;
-        if (r && r.ok !== false && !r.error && !r.err) { pushFail = 0; pushNext = 0; keys.forEach(function (k) { sent[k] = patch[k]; delete touched[k]; }); if (patch._live !== undefined) sent._live = patch._live; if (r.v) lastV = r.v; try { var pd = JSON.parse(localStorage.getItem(PK) || '{}'); for (var pj2 in patch) delete pd[pj2]; localStorage.setItem(PK, JSON.stringify(pd)); } catch (e) {} window.__adminSaveErr = ''; }
-        else { pushFail++; pushNext = Date.now() + Math.min(60000, 2000 * pushFail); window.__adminSaveErr = (r && (r.err || r.error)) || 'rejected'; }
-      }).catch(function (e) { pushBusy = false; pushFail++; pushNext = Date.now() + Math.min(60000, 2000 * pushFail); window.__adminSaveErr = 'server error (not saved globally)'; });
+        if (r && r.ok !== false && !r.error && !r.err) { pushFail = 0; pushNext = 0; keys.forEach(function (k) { sent[k] = patch[k]; delete touched[k]; }); if (patch._live !== undefined) sent._live = patch._live; if (r.v) lastV = r.v; try { var pd = JSON.parse(localStorage.getItem(PK) || '{}'); for (var pj2 in patch) delete pd[pj2]; localStorage.setItem(PK, JSON.stringify(pd)); } catch (e) {} window.__adminSaveErr = ''; return 'ok'; }
+        else { pushFail++; pushNext = Date.now() + Math.min(60000, 2000 * pushFail); window.__adminSaveErr = (r && (r.err || r.error)) || 'rejected'; return 'fail'; }
+      }).catch(function (e) { pushBusy = false; pushFail++; pushNext = Date.now() + Math.min(60000, 2000 * pushFail); window.__adminSaveErr = 'server error (not saved globally)'; return 'fail'; });
     };
-    setInterval(function () { if (admin && window.__adminPush) window.__adminPush(); }, 1000);
-    window.addEventListener('pagehide', function () { if (admin && window.__adminPush) window.__adminPush(); });
+    // no automatic pushes: the free KV plan allows 1000 writes a day. One batched POST per Save click.
     // entry widget: 4 hollow circles stacked on the section-circle axis at the bottom right; the code fills them
     // top to bottom (2 2 2 2); a good code turns them into A D M N. The real input is invisible and only catches keys.
     var adm = document.createElement('div'); adm.id = 'adm';
@@ -1571,7 +1571,7 @@
     box.addEventListener('keydown', function (e) { e.stopPropagation(); });
     window.addEventListener('dblclick', function () {
       if (!/^R0_/.test(lastCircleHit || '')) return;
-      if (admin) { __adminPush(); admin = null; window.__adminOn = false; admShow(false); }
+      if (admin) { admin = null; window.__adminOn = false; admShow(false); }
       else if (!adm.classList.contains('on')) admShow(true);
       else admShow(false);
     });
