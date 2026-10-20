@@ -1088,7 +1088,7 @@
             if (isFinite(v)) {
               if (live[k]) liveStop(k);
               P[k] = v; touched[k] = 1; applyKey(k, v); inp.value = v; val.textContent = fmt(v);
-              if (/UNIVERSE|CELL_RADIUS|Mutation|interaction|Rate/.test(k)) { lockParams = true; if (lockBox) { lockBox.checked = true; lockVal.textContent = 'on'; } }
+              if (/UNIVERSE|CELL_RADIUS|Mutation|interaction|Rate/.test(k)) { lockParams = true; if (lockBox) { lockBox.checked = true; lockVal.textContent = 'locked'; } }
               save();
             }
           }
@@ -1130,7 +1130,7 @@
         if (live[q[0]]) { inp.value = P[q[0]]; return; }
         var v = parseFloat(inp.value); P[q[0]] = v; touched[q[0]] = 1; val.textContent = fmt(v);
         applyKey(q[0], v);
-        if (q[0] === 'fps') { /* nothing */ } else if (/UNIVERSE|CELL_RADIUS|Mutation|interaction|Rate/.test(q[0])) { lockParams = true; if (lockBox) { lockBox.checked = true; lockVal.textContent = 'on'; } }
+        if (q[0] === 'fps') { /* nothing */ } else if (/UNIVERSE|CELL_RADIUS|Mutation|interaction|Rate/.test(q[0])) { lockParams = true; if (lockBox) { lockBox.checked = true; lockVal.textContent = 'locked'; } }
         save();
       });
       inp.value = P[q[0]]; val.textContent = fmt(P[q[0]]);
@@ -1141,19 +1141,47 @@
   Object.keys(savedLive).forEach(function (k) {
     if (keyToQ[k] && rows[k] && typeof savedLive[k] === 'number' && isFinite(savedLive[k])) liveStart(k, keyToQ[k], savedLive[k], rows[k].row);
   });
-  function toggle(label, init, fn) {
+  function toggle(label, init, fn, words) {
+    words = words || ['on', 'off'];
     var l = document.createElement('label'); l.className = 'chk';
-    l.innerHTML = '<span>' + label + '</span><b>' + (init ? 'on' : 'off') + '</b><input type="checkbox" style="display:none"' + (init ? ' checked' : '') + '>';
+    l.innerHTML = '<span>' + label + '</span><b>' + (init ? words[0] : words[1]) + '</b><input type="checkbox" style="display:none"' + (init ? ' checked' : '') + '>';
     var c = l.querySelector('input'), b = l.querySelector('b');
-    c.addEventListener('change', function () { b.textContent = c.checked ? 'on' : 'off'; var bef = Object.assign({}, P); fn(c.checked); for (var k in P) if (P[k] !== bef[k]) touched[k] = 1; save(); });
-    ctl.appendChild(l); return { box: c, val: b, el: l };
+    c.addEventListener('change', function () { b.textContent = c.checked ? words[0] : words[1]; var bef = Object.assign({}, P); fn(c.checked); for (var k in P) if (P[k] !== bef[k]) touched[k] = 1; save(); });
+    ctl.appendChild(l); hookChkHover(l); return { box: c, val: b, el: l };
   }
   function choice(label, key, opts, fn) {
     var l = document.createElement('label'); l.className = 'chk';
     l.innerHTML = '<span>' + label + '</span><b>' + opts[P[key]] + '</b>';
     var b = l.querySelector('b');
     l.addEventListener('click', function () { P[key] = (P[key] + 1) % opts.length; touched[key] = 1; b.textContent = opts[P[key]]; if (fn) fn(P[key]); save(); });
-    ctl.appendChild(l); return { el: l };
+    ctl.appendChild(l); hookChkHover(l); return { el: l };
+  }
+  var CHK_COLS = ['#ff0000', '#00ff00', '#0000ff'];
+  function hookChkHover(l) {
+    var st = null;
+    function stop() { if (!st) return; clearTimeout(st.t); st.restore.forEach(function (f) { f(); }); st = null; }
+    l.addEventListener('pointerenter', function () {
+      stop();
+      var sp = l.querySelector('span'), b = l.querySelector('b'), seed = { s: (hash(l.textContent) ^ 0x77aa) || 5 }, bits = [], i;
+      for (i = 0; i < 16; i++) bits.push(lcg(seed) < 0.5 ? 1 : 0);
+      var fx = ['tint', 'spacing', 'slide', 'flicker'].sort(function () { return Math.random() - 0.5; }).slice(0, 1 + (Math.random() < 0.4 ? 1 : 0));
+      var restore = [], dx = 0;
+      if (fx.indexOf('tint') >= 0) { var col = CHK_COLS[Math.floor(Math.random() * 3)]; l.style.color = col; restore.push(function () { l.style.color = ''; }); }
+      if (fx.indexOf('spacing') >= 0) restore.push(function () { sp.style.letterSpacing = ''; });
+      if (fx.indexOf('slide') >= 0) { b.style.display = 'inline-block'; restore.push(function () { b.style.transform = ''; b.style.display = ''; }); }
+      if (fx.indexOf('flicker') >= 0) restore.push(function () { b.style.opacity = ''; });
+      st = { t: 0, restore: restore };
+      (function tick() {
+        var nb = new Array(16), sum = 0;
+        for (i = 0; i < 16; i++) { nb[i] = (110 >> (bits[(i + 15) % 16] * 4 + bits[i] * 2 + bits[(i + 1) % 16])) & 1; sum += nb[i]; }
+        if (sum === 0 || sum === 16) nb[Math.floor(lcg(seed) * 16)] ^= 1; bits = nb;
+        if (fx.indexOf('spacing') >= 0) sp.style.letterSpacing = (0.04 + sum / 16 * 0.5).toFixed(2) + 'em';
+        if (fx.indexOf('slide') >= 0) { dx = clamp(dx + (bits[0] + bits[5] + bits[10] - 1.5) * 2 + (lcg(seed) - 0.5) * 2, -8, 8); b.style.transform = 'translateX(' + dx.toFixed(1) + 'px)'; }
+        if (fx.indexOf('flicker') >= 0) b.style.opacity = (0.25 + (sum / 16) * 0.75).toFixed(2);
+        st.t = setTimeout(tick, 50 + Math.random() * 150);
+      })();
+    });
+    l.addEventListener('pointerleave', stop);
   }
   var CFG_FONTS = ['default', 'Fragment Mono', 'Times New Roman', 'Ca2-Thin', 'system sans', 'system mono'], CFG_STACK = [null, "'Fragment Mono', ui-monospace, monospace", "'Times New Roman', Times, serif", "'Ca2-Thin', monospace", "system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif", "ui-monospace, 'SF Mono', Menlo, monospace"], CFG_CASES = ['default', 'UPPER', 'lower', 'Sentence'];
   var gh = document.createElement('div'); gh.className = 'grp'; gh.textContent = 'switches'; ctl.appendChild(gh);
@@ -1161,32 +1189,32 @@
   var _toggle = toggle, _choice = choice;
   toggle = function () { var r = _toggle.apply(null, arguments); swSec.els.push(r.el); return r; };
   choice = function () { var r = _choice.apply(null, arguments); swSec.els.push(r.el); return r; };
-  choice('cells vs axis lines', 'axisLayer', ['above', 'behind']);
+  choice('axis layering', 'axisLayer', ['above', 'behind']);
   choice('micro event sound', 'audioMicro', ['click', 'tick', 'drop', 'bubble', 'wood', 'bloom']);
   choice('sound mode', 'audioMode', ['soft white', 'pink', 'brown', 'micro crackle', 'membrane']);
-  toggle('sound (fades in over 5 s)', !!P.audioOn, function (v) { P.audioOn = v ? 1 : 0; if (window.CA2Audio) CA2Audio.enable(v); });
-  toggle('genome (speed, appetite, boundary, color)', !!P.genomeOn, function (v) { P.genomeOn = v ? 1 : 0; cells.forEach(function (c) { c.maxSpeed = speedOf(c); }); });
-  toggle('amorphous: open outline, no fill', !!P.blobOutline, function (v) { P.blobOutline = v ? 1 : 0; });
-  toggle('divide at size', !!P.divideOn, function (v) { P.divideOn = v ? 1 : 0; });
-  toggle('eat or merge on contact', !!P.eatMergeOn, function (v) { P.eatMergeOn = v ? 1 : 0; });
-  toggle('parasites', !!P.parasiteOn, function (v) { P.parasiteOn = v ? 1 : 0; });
-  toggle('selection by environment', !!P.selectOn, function (v) { P.selectOn = v ? 1 : 0; });
-  toggle('cells grow when they eat', !!P.foodGrow, function (v) { P.foodGrow = v ? 1 : 0; });
-  toggle('boundary awareness', !!P.boundAware, function (v) { P.boundAware = v ? 1 : 0; });
-  toggle('respawn: new life cycle morph', !!P.respawnMorph, function (v) { P.respawnMorph = v ? 1 : 0; });
+  toggle('sound', !!P.audioOn, function (v) { P.audioOn = v ? 1 : 0; if (window.CA2Audio) CA2Audio.enable(v); }, ['playing', 'silent']);
+  toggle('genome', !!P.genomeOn, function (v) { P.genomeOn = v ? 1 : 0; cells.forEach(function (c) { c.maxSpeed = speedOf(c); }); }, ['evolving', 'fixed']);
+  toggle('amorphous outline', !!P.blobOutline, function (v) { P.blobOutline = v ? 1 : 0; }, ['outlined', 'filled']);
+  toggle('divide at size', !!P.divideOn, function (v) { P.divideOn = v ? 1 : 0; }, ['dividing', 'whole']);
+  toggle('eat or merge', !!P.eatMergeOn, function (v) { P.eatMergeOn = v ? 1 : 0; }, ['eating', 'peaceful']);
+  toggle('parasites', !!P.parasiteOn, function (v) { P.parasiteOn = v ? 1 : 0; }, ['draining', 'clean']);
+  toggle('selection', !!P.selectOn, function (v) { P.selectOn = v ? 1 : 0; }, ['selecting', 'neutral']);
+  toggle('growth by eating', !!P.foodGrow, function (v) { P.foodGrow = v ? 1 : 0; }, ['growing', 'steady']);
+  toggle('boundary awareness', !!P.boundAware, function (v) { P.boundAware = v ? 1 : 0; }, ['aware', 'blind']);
+  toggle('respawn morph', !!P.respawnMorph, function (v) { P.respawnMorph = v ? 1 : 0; }, ['morphing', 'instant']);
   choice('food life', 'foodMode', ['original', 'game of life', 'amorphous blobs', 'swarm']);
-  toggle('cell metamorphosis on refresh', !!P.cellMorph, function (v) { P.cellMorph = v ? 1 : 0; });
-  toggle('config auto invert (readable over colours)', !!P.autoInvert, function (v) { P.autoInvert = v ? 1 : 0; invertTick(); });
-  toggle('title circles react to hover', !!P.titleCircles, function (v) { P.titleCircles = v ? 1 : 0; });
-  toggle('keep circle color after hover', !!P.circleHold, function (v) { P.circleHold = v ? 1 : 0; });
-  var lockT = toggle('lock values on refresh', lockParams, function (v) { lockParams = v; });
+  toggle('cell metamorphosis', !!P.cellMorph, function (v) { P.cellMorph = v ? 1 : 0; }, ['drifting', 'snapping']);
+  toggle('auto invert', !!P.autoInvert, function (v) { P.autoInvert = v ? 1 : 0; invertTick(); }, ['inverting', 'plain']);
+  toggle('title circles', !!P.titleCircles, function (v) { P.titleCircles = v ? 1 : 0; }, ['reactive', 'still']);
+  toggle('circle color hold', !!P.circleHold, function (v) { P.circleHold = v ? 1 : 0; }, ['holding', 'fading']);
+  var lockT = toggle('lock on refresh', lockParams, function (v) { lockParams = v; }, ['locked', 'free']);
   lockBox = lockT.box; lockVal = lockT.val;
-  toggle('auto refresh', autoRefresh, function (v) { autoRefresh = v; lastRefresh = performance.now(); });
-  toggle('auto quality', !!P.autoQuality, function (v) { P.autoQuality = v ? 1 : 0; });
-  toggle('grain', !!P.grain, function (v) { P.grain = v ? 1 : 0; });
-  toggle('typography', !!P.showHud, function (v) { P.showHud = v ? 1 : 0; });
-  toggle('food dots (still eaten when hidden)', !!P.showFood, function (v) { P.showFood = v ? 1 : 0; });
-  toggle('axis lines', !!P.showAxis, function (v) { P.showAxis = v ? 1 : 0; });
+  toggle('auto refresh', autoRefresh, function (v) { autoRefresh = v; lastRefresh = performance.now(); }, ['cycling', 'held']);
+  toggle('auto quality', !!P.autoQuality, function (v) { P.autoQuality = v ? 1 : 0; }, ['adaptive', 'fixed']);
+  toggle('grain', !!P.grain, function (v) { P.grain = v ? 1 : 0; }, ['grained', 'clean']);
+  toggle('typography', !!P.showHud, function (v) { P.showHud = v ? 1 : 0; }, ['visible', 'hidden']);
+  toggle('food dots', !!P.showFood, function (v) { P.showFood = v ? 1 : 0; }, ['visible', 'hidden']);
+  toggle('axis lines', !!P.showAxis, function (v) { P.showAxis = v ? 1 : 0; }, ['visible', 'hidden']);
   choice('config font', 'cfgFont', CFG_FONTS, applyTypo);
   choice('config case', 'cfgCase', CFG_CASES, applyTypo);
   var fcRow = document.createElement('div'); fcRow.className = 'row';
@@ -1386,7 +1414,21 @@
       dividing = false;
       c.style.transition = ''; c.style.transform = ''; c.style.opacity = ''; c.style.background = 'transparent'; c.style.borderColor = 'var(--kc, var(--fg))'; c.style.borderWidth = LW() + 'px';
     }
-    c.addEventListener('pointerenter', function () { // hover area is the button only: the label under it is not part of it (hovering the title closes the button)
+    // hover state comes from the pointer crossing the button's resting box only. The living pieces move under a
+    // stationary pointer; hit-tested enter/leave on the element itself restarted the whole crowd on every mouse move.
+    var hovOn = false, mvT = null;
+    function stopTrack() { if (mvT) { document.removeEventListener('pointermove', mvT); mvT = null; } }
+    function track() {
+      stopTrack();
+      mvT = function (e) {
+        var ir = it.getBoundingClientRect(), pad = 4;
+        var L = ir.left + c.offsetLeft, T = ir.top + c.offsetTop, R = L + c.offsetWidth, B = T + c.offsetHeight;
+        if (e.clientX < L - pad || e.clientX > R + pad || e.clientY < T - pad || e.clientY > B + pad) endHover();
+      };
+      document.addEventListener('pointermove', mvT, { passive: true });
+    }
+    function startHover() { // hover area is the button only: the label under it is not part of it (hovering the title closes the button)
+      if (hovOn) return; hovOn = true; c.style.pointerEvents = 'none'; track();
       cleanup();
       var col = CIRC_COLS[Math.floor(Math.random() * 3)];
       c.style.background = col; c.style.borderColor = col; c.style.borderWidth = '0px'; lb.style.color = col; c.dataset.col = col; // coloured and splitting: no stroke at all
@@ -1463,8 +1505,9 @@
         });
       }, 110);
       var oc = caT; caT = { _a: oc, _b: life };
-    });
-    c.addEventListener('pointerleave', function () {
+    }
+    function endHover() {
+      if (!hovOn) return; hovOn = false; stopTrack(); c.style.pointerEvents = '';
       var col = c.dataset.col || '#000';
       // closing: letters squeeze together vertically a little and fade
       spans.forEach(function (sp) { sp.style.transition = 'opacity .2s ease-in, line-height .2s ease-in, transform .2s ease-in'; sp.style.transitionDelay = '0s'; sp.style.opacity = '0'; sp.style.lineHeight = 'calc(var(--cfs, 13px) * 0.9)'; sp.style.transform = 'scaleY(.8)'; });
@@ -1512,7 +1555,8 @@
           }
         }
       }, 40);
-    });
+    }
+    c.addEventListener('pointerenter', startHover);
     it.addEventListener('click', function (e) {
       e.stopPropagation();
       if (sec.name === 'config') { solo(null); panel.scrollTo({ top: 0, behavior: 'smooth' }); return; }
