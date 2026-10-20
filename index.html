@@ -37,14 +37,14 @@
   #tab:hover ~ #blurl, #panel:hover ~ #blurl, #panel.open ~ #blurl { opacity: 1; }
 
   @keyframes ca2in { from { opacity: 0 } to { opacity: 1 } }
-  #panel h1 { margin: 0 0 6px; font-weight: normal; font-size: 15px; letter-spacing: .3em; font-family: 'Times New Roman', Times, serif; }
+  #panel h1 { margin: 0 0 6px; font-weight: normal; font-size: 13px; letter-spacing: .3em; font-family: 'Times New Roman', Times, serif; }
   .grp, .stats span:not(.n) { font-family: 'Times New Roman', Times, serif; }
   #secc .sl { font-family: 'Times New Roman', Times, serif; }
   .n { font-family: 'Ca2-Thin', monospace; font-size: 54px; white-space: nowrap; line-height: 1; letter-spacing: 0; }
   .stats { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; white-space: nowrap; padding: 8px 0 12px; border-bottom: 1.5px solid var(--fg-soft); margin-bottom: 10px; }
   .stats span:nth-child(even) { text-align: right; }
   .stats span:nth-child(odd) { align-self: center; }
-  .grp { margin: 14px 0 2px; letter-spacing: .3em; text-transform: uppercase; font-size: 11px; color: var(--fg-soft); padding-bottom: 3px; }
+  .grp { margin: 14px 0 2px; letter-spacing: .3em; text-transform: uppercase; font-size: 13px; color: var(--fg-soft); padding-bottom: 3px; }
   .row { padding: 7px 0 4px; }
   .row .lab { display: flex; justify-content: space-between; }
   .row input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; margin: 2px 0 0; background: transparent; cursor: pointer; }
@@ -79,8 +79,10 @@
   #secc .sl { text-transform: uppercase; font-size: 13px; overflow: hidden; height: 0; transition: height .25s ease; pointer-events: none; margin-top: 10px; text-align: center; }
   #secc .sl span { display: block; opacity: 0; transition: opacity .06s linear; line-height: 17px; }
   /* admin entry: 4 hollow circles stacked at the bottom right, on the section-circle axis */
-  #adm { display: none; position: fixed; right: 8px; bottom: 14px; z-index: 11; flex-direction: column; align-items: center; cursor: text; }
+  #adm { display: none; position: fixed; right: 8px; bottom: 14px; z-index: 11; flex-direction: column; align-items: center; cursor: text; opacity: 0; pointer-events: none; transition: opacity .2s ease-out; }
   #adm.on { display: flex; }
+  /* the admin entry lives and dies with the config area */
+  #tab:hover ~ #adm.on, #panel:hover ~ #adm.on, #panel.open ~ #adm.on { opacity: 1; pointer-events: auto; }
   #adm .ac { border-radius: 50%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: var(--fg); font-family: 'Fragment Mono', ui-monospace, monospace; }
   #adm .ac span { line-height: 1; }
   #adm.err .ac { border-color: #ff3c3c !important; color: #ff3c3c; }

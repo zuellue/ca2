@@ -1269,7 +1269,7 @@
         post({ code: code, check: true }).then(function (r) {
           if (r && r.ok) {
             admin = code; sent = {}; Object.keys(P).forEach(function (k) { sent[k] = P[k]; });
-            var ADMN = 'ADMN'; for (var i = 0; i < 4; i++) aglyphs[i].textContent = ADMN[i];
+            var ABDU = 'ABDU'; for (var i = 0; i < 4; i++) aglyphs[i].textContent = ABDU[i];
             window.__adminOn = true;
           } else {
             adm.classList.add('err'); setTimeout(function () { adm.classList.remove('err'); aglyphs.forEach(function (g) { g.textContent = ''; }); }, 600);
