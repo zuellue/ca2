@@ -808,7 +808,7 @@
     curInfo = { on: curOn, ring: ringOn, dot: curInfo3.dot, dp: curInfo3.dp, lx: curInfo2.lx, ly: curInfo2.ly, locked: curInfo2.locked, maxR: curMaxR, cx: curX, cy: curY, rr: curRR, col: curCol, title: !!titleHit };
     }
 
-     window.__ca2 = { inv: function () { return { state: invState, dbg: invDbg }; }, setKey: function (k, v) { P[k] = v; applyKey(k, v); if (k === 'lineColor' || k === 'ruleColor' || k === 'circColor') applyLineColor(); touched[k] = 1; save(); }, cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var lastF, lastF2, run = 0, maxRun = 0, sumAbs = 0, bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; if (Math.abs(f - (lastF === undefined ? -9 : lastF)) < 0.01) { run++; maxRun = Math.max(maxRun, run); } else run = 0; lastF = f; sumAbs += lastF2 === undefined ? 0 : Math.abs(f - lastF2); lastF2 = f; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins, maxRunGens: maxRun, meanStep: sumAbs / gens }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
+     window.__ca2 = { setKey: function (k, v) { P[k] = v; applyKey(k, v); if (k === 'lineColor' || k === 'ruleColor' || k === 'circColor') applyLineColor(); touched[k] = 1; save(); }, cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var lastF, lastF2, run = 0, maxRun = 0, sumAbs = 0, bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; if (Math.abs(f - (lastF === undefined ? -9 : lastF)) < 0.01) { run++; maxRun = Math.max(maxRun, run); } else run = 0; lastF = f; sumAbs += lastF2 === undefined ? 0 : Math.abs(f - lastF2); lastF2 = f; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins, maxRunGens: maxRun, meanStep: sumAbs / gens }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
 
     if (autoRefresh && performance.now() - lastRefresh > refreshInterval * 1000) randomize();
     stepLive(t0);
@@ -1100,7 +1100,7 @@
   toggle('respawn: new life cycle morph', !!P.respawnMorph, function (v) { P.respawnMorph = v ? 1 : 0; });
   choice('food life', 'foodMode', ['original', 'game of life', 'amorphous blobs', 'swarm']);
   toggle('cell metamorphosis on refresh', !!P.cellMorph, function (v) { P.cellMorph = v ? 1 : 0; });
-  toggle('config auto invert (readable over colours)', !!P.autoInvert, function (v) { P.autoInvert = v ? 1 : 0; invState = -1; });
+  toggle('config auto invert (readable over colours)', !!P.autoInvert, function (v) { P.autoInvert = v ? 1 : 0; invertTick(); });
   toggle('title circles react to hover', !!P.titleCircles, function (v) { P.titleCircles = v ? 1 : 0; });
   toggle('keep circle color after hover', !!P.circleHold, function (v) { P.circleHold = v ? 1 : 0; });
   var lockT = toggle('lock values on refresh', lockParams, function (v) { lockParams = v; });
@@ -1170,37 +1170,16 @@
     ['cs-u', 'cs-l', 'cs-s'].forEach(function (c) { if (pn) pn.classList.remove(c); if (sc) sc.classList.remove(c); });
     if (cl[P.cfgCase]) { if (pn) pn.classList.add(cl[P.cfgCase]); if (sc) sc.classList.add(cl[P.cfgCase]); }
   }
-  // auto invert: the config text turns light or dark depending on what is actually behind it (page colour, cells and food showing through
-  // the translucent panel). The canvas strip under the panel is sampled in 24 bands; the text colour with better contrast in most bands wins.
-  var invState = -1, invCv = document.createElement('canvas'), invCx = invCv.getContext('2d', { willReadFrequently: true }), invDbg = null;
-  invCv.width = 8; invCv.height = 24;
-  function lin(v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
-  function invertHex(h) { var n = parseInt(h.slice(1), 16); return '#' + ('000000' + (0xffffff - n).toString(16)).slice(-6); }
+  // auto invert: the config panel blends with what is behind it using mix-blend-mode: difference, so every pixel of text, line or
+  // control that overlaps a cell, dot or colour is inverted against it (white ink on a light page reads dark, on a dark dot reads light).
+  var invState = -1;
   function invertTick() {
     var pn = document.getElementById('panel'); if (!pn) return;
-    var pr = pn.getBoundingClientRect();
-    if (!P.autoInvert) { if (invState !== -1) { invState = -1; pn.style.removeProperty('--fg'); pn.style.removeProperty('--fg-soft'); pn.style.removeProperty('--kl'); pn.style.removeProperty('--kr'); } return; }
-    if (pr.left >= W - 4 || !cv.width) return;
-    var sx = Math.max(0, pr.left) * DPR, sw = (Math.min(W, pr.right) - Math.max(0, pr.left)) * DPR;
-    try { invCx.drawImage(cv, sx, 0, Math.max(1, sw), cv.height, 0, 0, 8, 24); var d = invCx.getImageData(0, 0, 8, 24).data; } catch (e) { return; }
-    var a = P.panelAlpha, darkWins = 0, lightWins = 0;
-    for (var row = 0; row < 24; row++) {
-      var R = 0, G = 0, B = 0; for (var x = 0; x < 8; x++) { var o = (row * 8 + x) * 4; R += d[o]; G += d[o + 1]; B += d[o + 2]; }
-      R = R / 8 * (1 - a) + bg[0] * a; G = G / 8 * (1 - a) + bg[1] * a; B = B / 8 * (1 - a) + bg[2] * a;
-      var L = 0.2126 * lin(R) + 0.7152 * lin(G) + 0.0722 * lin(B), cDark = (L + 0.05) / (0.0056 + 0.05), cLight = 1.05 / (L + 0.05 + 0.0);
-      if (cDark >= cLight) darkWins++; else lightWins++;
-    }
-    var want = invState === -1 ? (darkWins >= lightWins ? 0 : 1) : (invState === 0 ? (lightWins > darkWins + 3 ? 1 : 0) : (darkWins > lightWins + 3 ? 0 : 1));
-    invDbg = { dark: darkWins, light: lightWins, want: want };
-    if (want !== invState) {
-      invState = want;
-      var fg = want === 0 ? '17,17,17' : '240,240,240';
-      pn.style.setProperty('--fg', 'rgb(' + fg + ')'); pn.style.setProperty('--fg-soft', 'rgba(' + fg + ',.35)');
-      if (want === 1) { pn.style.setProperty('--kl', invertHex(P.lineColor)); pn.style.setProperty('--kr', P.ruleColor ? invertHex(P.ruleColor) : invertHex(P.lineColor)); } else { pn.style.removeProperty('--kl'); pn.style.removeProperty('--kr'); }
-    }
+    pn.classList.toggle('blend', !!P.autoInvert);
+    if (P.autoInvert) { pn.style.setProperty('--kl', P.lineColor === '#111111' ? '#ffffff' : P.lineColor); }
+    else pn.style.removeProperty('--kl');
   }
-  setInterval(invertTick, 250);
-  function applyLineColor() { invState = -1; var rt = document.documentElement.style; rt.setProperty('--kl', P.lineColor); if (P.ruleColor) rt.setProperty('--kr', P.ruleColor); else rt.removeProperty('--kr'); if (P.circColor) rt.setProperty('--kc', P.circColor); else rt.removeProperty('--kc'); }
+  function applyLineColor() { invertTick(); var rt = document.documentElement.style; rt.setProperty('--kl', P.lineColor); if (P.ruleColor) rt.setProperty('--kr', P.ruleColor); else rt.removeProperty('--kr'); if (P.circColor) rt.setProperty('--kc', P.circColor); else rt.removeProperty('--kc'); }
   var panel = document.getElementById('panel'), blurEl = document.getElementById('blur'), blurLEl = document.getElementById('blurl');
   panel.style.width = P.panelWidth + 'px'; blurEl.style.width = P.blurWidth + 'px'; blurLEl.style.width = P.blurWidth + 'px';
   document.documentElement.style.setProperty('--bmax', P.blurStrength + 'px');
