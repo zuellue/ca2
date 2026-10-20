@@ -16,14 +16,16 @@ Wasm i64 returns become BigInt in JS: return f64 from exports.
 - d6dde21 swarm food step -> wasm/src/swarm.rs (stepSwarmW in ca2.js, JS stepSwarm is the fallback). Bench t73 (node, pack+unpack included): 300 food 0.469 -> 0.120 ms, 1000 1.601 -> 0.367, 3000 2.343 -> 1.014.
 - ?perf=1 now has per-stage marks: food step, foodKeepIn, stepTrans, cluster state, sim loop+parasites, axis+tally, hud text, sim+ui draw.
 
+- t74 full-frame frozen-input iso (update+interact+keepIn, RNG lockstep, births off in mode A): update() path exact, 0/300 divergence once fuse/birth frames excluded; those differ only by JS-side mixShape/newShape/Cell-ctor Math.random draws (Rust reports births/fusions via the sim log, shapes replay in JS unpack) - a harness RNG-lockstep artifact, not live bias (live sim_step reseeds from Math.random every frame). Statistical trajectories (t74 B, births on, 40 states x 15 frames, N=75): merge -1.5%, fuse -2.5%, birth +1.9%, eaten -3.0%, death +1.3%, hit -3.3%; dense (30x15, N=150): merge 0.0%, birth +0.2%, death +0.2%. Per-state swings ±60%: chaotic. VERDICT: no systematic merge/fuse deficit; the live ~12% was 2-repeat run variance (wasm repeats themselves 221 vs 243 avg cells).
+- sim.rs new_kid: a one-step birth burst over the JS +256 headroom silently dropped kids after parents' energy was already spent (and out[0] still counted them). Burst test (cap 302, 40 steps): old binary counted 719 births, kept 2 kids. Root fix: wasm grows the cell buffer (x2, min +256); new exports sim_cap/sim_cells_ptr; ca2.js simW re-anchors cap+pointer after each step. Fixed binary: 379 births all kept, cap grew 302 -> 1208. Debug instrumentation (rng_n/trace) stripped. Step bench (node, N=400, 300 steps, interact-heavy): before ~2.20 ms, after ~2.25 ms (noise; no regression).
+
 ## Measured JS cost left (sandbox, ms/frame EMA, ?perf=1)
 worms food step 1.27 (542 food), spores 1.88 (517 food), axis+tally 1.5-2.0 (drawAxis = canvas, stays JS), stepTrans 0.1-0.8, foodKeepIn 0.05-0.4, buildSources 0.5 ms/s in spores.
 
 ## TODO (order)
-1. merge/fuse low ~12%: full-frame frozen-input comparison including update() (interact alone is clean). Suspects: update() speed dynamics / contact rate, cluster dissolve (JS), sym pairing pack/unpack, count_slots excludes REM-marked cells (JS clusterSize counts dead-not-yet-spliced).
-2. worms/spores steps, stepParasites, live knob CA, stepTrans -> wasm (profile first, port by ms share).
-3. buildSources / emitCell.
+1. worms/spores steps, stepParasites, live knob CA, stepTrans -> wasm (profile first, port by ms share).
+2. buildSources / emitCell.
 4. body-plan logic (newShape/mixShape/simSwim) after desktop team finishes.
 5. keepIn root cause (boundary/zone=0) hash+diff from desktop team -> port into sim.rs keep_in (zone floor already 0).
 6. body-plan distribution comparison (frozen parameters) + f32 metaball difference (~500-700 bytes / 1.8M, max 198 levels): decide f64 path.
-Tools: devtools/t70 (interact iso), t71 (CDP profiler, node devtools/t71-prof.js "?perf=1" secs name [preJS]), t72 (keepIn iso), t73 (swarm bench).
+Tools: devtools/t70 (interact iso), t71 (CDP profiler, node devtools/t71-prof.js "?perf=1" secs name [preJS]), t72 (keepIn iso), t73 (swarm bench), t74 (full-frame iso: A exact RNG-lockstep, B statistical, C birth-pressure, D debug flags).
