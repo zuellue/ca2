@@ -558,7 +558,7 @@
     }
   }
   function drawBlobs() {
-    var ol = P.blobOutline; ctx.fillStyle = P.foodColor; ctx.strokeStyle = P.foodColor; ctx.lineWidth = 1.5; ctx.lineCap = 'round'; ctx.globalAlpha = P.foodAlpha;
+    var ol = P.blobOutline; ctx.fillStyle = P.foodColor; ctx.strokeStyle = P.foodColor; ctx.lineWidth = P.axisWidth; ctx.lineCap = 'round'; ctx.globalAlpha = P.foodAlpha;
     for (var i = 0; i < blobs.length; i++) {
       var b = blobs[i], d = b.d; if (!introOn(CELL_END + ((i * 0.6180339) % 1) * (FOOD_END - CELL_END))) continue; if (d.length < 3) { for (var q = 0; q < d.length; q++) { if (ol) ctx.strokeRect(d[q].x - P.foodSize / 2, d[q].y - P.foodSize / 2, P.foodSize, P.foodSize); else ctx.fillRect(d[q].x - P.foodSize / 2, d[q].y - P.foodSize / 2, P.foodSize, P.foodSize); } continue; }
       var pts = d.slice().sort(function (u, v) { return Math.atan2(u.y - b.y, u.x - b.x) - Math.atan2(v.y - b.y, v.x - b.x); }), n = pts.length;
@@ -746,7 +746,7 @@
 
     // area outline: no rounded corners. Each side stops `corner` px short of both ends, so the corner lines never meet.
     var cr = Math.min(P.containerCorner, cont.w / 2, cont.h / 2);
-    ctx.strokeStyle = css(dom, 1); ctx.lineWidth = 2; ctx.lineCap = 'butt';
+    ctx.strokeStyle = css(dom, 1); ctx.lineWidth = P.axisWidth; ctx.lineCap = 'butt';
     var bxs = [[cont.x + cr, cont.y, cont.x + cont.w - cr, cont.y], [cont.x + cont.w, cont.y + cr, cont.x + cont.w, cont.y + cont.h - cr], [cont.x + cont.w - cr, cont.y + cont.h, cont.x + cr, cont.y + cont.h], [cont.x, cont.y + cont.h - cr, cont.x, cont.y + cr]];
     for (var bi = 0; bi < 4; bi++) if (fadeA('bx' + bi)) { ctx.beginPath(); ctx.moveTo(bxs[bi][0], bxs[bi][1]); ctx.lineTo(bxs[bi][2], bxs[bi][3]); ctx.stroke(); }
 
@@ -773,7 +773,7 @@
       } else { // horizontal edge
         dE = anglePath(downE ? 90 : -90, Le, gE, clamp(mouse.x, cont.x, cont.x + cont.w), byE + (downE ? offE : -offE));
       }
-      curEdgePath.setAttribute('d', dE); curEdgePath.setAttribute('stroke', css(dom, 1)); curEdgePath.setAttribute('stroke-width', 2);
+      curEdgePath.setAttribute('d', dE); curEdgePath.setAttribute('stroke', css(dom, 1)); curEdgePath.setAttribute('stroke-width', P.axisWidth);
       curEdge.style.display = 'block'; curEdge.style.transform = 'translate(0px,0px)';
       curEl.style.display = 'none'; cv.style.cursor = 'none'; curOn0 = false; lockCell = null;
       curInfo = { on: true, edge: true, corner: !!(eHit.h && eHit.v), ring: false };
@@ -800,7 +800,7 @@
     curInfo = { on: curOn, ring: ringOn, dot: curInfo3.dot, dp: curInfo3.dp, lx: curInfo2.lx, ly: curInfo2.ly, locked: curInfo2.locked, maxR: curMaxR, cx: curX, cy: curY, rr: curRR, col: curCol, title: !!titleHit };
     }
 
-     window.__ca2 = { cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
+     window.__ca2 = { cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var lastF, lastF2, run = 0, maxRun = 0, sumAbs = 0, bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; if (Math.abs(f - (lastF === undefined ? -9 : lastF)) < 0.01) { run++; maxRun = Math.max(maxRun, run); } else run = 0; lastF = f; sumAbs += lastF2 === undefined ? 0 : Math.abs(f - lastF2); lastF2 = f; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins, maxRunGens: maxRun, meanStep: sumAbs / gens }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
 
     if (autoRefresh && performance.now() - lastRefresh > refreshInterval * 1000) randomize();
     stepLive(t0);
@@ -863,20 +863,25 @@
         L.bits = nb;
         var a = clamp((nb.reduce(function (x, y) { return x + y; }, 0) / n - 0.2) / 0.6, 0, 1);
         if (L.plate) a = clamp(a * 0.45 + 0.55 * clamp(cells.length / 250, 0, 1), 0, 1);
-        // the CA density alone parks near the middle; the value is a walker over the whole range: the CA row steers its
-        // steps, it bounces off both ends, and a diversity pressure turns it towards the least-visited tenth of the range
-        if (L.walk === undefined) { L.walk = a; L.vis = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; L.dir = lcg(L.st) < 0.5 ? 1 : -1; }
-        var cs = (nb[0] + nb[7] + nb[14] + nb[21] - 2) * 0.5 + (lcg(L.st) - 0.5) * 0.4;
-        L.walk += L.dir * 0.012 + cs * 0.012;
-        if (L.walk > 1) { L.walk = 2 - L.walk; L.dir = -1; } else if (L.walk < 0) { L.walk = -L.walk; L.dir = 1; }
-        L.walk = clamp(L.walk, 0, 1);
-        L.vis[Math.min(9, Math.floor(L.walk * 10))]++;
-        if (L.gen % 25 === 0) { var lv = 0; for (i = 1; i < 10; i++) if (L.vis[i] < L.vis[lv]) lv = i; L.dir = (lv + 0.5) / 10 > L.walk ? 1 : -1; }
-        a = L.walk;
+        // the value follows the CA: a window of the row is read as a binary fraction (so the whole range is reachable and
+        // every part is equally likely), one random cell is flipped every generation so the row never settles into a cycle,
+        // and the value chases that reading with a soft step - never stuck, never a ceiling-floor sweep
+        nb[Math.floor(lcg(L.st) * n)] ^= 1; L.bits = nb;
+        var r0 = (L.gen * 7 + L.shift) % n, rd = 0, wt = 0.5;
+        for (i = 0; i < 12; i++) { rd += nb[(r0 + i) % n] * wt; wt *= 0.5; }
+        rd = clamp(rd * 4096 / 4095, 0, 1);
+        // the reading is mapped through its own running distribution (rank), so the whole range is used evenly
+        if (!L.hist) L.hist = [];
+        var lo = 0; for (i = 0; i < L.hist.length; i++) if (L.hist[i] < rd) lo++;
+        var rk = L.hist.length > 8 ? (lo + lcg(L.st)) / (L.hist.length + 1) : rd;
+        L.hist.push(rd); if (L.hist.length > 300) L.hist.shift();
+        if (L.walk === undefined) L.walk = rk;
+        L.walk += (rk - L.walk) * 0.7;
+        a = clamp(0.5 + (L.walk - 0.5) * 1.3, 0, 1); // a little stretch so both ends are actually touched
         L.target = L.q[2] + (L.q[3] - L.q[2]) * a * (LIVE_CAP[k] || 1);
       }
       if (L.target === undefined) continue;
-      L.cur += (L.target - L.cur) * (L.plate ? 0.07 : 0.2);
+      L.cur += (L.target - L.cur) * (L.plate ? 0.07 : 0.4);
       var v = clamp(Math.round((L.cur - L.q[2]) / L.q[4]) * L.q[4] + L.q[2], L.q[2], L.q[3]);
       if (v !== L.lastQ) { L.lastQ = v; P[k] = v; applyKey(k, v); }
     }
@@ -908,7 +913,7 @@
       ['resolution', 'resolution', 0.25, 1, 0.01], ['pixelRatio', 'pixel ratio (0 = auto)', 0, 3, 0.25], ['fps', 'fps', 5, 120, 1],
       ['margin', 'margin (all edges)', 0, 120, 1], ['gap', 'line gap to numbers', 0, 60, 1],
       ['textScale', 'type size', 0.4, 1.6, 0.01], ['containerCorner', 'corner gap', 0, 80, 1],
-      ['centerGap', 'center gap (axis crossing)', 0, 120, 1], ['diagLen', 'diagonal length', 0.2, 1.3, 0.01], ['axisWidth', 'axis line width', 0.5, 6, 0.1],
+      ['centerGap', 'center gap (axis crossing)', 0, 120, 1], ['diagLen', 'diagonal length', 0.2, 1.3, 0.01], ['axisWidth', 'line width (all lines)', 0.5, 6, 0.1],
       ['areaMin', 'area floor', 0.1, 1, 0.01], ['areaMax', 'area ceiling', 0.1, 1, 0.01],
       ['morphEase', 'area morph speed', 0.02, 1, 0.01], ['colorSpeed', 'color speed', 0.02, 1, 0.01]]],
     ['panel', [
@@ -952,6 +957,7 @@
     else if (k === 'blurWidth') { if (blurEl) blurEl.style.width = v + 'px'; if (blurLEl) blurLEl.style.width = v + 'px'; }
     else if (k === 'blurStrength') document.documentElement.style.setProperty('--bmax', v + 'px');
     else if (k === 'resolution') res = v;
+    else if (k === 'axisWidth') document.documentElement.style.setProperty('--lw', v + 'px');
     else if (layoutKeys[k]) clampTargets();
     else if (k === 'baseMaxSpeed' || k === 'maxSpeedVariation') cells.forEach(function (c) { c.maxSpeed = speedOf(c); });
     else if (k === 'UNIVERSE_SIZE') {
@@ -1307,7 +1313,7 @@
       admCircles[j].style.fontSize = '13px';
     }
   }
-  placeCircles();
+  placeCircles(); document.documentElement.style.setProperty('--lw', P.axisWidth + 'px');
   panel.addEventListener('click', function (e) { e.stopPropagation(); });
   var lastSync = 0;
 

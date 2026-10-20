@@ -6,7 +6,7 @@
 <title>CA2</title>
 <style>
   @font-face { font-family: 'Ca2-Thin'; src: url('Ca2-Thin.ttf') format('truetype'); font-display: block; }
-  :root { --fg: #111; --fg-soft: rgba(17,17,17,.35); --bg: #fff; }
+  :root { --lw: 1px; --fg: #111; --fg-soft: rgba(17,17,17,.35); --bg: #fff; }
   html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); }
   canvas#c, canvas#g { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; }
   canvas#g { pointer-events: none; }
@@ -44,17 +44,17 @@
   .stats span:not(.n) { letter-spacing: calc(.04em + 1px); }
   #secc .sl { font-family: 'Times New Roman', Times, serif; }
   .n { font-family: 'Ca2-Thin', monospace; font-size: 54px; white-space: nowrap; line-height: 1; letter-spacing: 0; }
-  .stats { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; white-space: nowrap; padding: 8px 0 12px; border-bottom: 1.5px solid var(--fg-soft); margin-bottom: 10px; }
+  .stats { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; white-space: nowrap; padding: 8px 0 12px; border-bottom: var(--lw) solid var(--fg-soft); margin-bottom: 10px; }
   .stats span:nth-child(even) { text-align: right; }
   .stats span:nth-child(odd) { align-self: center; }
   .grp { margin: 14px 0 2px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; font-size: 13px; color: var(--fg-soft); padding-bottom: 3px; }
   .row { padding: 7px 0 4px; }
   .row .lab { display: flex; justify-content: space-between; }
   .row input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; margin: 2px 0 0; background: transparent; cursor: pointer; }
-  .row input[type=range]::-webkit-slider-runnable-track { height: 1.5px; background: var(--fg-soft); }
-  .row input[type=range]::-moz-range-track { height: 1.5px; background: var(--fg-soft); }
-  .row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: -5px; border-radius: 50%; border: 1.5px solid var(--fg-soft); background: transparent; }
-  .row input[type=range]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--fg-soft); background: transparent; }
+  .row input[type=range]::-webkit-slider-runnable-track { height: var(--lw); background: var(--fg-soft); }
+  .row input[type=range]::-moz-range-track { height: var(--lw); background: var(--fg-soft); }
+  .row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: calc((var(--lw) - 12px) / 2); border-radius: 50%; border: var(--lw) solid var(--fg-soft); background: transparent; }
+  .row input[type=range]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; border: var(--lw) solid var(--fg-soft); background: transparent; }
   /* knob hover: CA-driven drift of the thumb (visual only; the value does not change) */
   .row input[type=range]::-webkit-slider-thumb { transform: translate(var(--kx, 0px), 0) scale(var(--ks, 1)); transition: transform .1s linear; }
   .row input[type=range]::-moz-range-thumb { transform: translate(var(--kx, 0px), 0) scale(var(--ks, 1)); transition: transform .1s linear; }
@@ -66,13 +66,13 @@
   .row.live input[type=range]::-webkit-slider-runnable-track { background: var(--kc); }
   .row.live input[type=range]::-moz-range-track { background: var(--kc); }
   .row .lab b { cursor: text; }
-  .row .lab .man { font: inherit; color: inherit; background: transparent; border: 0; border-bottom: 1.5px solid var(--fg); outline: none; width: 72px; text-align: right; padding: 0; caret-color: var(--fg); }
+  .row .lab .man { font: inherit; color: inherit; background: transparent; border: 0; border-bottom: var(--lw) solid var(--fg); outline: none; width: 72px; text-align: right; padding: 0; caret-color: var(--fg); }
   .chk { display: flex; justify-content: space-between; padding: 7px 0; cursor: pointer; user-select: none; }
   .chk b { font-weight: normal; }
-  .btns { display: flex; flex-wrap: wrap; gap: 4px 20px; padding-top: 12px; border-top: 1.5px solid var(--fg-soft); margin-top: 10px; }
-  .btns button { font: inherit; color: inherit; background: none; border: 0; padding: 4px 0; cursor: pointer; border-bottom: 1.5px solid transparent; }
+  .btns { display: flex; flex-wrap: wrap; gap: 4px 20px; padding-top: 12px; border-top: var(--lw) solid var(--fg-soft); margin-top: 10px; }
+  .btns button { font: inherit; color: inherit; background: none; border: 0; padding: 4px 0; cursor: pointer; border-bottom: var(--lw) solid transparent; }
   .btns button:hover { border-bottom-color: var(--fg); }
-  .keys { margin-top: 14px; border-top: 1.5px solid var(--fg-soft); padding-top: 10px; color: var(--fg-soft); }
+  .keys { margin-top: 14px; border-top: var(--lw) solid var(--fg-soft); padding-top: 10px; color: var(--fg-soft); }
   .keys div { display: flex; justify-content: space-between; padding: 2px 0; }
   /* section circles: right lane of the config panel, title-dot size, tangent stacking */
   #secc { position: fixed; top: 0; right: 8px; z-index: 11; display: flex; flex-direction: column; align-items: center; transform: translateX(150%); transition: transform .2s ease-out; }
