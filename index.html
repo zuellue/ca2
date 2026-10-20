@@ -55,7 +55,7 @@
   .stats span:nth-child(odd) { align-self: center; }
   .grp { position: relative; width: fit-content; margin: 14px 0 2px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; font-size: var(--cfs, 13px); color: var(--fg-soft); padding-top: 8px; padding-bottom: 3px; }
   /* the rule above a section title is exactly as wide as the title text (letter-spacing tail excluded); thickness = the one line-width parameter */
-  .grp::before { content: ''; position: absolute; left: 0; top: 0; width: calc(100% - .3em - 1px); border-top: var(--lw) solid var(--kl, #111); }
+  .grp::before { content: ''; position: absolute; left: 0; top: 0; width: calc(100% - .3em - 1px); border-top: var(--lw) solid var(--kr, var(--kl, #111)); }
   .row { padding: 7px 0 4px; }
   .row .lab { display: flex; justify-content: space-between; }
   .row input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; margin: 2px 0 0; background: transparent; cursor: pointer; }
@@ -77,12 +77,13 @@
   .row .lab .man { font: inherit; color: inherit; background: transparent; border: 0; box-shadow: 0 var(--lw) 0 0 var(--kl, #111); outline: none; width: 72px; text-align: right; padding: 0; caret-color: var(--fg); }
   .chk { display: flex; justify-content: space-between; padding: 7px 0; cursor: pointer; user-select: none; }
   .chk b { font-weight: normal; }
-  .btns { display: flex; flex-wrap: wrap; gap: 4px 20px; padding-top: 12px; margin-top: 10px; }
+  .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; padding-top: 12px; margin-top: 10px; }
+  .btns button:nth-child(odd) { justify-self: start; } .btns button:nth-child(even) { justify-self: end; }
   .btns button { font: inherit; color: inherit; background: none; border: 0; padding: 4px 0; cursor: pointer; position: relative; }
   .btns button::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; border-bottom: var(--lw) solid transparent; }
   .btns button:hover::after { border-bottom-color: var(--fg); }
   .keys { position: relative; margin-top: 14px; padding-top: 10px; color: var(--fg-soft); }
-  .keys::before { content: ''; position: absolute; left: 0; right: 0; top: 0; border-top: var(--lw) solid var(--kl, #111); }
+  .keys::before { content: ''; position: absolute; left: 0; right: 0; top: 0; border-top: var(--lw) solid var(--kr, var(--kl, #111)); }
   .keys div { display: flex; justify-content: space-between; padding: 2px 0; }
   /* section circles: right lane of the config panel, title-dot size, tangent stacking */
   #secc { position: fixed; top: 0; right: 8px; z-index: 11; display: flex; flex-direction: column; align-items: center; transform: translateX(150%); transition: transform .2s ease-out; }

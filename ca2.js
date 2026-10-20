@@ -30,7 +30,7 @@
   };
   // owner's chosen defaults (23:04)
   P.audioFadeMs = 5000;
-  P.cfgFont = 0; P.cfgFontSize = 13; P.cfgCase = 0; P.lineColor = '#111111'; P.dragMargin = 8; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000;
+  P.cfgFont = 0; P.cfgFontSize = 13; P.cfgCase = 0; P.lineColor = '#111111'; P.axisColor = ''; P.circColor = ''; P.ruleColor = ''; P.dragMargin = 8; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000;
   P.foodMode = 2; P.foodBlobR = 70; P.foodBlobDots = 8; P.foodLife = 1; P.foodLifeMs = 300; P.foodLifeCell = 4; P.foodEatR = 0.4;
   Object.assign(P, {"UNIVERSE_SIZE": 55.95868745026389, "baseMutationRate": 9.628232288701716, "mutationRateRange": 2.6268439511457253, "interactionRadius": 12.016352372548786, "CELL_RADIUS": 34.57106164334512, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 50, "maxRadius": 150, "baseMaxSpeed": 2, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 2.5, "THRESHOLD": 0.19, "metaballStrength": 0.024, "foodDensity": 0.023801395385356694, "foodEnergyValue": 20, "minRefreshInterval": 2, "maxRefreshInterval": 9, "slowDownRadius": 9, "speedReductionFactor": 37.5, "grain": 1, "grainAmount": 1.22, "grainStrength": 9.2, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 12, "fps": 12, "containerCorner": 29, "resolution": 1, "margin": 10, "gap": 26, "textScale": 0.8, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.74, "morphEase": 0.7, "pixelRatio": 2, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 1, "axisLayer": 0, "genomeOn": 1, "genomeMut": 0.5, "divideOn": 1, "divideAt": 6, "eatMergeOn": 1, "eatRatio": 3, "eatChance": 1, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.19, "clusterMax": 10, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 8, "foodShrink": 0.1, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 2350, "boundAware": 1, "boundZone": 20, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 2.3, "panelAlpha": 0, "panelWidth": 340, "blurWidth": 340, "cursorSens": 0.75, "cursorSize": 0.31, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 0.53, "audioMode": 1, "audioTone": 2120, "audioMod": 1, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#000000", "foodAlpha": 1, "foodSize": 3.5, "foodShow": 0.51, "audioFadeMs": 5000, "dragMargin": 24, "edgeGrab": 20, "restless": 3, "edgeFit": 0.3, "boundZoneR": 0.1, "blobOutline": 1, "plateOverlap": 0.5, "parasiteHard": 39.5, "parasiteSight": 4000, "parasiteNerv": 1, "parasiteHardMs": 20000, "foodMode": 3, "foodBlobR": 70, "foodBlobDots": 8, "foodLife": 1, "foodLifeMs": 300, "foodLifeCell": 4, "foodEatR": 0.26});
   // eating radius is a fixed px distance, independent of cell radius (owner 20 Oct: no factor); migrate the stored factor with the preset radius
@@ -483,7 +483,7 @@
     ctx.font = fs + 'px "Ca2-Thin", monospace';
     ctx.textAlign = 'left'; var lrT = inkLR(sT), lrX = inkLR(sX);
     var hL = M + (lrT[1] - lrT[0]) + G, hR = (W - M) - (lrX[1] - lrX[0]) - G, vTop = M + dh + L.row + G, vBot = H - M - dh - G, g = P.centerGap;
-    lctx.strokeStyle = css(eased.axis, 1); lctx.lineWidth = LW(); lctx.lineCap = 'butt';
+    lctx.strokeStyle = P.axisColor || css(eased.axis, 1); lctx.lineWidth = LW(); lctx.lineCap = 'butt';
     var segs = [];
     if (g > 0) { segs.push([hL, cym, cxm - g, cym], [cxm + g, cym, hR, cym], [cxm, vTop, cxm, cym - g], [cxm, cym + g, cxm, vBot]); }
     else segs.push([hL, cym, hR, cym], [cxm, vTop, cxm, vBot]);
@@ -808,7 +808,7 @@
     curInfo = { on: curOn, ring: ringOn, dot: curInfo3.dot, dp: curInfo3.dp, lx: curInfo2.lx, ly: curInfo2.ly, locked: curInfo2.locked, maxR: curMaxR, cx: curX, cy: curY, rr: curRR, col: curCol, title: !!titleHit };
     }
 
-     window.__ca2 = { setKey: function (k, v) { P[k] = v; applyKey(k, v); if (k === 'lineColor') applyLineColor(); touched[k] = 1; save(); }, cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var lastF, lastF2, run = 0, maxRun = 0, sumAbs = 0, bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; if (Math.abs(f - (lastF === undefined ? -9 : lastF)) < 0.01) { run++; maxRun = Math.max(maxRun, run); } else run = 0; lastF = f; sumAbs += lastF2 === undefined ? 0 : Math.abs(f - lastF2); lastF2 = f; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins, maxRunGens: maxRun, meanStep: sumAbs / gens }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
+     window.__ca2 = { setKey: function (k, v) { P[k] = v; applyKey(k, v); if (k === 'lineColor' || k === 'ruleColor' || k === 'circColor') applyLineColor(); touched[k] = 1; save(); }, cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var lastF, lastF2, run = 0, maxRun = 0, sumAbs = 0, bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; if (Math.abs(f - (lastF === undefined ? -9 : lastF)) < 0.01) { run++; maxRun = Math.max(maxRun, run); } else run = 0; lastF = f; sumAbs += lastF2 === undefined ? 0 : Math.abs(f - lastF2); lastF2 = f; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins, maxRunGens: maxRun, meanStep: sumAbs / gens }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
 
     if (autoRefresh && performance.now() - lastRefresh > refreshInterval * 1000) randomize();
     stepLive(t0);
@@ -905,6 +905,7 @@
       Object.keys(p).forEach(function (k) { if (k in P && typeof p[k] === 'number' && isFinite(p[k])) P[k] = p[k]; });
       if (typeof p.foodColor === 'string' && /^#[0-9a-f]{6}$/i.test(p.foodColor)) P.foodColor = p.foodColor;
       if (typeof p.lineColor === 'string' && /^#[0-9a-f]{6}$/i.test(p.lineColor)) P.lineColor = p.lineColor;
+      ['axisColor', 'circColor', 'ruleColor'].forEach(function (k) { if (typeof p[k] === 'string' && /^#[0-9a-f]{6}$/i.test(p[k])) P[k] = p[k]; });
       if (typeof sv.autoRefresh === 'boolean') autoRefresh = sv.autoRefresh;
       if (typeof sv.lockParams === 'boolean') lockParams = sv.lockParams;
       if (sv.bgTarget && sv.bgTarget.length === 3) { bgTarget = sv.bgTarget.slice(); bg = sv.bgTarget.slice(); }
@@ -1117,9 +1118,17 @@
   fcInp.addEventListener('input', function () { P.foodColor = fcInp.value; touched.foodColor = 1; fcRow.querySelector('b').textContent = fcInp.value; save(); });
   fcRow.appendChild(fcInp); ctl.insertBefore(fcRow, gh); SECS[8].els.push(fcRow);
   var lcRow = document.createElement('div'); lcRow.className = 'row';
-  lcRow.innerHTML = '<div class="lab"><span>knob and value line color</span><b style="font-weight:normal">' + P.lineColor + '</b></div>';
+  lcRow.innerHTML = '<div class="lab"><span>parameter line color</span><b style="font-weight:normal">' + P.lineColor + '</b></div>';
   var lcInp = document.createElement('input'); lcInp.type = 'color'; lcInp.value = P.lineColor; lcInp.style.cssText = 'border:0;background:none;padding:0;cursor:pointer';
   lcInp.addEventListener('input', function () { P.lineColor = lcInp.value; touched.lineColor = 1; lcRow.querySelector('b').textContent = lcInp.value; applyLineColor(); save(); });
+  function colRow(label, key) {
+    var row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = '<div class="lab"><span>' + label + '</span><b style="font-weight:normal">' + (P[key] || 'auto') + '</b></div>';
+    var inp = document.createElement('input'); inp.type = 'color'; inp.value = P[key] || '#111111'; inp.style.cssText = 'border:0;background:none;padding:0;cursor:pointer';
+    inp.addEventListener('input', function () { P[key] = inp.value; touched[key] = 1; row.querySelector('b').textContent = inp.value; applyLineColor(); save(); });
+    row.appendChild(inp); ctl.insertBefore(row, SECS[2].hdr); SECS[1].els.push(row);
+  }
+  colRow('section line color', 'ruleColor'); colRow('section button stroke color', 'circColor'); colRow('axis line color', 'axisColor');
   lcRow.appendChild(lcInp); ctl.insertBefore(lcRow, SECS[2].hdr); SECS[1].els.push(lcRow);
   var bgRow = document.createElement('div'); bgRow.className = 'row';
   bgRow.innerHTML = '<div class="lab"><span>background</span><b style="font-weight:normal">#e9e9e9</b></div>';
@@ -1128,9 +1137,9 @@
   bgRow.appendChild(colorInp); ctl.insertBefore(bgRow, SECS[1].hdr); SECS[0].els.push(bgRow);
   function btn(label, fn) { var b = document.createElement('button'); b.textContent = label; b.addEventListener('click', fn); btns.appendChild(b); }
   btn('respawn', function () { randomize(); });
-  btn('randomize all', function () { lockParams = false; lockBox.checked = false; lockVal.textContent = 'off'; randomize(); });
+  btn('randomize', function () { lockParams = false; lockBox.checked = false; lockVal.textContent = 'off'; randomize(); });
   btn('background', cycleBg);
-  btn('reset all', function () { Object.keys(live).forEach(function (k) { delete live[k]; }); Object.keys(DEFAULTS).forEach(function (k) { P[k] = DEFAULTS[k]; }); autoRefresh = true; lockParams = false; bgIndex = 0; bgTarget = BGS[0]; try { localStorage.removeItem(STORE); } catch (e) {} res = P.resolution; resize(); randomize(); location.reload(); });
+  btn('reset', function () { Object.keys(live).forEach(function (k) { delete live[k]; }); Object.keys(DEFAULTS).forEach(function (k) { P[k] = DEFAULTS[k]; }); autoRefresh = true; lockParams = false; bgIndex = 0; bgTarget = BGS[0]; try { localStorage.removeItem(STORE); } catch (e) {} res = P.resolution; resize(); randomize(); location.reload(); });
   btn('copy json', function (ev) {
     var Pc = Object.assign({}, P); for (var lk in live) Pc[lk] = live[lk].orig;
     var txt = JSON.stringify(Pc, null, 1), bt = ev.currentTarget, ok = false;
@@ -1160,7 +1169,7 @@
     ['cs-u', 'cs-l', 'cs-s'].forEach(function (c) { if (pn) pn.classList.remove(c); if (sc) sc.classList.remove(c); });
     if (cl[P.cfgCase]) { if (pn) pn.classList.add(cl[P.cfgCase]); if (sc) sc.classList.add(cl[P.cfgCase]); }
   }
-  function applyLineColor() { document.documentElement.style.setProperty('--kl', P.lineColor); }
+  function applyLineColor() { var rt = document.documentElement.style; rt.setProperty('--kl', P.lineColor); if (P.ruleColor) rt.setProperty('--kr', P.ruleColor); else rt.removeProperty('--kr'); if (P.circColor) rt.setProperty('--kc', P.circColor); else rt.removeProperty('--kc'); }
   var panel = document.getElementById('panel'), blurEl = document.getElementById('blur'), blurLEl = document.getElementById('blurl');
   panel.style.width = P.panelWidth + 'px'; blurEl.style.width = P.blurWidth + 'px'; blurLEl.style.width = P.blurWidth + 'px';
   document.documentElement.style.setProperty('--bmax', P.blurStrength + 'px');
@@ -1186,9 +1195,14 @@
     var txt = sec.name.toUpperCase(), spans = [];
     for (var i = 0; i < txt.length; i++) { var sp = document.createElement('span'); sp.textContent = txt[i]; lb.appendChild(sp); spans.push(sp); }
     it.appendChild(c); it.appendChild(lb); secc.appendChild(it); sec.circ = c;
-    var caT = null, caSt = null, t1 = null, t2 = null, dividing = false, parts = [], home = null, D0 = 0, endTimers = [], endIv = null;
+    var caT = null, caSt = null, t1 = null, t2 = null, dividing = false, parts = [], home = null, D0 = 0, ctr = { x: 0, y: 0 }, endTimers = [], endIv = null;
     function put(p) { p.el.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + p.y.toFixed(1) + 'px) scale(' + p.k.toFixed(2) + ')'; }
-    function inDisc(p) { var m = D0 / 2 * (1 - p.k), d = Math.hypot(p.x, p.y); if (d > m) { var f = m / (d || 1); p.x *= f; p.y *= f; p.vx *= -0.5; p.vy *= -0.5; } }
+    // pieces scatter freely; only the browser window bounds them (a piece bounces off the window edges, never leaves the screen)
+    function inDisc(p) {
+      var r = D0 * p.k / 2, ax = ctr.x + p.x, ay = ctr.y + p.y;
+      if (ax < r) { p.x += r - ax; p.vx = Math.abs(p.vx); } else if (ax > W - r) { p.x -= ax - (W - r); p.vx = -Math.abs(p.vx); }
+      if (ay < r) { p.y += r - ay; p.vy = Math.abs(p.vy); } else if (ay > H - r) { p.y -= ay - (H - r); p.vy = -Math.abs(p.vy); }
+    }
     // stop everything that animates this circle and put it back to its resting hollow state (also used when the pointer returns mid-ending)
     function cleanup() {
       if (caT) { clearInterval(caT); if (caT._a) clearInterval(caT._a); if (caT._b) clearInterval(caT._b); caT = null; }
@@ -1198,7 +1212,7 @@
       endTimers.forEach(clearTimeout); endTimers = [];
       parts.forEach(function (p) { if (p.el !== c) p.el.remove(); }); parts = [];
       dividing = false;
-      c.style.transition = ''; c.style.transform = ''; c.style.opacity = ''; c.style.background = 'transparent'; c.style.borderColor = ''; c.style.borderWidth = LW() + 'px';
+      c.style.transition = ''; c.style.transform = ''; c.style.opacity = ''; c.style.background = 'transparent'; c.style.borderColor = 'var(--kc, var(--fg))'; c.style.borderWidth = LW() + 'px';
     }
     it.addEventListener('pointerenter', function () {
       cleanup();
@@ -1223,7 +1237,7 @@
       // hover keeps going: in place the circle splits into four, and the pieces keep living as a tiny vector cellular
       // automaton - every 1.3 s each piece divides into four again, always in multiples of four (the crowd is capped at 24, extra pieces die)
       c.parentNode.style.position = 'relative'; // first: offsetLeft/Top must be measured against this item, not against the fixed lane
-      D0 = c.offsetWidth; home = { x: c.offsetLeft, y: c.offsetTop }; parts = [{ el: c, x: 0, y: 0, vx: 0, vy: 0, k: 0.6 }]; dividing = true;
+      var cr0 = c.getBoundingClientRect(); ctr = { x: cr0.left + cr0.width / 2, y: cr0.top + cr0.height / 2 }; D0 = c.offsetWidth; home = { x: c.offsetLeft, y: c.offsetTop }; parts = [{ el: c, x: 0, y: 0, vx: 0, vy: 0, k: 0.6 }]; dividing = true;
       c.style.transition = 'transform .25s ease';
       function mk() { var n = c.cloneNode(false); n.style.position = 'absolute'; n.style.left = home.x + 'px'; n.style.top = home.y + 'px'; n.style.pointerEvents = 'none'; n.style.margin = '0'; n.style.transition = 'transform .25s ease'; n.style.background = c.style.background; n.style.borderColor = c.style.borderColor; c.parentNode.appendChild(n); return n; }
       // no depth or count limit: every piece keeps dividing into four until it is below one device pixel
@@ -1235,7 +1249,7 @@
           var off = D0 * p.k * 0.25;
           [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (d, j) {
             var el = j === 0 ? p.el : mk();
-            out.push({ el: el, x: p.x + d[0] * off, y: p.y + d[1] * off, vx: d[0] * 0.8, vy: d[1] * 0.8, k: p.k * 0.5 });
+            out.push({ el: el, x: p.x + d[0] * off, y: p.y + d[1] * off, vx: d[0] * 2.2, vy: d[1] * 2.2, k: p.k * 0.5 });
           });
         });
         parts = out; parts.forEach(function (p) { inDisc(p); put(p); });
@@ -1245,7 +1259,8 @@
       var life = setInterval(function () {
         parts.forEach(function (p, i) {
           var r = (110 >> (((i + 1) & 1) * 4 + (Math.round(p.x) & 1) * 2 + (Math.round(p.y) & 1))) & 1;
-          p.vx = clamp(p.vx * 0.9 + (r ? 1 : -1) * (lcg(caSt) - 0.4) * 1.2, -2.5, 2.5); p.vy = clamp(p.vy * 0.9 + (lcg(caSt) - 0.5) * 1.8, -2.5, 2.5);
+          p.vx = clamp(p.vx * 0.96 + (r ? 1 : -1) * (lcg(caSt) - 0.45) * 1.6, -7, 7); p.vy = clamp(p.vy * 0.96 + (lcg(caSt) - 0.5) * 2.4, -7, 7);
+          var pd = Math.hypot(p.x, p.y) || 1; if (pd < 170) { p.vx += p.x / pd * 0.5 + (lcg(caSt) - 0.5) * 0.6; p.vy += p.y / pd * 0.5 + (lcg(caSt) - 0.5) * 0.6; } // dispersal: pieces fan out into a cloud around the button
           p.x += p.vx; p.y += p.vy; inDisc(p); put(p);
         });
       }, 110);
@@ -1281,9 +1296,21 @@
           if (f >= 1) { sv.k = 1; sv.x = 0; sv.y = 0; phase = 1; tP = now; }
           inDisc(sv); put(sv);
         } else if (phase === 1) {
-          var h = Math.min(100, (now - tP) / 450 * 100);
+          // the hole opens until only a ring of the stroke width is left, then the same ring turns smoothly black (no gap, no flash)
+          var ringP = LW() > 0 ? Math.max(0, 100 * (1 - 2 * LW() / D0)) : 100;
+          var h = Math.min(ringP, (now - tP) / 450 * 100);
           sv.el.style.background = 'radial-gradient(circle closest-side, transparent ' + h.toFixed(1) + '%, ' + col + ' ' + h.toFixed(1) + '%)';
-          if (h >= 100) { phase = 2; sv.el.style.background = 'transparent'; sv.el.style.transition = 'border-color .25s ease'; sv.el.style.borderWidth = LW() + 'px'; sv.el.style.borderColor = ''; endTimers.push(setTimeout(function () { cleanup(); }, 300)); }
+          if (h >= ringP) {
+            phase = 2; clearInterval(endIv); endIv = null;
+            var el = sv.el;
+            el.style.transition = 'none'; el.style.background = 'transparent'; el.style.borderWidth = LW() + 'px'; el.style.borderColor = col; el.style.transform = 'scale(1)';
+            void el.offsetWidth;
+            // colour fades to the resting stroke colour while the ring swells a hair and settles back
+            el.style.transition = 'border-color .7s ease, transform .22s ease-out';
+            el.style.borderColor = 'var(--kc, var(--fg))'; el.style.transform = 'scale(1.045)';
+            endTimers.push(setTimeout(function () { el.style.transition = 'transform .5s cubic-bezier(.3,1.4,.5,1)'; el.style.transform = 'scale(1)'; }, 230));
+            endTimers.push(setTimeout(function () { cleanup(); }, 800));
+          }
         }
       }, 40);
     });
@@ -1355,12 +1382,12 @@
     for (var i = 0; i < secc.childNodes.length; i++) {
       var c = secc.childNodes[i].firstChild;
       c.style.width = D + 'px'; c.style.height = D + 'px';
-      c.style.border = LW() + 'px solid var(--kl)';
+      c.style.border = LW() + 'px solid var(--kc, var(--fg))';
       var lb2 = secc.childNodes[i].querySelector('.sl'); if (lb2) lb2.style.width = D + 'px';
     }
     for (var j = 0; j < admCircles.length; j++) {
       admCircles[j].style.width = D + 'px'; admCircles[j].style.height = D + 'px';
-      admCircles[j].style.border = LW() + 'px solid var(--kl)';
+      admCircles[j].style.border = LW() + 'px solid var(--kc, var(--fg))';
       admCircles[j].style.fontSize = '13px';
     }
   }
