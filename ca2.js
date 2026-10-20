@@ -1267,7 +1267,7 @@
       }
       t1 = setTimeout(function () { t1 = null; split(); t2 = setInterval(split, 1300); }, 700);
       // every section button has its own behaviour for the crowd it splits into (index = the button's place in the lane)
-      var beh = Math.max(0, SECS.indexOf(sec)) % 10, tick = 0;
+      var beh = (SECS.indexOf(sec) + 1) % 11, tick = 0;
       var life = setInterval(function () {
         tick++;
         parts.forEach(function (p, i) {
@@ -1282,7 +1282,9 @@
             case 6: p.vx += -p.x * 0.08 + jx * 0.8; p.vy += -p.y * 0.08 + jy * 0.8; p.vx *= 0.85; p.vy *= 0.85; break; // stays a tight shivering clump
             case 7: ax = 2 * Math.PI * i / parts.length + tick * 0.05; p.vx += (55 * Math.cos(ax) - p.x) * 0.06; p.vy += (55 * Math.sin(ax) - p.y) * 0.06; p.vx *= 0.85; p.vy *= 0.85; break; // forms a slowly turning ring
             case 8: ax = 90 * Math.cos(tick * 0.04 + i * 0.05); ay = 60 * Math.sin(tick * 0.06 + i * 0.05); p.vx += (ax - p.x) * 0.05 + jx; p.vy += (ay - p.y) * 0.05 + jy; p.vx *= 0.85; p.vy *= 0.85; break; // sweeps a slow figure-eight around the button
-            default: p.vx -= 0.6; p.vy += 0.6 + jy * 0.4; p.vx *= 0.94; p.vy *= 0.94; // slides to the bottom left corner
+            case 9: p.vx -= 0.6; p.vy += 0.6 + jy * 0.4; p.vx *= 0.94; p.vy *= 0.94; break; // slides to the bottom left corner
+            default: ax = 2 * Math.PI * i / parts.length; ay = 25 + 55 * (0.5 + 0.5 * Math.sin(tick * 0.09)); p.vx += (ay * Math.cos(ax) - p.x) * 0.08 + jx * 0.5; p.vy += (ay * Math.sin(ax) - p.y) * 0.08 + jy * 0.5; p.vx *= 0.8; p.vy *= 0.8; // breathes in and out like a pulse
+            // p.vy += 0.6 + jy * 0.4; p.vx *= 0.94; p.vy *= 0.94; // slides to the bottom left corner
           }
           p.vx = clamp(p.vx, -7, 7); p.vy = clamp(p.vy, -7, 7);
           p.x += p.vx; p.y += p.vy; inDisc(p); put(p);
