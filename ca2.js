@@ -458,7 +458,7 @@
   var off = document.createElement('canvas'), octx = off.getContext('2d'), img = null, u32 = null;
   var bufW = 0, bufH = 0, fSum, fR, fG, fB, curS = 1;
   // Rust/wasm core (wasm/ -> ca2core.wasm). Loaded async; any failure leaves WC.ok false and the JS code runs as before. ?nowasm=1 disables.
-  var WC = { ok: false, off: false };
+  var WC = { ok: false, off: false }, MB = { ms: 0, path: '-' };
   if (window.WebAssembly && !/[?&]nowasm=1/.test(location.search)) {
     var simd = false; try { simd = WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11])); } catch (e) {} WC.simd = simd && !/[?&]nosimd=1/.test(location.search);
     fetch((WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=1').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, {}); }).then(function (m) {
@@ -884,7 +884,7 @@
       if (hitKey) titleHit = { c: hitC, v: circleCol[hitKey] };
     }
     if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow && introOn(CELL_END + food[i].r * (FOOD_END - CELL_END))) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; } // food first: it sits under the cells
-    pfm('sim+ui draw'); curS = DPR * res; if (cells.length || t0 - fadeT0 > INTRO_MS) drawMetaballs(curS); pfm('metaballs total'); // an empty intro plate skips the full-buffer pass
+    pfm('sim+ui draw'); curS = DPR * res; if (cells.length || t0 - fadeT0 > INTRO_MS) { var tmb = performance.now(); drawMetaballs(curS); MB.ms = MB.ms * 0.9 + (performance.now() - tmb) * 0.1; MB.path = gOn ? 'GPU' : (WC.ok && !WC.off ? (WC.simd ? 'wasm-simd' : 'wasm') : 'JS'); } pfm('metaballs total'); // an empty intro plate skips the full-buffer pass
     if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { if (!fadeA('pa' + i)) continue; ctx.beginPath(); ctx.arc(parasites[i].x, parasites[i].y, 2.2, 0, 6.2832); ctx.fill(); } ctx.globalAlpha = 1; }
 
     // area outline: no rounded corners. Each side stops `corner` px short of both ends, so the corner lines never meet.
@@ -1367,7 +1367,7 @@
     }
   }
   if (PERF) { var ph = document.createElement('pre'); ph.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:99;margin:0;font:11px/1.3 monospace;color:#0f0;background:rgba(0,0,0,.7);padding:6px;pointer-events:none'; document.body.appendChild(ph);
-    setInterval(function () { var o = 'fps ' + Math.round(fps) + '  frame ' + frameMs.toFixed(1) + ' ms  res ' + res.toFixed(2) + '  dpr ' + DPR + '  cells ' + cells.length + '\n'; for (var k in PF) if (!/total/.test(k)) o += (k + '                    ').slice(0, 18) + PF[k].toFixed(2) + '\n'; ph.textContent = o; }, 500); }
+    setInterval(function () { var o = 'fps ' + Math.round(fps) + '  frame ' + frameMs.toFixed(1) + ' ms  res ' + res.toFixed(2) + '  dpr ' + DPR + '  cells ' + cells.length + '\n' + 'metaball field: ' + MB.path + '  ' + MB.ms.toFixed(2) + ' ms' + (WC.off ? '  (wasm failed: ' + WC.err + ')' : (/[?&]nowasm=1/.test(location.search) ? '  (?nowasm=1)' : (WC.ok ? '' : '  (wasm: ' + (WC.err || 'loading') + ')'))) + '\n'; for (var k in PF) if (!/total/.test(k)) o += (k + '                    ').slice(0, 18) + PF[k].toFixed(2) + '\n'; ph.textContent = o; }, 500); }
   (function swLoop() { try { paintSwatches(); paintKnobs(); } catch (e) {} requestAnimationFrame(swLoop); })();
   setInterval(invertTick, 250);
   function applyLineColor() { invertTick(); var rt = document.documentElement.style; rt.setProperty('--kl', P.lineColor); if (P.ruleColor) rt.setProperty('--kr', P.ruleColor); else rt.removeProperty('--kr'); if (P.circColor) rt.setProperty('--kc', P.circColor); else rt.removeProperty('--kc'); }
