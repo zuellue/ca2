@@ -758,7 +758,7 @@
       var bxE = rightE ? cont.x + cont.w : cont.x, byE = downE ? cont.y + cont.h : cont.y;
       if (eHit.h && eHit.v) { // corner: the edge icon rotated onto the diagonal, vertex outside the corner, tip facing the plate
         var a0 = rightE ? (downE ? 45 : -45) : (downE ? 135 : -135), r0 = a0 * Math.PI / 180;
-        dE = anglePath(a0, Le, gE, bxE + Math.cos(r0) * offE, byE + Math.sin(r0) * offE);
+        dE = anglePath(a0 + 180, Le, gE, bxE + Math.cos(r0) * offE, byE + Math.sin(r0) * offE); // tip faces the plate
       } else if (eHit.h) { // vertical edge: vertex just outside it, at the pointer's height, tip facing the plate
         dE = anglePath(rightE ? 0 : 180, Le, gE, bxE + (rightE ? offE : -offE), clamp(mouse.y, cont.y, cont.y + cont.h));
       } else { // horizontal edge
