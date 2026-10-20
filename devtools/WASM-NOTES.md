@@ -19,11 +19,13 @@ Wasm i64 returns become BigInt in JS: return f64 from exports.
 - t74 full-frame frozen-input iso (update+interact+keepIn, RNG lockstep, births off in mode A): update() path exact, 0/300 divergence once fuse/birth frames excluded; those differ only by JS-side mixShape/newShape/Cell-ctor Math.random draws (Rust reports births/fusions via the sim log, shapes replay in JS unpack) - a harness RNG-lockstep artifact, not live bias (live sim_step reseeds from Math.random every frame). Statistical trajectories (t74 B, births on, 40 states x 15 frames, N=75): merge -1.5%, fuse -2.5%, birth +1.9%, eaten -3.0%, death +1.3%, hit -3.3%; dense (30x15, N=150): merge 0.0%, birth +0.2%, death +0.2%. Per-state swings ±60%: chaotic. VERDICT: no systematic merge/fuse deficit; the live ~12% was 2-repeat run variance (wasm repeats themselves 221 vs 243 avg cells).
 - sim.rs new_kid: a one-step birth burst over the JS +256 headroom silently dropped kids after parents' energy was already spent (and out[0] still counted them). Burst test (cap 302, 40 steps): old binary counted 719 births, kept 2 kids. Root fix: wasm grows the cell buffer (x2, min +256); new exports sim_cap/sim_cells_ptr; ca2.js simW re-anchors cap+pointer after each step. Fixed binary: 379 births all kept, cap grew 302 -> 1208. Debug instrumentation (rng_n/trace) stripped. Step bench (node, N=400, 300 steps, interact-heavy): before ~2.20 ms, after ~2.25 ms (noise; no regression).
 
+- spores food step (foodMode 5) -> wasm/src/spores.rs (stepSporesW in ca2.js, JS stepSpores kept as fallback). Port covers maturation/burst/mote drift/landing/spawn; object identity and food[] membership stay in JS (same contract as swarm.rs). Behavioral check (node, 500 spores, 400 frames): populations 965 wasm vs 962 JS, burst 110 vs 117, settled 480 vs 452, born 1248 vs 1256, 0 NaN, 0 out-of-bounds. Bench (node, step only): JS 0.0866 -> wasm 0.0195 ms/frame; live before 1.88 ms EMA (?perf=1, 517 food), live after: olculmedi.
+
 ## Measured JS cost left (sandbox, ms/frame EMA, ?perf=1)
 worms food step 1.27 (542 food), spores 1.88 (517 food), axis+tally 1.5-2.0 (drawAxis = canvas, stays JS), stepTrans 0.1-0.8, foodKeepIn 0.05-0.4, buildSources 0.5 ms/s in spores.
 
 ## TODO (order)
-1. worms/spores steps, stepParasites, live knob CA, stepTrans -> wasm (profile first, port by ms share).
+1. worms step (foodMode 4, stepWorms 1.27 ms), stepParasites, live knob CA, stepTrans -> wasm (spores done; profile first, port by ms share).
 2. buildSources / emitCell.
 4. body-plan logic (newShape/mixShape/simSwim) after desktop team finishes.
 5. keepIn root cause (boundary/zone=0) hash+diff from desktop team -> port into sim.rs keep_in (zone floor already 0).

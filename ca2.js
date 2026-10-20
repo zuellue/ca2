@@ -941,7 +941,31 @@
   var spores = [], sporeLast = 0, sporeStat = { born: 0, burst: 0, died: 0, eaten: 0, settled: 0 };
   function newSpore(x, y, st) { var s = { x: x, y: y, r: Math.random(), st: st || 0, age: 0, ph: Math.random() * 6.2832, vx: 0, vy: 0, spore: 1 }; spores.push(s); food.push(s); sporeStat.born++; return s; }
   function wipeSpores() { for (var i = food.length - 1; i >= 0; i--) if (food[i].spore) food.splice(i, 1); spores = []; }
+  function stepSporesW() { // Rust/wasm spore step (spores.rs); returns false when unavailable so the JS body below runs (?nowasm=1, ?nosim=1)
+    var E = WC.e; if (!E || !E.sp_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
+    try {
+      var n = spores.length, i, s, b, k, src;
+      var ip = E.sp_in(n), buf = new Float64Array(WC.mem.buffer, ip, n * 9 + 9);
+      for (i = 0; i < n; i++) { s = spores[i]; b = i * 9; buf[b] = s.x; buf[b + 1] = s.y; buf[b + 2] = s.r; buf[b + 3] = s.st; buf[b + 4] = s.age; buf[b + 5] = s.ph; buf[b + 6] = s.vx; buf[b + 7] = s.vy; buf[b + 8] = s.gone ? 1 : 0; }
+      var now = performance.now(), dtms = sporeLast ? Math.min(200, now - sporeLast) : 16; sporeLast = now;
+      var cap = Math.max(60, Math.round(cont.w * cont.h * P.foodDensity / 2 / 8));
+      var m = E.sp_run(n, cont.x, cont.x + cont.w, cont.y, cont.y + cont.h, dtms, cap, Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
+      if (m < 0) return false;
+      var o = new Float64Array(WC.mem.buffer, E.sp_out(), m * 10), st = new Float64Array(WC.mem.buffer, E.sp_stat(), 8), out = new Array(m), kept = new Uint8Array(n);
+      sporeStat.eaten += st[0]; sporeStat.burst += st[1]; sporeStat.died += st[2]; sporeStat.settled += st[3]; sporeStat.born += st[4];
+      for (k = 0; k < m; k++) {
+        b = k * 10; src = o[b + 8];
+        if (src >= 0) { s = spores[src]; kept[src] = 1; s.x = o[b]; s.y = o[b + 1]; s.r = o[b + 2]; s.st = o[b + 3]; s.age = o[b + 4]; s.ph = o[b + 5]; s.vx = o[b + 6]; s.vy = o[b + 7]; out[k] = s; }
+        else { s = { x: o[b], y: o[b + 1], r: o[b + 2], st: o[b + 3], age: o[b + 4], ph: o[b + 5], vx: o[b + 6], vy: o[b + 7], spore: 1 }; food.push(s); out[k] = s; }
+      }
+      for (i = 0; i < n; i++) if (!kept[i]) spores[i].gone = 1;
+      spores = out;
+      for (i = food.length - 1; i >= 0; i--) if (food[i].gone) food.splice(i, 1);
+      return true;
+    } catch (e) { return false; }
+  }
   function stepSpores() {
+    if (stepSporesW()) return;
     var i, now = performance.now(), dtms = sporeLast ? Math.min(200, now - sporeLast) : 16; sporeLast = now;
     var x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h, rooted = 0;
     var cap = Math.max(60, Math.round(cont.w * cont.h * P.foodDensity / 2 / 8));
