@@ -8,7 +8,7 @@
   // different pixel ratio and would resample them). One effective width in whole device pixels feeds every line, CSS and canvas.
   var lnc = document.createElement('canvas'); lnc.id = 'ln'; document.body.appendChild(lnc); var lctx = lnc.getContext('2d'), DD = 1;
   function LW() { return P.axisWidth > 0 ? Math.max(1, Math.round(P.axisWidth * DD)) / DD : 0; }
-  function snapC(c) { var wd = Math.round(LW() * DD), h = (wd % 2) / 2; return (Math.round(c * DD - h) + h) / DD; }
+  function snapC(c, S) { S = S || DD; var wd = Math.round(LW() * S), h = (wd % 2) / 2; return (Math.round(c * S - h) + h) / S; }
   function applyLW() { document.documentElement.style.setProperty('--lw', LW() + 'px'); }
   var rnd = function (a, b) { if (b === undefined) { b = a; a = 0; } return a + Math.random() * (b - a); };
   var clamp = function (v, a, b) { return v < a ? a : v > b ? b : v; };
@@ -483,7 +483,8 @@
     ctx.font = fs + 'px "Ca2-Thin", monospace';
     ctx.textAlign = 'left'; var lrT = inkLR(sT), lrX = inkLR(sX);
     var hL = M + (lrT[1] - lrT[0]) + G, hR = (W - M) - (lrX[1] - lrX[0]) - G, vTop = M + dh + L.row + G, vBot = H - M - dh - G, g = P.centerGap;
-    lctx.strokeStyle = P.axisColor || css(eased.axis, 1); lctx.lineWidth = LW(); lctx.lineCap = 'butt';
+    var X = P.axisLayer === 0 ? ctx : lctx, S = P.axisLayer === 0 ? DPR : DD; // axis behind the cells lives on the plate canvas (cells cover it); on top it uses the exact-resolution layer
+    X.strokeStyle = P.axisColor || css(eased.axis, 1); X.lineWidth = LW(); X.lineCap = 'butt';
     var segs = [];
     if (g > 0) { segs.push([hL, cym, cxm - g, cym], [cxm + g, cym, hR, cym], [cxm, vTop, cxm, cym - g], [cxm, cym + g, cxm, vBot]); }
     else segs.push([hL, cym, hR, cym], [cxm, vTop, cxm, vBot]);
@@ -491,7 +492,7 @@
       var ex = lerp(cxm, cn[0], P.diagLen), ey = lerp(cym, cn[1], P.diagLen), dx = ex - cxm, dy = ey - cym, len = Math.hypot(dx, dy);
       if (len > g) segs.push([cxm + dx / len * g, cym + dy / len * g, ex, ey]);
     });
-    for (var si = 0; si < segs.length; si++) if (P.axisWidth > 0 && fadeA('ax' + si)) { var sg = segs[si].slice(); if (sg[0] === sg[2] || sg[1] === sg[3]) for (var q = 0; q < 4; q++) sg[q] = snapC(sg[q]); lctx.beginPath(); lctx.moveTo(sg[0], sg[1]); lctx.lineTo(sg[2], sg[3]); lctx.stroke(); }
+    for (var si = 0; si < segs.length; si++) if (P.axisWidth > 0 && fadeA('ax' + si)) { var sg = segs[si].slice(); if (sg[0] === sg[2] || sg[1] === sg[3]) for (var q = 0; q < 4; q++) sg[q] = snapC(sg[q], S); X.beginPath(); X.moveTo(sg[0], sg[1]); X.lineTo(sg[2], sg[3]); X.stroke(); }
     axisInfo = { hL: hL, hR: hR, vTop: vTop, vBot: vBot };
   }
   var axisInfo = {};
@@ -995,14 +996,14 @@
       d.innerHTML = '<div class="lab"><span>' + q[1] + '</span><b style="font-weight:normal"></b></div><input type="range" min="' + q[2] + '" max="' + q[3] + '" step="' + q[4] + '">';
       var inp = d.querySelector('input'), val = d.querySelector('b');
       // double-click the value: type it by hand (may pass the knob's floor/ceiling; the knob itself stays inside them)
-      val.addEventListener('dblclick', function (e) {
+      val.addEventListener('click', function (e) {
         e.stopPropagation();
         if (d.querySelector('.man')) return;
         var k = q[0];
         var ed = document.createElement('input'); ed.type = 'text'; ed.className = 'man'; ed.value = fmt(P[k]);
         ed.setAttribute('inputmode', 'decimal'); ed.spellcheck = false; ed.autocomplete = 'off';
         val.style.display = 'none'; val.parentNode.appendChild(ed);
-        ed.focus(); ed.setSelectionRange(ed.value.length, ed.value.length);
+        ed.focus(); ed.select();
         var done = false;
         var fin = function (commit) {
           if (done) return; done = true;
@@ -1136,6 +1137,7 @@
   var colorInp = document.createElement('input'); colorInp.type = 'color'; colorInp.value = '#' + bgTarget.map(function (v) { return ('0' + (v | 0).toString(16)).slice(-2); }).join(''); colorInp.style.cssText = 'border:0;background:none;padding:0;cursor:pointer';
   colorInp.addEventListener('input', function () { var v = colorInp.value; bgTarget = [parseInt(v.substr(1, 2), 16), parseInt(v.substr(3, 2), 16), parseInt(v.substr(5, 2), 16)]; bgRow.querySelector('b').textContent = v; save(); });
   bgRow.appendChild(colorInp); ctl.insertBefore(bgRow, SECS[1].hdr); SECS[0].els.push(bgRow);
+  wrapSwatches();
   function btn(label, fn) { var b = document.createElement('button'); b.textContent = label; b.addEventListener('click', fn); btns.appendChild(b); }
   btn('respawn', function () { randomize(); });
   btn('randomize', function () { lockParams = false; lockBox.checked = false; lockVal.textContent = 'off'; randomize(); });
@@ -1178,7 +1180,49 @@
     pn.classList.toggle('blend', !!P.autoInvert);
     if (P.autoInvert) { pn.style.setProperty('--kl', P.lineColor === '#111111' ? '#ffffff' : P.lineColor); }
     else pn.style.removeProperty('--kl');
+    paintSwatches();
   }
+  // a colour picker inside the difference-blended panel would show |page - colour|. The native input is made invisible and its swatch is a
+  // plain element outside the panel (fixed, above it, not blended) that follows the input, so the colour you pick is the colour you see.
+  var swatches;
+  function wrapSwatches() {
+    ctl.querySelectorAll('input[type=color]').forEach(function (inp) {
+      if (inp.dataset.sw) return; inp.dataset.sw = 1;
+      var w = document.createElement('span'); w.style.cssText = 'display:inline-block;width:34px;height:18px;vertical-align:middle;flex:none;position:relative';
+      var d = document.createElement('div'); d.className = 'cswatch'; d.style.cssText = 'position:fixed;z-index:12;pointer-events:none;box-sizing:border-box;display:none;outline:1px solid rgba(128,128,128,.55)';
+      document.body.appendChild(d);
+      inp.parentNode.insertBefore(w, inp); w.appendChild(inp);
+      inp.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0';
+      inp.addEventListener('input', paintSwatches); (swatches = swatches || []).push({ inp: inp, d: d, w: w });
+    });
+    paintSwatches();
+  }
+  function paintSwatches() {
+    var pr = document.getElementById('panel').getBoundingClientRect(), vis = pr.left < W - 4;
+    (swatches || []).forEach(function (sw) {
+      var r = sw.w.getBoundingClientRect(), ok = vis && r.width > 0 && r.top >= pr.top && r.bottom <= pr.bottom && r.left >= pr.left;
+      sw.d.style.display = ok ? 'block' : 'none'; if (!ok) return;
+      sw.d.style.left = r.left + 'px'; sw.d.style.top = r.top + 'px'; sw.d.style.width = r.width + 'px'; sw.d.style.height = r.height + 'px'; sw.d.style.background = sw.inp.value;
+    });
+  }
+  // knob colours (random R/G/B on hover, live CA colour) are drawn as plain elements outside the blended panel so they stay true R/G/B
+  function paintKnobs() {
+    var pr = document.getElementById('panel').getBoundingClientRect(), vis = pr.left < W - 4;
+    for (var k in rows) {
+      var R = rows[k], inp = R.inp, col = null, track = false;
+      if (vis) { if (live[k]) { col = live[k].col; track = true; } else if (inp.matches(':hover')) col = inp.style.getPropertyValue('--hc') || null; }
+      var on = !!col; inp.classList.toggle('ovl', on);
+      if (!on) { if (R.ov) R.ov.t.style.display = R.ov.l.style.display = 'none'; continue; }
+      var r = inp.getBoundingClientRect(); if (r.top < pr.top || r.bottom > pr.bottom) { if (R.ov) R.ov.t.style.display = R.ov.l.style.display = 'none'; continue; }
+      if (!R.ov) { var t = document.createElement('div'), l = document.createElement('div'); t.style.cssText = l.style.cssText = 'position:fixed;z-index:12;pointer-events:none;box-sizing:border-box'; t.style.borderRadius = '50%'; document.body.appendChild(l); document.body.appendChild(t); R.ov = { t: t, l: l }; }
+      var mn = parseFloat(inp.min), mx = parseFloat(inp.max), fr = mx > mn ? clamp((parseFloat(inp.value) - mn) / (mx - mn), 0, 1) : 0;
+      var kx = parseFloat(inp.style.getPropertyValue('--kx')) || 0, ks = parseFloat(inp.style.getPropertyValue('--ks')) || 1, lw = LW(), d = 12 * ks, cx = r.left + 6 + fr * (r.width - 12) + kx, cy = r.top + r.height / 2;
+      var t2 = R.ov.t, l2 = R.ov.l; t2.style.display = 'block'; t2.style.left = (cx - d / 2) + 'px'; t2.style.top = (cy - d / 2) + 'px'; t2.style.width = t2.style.height = d + 'px'; t2.style.background = col; t2.style.border = lw + 'px solid ' + col;
+      l2.style.display = track ? 'block' : 'none'; if (track) { l2.style.left = r.left + 'px'; l2.style.top = (cy - lw / 2) + 'px'; l2.style.width = r.width + 'px'; l2.style.height = lw + 'px'; l2.style.background = col; }
+    }
+  }
+  (function swLoop() { try { paintSwatches(); paintKnobs(); } catch (e) {} requestAnimationFrame(swLoop); })();
+  setInterval(invertTick, 250);
   function applyLineColor() { invertTick(); var rt = document.documentElement.style; rt.setProperty('--kl', P.lineColor); if (P.ruleColor) rt.setProperty('--kr', P.ruleColor); else rt.removeProperty('--kr'); if (P.circColor) rt.setProperty('--kc', P.circColor); else rt.removeProperty('--kc'); }
   var panel = document.getElementById('panel'), blurEl = document.getElementById('blur'), blurLEl = document.getElementById('blurl');
   panel.style.width = P.panelWidth + 'px'; blurEl.style.width = P.blurWidth + 'px'; blurLEl.style.width = P.blurWidth + 'px';
@@ -1451,7 +1495,8 @@
     function post(b) { return fetch(WK, { method: 'POST', keepalive: true, body: JSON.stringify(b) }).then(function (r) { return r.json(); }); }
     function applyG(g) {
       if (!g || typeof g !== 'object') return false; var n = 0;
-      Object.keys(g).forEach(function (k) { if (k === '_v' || k === '_live' || !(k in P)) return; var v = g[k]; if (typeof v === typeof P[k] && (typeof v !== 'number' || isFinite(v)) && P[k] !== v) { P[k] = v; n++; } });
+      var pnd = {}; try { pnd = JSON.parse(localStorage.getItem('ca2.pending') || '{}'); } catch (e) {}
+      Object.keys(g).forEach(function (k) { if (k === '_v' || k === '_live' || !(k in P) || k in pnd) return; var v = g[k]; if (typeof v === typeof P[k] && (typeof v !== 'number' || isFinite(v)) && P[k] !== v) { P[k] = v; n++; } });
       var gl = typeof g._live === 'string' ? (function () { try { return JSON.parse(g._live); } catch (e) { return null; } })() : (g._live && typeof g._live === 'object' ? g._live : null);
       if (gl) {
         Object.keys(gl).forEach(function (k) { if (!live[k] && keyToQ[k] && rows[k] && typeof gl[k] === 'number' && isFinite(gl[k])) { liveStart(k, keyToQ[k], gl[k], rows[k].row); n++; } });
@@ -1469,7 +1514,10 @@
       }).catch(function () {});
     }
     try { var cg = JSON.parse(localStorage.getItem(GK) || 'null'); if (cg) { applyG(cg); lastV = cg._v || 0; } } catch (e) {}
+    // edits not yet accepted by the server stay ahead of the (older) global on reload
+    try { var pd0 = JSON.parse(localStorage.getItem('ca2.pending') || '{}'); Object.keys(pd0).forEach(function (k) { if (k !== '_live' && k in P && typeof pd0[k] === typeof P[k]) { P[k] = pd0[k]; touched[k] = 1; } }); } catch (e) {}
     pullG(true); setInterval(pullG, 4000);
+    var PK = 'ca2.pending', pushFail = 0, pushNext = 0, pushBusy = false;
     window.__adminPush = function () {
       if (!admin) return; var patch = {}, keys = [];
       var TRANS = { UNIVERSE_SIZE: 1, CELL_RADIUS: 1, baseMutationRate: 1, mutationRateRange: 1, interactionRadius: 1 };
@@ -1478,9 +1526,13 @@
       for (var k in touched) { var v = P[k]; if (live[k]) v = live[k].orig; if ((typeof v === 'number' && isFinite(v) || typeof v === 'string') && sent[k] !== v) { patch[k] = v; keys.push(k); } }
       var lm = JSON.stringify(liveMap()); if (sent._live !== lm) { patch._live = lm; } // the Worker stores primitives only
       if (!keys.length && patch._live === undefined) return;
+      var nowT = Date.now(); if (nowT < pushNext || pushBusy) return; pushBusy = true;
+      try { var pend = JSON.parse(localStorage.getItem(PK) || '{}'); for (var pj in patch) pend[pj] = patch[pj]; localStorage.setItem(PK, JSON.stringify(pend)); } catch (e) {}
       post({ code: admin, patch: patch }).then(function (r) {
-        if (r && !r.error) { keys.forEach(function (k) { sent[k] = patch[k]; delete touched[k]; }); if (patch._live !== undefined) sent._live = patch._live; if (r.v) lastV = r.v; }
-      }).catch(function () {});
+        pushBusy = false;
+        if (r && r.ok !== false && !r.error && !r.err) { pushFail = 0; pushNext = 0; keys.forEach(function (k) { sent[k] = patch[k]; delete touched[k]; }); if (patch._live !== undefined) sent._live = patch._live; if (r.v) lastV = r.v; try { var pd = JSON.parse(localStorage.getItem(PK) || '{}'); for (var pj2 in patch) delete pd[pj2]; localStorage.setItem(PK, JSON.stringify(pd)); } catch (e) {} window.__adminSaveErr = ''; }
+        else { pushFail++; pushNext = Date.now() + Math.min(60000, 2000 * pushFail); window.__adminSaveErr = (r && (r.err || r.error)) || 'rejected'; }
+      }).catch(function (e) { pushBusy = false; pushFail++; pushNext = Date.now() + Math.min(60000, 2000 * pushFail); window.__adminSaveErr = 'server error (not saved globally)'; });
     };
     setInterval(function () { if (admin && window.__adminPush) window.__adminPush(); }, 1000);
     window.addEventListener('pagehide', function () { if (admin && window.__adminPush) window.__adminPush(); });
