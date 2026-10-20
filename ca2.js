@@ -882,14 +882,16 @@
   var rows = {}, statsEl = document.getElementById('stats'), ctl = document.getElementById('controls'), btns = document.getElementById('btns');
   var GROUPS = [
     ['picture', [
-      ['resolution', 'resolution', 0.25, 1, 0.01], ['pixelRatio', 'pixel ratio (0 = auto)', 0, 3, 0.25],
+      ['resolution', 'resolution', 0.25, 1, 0.01], ['pixelRatio', 'pixel ratio (0 = auto)', 0, 3, 0.25], ['fps', 'fps', 5, 120, 1],
       ['margin', 'margin (all edges)', 0, 120, 1], ['gap', 'line gap to numbers', 0, 60, 1],
       ['textScale', 'type size', 0.4, 1.6, 0.01], ['containerCorner', 'corner gap', 0, 80, 1],
       ['centerGap', 'center gap (axis crossing)', 0, 120, 1], ['diagLen', 'diagonal length', 0.2, 1.3, 0.01], ['axisWidth', 'axis line width', 0.5, 6, 0.1],
-      ['cursorSens', 'cursor sensitivity', 0.05, 1, 0.01], ['cursorSize', 'cursor size (x largest cell)', 0.2, 2, 0.01], ['cursorLockMs', 'cursor lock ms', 0, 3000, 50], ['panelAlpha', 'config opacity', 0, 1, 0.01], ['panelWidth', 'config width px', 200, 600, 5], ['blurWidth', 'backdrop blur width px', 0, 600, 5],
       ['areaMin', 'area floor', 0.1, 1, 0.01], ['areaMax', 'area ceiling', 0.1, 1, 0.01],
-      ['morphEase', 'area morph speed', 0.02, 1, 0.01], ['colorSpeed', 'color speed', 0.02, 1, 0.01],
-      ['fps', 'fps', 5, 120, 1]]],
+      ['morphEase', 'area morph speed', 0.02, 1, 0.01], ['colorSpeed', 'color speed', 0.02, 1, 0.01]]],
+    ['panel', [
+      ['panelAlpha', 'config opacity', 0, 1, 0.01], ['panelWidth', 'config width px', 200, 600, 5], ['blurWidth', 'backdrop blur width px', 0, 600, 5]]],
+    ['cursor', [
+      ['cursorSens', 'cursor sensitivity', 0.05, 1, 0.01], ['cursorSize', 'cursor size (x largest cell)', 0.2, 2, 0.01], ['cursorLockMs', 'cursor lock ms', 0, 3000, 50]]],
     ['photon grain', [
       ['grainAmount', 'amount', 0, 2, 0.01], ['grainStrength', 'strength', 0, 10, 0.1], ['grainSize', 'size px', 0.3, 6, 0.1],
       ['grainSoft', 'softness', 0, 1, 0.01], ['grainChroma', 'chroma split', 0, 1, 0.01], ['grainDev', 'development', 0.1, 1.5, 0.01],
@@ -941,8 +943,10 @@
   }
   function fmt(v) { return Math.abs(v) >= 100 ? String(Math.round(v)) : String(Math.round(v * 1000) / 1000); }
   var lockBox, lockVal;
+  var SECS = [];
   GROUPS.forEach(function (grp) {
     var h = document.createElement('div'); h.className = 'grp'; h.textContent = grp[0]; ctl.appendChild(h);
+    var sec = { name: grp[0], hdr: h, els: [], folded: false }; SECS.push(sec);
     grp[1].forEach(function (q) {
       var d = document.createElement('div'); d.className = 'row';
       d.innerHTML = '<div class="lab"><span>' + q[1] + '</span><b style="font-weight:normal"></b></div><input type="range" min="' + q[2] + '" max="' + q[3] + '" step="' + q[4] + '">';
@@ -989,7 +993,7 @@
         save();
       });
       inp.value = P[q[0]]; val.textContent = fmt(P[q[0]]);
-      ctl.appendChild(d); rows[q[0]] = { inp: inp, val: val, row: d };
+      ctl.appendChild(d); rows[q[0]] = { inp: inp, val: val, row: d }; sec.els.push(d);
     });
   });
   var keyToQ = {}; GROUPS.forEach(function (g) { g[1].forEach(function (q) { keyToQ[q[0]] = q; }); });
@@ -1001,16 +1005,20 @@
     l.innerHTML = '<span>' + label + '</span><b>' + (init ? 'on' : 'off') + '</b><input type="checkbox" style="display:none"' + (init ? ' checked' : '') + '>';
     var c = l.querySelector('input'), b = l.querySelector('b');
     c.addEventListener('change', function () { b.textContent = c.checked ? 'on' : 'off'; fn(c.checked); save(); });
-    ctl.appendChild(l); return { box: c, val: b };
+    ctl.appendChild(l); return { box: c, val: b, el: l };
   }
   function choice(label, key, opts, fn) {
     var l = document.createElement('label'); l.className = 'chk';
     l.innerHTML = '<span>' + label + '</span><b>' + opts[P[key]] + '</b>';
     var b = l.querySelector('b');
     l.addEventListener('click', function () { P[key] = (P[key] + 1) % opts.length; b.textContent = opts[P[key]]; if (fn) fn(P[key]); save(); });
-    ctl.appendChild(l); return b;
+    ctl.appendChild(l); return { el: l };
   }
   var gh = document.createElement('div'); gh.className = 'grp'; gh.textContent = 'switches'; ctl.appendChild(gh);
+  var swSec = { name: 'switches', hdr: gh, els: [], folded: false }; SECS.push(swSec);
+  var _toggle = toggle, _choice = choice;
+  toggle = function () { var r = _toggle.apply(null, arguments); swSec.els.push(r.el); return r; };
+  choice = function () { var r = _choice.apply(null, arguments); swSec.els.push(r.el); return r; };
   choice('cells vs axis lines', 'axisLayer', ['above', 'behind']);
   choice('micro event sound', 'audioMicro', ['click', 'tick', 'drop', 'bubble', 'wood', 'bloom']);
   choice('sound mode', 'audioMode', ['soft white', 'pink', 'brown', 'micro crackle', 'membrane']);
@@ -1040,12 +1048,12 @@
   fcRow.innerHTML = '<div class="lab"><span>food dot color</span><b style="font-weight:normal">' + P.foodColor + '</b></div>';
   var fcInp = document.createElement('input'); fcInp.type = 'color'; fcInp.value = P.foodColor; fcInp.style.cssText = 'width:100%;height:22px;border:0;background:none;padding:0;cursor:pointer';
   fcInp.addEventListener('input', function () { P.foodColor = fcInp.value; fcRow.querySelector('b').textContent = fcInp.value; save(); });
-  fcRow.appendChild(fcInp); ctl.appendChild(fcRow);
+  fcRow.appendChild(fcInp); ctl.insertBefore(fcRow, gh); SECS[8].els.push(fcRow);
   var bgRow = document.createElement('div'); bgRow.className = 'row';
   bgRow.innerHTML = '<div class="lab"><span>background</span><b style="font-weight:normal">#e9e9e9</b></div>';
   var colorInp = document.createElement('input'); colorInp.type = 'color'; colorInp.value = '#' + bgTarget.map(function (v) { return ('0' + (v | 0).toString(16)).slice(-2); }).join(''); colorInp.style.cssText = 'width:100%;height:22px;border:0;background:none;padding:0;cursor:pointer';
   colorInp.addEventListener('input', function () { var v = colorInp.value; bgTarget = [parseInt(v.substr(1, 2), 16), parseInt(v.substr(3, 2), 16), parseInt(v.substr(5, 2), 16)]; bgRow.querySelector('b').textContent = v; save(); });
-  bgRow.appendChild(colorInp); ctl.appendChild(bgRow);
+  bgRow.appendChild(colorInp); ctl.insertBefore(bgRow, SECS[1].hdr); SECS[0].els.push(bgRow);
   function btn(label, fn) { var b = document.createElement('button'); b.textContent = label; b.addEventListener('click', fn); btns.appendChild(b); }
   btn('respawn', function () { randomize(); });
   btn('randomize all', function () { lockParams = false; lockBox.checked = false; lockVal.textContent = 'off'; randomize(); });
@@ -1061,6 +1069,56 @@
   });
   var panel = document.getElementById('panel'), blurEl = document.getElementById('blur');
   panel.style.width = P.panelWidth + 'px'; blurEl.style.width = P.blurWidth + 'px';
+
+  // ---- section circles: one per config section in the panel's right lane ----
+  // title-dot size (166.5 font units), axis-line stroke, hollow; hover fills a random R/G/B (stroke too) and shows the
+  // section name vertically with a typewriter animation; the circles below slide away from the label; click folds the section.
+  var secc = document.createElement('div'); secc.id = 'secc'; panel.appendChild(secc);
+  var CIRC_COLS = ['#ff0000', '#00ff00', '#0000ff'];
+  SECS.forEach(function (sec) {
+    var it = document.createElement('div'); it.className = 'sci';
+    var c = document.createElement('div'); c.className = 'sc';
+    var lb = document.createElement('div'); lb.className = 'sl';
+    var txt = sec.name.toUpperCase(), spans = [];
+    for (var i = 0; i < txt.length; i++) { var sp = document.createElement('span'); sp.textContent = txt[i]; lb.appendChild(sp); spans.push(sp); }
+    it.appendChild(c); it.appendChild(lb); secc.appendChild(it); sec.circ = c;
+    c.addEventListener('pointerenter', function () {
+      var col = CIRC_COLS[Math.floor(Math.random() * 3)];
+      c.style.background = col; c.style.borderColor = col; lb.style.color = col;
+      lb.style.height = (txt.length * 17 + 6) + 'px';
+      spans.forEach(function (sp) { sp.style.opacity = '0'; sp.style.transitionDelay = (Math.random() * 0.35).toFixed(2) + 's'; });
+      void lb.offsetWidth;
+      spans.forEach(function (sp) { sp.style.opacity = '1'; });
+    });
+    c.addEventListener('pointerleave', function () {
+      c.style.background = 'transparent'; c.style.borderColor = '';
+      spans.forEach(function (sp) { sp.style.opacity = '0'; sp.style.transitionDelay = '0s'; });
+      lb.style.height = '0px';
+    });
+    c.addEventListener('click', function (e) {
+      e.stopPropagation();
+      sec.folded = !sec.folded;
+      sec.els.forEach(function (el) { el.style.display = sec.folded ? 'none' : ''; });
+      c.style.opacity = sec.folded ? '.35' : '1';
+      if (!sec.folded) sec.hdr.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+  });
+  var circSig = '';
+  function placeCircles() {
+    var L = lay(), u = L.fs / 1000, R0 = 166.5 * u, D = 2 * R0;
+    var sig = [D.toFixed(2), L.M, L.dh, P.axisWidth, panel.scrollTop, P.panelWidth].join('|');
+    if (sig === circSig) return; circSig = sig;
+    var y0 = Math.max(4, L.M + L.dh - 500 * u - R0); // first circle centred on the title's topmost circle
+    secc.style.top = (y0 + panel.scrollTop) + 'px';
+    panel.style.paddingRight = (D + 16) + 'px';
+    for (var i = 0; i < secc.childNodes.length; i++) {
+      var c = secc.childNodes[i].firstChild;
+      c.style.width = D + 'px'; c.style.height = D + 'px';
+      c.style.border = P.axisWidth + 'px solid var(--fg)';
+    }
+  }
+  panel.addEventListener('scroll', placeCircles);
+  placeCircles();
   panel.addEventListener('click', function (e) { e.stopPropagation(); });
   var lastSync = 0;
 
@@ -1113,6 +1171,7 @@
     });
   })();
   function syncUI(total) {
+    placeCircles();
     var now = performance.now(); if (now - lastSync < 300) return; lastSync = now;
     statsEl.innerHTML = '<span>cells</span><span class="n">' + total + '</span><span>universe</span><span class="n">' + Math.round(P.UNIVERSE_SIZE) + '</span><span>refresh s</span><span class="n">' + Math.round(Math.max(0, refreshInterval - (now - lastRefresh) / 1000)) + '</span><span>fps</span><span class="n">' + Math.round(fps) + '</span><span>res</span><span class="n">' + Math.round(res * 100) + '</span>';
     for (var lk in live) { var lr = rows[lk]; lr.inp.value = P[lk]; lr.val.textContent = fmt(P[lk]); }
