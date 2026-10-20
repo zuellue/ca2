@@ -922,8 +922,8 @@
         if (lsrc >= 0) { f = all[lsrc]; f.x = ol[b]; f.y = ol[b + 1]; f.r = ol[b + 2]; f.worm = w; }
         else { f = { x: ol[b], y: ol[b + 1], r: ol[b + 2], worm: w }; food.push(f); }
         w.d.push(f); }
-      worms = outW; return true;
-    } catch (e) { return false; }
+      worms = outW; WC.fwWm = (WC.fwWm || 0) + 1; return true;
+    } catch (e) { WC.fwWmErr = String(e && e.stack || e); return false; }
   }
   function stepWorms() {
     if (stepWormsW()) return;
@@ -997,8 +997,8 @@
       for (i = 0; i < n; i++) if (!kept[i]) spores[i].gone = 1;
       spores = out;
       for (i = food.length - 1; i >= 0; i--) if (food[i].gone) food.splice(i, 1);
-      return true;
-    } catch (e) { return false; }
+      WC.fwSp = (WC.fwSp || 0) + 1; return true;
+    } catch (e) { WC.fwSpErr = String(e && e.stack || e); return false; }
   }
   function stepSpores() {
     if (stepSporesW()) return;
@@ -1074,8 +1074,8 @@
         if (src >= 0) { p = parasites[src]; p.x = po[b]; p.y = po[b + 1]; p.e = po[b + 2]; p.a = po[b + 4]; p.ph = po[b + 5]; p.lost = po[b + 6]; }
         else p = { x: po[b], y: po[b + 1], e: po[b + 2], a: po[b + 4], ph: po[b + 5], lost: po[b + 6] };
         var hh = po[b + 3]; p.host = hh >= 0 ? cells[hh] : null; out[i] = p; }
-      parasites = out; return true;
-    } catch (e) { return false; }
+      parasites = out; WC.fwPa = (WC.fwPa || 0) + 1; return true;
+    } catch (e) { WC.fwPaErr = String(e && e.stack || e); return false; }
   }
   function stepParasites() {
     if (stepParasitesW()) return;
