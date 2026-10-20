@@ -1150,9 +1150,10 @@
     function applyG(g) {
       if (!g || typeof g !== 'object') return false; var n = 0;
       Object.keys(g).forEach(function (k) { if (k === '_v' || k === '_live' || !(k in P)) return; var v = g[k]; if (typeof v === typeof P[k] && (typeof v !== 'number' || isFinite(v)) && P[k] !== v) { P[k] = v; n++; } });
-      if (g._live && typeof g._live === 'object') {
-        Object.keys(g._live).forEach(function (k) { if (!live[k] && keyToQ[k] && rows[k] && typeof g._live[k] === 'number' && isFinite(g._live[k])) { liveStart(k, keyToQ[k], g._live[k], rows[k].row); n++; } });
-        Object.keys(live).forEach(function (k) { if (!(k in g._live)) { liveStop(k); n++; } });
+      var gl = typeof g._live === 'string' ? (function () { try { return JSON.parse(g._live); } catch (e) { return null; } })() : (g._live && typeof g._live === 'object' ? g._live : null);
+      if (gl) {
+        Object.keys(gl).forEach(function (k) { if (!live[k] && keyToQ[k] && rows[k] && typeof gl[k] === 'number' && isFinite(gl[k])) { liveStart(k, keyToQ[k], gl[k], rows[k].row); n++; } });
+        Object.keys(live).forEach(function (k) { if (!(k in gl)) { liveStop(k); n++; } });
       }
       if (n && P.foodEatR <= 1) P.foodEatR = Math.round(P.foodEatR * DEFAULTS.CELL_RADIUS * 100) / 100;
       return n;
@@ -1170,7 +1171,7 @@
     window.__adminPush = function () {
       if (!admin) return; var patch = {}, any = false;
       Object.keys(P).forEach(function (k) { var v = P[k]; if (live[k]) v = live[k].orig; if ((typeof v === 'number' && isFinite(v) || typeof v === 'string') && sent[k] !== v) { patch[k] = v; sent[k] = v; any = true; } });
-      var lm = JSON.stringify(liveMap()); if (sent._live !== lm) { patch._live = liveMap(); sent._live = lm; any = true; }
+      var lm = JSON.stringify(liveMap()); if (sent._live !== lm) { patch._live = lm; sent._live = lm; any = true; } // the Worker stores primitives only
       if (any) post({ code: admin, patch: patch }).then(function (r) { if (r && r.v) lastV = r.v; }).catch(function () {});
     };
     var box = document.createElement('input'); box.type = 'text'; box.maxLength = 4; box.setAttribute('inputmode', 'numeric'); box.autocomplete = 'off'; box.spellcheck = false;
