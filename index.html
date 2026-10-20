@@ -17,7 +17,7 @@
     font-family: 'Fragment Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; line-height: 1.3; letter-spacing: .04em; color: var(--fg); background: var(--panel-bg, var(--bg));
     transform: translateX(100%); transition: transform .2s ease-out; will-change: transform; }
   #panel::-webkit-scrollbar { display: none; }
-  #tab:hover + #panel, #panel:hover, #panel.open { transform: translateX(0); }
+  #tab:hover + #panel, #panel:hover, #panel.open, #panel.hov { transform: translateX(0); }
   /* backdrop blur: full at the right edge, fading to sharp leftwards; width is a parameter (blurWidth) */
   #blur { position: fixed; top: 0; right: 0; height: 100%; width: 340px; z-index: 9; pointer-events: none;
     }
@@ -44,10 +44,12 @@
   .stats span:not(.n) { letter-spacing: calc(.04em + 1px); }
   #secc .sl { font-family: 'Times New Roman', Times, serif; }
   .n { font-family: 'Ca2-Thin', monospace; font-size: 54px; white-space: nowrap; line-height: 1; letter-spacing: 0; }
-  .stats { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; white-space: nowrap; padding: 8px 0 12px; border-bottom: var(--lw) solid var(--fg-soft); margin-bottom: 10px; }
+  .stats { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; white-space: nowrap; padding: 8px 0 12px; margin-bottom: 10px; }
   .stats span:nth-child(even) { text-align: right; }
   .stats span:nth-child(odd) { align-self: center; }
-  .grp { margin: 14px 0 2px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; font-size: 13px; color: var(--fg-soft); padding-bottom: 3px; }
+  .grp { position: relative; width: fit-content; margin: 14px 0 2px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; font-size: 13px; color: var(--fg-soft); padding-top: 8px; padding-bottom: 3px; }
+  /* the rule above a section title is exactly as wide as the title text (letter-spacing tail excluded); thickness = the one line-width parameter */
+  .grp::before { content: ''; position: absolute; left: 0; top: 0; width: calc(100% - .3em - 1px); border-top: var(--lw) solid var(--fg-soft); }
   .row { padding: 7px 0 4px; }
   .row .lab { display: flex; justify-content: space-between; }
   .row input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; margin: 2px 0 0; background: transparent; cursor: pointer; }
@@ -76,7 +78,7 @@
   .keys div { display: flex; justify-content: space-between; padding: 2px 0; }
   /* section circles: right lane of the config panel, title-dot size, tangent stacking */
   #secc { position: fixed; top: 0; right: 8px; z-index: 11; display: flex; flex-direction: column; align-items: center; transform: translateX(150%); transition: transform .2s ease-out; }
-  #tab:hover ~ #secc, #panel:hover ~ #secc, #panel.open ~ #secc { transform: translateX(0); }
+  #tab:hover ~ #secc, #panel:hover ~ #secc, #panel.open ~ #secc, #panel.hov ~ #secc { transform: translateX(0); }
   #secc .sci { display: flex; flex-direction: column; align-items: center; }
   #secc .sc { border-radius: 50%; box-sizing: border-box; cursor: pointer; flex: none; }
   #secc .sl { text-transform: uppercase; font-size: 13px; overflow: hidden; height: 0; transition: height .25s ease; pointer-events: none; margin-top: 10px; text-align: center; }
@@ -85,7 +87,7 @@
   #adm { display: none; position: fixed; right: 8px; bottom: 14px; z-index: 11; flex-direction: column; align-items: center; cursor: text; opacity: 0; pointer-events: none; transition: opacity .2s ease-out; }
   #adm.on { display: flex; }
   /* the admin entry lives and dies with the config area */
-  #tab:hover ~ #adm.on, #panel:hover ~ #adm.on, #panel.open ~ #adm.on { opacity: 1; pointer-events: auto; }
+  #tab:hover ~ #adm.on, #panel:hover ~ #adm.on, #panel.open ~ #adm.on, #panel.hov ~ #adm.on { opacity: 1; pointer-events: auto; }
   #adm .ac { border-radius: 50%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: var(--fg); font-family: 'Fragment Mono', ui-monospace, monospace; }
   #adm .ac span { line-height: 1; }
   #adm.err .ac { border-color: #ff3c3c !important; color: #ff3c3c; }
