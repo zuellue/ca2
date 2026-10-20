@@ -1,3 +1,4 @@
+mod fd1;
 mod parasites;
 mod sim;
 mod tr;
@@ -197,6 +198,12 @@ pub extern "C" fn mb_field_f32(n: usize, bw: usize, bh: usize, s: f64, ms: f64, 
 #[no_mangle] pub extern "C" fn sp_run(n: usize, x0: f64, x1: f64, y0: f64, y1: f64, dtms: f64, cap: f64, s0: f64, s1: f64) -> f64 { spores::sp().step(n, x0, x1, y0, y1, dtms, cap, s0, s1) as f64 }
 #[no_mangle] pub extern "C" fn sp_out() -> *const f64 { spores::sp().out.as_ptr() }
 #[no_mangle] pub extern "C" fn sp_stat() -> *const f64 { spores::sp().stat.as_ptr() }
+
+#[no_mangle] pub extern "C" fn fd1_in(cap: usize) -> *mut f64 { let s = fd1::fd1(); s.rows.resize(cap * 3 + 3, 0.0); s.rows.as_mut_ptr() }
+#[no_mangle] pub extern "C" fn fd1_flow(n: usize, x0: f64, y0: f64, x1: f64, y1: f64) -> f64 { fd1::fd1().flow(n, x0, y0, x1, y1) as f64 }
+#[no_mangle] pub extern "C" fn fd1_tick(n: usize, gs: f64, x0: f64, y0: f64, x1: f64, y1: f64, cw: f64, ch: f64, density: f64, s0: f64, s1: f64) -> f64 { fd1::fd1().tick(n, gs, x0, y0, x1, y1, cw, ch, density, s0, s1) as f64 }
+#[no_mangle] pub extern "C" fn fd1_out() -> *const f64 { fd1::fd1().out.as_ptr() }
+#[no_mangle] pub extern "C" fn fd1_stat() -> *const f64 { fd1::fd1().stat.as_ptr() }
 
 #[no_mangle] pub extern "C" fn tr_cells(cap: usize) -> *mut f64 { let s = tr::tr(); s.cells.resize(cap * 13 + 13, 0.0); s.cells.as_mut_ptr() }
 #[no_mangle] pub extern "C" fn tr_run(n: usize, now: f64, dt: f64, t0: f64, dur: f64, cr: f64, plan: f64, s0: f64, s1: f64) -> f64 { tr::tr().step(n, now, dt, t0, dur, cr, plan != 0.0, s0, s1) as f64 }
