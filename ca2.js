@@ -1256,10 +1256,23 @@
     for (i = 0; i < cells.length; i++) { var c = cells[i], s = clamp(Math.floor((c.x - cont.x) / Math.max(1, cont.w) * n), 0, n - 1); cnt[s]++; tot++; }
     var mean = tot / n, out = new Array(n); for (i = 0; i < n; i++) out[i] = cnt[i] > mean ? 1 : 0; return out;
   }
+  // smart auto knobs: each parameter gets its own motion profile derived from its GROUPS meta
+  // (range and quantum) instead of one hardcoded chase. A knob with hundreds of steps drifts
+  // slowly through them, a knob with three steps snaps. The chase is a velocity model, so the
+  // value accelerates when the target moves away and slows down as it arrives.
+  function liveProfile(q, plate) {
+    var range = q[3] - q[2], n = Math.max(1, Math.round(range / q[4]));
+    var speed = clamp(1.8 / Math.sqrt(n + 2), 0.025, 0.45);              // top speed, fraction of range per tick
+    var accel = clamp(0.05 + 0.5 / (1 + n / 12), 0.06, 0.5);            // velocity gain toward the target
+    var damp = clamp(0.9 - 0.12 * Math.min(1, Math.log(n + 1) / Math.log(1000)), 0.74, 0.9);
+    if (plate) { speed *= 0.2; accel *= 0.35; }                         // audio knobs keep their gentler motion
+    return { vmax: range * speed, accel: accel, damp: damp };
+  }
   function liveStart(k, q, orig, row) {
     var st = { s: hash(k) || 1 }, bits = [];
     for (var i = 0; i < LIVE_N; i++) bits.push(lcg(st) < 0.5 ? 1 : 0);
-    live[k] = { orig: orig, bits: bits, st: st, t: performance.now(), cur: orig, q: q, row: row, col: LIVE_COLS[Math.floor(Math.random() * 3)], gen: 0, lastQ: orig, plate: /^audio/.test(k), shift: hash(k) % LIVE_N, rule: /^audio/.test(k) ? [110, 30, 90, 54][hash(k) % 4] : LIVE_RULE };
+    var plate = /^audio/.test(k);
+    live[k] = { orig: orig, bits: bits, st: st, t: performance.now(), cur: orig, vel: 0, q: q, row: row, col: LIVE_COLS[Math.floor(Math.random() * 3)], gen: 0, lastQ: orig, plate: plate, prof: liveProfile(q, plate), shift: hash(k) % LIVE_N, rule: plate ? [110, 30, 90, 54][hash(k) % 4] : LIVE_RULE };
     row.classList.add('live'); row.style.setProperty('--kc', live[k].col);
   }
   function liveStop(k) {
@@ -1296,7 +1309,9 @@
         L.target = L.q[2] + (L.q[3] - L.q[2]) * a * (LIVE_CAP[k] || 1);
       }
       if (L.target === undefined) continue;
-      L.cur += (L.target - L.cur) * (L.plate ? 0.07 : 0.4);
+      var pr = L.prof, dT = L.target - L.cur;
+      L.vel = clamp((L.vel + dT * pr.accel) * pr.damp, -pr.vmax, pr.vmax);
+      L.cur += L.vel;
       var v = clamp(Math.round((L.cur - L.q[2]) / L.q[4]) * L.q[4] + L.q[2], L.q[2], L.q[3]);
       if (v !== L.lastQ) { L.lastQ = v; P[k] = v; applyKey(k, v); }
     }
