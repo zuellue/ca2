@@ -15,9 +15,15 @@
   #panel { position: fixed; top: 0; right: 0; height: 100%; width: 340px; max-width: 86vw; z-index: 10; box-sizing: border-box;
     padding: 18px 26px 24px 26px; overflow-y: auto; scrollbar-width: none;
     font-family: 'Fragment Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; line-height: 1.3; letter-spacing: .04em; color: var(--fg); background: var(--panel-bg, var(--bg));
-    transform: translateX(100%); transition: transform .2s ease-out; will-change: transform; -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+    transform: translateX(100%); transition: transform .2s ease-out; will-change: transform; }
   #panel::-webkit-scrollbar { display: none; }
   #tab:hover + #panel, #panel:hover, #panel.open { transform: translateX(0); }
+  /* backdrop blur: full at the right edge, fading to sharp leftwards; width is a parameter (blurWidth) */
+  #blur { position: fixed; top: 0; right: 0; height: 100%; width: 340px; z-index: 9; pointer-events: none;
+    -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+    -webkit-mask-image: linear-gradient(to left, #000, rgba(0,0,0,0)); mask-image: linear-gradient(to left, #000, rgba(0,0,0,0));
+    transform: translateX(100%); transition: transform .2s ease-out; will-change: transform; }
+  #tab:hover + #panel + #blur, #panel:hover + #blur, #panel.open + #blur { transform: translateX(0); }
 
   @keyframes ca2in { from { opacity: 0 } to { opacity: 1 } }
   #panel h1 { margin: 0 0 6px; font-weight: normal; font-size: 13px; letter-spacing: .3em; }
@@ -25,7 +31,7 @@
   .stats { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; white-space: nowrap; padding: 8px 0 12px; border-bottom: 1.5px solid var(--fg-soft); margin-bottom: 10px; }
   .stats span:nth-child(even) { text-align: right; }
   .stats span:nth-child(odd) { align-self: center; }
-  .grp { margin: 14px 0 2px; letter-spacing: .3em; text-transform: uppercase; font-size: 11px; color: var(--fg-soft); border-bottom: 1.5px solid var(--fg-soft); padding-bottom: 3px; }
+  .grp { margin: 14px 0 2px; letter-spacing: .3em; text-transform: uppercase; font-size: 11px; color: var(--fg-soft); padding-bottom: 3px; }
   .row { padding: 7px 0 4px; }
   .row .lab { display: flex; justify-content: space-between; }
   .row input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; margin: 2px 0 0; background: transparent; cursor: pointer; }
@@ -68,6 +74,7 @@
     <div><span>c</span><span>this panel</span></div>
   </div>
 </div>
+<div id="blur"></div>
 <script src="grain.js"></script>
 <script src="audio.js"></script>
 <script src="ca2.js"></script>
