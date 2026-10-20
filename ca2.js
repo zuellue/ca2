@@ -441,7 +441,7 @@
       }
     }
     var br = bg[0] | 0, bgc = bg[1] | 0, bb = bg[2] | 0, ns = 0, band = TH * 0.08, p = 0, n = bw * bh;
-    var data = img.data;
+    var data = img.data; pfm('mb:field');
     for (p = 0; p < n; p++) {
       var s = fSum[p], q = p << 2;
       if (s > TH * 0.96) {
@@ -450,9 +450,9 @@
         data[q] = clamp(r * 255 + nv, 0, 255); data[q + 1] = clamp(g * 255 + nv, 0, 255); data[q + 2] = clamp(b * 255 + nv, 0, 255); data[q + 3] = a * 255;
       } else { data[q] = br; data[q + 1] = bgc; data[q + 2] = bb; data[q + 3] = 0; }
     }
-    octx.putImageData(img, 0, 0);
+    pfm('mb:pixel loop'); octx.putImageData(img, 0, 0); pfm('mb:putImageData');
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(off, 0, 0, bw, bh, cont.x, cont.y, cont.w, cont.h); ctx.globalAlpha = 1; // exact fit to the area rectangle
+    ctx.drawImage(off, 0, 0, bw, bh, cont.x, cont.y, cont.w, cont.h); ctx.globalAlpha = 1; pfm('mb:drawImage'); // exact fit to the area rectangle
   }
   function colorAt(x, y) {
     if (img && x >= cont.x && x < cont.x + cont.w && y >= cont.y && y < cont.y + cont.h) {
@@ -631,8 +631,11 @@
   // ---- frame ----
   var res = 1, frameMs = 0;
   var lastFrameT = performance.now();
+  // stage profiler (?perf=1 shows it; stage ms are exponential averages, __ca2.PF holds them)
+  var PF = {}, pfT = 0, PERF = /[?&]perf=1/.test(location.search);
+  function pfm(n) { var t = performance.now(); PF[n] = (PF[n] === undefined ? 0 : PF[n]) * 0.9 + (t - pfT) * 0.1; pfT = t; }
   function frame() {
-    var t0 = performance.now(), dtf = Math.min(100, t0 - lastFrameT); lastFrameT = t0;
+    var t0 = performance.now(); pfT = t0; var dtf = Math.min(100, t0 - lastFrameT); lastFrameT = t0;
     if (resizeDrag) lastRefresh = t0;
     var pk = trans ? 1 - Math.exp(-dtf * 3 / trans.dur) : P.morphEase;
     cont.ew += (cont.tw - cont.ew) * pk; cont.eh += (cont.th - cont.eh) * pk;
@@ -660,6 +663,7 @@
     foodKeepIn();
 
     if (trans) stepTrans(t0, dtf);
+    pfm('setup');
     // cluster state: shared motion and energy; a cluster of one dissolves, members sometimes leave on their own
     cmean = {};
     if (P.eatMergeOn) {
@@ -750,7 +754,7 @@
       if (hitKey) titleHit = { c: hitC, v: circleCol[hitKey] };
     }
     if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow && introOn(CELL_END + food[i].r * (FOOD_END - CELL_END))) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; } // food first: it sits under the cells
-    curS = DPR * res; if (cells.length || t0 - fadeT0 > INTRO_MS) drawMetaballs(curS); // an empty intro plate skips the full-buffer pass
+    pfm('sim+ui draw'); curS = DPR * res; if (cells.length || t0 - fadeT0 > INTRO_MS) drawMetaballs(curS); pfm('metaballs total'); // an empty intro plate skips the full-buffer pass
     if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { if (!fadeA('pa' + i)) continue; ctx.beginPath(); ctx.arc(parasites[i].x, parasites[i].y, 2.2, 0, 6.2832); ctx.fill(); } ctx.globalAlpha = 1; }
 
     // area outline: no rounded corners. Each side stops `corner` px short of both ends, so the corner lines never meet.
@@ -809,7 +813,7 @@
     curInfo = { on: curOn, ring: ringOn, dot: curInfo3.dot, dp: curInfo3.dp, lx: curInfo2.lx, ly: curInfo2.ly, locked: curInfo2.locked, maxR: curMaxR, cx: curX, cy: curY, rr: curRR, col: curCol, title: !!titleHit };
     }
 
-     window.__ca2 = { setKey: function (k, v) { P[k] = v; applyKey(k, v); if (k === 'lineColor' || k === 'ruleColor' || k === 'circColor') applyLineColor(); touched[k] = 1; save(); }, cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var lastF, lastF2, run = 0, maxRun = 0, sumAbs = 0, bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; if (Math.abs(f - (lastF === undefined ? -9 : lastF)) < 0.01) { run++; maxRun = Math.max(maxRun, run); } else run = 0; lastF = f; sumAbs += lastF2 === undefined ? 0 : Math.abs(f - lastF2); lastF2 = f; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins, maxRunGens: maxRun, meanStep: sumAbs / gens }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
+     window.__ca2 = { PF: PF, setKey: function (k, v) { P[k] = v; applyKey(k, v); if (k === 'lineColor' || k === 'ruleColor' || k === 'circColor') applyLineColor(); touched[k] = 1; save(); }, cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var lastF, lastF2, run = 0, maxRun = 0, sumAbs = 0, bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; if (Math.abs(f - (lastF === undefined ? -9 : lastF)) < 0.01) { run++; maxRun = Math.max(maxRun, run); } else run = 0; lastF = f; sumAbs += lastF2 === undefined ? 0 : Math.abs(f - lastF2); lastF2 = f; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins, maxRunGens: maxRun, meanStep: sumAbs / gens }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
 
     if (autoRefresh && performance.now() - lastRefresh > refreshInterval * 1000) randomize();
     stepLive(t0);
@@ -826,6 +830,7 @@
       cvg.style.display = 'block';
       CA2Grain.render(cv, { amount: P.grainAmount, strength: P.grainStrength, size: P.grainSize, softness: P.grainSoft, chroma: P.grainChroma, development: P.grainDev, fine: P.grainFine, crystal: P.grainCrystal, cloud: P.grainCloud }, P.grainFps > 0 ? Math.floor(performance.now() / 1000 * P.grainFps) : 0, DPR);
     } else cvg.style.display = 'none';
+    pfm('grain+rest');
     // quality governor: keeps the frame rate by lowering resolution, raises it back when there is room
     var execMs0 = performance.now() - t0;
     if (t0 - fadeT0 <= INTRO_MS + 1000) { introStat.frames++; if (execMs0 > 1000 / P.fps * 1.5) introStat.jank++; if (execMs0 > introStat.worst) introStat.worst = Math.round(execMs0); }
@@ -1222,6 +1227,8 @@
       l2.style.display = track ? 'block' : 'none'; if (track) { l2.style.left = r.left + 'px'; l2.style.top = (cy - lw / 2) + 'px'; l2.style.width = r.width + 'px'; l2.style.height = lw + 'px'; l2.style.background = col; }
     }
   }
+  if (PERF) { var ph = document.createElement('pre'); ph.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:99;margin:0;font:11px/1.3 monospace;color:#0f0;background:rgba(0,0,0,.7);padding:6px;pointer-events:none'; document.body.appendChild(ph);
+    setInterval(function () { var o = 'fps ' + Math.round(fps) + '  frame ' + frameMs.toFixed(1) + ' ms  res ' + res.toFixed(2) + '  dpr ' + DPR + '  cells ' + cells.length + '\n'; for (var k in PF) if (!/total/.test(k)) o += (k + '                    ').slice(0, 18) + PF[k].toFixed(2) + '\n'; ph.textContent = o; }, 500); }
   (function swLoop() { try { paintSwatches(); paintKnobs(); } catch (e) {} requestAnimationFrame(swLoop); })();
   setInterval(invertTick, 250);
   function applyLineColor() { invertTick(); var rt = document.documentElement.style; rt.setProperty('--kl', P.lineColor); if (P.ruleColor) rt.setProperty('--kr', P.ruleColor); else rt.removeProperty('--kr'); if (P.circColor) rt.setProperty('--kc', P.circColor); else rt.removeProperty('--kc'); }
