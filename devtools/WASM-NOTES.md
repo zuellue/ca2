@@ -44,12 +44,14 @@ Wasm i64 returns become BigInt in JS: return f64 from exports.
 
 - buildSources + emitCell -> wasm/src/bs.rs (buildSourcesW in ca2.js, JS body kept as fallback). Port covers the alive/introOn/in-plate filter (elapsed = performance.now()-fadeT0 passed as scalar, introOn itself stays JS semantics), the SRC_MAX=384 allowance split, default disc / string silhouette / lobed satellite emission (pure math on packed shp fields, no newShape dependency), and the genome/gene color pick (packed per cell). Out is f32 in six contiguous arrays, JS SRC.*.set() copies. Unit check (t92b, node, 120 mixed cells x 60 frames): source counts + alive counts EXACT every frame, worst abs diff 3.05e-5 (f32 + sin ULP). Bench (node, 120 cells): js 0.0218 -> wasm 0.0380 ms/call - SLOWER in node (17 f64/cell pack dominates the light emit math; same marshal-overhead class as live knob CA, but ported per explicit owner order). Live (t92): fwBs engages, 0 errors, srcStat sane (n=192/53 cells wasm vs 176/50 js, chaotic); buildSources has no own perf mark (inside 'sim+ui draw'), so a live frame delta is not separately readable - olculmedi.
 
+- cluster state (cmean accumulate/dissolve, 3 O(n) loops): MEASURED, skipped - 0.0015 ms/frame at 80 cells (t93 live PF read). Marshal overhead exceeds the whole compute; same class as live knob CA.
+
 ## Measured JS cost left (sandbox, ms/frame EMA, ?perf=1)
 worms food step 1.27 (542 food), spores 1.88 (517 food), axis+tally 1.5-2.0 (drawAxis = canvas, stays JS), stepTrans 0.1-0.8, foodKeepIn 0.05-0.4, buildSources 0.5 ms/s in spores.
 
 ## TODO (order)
 0. DONE (t83-t85): engagement proven, no throws; sandbox A/B is environment-dominated (0.7 fps pathology with full visuals; tiny populations after mode switches) - node benches are the clean numbers, owner-machine HUD read via ?nofoodwasm=1 is the clean live one.
-1. stepTrans + stepFood + stepBlobs + foodKeepIn + buildSources/emitCell DONE (tr.rs, fd1.rs, fd2.rs, fd3.rs, bs.rs, see Done). Remaining: body-plan logic + keepIn root cause (both blocked on desktop team, items 4/5). live knob CA measured+skipped (see Done).
+1. ALL PLANNED PORTS DONE: sim loop, spores, worms, parasites, swarm (earlier), stepTrans (tr.rs), stepFood (fd1.rs), stepBlobs (fd2.rs), foodKeepIn (fd3.rs), buildSources+emitCell (bs.rs). Every per-frame compute item is now either wasm, canvas/DOM/audio (stays JS per the owner rule), measured-negligible (live knob CA ~0.014 ms/frame, cluster state 0.0015 ms/frame - t93, 80 cells), or blocked on the desktop team (body-plan newShape/mixShape/simSwim = item 4, keepIn root cause = item 5).
 2. buildSources / emitCell DONE (bs.rs, see Done).
 4. body-plan logic (newShape/mixShape/simSwim) after desktop team finishes.
 5. keepIn root cause (boundary/zone=0) hash+diff from desktop team -> port into sim.rs keep_in (zone floor already 0).
