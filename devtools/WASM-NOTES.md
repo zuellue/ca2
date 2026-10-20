@@ -31,12 +31,15 @@ Wasm i64 returns become BigInt in JS: return f64 from exports.
 - t82b (clean toggle, ?nofoodwasm=1 via replaceState, sim wasm on both sides): M5 js 0.281 (79 food) vs wasm 0.145 (15 food); M4 js 0.422 (150) vs wasm 1.048 (172); M3 js 0.628 (255) vs wasm 0.398 (646). INCONCLUSIVE (small asymmetric populations after mode switches).
 - t83/t84/t85: wrapper engagement PROVEN - WC.fwSp/fwWm/fwPa success counters track the frame rate (t84: 0.7 fps, wm/s 0.7, pa/s 0.7; t85 trimmed visuals: fwWm 8.7/s and fwSp 10/s with flag off, 0 with flag on), zero wrapper errors. The M4 1.048 ms suspicion is RESOLVED: not a throw; the sandbox headless page runs at 0.7 fps in modes 4/5 with full visuals (environment pathology, hits JS and wasm equally) and EMA marks mix with idle frames. t85 trimmed (grain=0, audio=0, axis=0, mb=0, 15-20 fps): food-step EMA at TINY populations (17/48 food M4, 8/6 M5): M4 js 0.038 vs wasm 0.058, M5 js 0.023 vs wasm 0.053 - the ~+0.02 ms is fixed pack/unpack overhead dominating at a few entries; at real populations (500-1500) node benches show 2.7-4.4x step speedup (spores 0.0866->0.0195, worms 0.0909->0.0330). A true large-population browser A/B needs a seeded steady population (cells eat food faster than spawn rebuilds it after a mode switch) or the owner's machine: toggle ?nofoodwasm=1 on the live URL and read HUD 'food step'.
 
+- live knob CA (stepLive): MEASURED, skipped. liveTest headless: 6.1-9.5 us per 110 ms generation per knob INCLUDING applyKey side effects (~0.001 ms/frame/knob EMA; 10 live knobs ~0.014 ms/frame). Wasm marshal overhead exceeds the whole compute; the real cost is applyKey DOM/config side effects, which must stay JS.
+- stepTrans active cost MEASURED (t87, forced refresh, transition active): 0.07 ms at 52 cells rising to 0.27 ms at 189 cells (~1.4 us/cell/frame, O(n) composition chase + radius drift + spawn bursts). Owner config refreshes every 2-9 s so transitions are frequent. Porting the fused per-cell pass (chase + drift); spawns (newShape body plans) stay in JS per the body-plan TODO.
+
 ## Measured JS cost left (sandbox, ms/frame EMA, ?perf=1)
 worms food step 1.27 (542 food), spores 1.88 (517 food), axis+tally 1.5-2.0 (drawAxis = canvas, stays JS), stepTrans 0.1-0.8, foodKeepIn 0.05-0.4, buildSources 0.5 ms/s in spores.
 
 ## TODO (order)
 0. DONE (t83-t85): engagement proven, no throws; sandbox A/B is environment-dominated (0.7 fps pathology with full visuals; tiny populations after mode switches) - node benches are the clean numbers, owner-machine HUD read via ?nofoodwasm=1 is the clean live one.
-1. live knob CA, stepTrans, stepFood (mode 1), stepBlobs (mode 2), foodKeepIn (0.05-0.4 ms) -> wasm (spores + worms + parasites done; profile first, port by ms share).
+1. stepTrans fused pass IN PROGRESS; then stepFood (mode 1), stepBlobs (mode 2), foodKeepIn (0.05-0.4 ms) -> wasm. live knob CA measured+skipped (see Done).
 2. buildSources / emitCell.
 4. body-plan logic (newShape/mixShape/simSwim) after desktop team finishes.
 5. keepIn root cause (boundary/zone=0) hash+diff from desktop team -> port into sim.rs keep_in (zone floor already 0).
