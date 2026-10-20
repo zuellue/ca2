@@ -1349,7 +1349,7 @@
   function syncUI(total) {
     placeCircles();
     var now = performance.now(); if (now - lastSync < 300) return; lastSync = now;
-    statsEl.innerHTML = '<span>cells</span><span class="n">' + total + '</span><span>universe</span><span class="n">' + Math.round(P.UNIVERSE_SIZE) + '</span><span>refresh s</span><span class="n">' + Math.round(Math.max(0, refreshInterval - (now - lastRefresh) / 1000)) + '</span><span>fps</span><span class="n">' + Math.round(fps) + '</span><span>res</span><span class="n">' + Math.round(res * 100) + '</span>';
+    statsEl.innerHTML = '<span>Cells</span><span class="n">' + total + '</span><span>Universe</span><span class="n">' + Math.round(P.UNIVERSE_SIZE) + '</span><span>Refresh S</span><span class="n">' + Math.round(Math.max(0, refreshInterval - (now - lastRefresh) / 1000)) + '</span><span>FPS</span><span class="n">' + Math.round(fps) + '</span><span>Res</span><span class="n">' + Math.round(res * 100) + '</span>';
     for (var lk in live) { var lr = rows[lk]; lr.inp.value = P[lk]; lr.val.textContent = fmt(P[lk]); }
     if (panel.matches(':hover')) return;
     GROUPS.forEach(function (g) { g[1].forEach(function (q) { var r = rows[q[0]], v = P[q[0]]; r.inp.value = v; r.val.textContent = fmt(v); }); });

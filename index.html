@@ -35,19 +35,19 @@
   #blurl .bf4 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * var(--bk4, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * var(--bk4, 0))); -webkit-mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,0) 25%); mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,0) 25%); }
 
   @keyframes ca2in { from { opacity: 0 } to { opacity: 1 } }
-  #panel h1 { margin: 0 0 6px; font-weight: normal; font-size: 13px; letter-spacing: .3em; font-family: 'Times New Roman', Times, serif; }
+  #panel h1 { margin: 0 0 6px; font-weight: normal; font-size: 13px; letter-spacing: calc(.3em + 1px); font-family: 'Times New Roman', Times, serif; }
   input[type=color] { -webkit-appearance: none; appearance: none; display: block; margin: 2px 0; width: var(--sd, 23px); height: var(--sd, 23px); border-radius: 50%; border: 0; padding: 0; background: none; overflow: hidden; cursor: pointer; }
   input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
   input[type=color]::-webkit-color-swatch { border: 0; border-radius: 50%; }
   input[type=color]::-moz-color-swatch { border: 0; border-radius: 50%; }
   .grp, .stats span:not(.n) { font-family: 'Times New Roman', Times, serif; }
-  .stats span:not(.n) { text-transform: uppercase; }
+  .stats span:not(.n) { letter-spacing: calc(.04em + 1px); }
   #secc .sl { font-family: 'Times New Roman', Times, serif; }
   .n { font-family: 'Ca2-Thin', monospace; font-size: 54px; white-space: nowrap; line-height: 1; letter-spacing: 0; }
   .stats { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; white-space: nowrap; padding: 8px 0 12px; border-bottom: 1.5px solid var(--fg-soft); margin-bottom: 10px; }
   .stats span:nth-child(even) { text-align: right; }
   .stats span:nth-child(odd) { align-self: center; }
-  .grp { margin: 14px 0 2px; letter-spacing: .3em; text-transform: uppercase; font-size: 13px; color: var(--fg-soft); padding-bottom: 3px; }
+  .grp { margin: 14px 0 2px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; font-size: 13px; color: var(--fg-soft); padding-bottom: 3px; }
   .row { padding: 7px 0 4px; }
   .row .lab { display: flex; justify-content: space-between; }
   .row input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; margin: 2px 0 0; background: transparent; cursor: pointer; }
