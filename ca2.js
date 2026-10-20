@@ -1276,6 +1276,20 @@
     grain: ['flicker', 'repel', 'jitter'], cells: ['cohere', 'repel', 'pulse', 'blink'], evolution: ['mutate', 'drift', 'cohere', 'chain'], life: ['blink', 'pulse', 'cohere', 'swirl'],
     sound: ['wave', 'pulse', 'align'], field: ['tide', 'drift', 'align', 'wave'], switches: ['flip', 'blink', 'slide']
   };
+  // pointer tracking for the section-button particles: where it is, and when it last started moving (reaction delays count from there)
+  var PTR = { x: -999, y: -999, vx: 0, vy: 0, last: 0, start: 0 };
+  document.addEventListener('pointermove', function (e) { var n = performance.now(); if (n - PTR.last > 300) PTR.start = n; PTR.vx = e.clientX - PTR.x; PTR.vy = e.clientY - PTR.y; PTR.x = e.clientX; PTR.y = e.clientY; PTR.last = n; }, { passive: true });
+  // how a crowd may answer the pointer: drawn at random per button at every hover, re-drawn after a random time; each piece has its own reaction delay
+  var MOUSE_POOL = {
+    attract: function (p, d, k) { p.vx += d.dx / d.d * 0.9 * k; p.vy += d.dy / d.d * 0.9 * k; },
+    flee: function (p, d, k) { if (d.d < 160) { p.vx -= d.dx / d.d * 1.4 * k; p.vy -= d.dy / d.d * 1.4 * k; } },
+    orbit: function (p, d, k) { p.vx += -d.dy / d.d * 0.9 * k + d.dx / d.d * 0.15 * k; p.vy += d.dx / d.d * 0.9 * k + d.dy / d.d * 0.15 * k; },
+    drag: function (p, d, k) { p.vx += PTR.vx * 0.12 * k; p.vy += PTR.vy * 0.12 * k; },
+    shiver: function (p, d, k) { var a = Math.random() * 6.283, m = Math.min(1, 80 / d.d) * 2.2 * k; p.vx += Math.cos(a) * m; p.vy += Math.sin(a) * m; },
+    mirror: function (p, d, k) { p.vx -= PTR.vx * 0.1 * k; p.vy -= PTR.vy * 0.1 * k; },
+    shy: function (p, d, k) { if (d.d < 90) { p.vx += d.dy / d.d * 1.2 * k; p.vy -= d.dx / d.d * 1.2 * k; } else { p.vx += d.dx / d.d * 0.25 * k; p.vy += d.dy / d.d * 0.25 * k; } }
+  };
+  var MOUSE_KEYS = Object.keys(MOUSE_POOL);
   function addCirc(sec) {
     var it = document.createElement('div'); it.className = 'sci';
     var c = document.createElement('div'); c.className = 'sc';
@@ -1348,6 +1362,8 @@
       t1 = setTimeout(function () { t1 = null; split(); t2 = setInterval(split, 1300); }, 700);
       // behaviour pool: each section draws from a few local rules that fit its subject; at every hover two are picked at random and every
       // piece follows one of them, chosen by its own rule-110 bit (so neighbours of one crowd act differently). No fixed script.
+      var mrule = MOUSE_KEYS[Math.floor(Math.random() * MOUSE_KEYS.length)], mUntil = performance.now() + 2500 + Math.random() * 6000, mGain = 0.4 + Math.random() * 1.2;
+      c.dataset.mouse = mrule;
       var pool = SECT_POOL[sec.name] || SECT_POOL.config, pick = pool.slice().sort(function () { return Math.random() - 0.5; }).slice(0, 2), tick = 0;
       c.dataset.beh = pick.join('+');
       var life = setInterval(function () {
@@ -1364,6 +1380,10 @@
           RULES[pick[p.b ? 1 : 0]](p, cc);
           p.vx *= 0.88; p.vy *= 0.88;
           if (cc.pd > 70) { p.vx -= p.x / cc.pd * (cc.pd - 70) * 0.08; p.vy -= p.y / cc.pd * (cc.pd - 70) * 0.08; } // never far from the button
+          var nowM = performance.now();
+          if (nowM > mUntil) { mrule = MOUSE_KEYS[Math.floor(Math.random() * MOUSE_KEYS.length)]; mUntil = nowM + 2500 + Math.random() * 6000; mGain = 0.4 + Math.random() * 1.2; c.dataset.mouse = mrule; }
+          if (p.md === undefined) p.md = Math.random() * 1400; // this piece's own reaction delay (ms) after the pointer starts moving
+          if (nowM - PTR.last < 900 && nowM - PTR.start > p.md) { var mdx = PTR.x - (ctr.x + p.x), mdy = PTR.y - (ctr.y + p.y); MOUSE_POOL[mrule](p, { dx: mdx, dy: mdy, d: Math.hypot(mdx, mdy) || 1 }, mGain); }
           p.vx = clamp(p.vx, -4, 4); p.vy = clamp(p.vy, -4, 4);
           p.x += p.vx; p.y += p.vy; inDisc(p); put(p);
         });
