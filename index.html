@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>CA2</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
@@ -11,12 +11,15 @@
   @font-face { font-family: 'Ca2-Thin'; src: url('Ca2-Thin.ttf') format('truetype'); font-display: block; }
   :root { --lw: 1px; --fg: #111; --fg-soft: rgba(17,17,17,.35); --bg: #fff; }
   html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); }
-  canvas#c, canvas#g { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  canvas#c, canvas#g { display: block; position: fixed; inset: 0; width: var(--vw, 100vw); height: var(--vh, 100vh); }
   canvas#g { pointer-events: none; }
+  /* touch: the plate canvas owns its gestures - no page scroll, rubber-band or double-tap zoom while on it */
+  canvas#c { touch-action: none; }
   canvas#c, canvas#g { image-rendering: pixelated; image-rendering: crisp-edges; image-rendering: pixelated; }
-  canvas#ln { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 9; }
+  canvas#ln { display: block; position: fixed; inset: 0; width: var(--vw, 100vw); height: var(--vh, 100vh); pointer-events: none; z-index: 9; }
   /* config: same language as the sketch - Ca2-Thin, hairlines, no boxes */
   #tab { position: fixed; top: 0; right: 0; width: 18px; height: 100%; z-index: 9; }
+  @media (pointer: coarse) { #tab::after { content: ''; position: absolute; top: 0; right: 0; width: 44px; height: 100%; } }
   #panel { position: fixed; top: 0; right: 0; height: 100%; width: 340px; max-width: 86vw; z-index: 10; box-sizing: border-box;
     padding: 18px 26px 24px 26px; overflow-y: auto; scrollbar-width: none;
     font-family: var(--cff, 'Fragment Mono', ui-monospace, 'SF Mono', Menlo, monospace); font-size: var(--cfs, 13px); line-height: 1.3; letter-spacing: .04em; color: var(--fg); background: var(--panel-bg, var(--bg));
@@ -24,7 +27,8 @@
   #panel::-webkit-scrollbar { display: none; }
   /* auto invert: difference blend against whatever is behind the panel (cells, dots, colours); ink is white so it reads inverted */
   #panel.blend { mix-blend-mode: difference; --fg: #fff; --fg-soft: rgba(255,255,255,.35); background: transparent; }
-  #tab:hover + #panel, #panel:hover, #panel.open, #panel.hov { transform: translateX(0); }
+  #panel.open, #panel.hov { transform: translateX(0); }
+  @media (hover: hover) { #tab:hover + #panel, #panel:hover { transform: translateX(0); } }
   /* config text case parameter (cfgCase): u upper, l lower, s sentence */
   #panel.cs-u, #panel.cs-u .grp, #panel.cs-u button, #secc.cs-u .sl { text-transform: uppercase; }
   #panel.cs-l, #panel.cs-l .grp, #panel.cs-l button, #secc.cs-l .sl { text-transform: lowercase; }
@@ -98,7 +102,8 @@
   .keys div { display: flex; justify-content: space-between; padding: 2px 0; }
   /* section circles: right lane of the config panel, title-dot size, tangent stacking */
   #secc { position: fixed; top: 0; right: 8px; z-index: 11; display: flex; flex-direction: column; align-items: center; transform: translateX(150%); transition: transform .2s ease-out; }
-  #tab:hover ~ #secc, #panel:hover ~ #secc, #panel.open ~ #secc, #panel.hov ~ #secc { transform: translateX(0); }
+  #panel.open ~ #secc, #panel.hov ~ #secc { transform: translateX(0); }
+  @media (hover: hover) { #tab:hover ~ #secc, #panel:hover ~ #secc { transform: translateX(0); } }
   #secc .sci { display: flex; flex-direction: column; align-items: center; }
   #secc .sc { border-radius: 50%; box-sizing: border-box; cursor: pointer; flex: none; }
   #secc .sl { text-transform: uppercase; font-size: var(--cfs, 13px); overflow: hidden; height: 0; transition: height .25s ease; pointer-events: none; margin-top: 10px; text-align: center; }
@@ -107,7 +112,8 @@
   #adm { display: none; position: fixed; right: 8px; bottom: 14px; z-index: 11; flex-direction: column; align-items: center; cursor: text; opacity: 0; pointer-events: none; transition: opacity .2s ease-out; }
   #adm.on { display: flex; }
   /* the admin entry lives and dies with the config area */
-  #tab:hover ~ #adm.on, #panel:hover ~ #adm.on, #panel.open ~ #adm.on, #panel.hov ~ #adm.on { opacity: 1; pointer-events: auto; }
+  #panel.open ~ #adm.on, #panel.hov ~ #adm.on { opacity: 1; pointer-events: auto; }
+  @media (hover: hover) { #tab:hover ~ #adm.on, #panel:hover ~ #adm.on { opacity: 1; pointer-events: auto; } }
   #adm .ac { border-radius: 50%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: var(--fg); font-family: 'Fragment Mono', ui-monospace, monospace; }
   #adm .ac span { line-height: 1; }
   #adm.err .ac { border-color: #ff3c3c !important; color: #ff3c3c; }
