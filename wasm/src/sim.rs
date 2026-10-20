@@ -31,7 +31,7 @@ const P_BFORCE: usize = 24; const P_RESTL: usize = 25; const P_EATRATIO: usize =
 const P_SYMG: usize = 30; const P_EGAIN: usize = 31; const P_GMIN: usize = 32; const P_GMAX: usize = 33; const P_MINREP: usize = 34; const P_CLMAX: usize = 35;
 const P_GMUT: usize = 36; const P_MRR: usize = 37; const P_MBS: usize = 38; const P_ESPD: usize = 39; const P_EAPP: usize = 40; const P_EBND: usize = 41;
 const P_ECOL: usize = 42; const P_EC0: usize = 43; const P_MX: usize = 46; const P_MY: usize = 47; const P_MOVER: usize = 48; const P_CX: usize = 49; const P_CY: usize = 50;
-const P_CW: usize = 51; const P_CH: usize = 52; const P_RDRAG: usize = 53; const P_CLSEQ: usize = 54; const P_NCM: usize = 55; const P_ONLYINT: usize = 56; // debug: interact-only frame (isolation tests)
+const P_CW: usize = 51; const P_CH: usize = 52; const P_RDRAG: usize = 53; const P_CLSEQ: usize = 54; const P_NCM: usize = 55; const P_ONLYINT: usize = 56; // debug: 1 = interact only, 2 = keepIn only (isolation tests; 0 = normal)
 // out indices
 // 0 birth 1 divide 2 eaten 3 merge 4 fuse 5 pair 6 hit 7 oob 8 ate 9 death 10 clusterSeq 11 hovering 12-14 hoverCol 15 n_final
 
@@ -156,7 +156,7 @@ impl Sim {
         let rad = self.g(c, RAD);
         let r = rad.min(cw.min(ch) * 0.45);
         let bnd = if self.p[P_GENOME] != 0.0 { self.g(c, GBND) } else { 1.0 };
-        let z = 8f64.max((self.p[P_BZONE] * bnd).min(cw / 2.5).min(ch / 2.5));
+        let z = 0f64.max((self.p[P_BZONE] * bnd).min(cw / 2.5).min(ch / 2.5));
         let f = self.p[P_BFORCE]; let ms = self.g(c, MAXS) + 1.0;
         let (x0, x1, y0, y1) = (cx + r, cx + cw - r, cy + r, cy + ch - r);
         let (mut x, mut y, mut vx, mut vy) = (self.g(c, X), self.g(c, Y), self.g(c, VX), self.g(c, VY));
@@ -385,13 +385,13 @@ impl Sim {
                 let t = r + g + b; if t > 0.0 { r /= t; g /= t; b /= t; }
                 hc = [r * 255.0, g * 255.0, b * 255.0];
             }
-            for k in (0..i).rev() { self.interact(i, k); }
+            if self.p[P_ONLYINT] != 2.0 { for k in (0..i).rev() { self.interact(i, k); } }
             if self.p[P_RDRAG] != 0.0 && self.alive(i) {
                 let ms2 = (self.g(i, MAXS) + 1.0) * self.p[P_RESTL];
                 let (a1, a2) = (self.rnd01(), self.rnd01());
                 self.set(i, VX, self.g(i, VX) + (a1 - 0.5) * ms2 * 2.0); self.set(i, VY, self.g(i, VY) + (a2 - 0.5) * ms2 * 2.0);
             }
-            if self.p[P_BOUND] != 0.0 && !oi && self.alive(i) { self.keep_in(i); }
+            if self.p[P_BOUND] != 0.0 && self.p[P_ONLYINT] != 1.0 && self.alive(i) { self.keep_in(i); }
             if !self.alive(i) { self.out[9] += 1.0; self.set(i, REM, 1.0); self.live -= 1; }
         }
         self.out[10] = self.p[P_CLSEQ]; self.out[11] = if hovering { 1.0 } else { 0.0 };
