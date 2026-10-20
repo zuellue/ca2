@@ -36,6 +36,7 @@
   // eating radius is a fixed px distance, independent of cell radius (owner 20 Oct: no factor); migrate the stored factor with the preset radius
   P.foodEatR = Math.round(P.foodEatR * P.CELL_RADIUS * 100) / 100;
   P.focusIdleMs = 4000; P.focusInMs = 4000; P.focusOutMs = 380; P.focusDepth = 14; // idle depth-of-field blur: wait, slow blur-in, swift refocus, depth px
+  P.cellShapes = 1; // heritable body plans: round / string / lobed (render expands a cell into metaball sources)
   var DEFAULTS = JSON.parse(JSON.stringify(P));
   var autoRefresh = true, lockParams = false;
   var BGS = [[233,233,233],[22,22,22],[255,0,0],[0,255,0],[0,0,255]];
@@ -60,7 +61,7 @@
     this.hostility = Math.random(); this.speedModifier = rnd(0.7, 2.3);
     var k0 = gene > 2 ? 0 : gene < -2 ? 1 : 2, cv = [0.12, 0.12, 0.12]; cv[k0] = 0.76;
     this.g = { spd: 1 + rnd(-0.3, 0.3), app: rnd(0.05, 0.95), bnd: 1 + rnd(-0.4, 0.4), col: normCol([cv[0] + rnd(0, 0.1), cv[1] + rnd(0, 0.1), cv[2] + rnd(0, 0.1)]) };
-    this.cl = 0; this.maxSpeed = this.maxSpeed * (P.genomeOn ? this.g.spd : 1);
+    this.cl = 0; this.maxSpeed = this.maxSpeed * (P.genomeOn ? this.g.spd : 1); this.shp = newShape(null);
   }
   function normCol(v) { var s = v[0] + v[1] + v[2] || 1; return [v[0] / s, v[1] / s, v[2] / s]; }
   function speedOf(c) { return Math.max(0, P.baseMaxSpeed + c.sv * P.maxSpeedVariation) * (P.genomeOn ? c.g.spd : 1); }
@@ -69,6 +70,32 @@
       col: normCol([Math.max(0.001, g.col[0] + rnd(-a, a) * 0.5), Math.max(0.001, g.col[1] + rnd(-a, a) * 0.5), Math.max(0.001, g.col[2] + rnd(-a, a) * 0.5)]) };
   }
   function mixGenome(a, b) { return { spd: (a.spd + b.spd) / 2, app: (a.app + b.app) / 2, bnd: (a.bnd + b.bnd) / 2, col: normCol([(a.col[0] + b.col[0]) / 2, (a.col[1] + b.col[1]) / 2, (a.col[2] + b.col[2]) / 2]) }; }
+  // ---- body plans: round (0), string (1, a chain of discs along the heading), lobed (2, main disc + orbiting satellites).
+  // Heritable, mutates with genomeMut; only the renderer sees the plan (a cell becomes several metaball sources).
+  function newShape(par) {
+    if (!par) {
+      var u = Math.random();
+      if (u < 0.35) return { t: 0, asp: 1, th: 1, wig: 0, wsp: 1, sat: 0, ph: rnd(6.2832), ph2: rnd(6.2832), dir: rnd(6.2832) };
+      if (u < 0.8) return { t: 1, asp: rnd(1.3, 4.2), th: rnd(0.3, 0.55), wig: rnd(0.15, 1.1), wsp: rnd(0.5, 1.8), sat: 0, ph: rnd(6.2832), ph2: rnd(6.2832), dir: rnd(6.2832) };
+      return { t: 2, asp: 1, th: 1, wig: 0, wsp: rnd(0.3, 1.4), sat: 2 + (Math.random() < 0.4 ? 1 : 0), ph: rnd(6.2832), ph2: rnd(6.2832), dir: rnd(6.2832) };
+    }
+    var a = P.genomeMut, s = { t: par.t, asp: par.asp, th: par.th, wig: par.wig, wsp: par.wsp, sat: par.sat, ph: rnd(6.2832), ph2: rnd(6.2832), dir: par.dir };
+    if (Math.random() < a * 0.4) s.t = Math.floor(rnd(3)); // a rare body-plan jump
+    s.asp = clamp(s.asp * (1 + rnd(-a, a)), 1.15, 5); s.th = clamp(s.th * (1 + rnd(-a, a) * 0.6), 0.25, 0.7);
+    s.wig = clamp(s.wig + rnd(-a, a) * 0.8, 0, 1.4); s.wsp = clamp(s.wsp * (1 + rnd(-a, a) * 0.5), 0.2, 2.5);
+    if (s.t === 0) { s.asp = 1; s.th = 1; s.wig = 0; }
+    if (s.t === 1 && (s.asp < 1.25 || s.th > 0.6)) { s.asp = Math.max(s.asp, 1.3); s.th = Math.min(s.th, 0.6); }
+    if (s.t === 2 && !s.sat) s.sat = 2 + (Math.random() < 0.4 ? 1 : 0);
+    return s;
+  }
+  function mixShape(a2, b2) {
+    if (!a2) return b2 ? newShape(b2) : newShape(null); if (!b2) return newShape(a2);
+    var s = newShape(a2); s.t = Math.random() < 0.5 ? a2.t : b2.t;
+    s.asp = (a2.asp + b2.asp) / 2; s.th = (a2.th + b2.th) / 2; s.wig = (a2.wig + b2.wig) / 2; s.wsp = (a2.wsp + b2.wsp) / 2; s.sat = Math.max(a2.sat || 0, b2.sat || 0);
+    if (s.t === 1 && (s.asp < 1.25 || s.th > 0.6)) { s.asp = Math.max(s.asp, 1.3); s.th = Math.min(s.th, 0.6); }
+    if (s.t === 2 && !s.sat) s.sat = 2;
+    return s;
+  }
   // fitness against the current environment (0 = perfectly adapted, 1 = far off). A refresh draws a new environment.
   function misfit(c) {
     var e = env, g = c.g, m = (Math.abs(g.spd - e.spd) / 1.1 + Math.abs(g.app - e.app) + Math.abs(g.bnd - e.bnd) / 1.5) / 3;
@@ -108,6 +135,12 @@
     limit(c, c.maxSpeed * sm * c.speedModifier * (resizeDrag ? 1 + P.restless * 1.5 : 1));
     organic(c);
     c.x += c.vx; c.y += c.vy;
+    if (c.shp && c.shp.t === 1) { // a string turns into its heading and swims with a side-to-side wave
+      var spv = Math.hypot(c.vx, c.vy);
+      if (spv > 0.25) { var wa = Math.atan2(c.vy, c.vx), daa = wa - c.shp.dir; while (daa > 3.1416) daa -= 6.2832; while (daa < -3.1416) daa += 6.2832; c.shp.dir += daa * 0.05; }
+      var swk = Math.sin(performance.now() / 700 * (1 + c.shp.wsp) + c.shp.ph) * c.shp.wig * 0.05 * (c.maxSpeed * 0.4 + 0.4);
+      c.vx += -Math.sin(c.shp.dir) * swk; c.vy += Math.cos(c.shp.dir) * swk;
+    }
     var cm = c.cl && P.eatMergeOn ? cmean[c.cl] : null;
     c.energy -= P.energyConsumptionRate * (cm ? 0.85 : 1);
     if (P.selectOn && P.genomeOn) { var mf = misfit(c); c.energy -= P.selStrength * mf * 0.05; if (Math.random() < P.selStrength * 0.005 * Math.pow(mf, 1.5)) c.alive = false; }
@@ -165,7 +198,7 @@
     var ang = Math.random() * 6.2832, nr = Math.max(P.CELL_RADIUS, c.radius * 0.62);
     c.radius = nr; c.energy /= 2;
     var ch = new Cell(c.x + Math.cos(ang) * nr, c.y + Math.sin(ang) * nr, rnd(100) < c.mutationRate ? mutateGene(c.gene) : c.gene, c.mutationRate);
-    ch.radius = nr; ch.energy = c.energy; ch.g = mutGenome(c.g, P.genomeMut); ch.maxSpeed = speedOf(ch); ch.cl = c.cl; ev.birth++; ev.divide = (ev.divide || 0) + 1; cells.push(ch);
+    ch.radius = nr; ch.energy = c.energy; ch.g = mutGenome(c.g, P.genomeMut); ch.shp = newShape(c.shp); ch.maxSpeed = speedOf(ch); ch.cl = c.cl; ev.birth++; ev.divide = (ev.divide || 0) + 1; cells.push(ch);
   }
   function clusterSize(id) { var n = 0; for (var i = 0; i < cells.length; i++) if (cells[i].cl === id) n++; return n; }
   function joinCluster(a, b) {
@@ -180,7 +213,7 @@
     big.radius = Math.min(Math.sqrt(big.radius * big.radius + sm.radius * sm.radius) * 0.92, P.CELL_RADIUS * P.foodGrowMax * 1.2);
     big.energy = (big.energy + sm.energy) * 0.85;
     big.gene = clamp(Math.round((big.gene + sm.gene) / 2), P.GENE_MIN, P.GENE_MAX);
-    big.g = mixGenome(big.g, sm.g);
+    big.g = mixGenome(big.g, sm.g); big.shp = mixShape(big.shp, sm.shp);
     big.comp = (big.comp || 1) + (sm.comp || 1);
     big.speedModifier = clamp(big.speedModifier / 1.25, 0.2, 3);
     if (big.sym && big.sym !== sm) big.sym.sym = null;
@@ -228,7 +261,7 @@
       if (rnd(100) < a.mutationRate) ng = mutateGene(ng);
       var nm = clamp(a.mutationRate + rnd(-P.mutationRateRange, P.mutationRateRange), 0.5, 20);
       var r = rand2D();
-      ev.birth++; var kid = new Cell((a.x + b.x) / 2 + r.x * a.radius, (a.y + b.y) / 2 + r.y * a.radius, ng, nm); kid.g = mutGenome(mixGenome(a.g, b.g), P.genomeMut); kid.maxSpeed = speedOf(kid); cells.push(kid);
+      ev.birth++; var kid = new Cell((a.x + b.x) / 2 + r.x * a.radius, (a.y + b.y) / 2 + r.y * a.radius, ng, nm); kid.g = mutGenome(mixGenome(a.g, b.g), P.genomeMut); kid.shp = mixShape(a.shp, b.shp); kid.maxSpeed = speedOf(kid); cells.push(kid);
     }
   }
   function checkSurvival(c) {
@@ -359,7 +392,7 @@
         for (var m = 0; m < 12; m++) { var q = cells[Math.floor(Math.random() * n)]; if (!q.alive) continue; var dd = (q.x - pt[0]) * (q.x - pt[0]) + (q.y - pt[1]) * (q.y - pt[1]); if (dd < bd) { bd = dd; par = q; } }
         if (!par) continue;
         var ch = new Cell(par.x + rnd(-2, 2), par.y + rnd(-2, 2), mutateGene(par.gene), clamp(par.mutationRate + rnd(-P.mutationRateRange, P.mutationRateRange), 0.5, 20));
-        ch.g = mutGenome(par.g, P.genomeMut); ch.maxSpeed = speedOf(ch); ch.radius = par.radius * 0.5; ch.dst = pt; ch.pace = rnd(0.5, 1.5); ch.dl = 0; ch.durK = rnd(0.5, 1); ch.bend = Math.random() < 0.25 ? 0 : rnd(-1, 1); cells.push(ch); ev.birth++;
+        ch.g = mutGenome(par.g, P.genomeMut); ch.shp = newShape(par.shp); ch.maxSpeed = speedOf(ch); ch.radius = par.radius * 0.5; ch.dst = pt; ch.pace = rnd(0.5, 1.5); ch.dl = 0; ch.durK = rnd(0.5, 1); ch.bend = Math.random() < 0.25 ? 0 : rnd(-1, 1); cells.push(ch); ev.birth++;
       }
     }
     return open;
@@ -388,7 +421,7 @@
       var p = cells[Math.floor(Math.random() * n)], ang = Math.random() * 6.2832;
       if (P.selectOn) for (i = 0; i < 2; i++) { var q2 = cells[Math.floor(Math.random() * n)]; if (misfit(q2) < misfit(p)) p = q2; }
       var ch = new Cell(p.x + Math.cos(ang) * p.radius, p.y + Math.sin(ang) * p.radius, mutateGene(p.gene), clamp(p.mutationRate + rnd(-P.mutationRateRange, P.mutationRateRange), 0.5, 20));
-      ch.g = mutGenome(p.g, P.genomeMut); ch.maxSpeed = speedOf(ch); ch.radius = p.radius * 0.5; p.energy = Math.max(1, p.energy * 0.85); ch.energy = p.energy; cells.push(ch); ev.birth++;
+      ch.g = mutGenome(p.g, P.genomeMut); ch.shp = newShape(p.shp); ch.maxSpeed = speedOf(ch); ch.radius = p.radius * 0.5; p.energy = Math.max(1, p.energy * 0.85); ch.energy = p.energy; cells.push(ch); ev.birth++;
     } else if (n > target * 1.03 && Math.random() < Math.min(1, (n - target) * 0.1)) {
       var w = null; for (i = 0; i < 3; i++) { var q = cells[Math.floor(Math.random() * n)]; if (!w || (P.selectOn ? misfit(q) - 0.01 * q.energy > misfit(w) - 0.01 * w.energy : q.energy < w.energy)) w = q; }
       if (w) w.alive = false;
@@ -465,6 +498,49 @@
       var e = m.instance.exports; WC.mem = e.memory; WC.cells = e.cells_ptr; WC.out = e.out_ptr; WC.fieldX = e.mb_field; WC.field = e.mb_field_f32; WC.fieldF = e.mb_field_f32; WC.ok = true;
     }).catch(function (e) { WC.err = String(e); });
   }
+  // ---- render sources: a round cell is one source; a string is a chain of discs along its heading; a lobed cell is a
+  // main disc with small orbiting satellites. Every field path (wasm, WebGL, CPU) consumes this one list, so all draw the
+  // same bodies and the wasm interface stays 6 f64 per source. One shared budget (the shader's uniform cap): when the
+  // population is dense the strings shorten instead of pushing a path off its budget.
+  var frameT = 0;
+  var SRC_MAX = 384, SRC = { n: 0, cells: 0, built: -1, x: new Float32Array(512), y: new Float32Array(512), r: new Float32Array(512), wr: new Float32Array(512), wg: new Float32Array(512), wb: new Float32Array(512) };
+  function srcGrow(n) { if (n <= SRC.x.length) return; var m = SRC.x.length * 2; while (m < n) m *= 2; ['x', 'y', 'r', 'wr', 'wg', 'wb'].forEach(function (k) { var a2 = new Float32Array(m); a2.set(SRC[k]); SRC[k] = a2; }); }
+  function emitCell(c, t0, allowance, o) { // appends the cell's sources (plate-relative) to o = { x, y, r, n }
+    var bx = c.x - cont.x, by = c.y - cont.y, sh = c.shp;
+    if (P.cellShapes && sh && sh.t === 1 && allowance > 1) { // string
+      var rs = c.radius * sh.th, ds = rs * 1.15, want = Math.min(9, Math.max(2, Math.round(2 * c.radius * sh.asp / ds) + 1)), nn = Math.min(want, allowance);
+      if (nn >= 2) {
+        var ux = Math.cos(sh.dir), uy = Math.sin(sh.dir), px = -uy, py = ux, span = ds * (nn - 1), tq = t0 / 850 * (1 + sh.wsp) + sh.ph;
+        for (var k = 0; k < nn; k++) { var d0 = -span / 2 + ds * k, off2 = sh.wig * rs * Math.sin(tq + k * 0.85); o.x.push(bx + ux * d0 + px * off2); o.y.push(by + uy * d0 + py * off2); o.r.push(rs); o.n++; }
+        return;
+      }
+    } else if (P.cellShapes && sh && sh.t === 2 && allowance > 2) { // lobed: amorf even standing alone
+      var r0 = c.radius * 0.78, rot = t0 / 4200 * sh.wsp + sh.ph;
+      o.x.push(bx); o.y.push(by); o.r.push(r0); o.n++;
+      for (var q2 = 0; q2 < sh.sat; q2++) {
+        var aa = rot + q2 * 2.4 + sh.ph2, dd = c.radius * (0.42 + 0.24 * ((q2 * 0.731 + sh.ph) % 1)), rr2 = c.radius * (0.3 + 0.22 * ((q2 * 0.377 + sh.ph2) % 1));
+        o.x.push(bx + Math.cos(aa) * dd); o.y.push(by + Math.sin(aa) * dd); o.r.push(rr2); o.n++;
+      }
+      return;
+    }
+    o.x.push(bx); o.y.push(by); o.r.push(c.radius); o.n++;
+  }
+  function buildSources() {
+    var t0 = frameT; if (t0 && SRC.built === t0) return SRC;
+    SRC.built = t0;
+    var i, c, alive = 0;
+    for (i = 0; i < cells.length; i++) { c = cells[i]; if (c.alive && introOn(c.popD) && c.x >= cont.x && c.x <= cont.x + cont.w && c.y >= cont.y && c.y <= cont.y + cont.h) alive++; }
+    var allowance = alive > 1 ? Math.max(1, Math.floor(SRC_MAX / alive)) : SRC_MAX, n = 0, o = { x: [], y: [], r: [], n: 0 };
+    for (i = 0; i < cells.length; i++) {
+      c = cells[i];
+      if (!c.alive || !introOn(c.popD) || c.x < cont.x || c.x > cont.x + cont.w || c.y < cont.y || c.y > cont.y + cont.h) continue;
+      var wr = 0, wg = 0, wb = 0, cwv = (P.genomeOn && c.g) ? c.g.col : c.cw; if (cwv) { wr = cwv[0]; wg = cwv[1]; wb = cwv[2]; } else if (c.gene > 2) wr = 1; else if (c.gene < -2) wg = 1; else wb = 1;
+      o.x.length = 0; o.y.length = 0; o.r.length = 0; o.n = 0; emitCell(c, t0, allowance, o);
+      srcGrow(n + o.n + 8);
+      for (var k = 0; k < o.n; k++) { SRC.x[n] = o.x[k]; SRC.y[n] = o.y[k]; SRC.r[n] = o.r[k]; SRC.wr[n] = wr; SRC.wg[n] = wg; SRC.wb[n] = wb; n++; }
+    }
+    SRC.n = n; SRC.cells = alive; return SRC;
+  }
   function drawMetaballsCPU(S) {
     var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
     if (bw !== bufW || bh !== bufH) {
@@ -472,16 +548,11 @@
       fSum = new Float32Array(bw * bh); fR = new Float32Array(bw * bh); fG = new Float32Array(bw * bh); fB = new Float32Array(bw * bh);
     } else { fSum.fill(0); fR.fill(0); fG.fill(0); fB.fill(0); }
     var ms = P.metaballStrength, TH = P.THRESHOLD, inv = 1 / S;
-    var dl = cells;
+    var src = buildSources(), sn = src.n;
     if (WC.ok && !WC.off) { // Rust/wasm path (ca2core): same field + pixel pass, JS below stays as the fallback
       try {
-        var nw = 0, cp = WC.cells(dl.length), cf = new Float64Array(WC.mem.buffer, cp, dl.length * 6);
-        for (var i = 0; i < dl.length; i++) {
-          var c = dl[i];
-          if (!c.alive || !introOn(c.popD) || c.x < cont.x || c.x > cont.x + cont.w || c.y < cont.y || c.y > cont.y + cont.h) continue;
-          var wr = 0, wg = 0, wb = 0, cwv = (P.genomeOn && c.g) ? c.g.col : c.cw; if (cwv) { wr = cwv[0]; wg = cwv[1]; wb = cwv[2]; } else if (c.gene > 2) wr = 1; else if (c.gene < -2) wg = 1; else wb = 1;
-          var o6 = nw * 6; cf[o6] = c.x - cont.x; cf[o6 + 1] = c.y - cont.y; cf[o6 + 2] = c.radius; cf[o6 + 3] = wr; cf[o6 + 4] = wg; cf[o6 + 5] = wb; nw++;
-        }
+        var nw = sn, cp = WC.cells(nw), cf = new Float64Array(WC.mem.buffer, cp, nw * 6);
+        for (var i = 0; i < nw; i++) { var o6 = i * 6; cf[o6] = src.x[i]; cf[o6 + 1] = src.y[i]; cf[o6 + 2] = src.r[i]; cf[o6 + 3] = src.wr[i]; cf[o6 + 4] = src.wg[i]; cf[o6 + 5] = src.wb[i]; }
         WC.field(nw, bw, bh, S, ms, TH, bg[0] | 0, bg[1] | 0, bg[2] | 0); pfm('mb:field');
         img.data.set(new Uint8ClampedArray(WC.mem.buffer, WC.out(), bw * bh * 4)); pfm('mb:pixel loop');
         octx.putImageData(img, 0, 0); pfm('mb:putImageData');
@@ -489,14 +560,12 @@
         return;
       } catch (e) { WC.off = true; WC.err = String(e); }
     }
-    for (var i = 0; i < dl.length; i++) {
-      var c = dl[i];
-      if (!c.alive || !introOn(c.popD) || c.x < cont.x || c.x > cont.x + cont.w || c.y < cont.y || c.y > cont.y + cont.h) continue;
-      var cx = (c.x - cont.x), cy = (c.y - cont.y), r2 = ms * c.radius * c.radius;
-      var Rc = c.radius * Math.max(3, Math.sqrt(ms / (TH * 0.03)));
+    for (var i = 0; i < sn; i++) {
+      var cx = src.x[i], cy = src.y[i], crd = src.r[i], r2 = ms * crd * crd;
+      var Rc = crd * Math.max(3, Math.sqrt(ms / (TH * 0.03)));
       var x0 = Math.max(0, Math.floor((cx - Rc) * S)), x1 = Math.min(bw - 1, Math.ceil((cx + Rc) * S));
       var y0 = Math.max(0, Math.floor((cy - Rc) * S)), y1 = Math.min(bh - 1, Math.ceil((cy + Rc) * S));
-      var wr = 0, wg = 0, wb = 0, cwv = (P.genomeOn && c.g) ? c.g.col : c.cw; if (cwv) { wr = cwv[0]; wg = cwv[1]; wb = cwv[2]; } else if (c.gene > 2) wr = 1; else if (c.gene < -2) wg = 1; else wb = 1;
+      var wr = src.wr[i], wg = src.wg[i], wb = src.wb[i];
       for (var y = y0; y <= y1; y++) {
         var dy = (y + 0.5) * inv - cy, row = y * bw;
         for (var x = x0; x <= x1; x++) {
@@ -522,7 +591,7 @@
 
   // ---- GPU metaball field (WebGL fragment shader): same formula as the CPU splat, evaluated per pixel on the GPU.
   // The CPU path above stays as the fallback (no WebGL, too many cells, or ?cpu=1). colorAt() evaluates the same field analytically at one point (no GPU readback).
-  var GMAX = 160, gl = null, glc = null, gProg = null, gU = {}, gOK = false, gSnap = null, gOn = false;
+  var GMAX = 384, gl = null, glc = null, gProg = null, gU = {}, gOK = false, gSnap = null, gOn = false;
   (function initGL() {
     if (/[?&]cpu=1/.test(location.search)) return;
     try {
@@ -551,14 +620,11 @@
   function drawMetaballs(S) {
     gOn = false;
     if (gOK && !gl.isContextLost()) {
-      var ms = P.metaballStrength, TH = P.THRESHOLD, n = 0, dl = cells, i;
-      for (i = 0; i < dl.length; i++) {
-        var c = dl[i];
-        if (!c.alive || !introOn(c.popD) || c.x < cont.x || c.x > cont.x + cont.w || c.y < cont.y || c.y > cont.y + cont.h) continue;
+      var ms = P.metaballStrength, TH = P.THRESHOLD, n = 0, src = buildSources(), i;
+      for (i = 0; i < src.n; i++) {
         if (n >= GMAX) { n = -1; break; }
-        var wr = 0, wg = 0, wb = 0, cwv = (P.genomeOn && c.g) ? c.g.col : c.cw; if (cwv) { wr = cwv[0]; wg = cwv[1]; wb = cwv[2]; } else if (c.gene > 2) wr = 1; else if (c.gene < -2) wg = 1; else wb = 1;
-        gC[n * 4] = c.x - cont.x; gC[n * 4 + 1] = c.y - cont.y; gC[n * 4 + 2] = ms * c.radius * c.radius; gC[n * 4 + 3] = c.radius * Math.max(3, Math.sqrt(ms / (TH * 0.03)));
-        gW[n * 4] = wr; gW[n * 4 + 1] = wg; gW[n * 4 + 2] = wb; n++;
+        gC[n * 4] = src.x[i]; gC[n * 4 + 1] = src.y[i]; gC[n * 4 + 2] = ms * src.r[i] * src.r[i]; gC[n * 4 + 3] = src.r[i] * Math.max(3, Math.sqrt(ms / (TH * 0.03)));
+        gW[n * 4] = src.wr[i]; gW[n * 4 + 1] = src.wg[i]; gW[n * 4 + 2] = src.wb[i]; n++;
       }
       if (n >= 0) {
         var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
@@ -731,6 +797,117 @@
     if (life && out.length < cont.w * cont.h * P.foodDensity * 0.1) for (i = 0; i < 12; i++) { var cx = x0 + Math.random() * cont.w, cy = y0 + Math.random() * cont.h; for (var q = 0; q < 4; q++) out.push({ x: cx + (Math.random() - 0.5) * 12, y: cy + (Math.random() - 0.5) * 12, r: Math.random(), vx: 0, vy: 0 }); }
     food = out;
   }
+  // mode 4 worms: living food strands. The head wanders with a wave, the body follows link by link; a worm grows at the
+  // tail, splits in two when long, and cells bite pieces off it (each body dot is an ordinary edible food entry).
+  var worms = [], wormT = 0, wormStat = { born: 0, died: 0, split: 0, eaten: 0 };
+  function newWorm(x, y, len) {
+    var w = { x: x, y: y, a: rnd(6.2832), sp: rnd(0.25, 0.8), fr: rnd(0.6, 1.6), ph: rnd(6.2832), d: [] };
+    for (var i = 0; i < len; i++) { var f = { x: x, y: y, r: Math.random(), worm: w }; w.d.push(f); food.push(f); }
+    worms.push(w); wormStat.born++; return w;
+  }
+  function wipeWorms() { for (var i = food.length - 1; i >= 0; i--) if (food[i].worm) food.splice(i, 1); worms = []; }
+  function stepWorms() {
+    var i, k, w, now = performance.now(), tt = now / 1000, x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h;
+    for (i = worms.length - 1; i >= 0; i--) { // eaten links drop out; a worm with too little body left dissolves
+      w = worms[i];
+      for (k = w.d.length - 1; k >= 0; k--) if (w.d[k].gone) { w.d.splice(k, 1); wormStat.eaten++; }
+      if (w.d.length < 2) { w.d.forEach(function (f) { f.gone = 1; var fi = food.indexOf(f); if (fi >= 0) food.splice(fi, 1); }); worms.splice(i, 1); wormStat.died++; }
+    }
+    var SP = Math.max(3, P.foodSize * 1.6);
+    for (i = 0; i < worms.length; i++) {
+      w = worms[i];
+      w.a += (Math.random() - 0.5) * 0.35 + Math.sin(tt * w.fr + w.ph) * 0.06;
+      var m = 26;
+      if (w.x < x0 + m || w.x > x1 - m || w.y < y0 + m || w.y > y1 - m) { var ca = Math.atan2((y0 + y1) / 2 - w.y, (x0 + x1) / 2 - w.x), da = ca - w.a; while (da > 3.1416) da -= 6.2832; while (da < -3.1416) da += 6.2832; w.a += da * 0.04; }
+      var sp = w.sp * (1 + 0.35 * Math.sin(tt * w.fr * 2 + w.ph));
+      w.x += Math.cos(w.a) * sp; w.y += Math.sin(w.a) * sp;
+      var hx = w.x, hy = w.y;
+      for (k = 0; k < w.d.length; k++) { var f = w.d[k], dx = hx - f.x, dy = hy - f.y, dd = Math.hypot(dx, dy) || 1, mv = dd - SP; if (mv > 0) { f.x += dx / dd * mv; f.y += dy / dd * mv; } hx = f.x; hy = f.y; }
+    }
+    if (now - wormT >= P.foodLifeMs * 2) {
+      wormT = now;
+      for (i = worms.length - 1; i >= 0; i--) {
+        w = worms[i];
+        if (w.d.length < 16 && Math.random() < 0.45) { var tl = w.d[w.d.length - 1], nf = { x: tl.x, y: tl.y, r: Math.random(), worm: w }; w.d.push(nf); food.push(nf); }
+        if (w.d.length >= 9 && Math.random() < 0.3 && worms.length < 120) { // binary fission: the tail half walks away as its own worm
+          var half = Math.ceil(w.d.length / 2), tail = w.d.splice(half), nw2 = { x: tail[0].x, y: tail[0].y, a: rnd(6.2832), sp: rnd(0.25, 0.8), fr: rnd(0.6, 1.6), ph: rnd(6.2832), d: tail };
+          tail.forEach(function (f) { f.worm = nw2; }); worms.push(nw2); wormStat.split++; wormStat.born++;
+        }
+      }
+      var want = Math.round(cont.w * cont.h * P.foodDensity / 2 / 14), kk = Math.min(5, want - worms.length);
+      for (k = 0; k < kk; k++) newWorm(x0 + Math.random() * cont.w, y0 + Math.random() * cont.h, 3 + Math.floor(Math.random() * 4));
+    }
+  }
+  function drawWorms() {
+    var ol = P.blobOutline; if (ol && !(P.axisWidth > 0)) return;
+    ctx.strokeStyle = P.foodColor; ctx.fillStyle = P.foodColor; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = P.foodAlpha;
+    ctx.lineWidth = ol ? LW() : Math.max(1.5, P.foodSize * 1.1);
+    for (var i = 0; i < worms.length; i++) {
+      var w = worms[i], d = w.d; if (d.length < 2) continue;
+      if (!introOn(CELL_END + ((i * 0.6180339) % 1) * (FOOD_END - CELL_END))) continue;
+      ctx.beginPath(); ctx.moveTo(d[0].x, d[0].y);
+      for (var k = 1; k < d.length; k++) ctx.lineTo(d[k].x, d[k].y);
+      ctx.stroke();
+      if (!ol) { ctx.beginPath(); ctx.arc(d[0].x, d[0].y, Math.max(1, P.foodSize * 0.7), 0, 6.2832); ctx.fill(); }
+    }
+    ctx.globalAlpha = 1;
+  }
+  // mode 5 spores: rooted spores mature, pulse, and burst into drifting motes; motes that survive settle as new spores.
+  // Every stage is an ordinary food entry - cells can eat a spore before it bursts or catch the motes mid-flight.
+  var spores = [], sporeLast = 0, sporeStat = { born: 0, burst: 0, died: 0, eaten: 0, settled: 0 };
+  function newSpore(x, y, st) { var s = { x: x, y: y, r: Math.random(), st: st || 0, age: 0, ph: Math.random() * 6.2832, vx: 0, vy: 0, spore: 1 }; spores.push(s); food.push(s); sporeStat.born++; return s; }
+  function wipeSpores() { for (var i = food.length - 1; i >= 0; i--) if (food[i].spore) food.splice(i, 1); spores = []; }
+  function stepSpores() {
+    var i, now = performance.now(), dtms = sporeLast ? Math.min(200, now - sporeLast) : 16; sporeLast = now;
+    var x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h, rooted = 0;
+    var cap = Math.max(60, Math.round(cont.w * cont.h * P.foodDensity / 2 / 8));
+    for (i = spores.length - 1; i >= 0; i--) {
+      var s = spores[i];
+      if (s.gone) { spores.splice(i, 1); sporeStat.eaten++; continue; }
+      s.age += dtms;
+      if (s.st === 0) {
+        rooted++;
+        if (s.age > 5000 + s.ph * 1200) { // mature
+          if (spores.length < cap) { // burst: the spore scatters into motes
+            s.gone = 1; var fi = food.indexOf(s); if (fi >= 0) food.splice(fi, 1); spores.splice(i, 1); sporeStat.burst++; sporeStat.died++;
+            var nm = 4 + Math.floor(Math.random() * 4);
+            for (var k2 = 0; k2 < nm; k2++) { var a2 = rnd(6.2832), v = rnd(0.6, 1.8), mo = newSpore(s.x, s.y, 1); mo.vx = Math.cos(a2) * v; mo.vy = Math.sin(a2) * v; }
+          } else if (Math.random() < 0.4) { s.gone = 1; var fk = food.indexOf(s); if (fk >= 0) food.splice(fk, 1); spores.splice(i, 1); sporeStat.died++; } // crowded: some retire quietly
+          else s.age = 0; // crowded: wait for another cycle
+        }
+      } else {
+        s.vx = s.vx * 0.965 + (Math.random() - 0.5) * 0.05; s.vy = s.vy * 0.965 + (Math.random() - 0.5) * 0.05;
+        s.x += s.vx; s.y += s.vy;
+        if (s.x < x0 || s.x > x1) { s.vx = -s.vx * 0.6; s.x = clamp(s.x, x0, x1); }
+        if (s.y < y0 || s.y > y1) { s.vy = -s.vy * 0.6; s.y = clamp(s.y, y0, y1); }
+        if (s.age > 1400 + s.ph * 300) { // landing: most root as new spores, some are lost
+          if (Math.random() < 0.75) { s.st = 0; s.age = 0; s.vx = 0; s.vy = 0; sporeStat.settled++; sporeStat.born++; }
+          else { s.gone = 1; var fj = food.indexOf(s); if (fj >= 0) food.splice(fj, 1); spores.splice(i, 1); sporeStat.died++; }
+        }
+      }
+    }
+    var want = Math.round(cap * 0.6);
+    if (rooted < want && Math.random() < 0.35) { var nb = Math.min(3, want - rooted); for (i = 0; i < nb; i++) newSpore(x0 + Math.random() * cont.w, y0 + Math.random() * cont.h, 0); }
+  }
+  function drawSpores() {
+    var ol = P.blobOutline; if (ol && !(P.axisWidth > 0)) return;
+    var now = performance.now(); ctx.strokeStyle = P.foodColor; ctx.fillStyle = P.foodColor; ctx.lineWidth = Math.max(1, LW());
+    ctx.globalAlpha = P.foodAlpha;
+    for (var i = 0; i < spores.length; i++) {
+      var s = spores[i]; if (s.r >= P.foodShow) continue;
+      if (!introOn(CELL_END + s.r * (FOOD_END - CELL_END))) continue;
+      if (s.st === 1) { var ms2 = P.foodSize * 0.55; ctx.fillRect(s.x - ms2 / 2, s.y - ms2 / 2, ms2, ms2); continue; }
+      var g = Math.min(1, s.age / 4500), rr = P.foodSize * (0.5 + g * 1.1);
+      ctx.beginPath(); ctx.arc(s.x, s.y, rr, 0, 6.2832); if (ol) ctx.stroke(); else ctx.fill();
+      if (g > 0.65) { // about to burst: a pulsing halo
+        var pu = (g - 0.65) / 0.35;
+        ctx.globalAlpha = P.foodAlpha * pu * (0.35 + 0.35 * Math.sin(now / 130 + s.ph));
+        ctx.beginPath(); ctx.arc(s.x, s.y, rr + P.foodSize * (0.7 + 0.5 * Math.sin(now / 160 + s.ph)), 0, 6.2832); ctx.stroke();
+        ctx.globalAlpha = P.foodAlpha;
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
   var parStat = { rehost: 0 };
   function stepParasites() {
     if (!P.parasiteOn || !cells.length) { parasites.length = 0; return; }
@@ -765,7 +942,7 @@
   var PF = {}, pfT = 0, PERF = /[?&]perf=1/.test(location.search);
   function pfm(n) { var t = performance.now(); PF[n] = (PF[n] === undefined ? 0 : PF[n]) * 0.9 + (t - pfT) * 0.1; pfT = t; }
   function frame() {
-    var t0 = performance.now(); pfT = t0; var dtf = Math.min(100, t0 - lastFrameT); lastFrameT = t0;
+    var t0 = performance.now(); pfT = t0; frameT = t0; var dtf = Math.min(100, t0 - lastFrameT); lastFrameT = t0;
     if (resizeDrag) lastRefresh = t0;
     var pk = trans ? 1 - Math.exp(-dtf * 3 / trans.dur) : P.morphEase;
     cont.ew += (cont.tw - cont.ew) * pk; cont.eh += (cont.th - cont.eh) * pk;
@@ -789,7 +966,8 @@
 
     if (Math.random() < P.foodDensity && food.length < cont.w * cont.h * P.foodDensity * 2) food.push({ x: rnd(cont.w) + cont.x, y: rnd(cont.h) + cont.y, r: Math.random() });
     if (Math.random() < 0.001 && food.length) food.splice(Math.floor(rnd(food.length)), 1);
-    if (P.foodMode === 1 || (P.foodMode === undefined && P.foodLife)) stepFood(); else if (P.foodMode === 2) stepBlobs(); else if (P.foodMode === 3) stepSwarm();
+    if (P.foodMode === 1 || (P.foodMode === undefined && P.foodLife)) stepFood(); else if (P.foodMode === 2) stepBlobs(); else if (P.foodMode === 3) stepSwarm(); else if (P.foodMode === 4) stepWorms(); else if (P.foodMode === 5) stepSpores();
+    if (P.foodMode !== 4 && worms.length) wipeWorms(); if (P.foodMode !== 5 && spores.length) wipeSpores();
     foodKeepIn();
 
     if (trans) stepTrans(t0, dtf);
@@ -883,7 +1061,7 @@
       circlesNow.forEach(function (c) { var v = circleCol[c.key]; if (v !== undefined) { ctx.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')'; ctx.beginPath(); ctx.arc(c.x, c.y, c.r + 0.6, 0, 6.2832); ctx.fill(); } });
       if (hitKey) titleHit = { c: hitC, v: circleCol[hitKey] };
     }
-    if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow && introOn(CELL_END + food[i].r * (FOOD_END - CELL_END))) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; } // food first: it sits under the cells
+    if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 4) drawWorms(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 5) drawSpores(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow && introOn(CELL_END + food[i].r * (FOOD_END - CELL_END))) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; } // food first: it sits under the cells
     pfm('sim+ui draw'); curS = DPR * res; if (cells.length || t0 - fadeT0 > INTRO_MS) { var tmb = performance.now(); drawMetaballs(curS); MB.ms = MB.ms * 0.9 + (performance.now() - tmb) * 0.1; MB.path = gOn ? 'GPU' : (WC.ok && !WC.off ? (WC.simd ? 'wasm-simd' : 'wasm') : 'JS'); } pfm('metaballs total'); // an empty intro plate skips the full-buffer pass
     if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { if (!fadeA('pa' + i)) continue; ctx.beginPath(); ctx.arc(parasites[i].x, parasites[i].y, 2.2, 0, 6.2832); ctx.fill(); } ctx.globalAlpha = 1; }
 
@@ -944,7 +1122,7 @@
     }
 
      var pairN = 0, compN = 0; for (var pci = 0; pci < cells.length; pci++) { if (cells[pci].sym) pairN++; if (cells[pci].comp > 1) compN++; }
-     window.__ca2 = { cmpWC: function () { if (!WC.ok) return 'nowasm:' + WC.err; var S = curS, sv = ctx.drawImage; ctx.drawImage = function () {}; var o = WC.off; var fdef = WC.field; WC.field = WC.fieldX; WC.off = false; var t0 = performance.now(); drawMetaballsCPU(S); var tw = performance.now() - t0; var a = new Uint8ClampedArray(img.data); WC.off = true; t0 = performance.now(); drawMetaballsCPU(S); var tj = performance.now() - t0; var b = new Uint8ClampedArray(img.data); WC.off = o; var fsv = fdef; WC.field = WC.fieldF; WC.off = false; t0 = performance.now(); drawMetaballsCPU(S); var tf = performance.now() - t0; var c32 = new Uint8ClampedArray(img.data); WC.field = fsv; WC.off = o; var d32 = 0, m32 = 0, ge2 = 0; for (var i = 0; i < b.length; i++) { var dd = Math.abs(c32[i] - b[i]); if (dd) { d32++; if (dd > m32) m32 = dd; if (dd > 2) ge2++; } } ctx.drawImage = sv; var bad = 0, mx = 0; for (var i = 0; i < a.length; i++) { var d = Math.abs(a[i] - b[i]); if (d) { bad++; if (d > mx) mx = d; } } return JSON.stringify({ bytes: a.length, diffBytes: bad, maxDiff: mx, tWasm: +tw.toFixed(1), tJS: +tj.toFixed(1), tF32: +tf.toFixed(1), f32diff: d32, f32max: m32, f32gt2: ge2, cells: cells.length }); }, WC: WC, PF: PF, pairs: pairN / 2, fusions: ev.fuse || 0, pairings: ev.pair || 0, composites: compN, cmp: function () { if (!gOK) return 'nogl'; var S = curS, sv = ctx.drawImage; var saved = ctx.drawImage; ctx.drawImage = function () {}; var t0 = performance.now(); drawMetaballs(S); var tg = performance.now() - t0; t0 = performance.now(); drawMetaballsCPU(S); var tc = performance.now() - t0; ctx.drawImage = saved; var tmp = document.createElement('canvas'); tmp.width = glc.width; tmp.height = glc.height; var tx = tmp.getContext('2d'); tx.drawImage(glc, 0, 0); var gd = tx.getImageData(0, 0, tmp.width, tmp.height).data, cd = img.data, n = tmp.width * tmp.height, bad = 0, mx = 0, sum = 0, lit = 0; for (var p = 0; p < n; p++) { var q = p * 4, ga = gd[q + 3], ca = cd[q + 3]; var d = Math.abs(ga - ca); if (ca > 0 || ga > 0) { lit++; if (ca > 250 && ga > 250) d = Math.max(d, Math.abs(gd[q] - cd[q]), Math.abs(gd[q + 1] - cd[q + 1]), Math.abs(gd[q + 2] - cd[q + 2])); } if (d > 8) bad++; if (d > mx) mx = d; sum += d; } return JSON.stringify({ px: n, lit: lit, bad: bad, maxd: mx, tGPUms: +tg.toFixed(1), tCPUms: +tc.toFixed(1), cells: gSnap && gSnap.n }); }, gpuState: function () { return { ok: gOK, on: gOn, n: gSnap && gSnap.n }; }, setGPU: function (v) { gOK = !!v && !!gl; }, colorAt: colorAt, setKey: function (k, v) { P[k] = v; applyKey(k, v); if (k === 'lineColor' || k === 'ruleColor' || k === 'circColor') applyLineColor(); touched[k] = 1; save(); }, cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var lastF, lastF2, run = 0, maxRun = 0, sumAbs = 0, bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; if (Math.abs(f - (lastF === undefined ? -9 : lastF)) < 0.01) { run++; maxRun = Math.max(maxRun, run); } else run = 0; lastF = f; sumAbs += lastF2 === undefined ? 0 : Math.abs(f - lastF2); lastF2 = f; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins, maxRunGens: maxRun, meanStep: sumAbs / gens }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
+     window.__ca2 = { cmpWC: function () { if (!WC.ok) return 'nowasm:' + WC.err; var S = curS, sv = ctx.drawImage; ctx.drawImage = function () {}; var o = WC.off; var fdef = WC.field; WC.field = WC.fieldX; WC.off = false; var t0 = performance.now(); drawMetaballsCPU(S); var tw = performance.now() - t0; var a = new Uint8ClampedArray(img.data); WC.off = true; t0 = performance.now(); drawMetaballsCPU(S); var tj = performance.now() - t0; var b = new Uint8ClampedArray(img.data); WC.off = o; var fsv = fdef; WC.field = WC.fieldF; WC.off = false; t0 = performance.now(); drawMetaballsCPU(S); var tf = performance.now() - t0; var c32 = new Uint8ClampedArray(img.data); WC.field = fsv; WC.off = o; var d32 = 0, m32 = 0, ge2 = 0; for (var i = 0; i < b.length; i++) { var dd = Math.abs(c32[i] - b[i]); if (dd) { d32++; if (dd > m32) m32 = dd; if (dd > 2) ge2++; } } ctx.drawImage = sv; var bad = 0, mx = 0; for (var i = 0; i < a.length; i++) { var d = Math.abs(a[i] - b[i]); if (d) { bad++; if (d > mx) mx = d; } } return JSON.stringify({ bytes: a.length, diffBytes: bad, maxDiff: mx, tWasm: +tw.toFixed(1), tJS: +tj.toFixed(1), tF32: +tf.toFixed(1), f32diff: d32, f32max: m32, f32gt2: ge2, cells: cells.length }); }, WC: WC, PF: PF, pairs: pairN / 2, fusions: ev.fuse || 0, pairings: ev.pair || 0, composites: compN, cmp: function () { if (!gOK) return 'nogl'; var S = curS, sv = ctx.drawImage; var saved = ctx.drawImage; ctx.drawImage = function () {}; var t0 = performance.now(); drawMetaballs(S); var tg = performance.now() - t0; t0 = performance.now(); drawMetaballsCPU(S); var tc = performance.now() - t0; ctx.drawImage = saved; var tmp = document.createElement('canvas'); tmp.width = glc.width; tmp.height = glc.height; var tx = tmp.getContext('2d'); tx.drawImage(glc, 0, 0); var gd = tx.getImageData(0, 0, tmp.width, tmp.height).data, cd = img.data, n = tmp.width * tmp.height, bad = 0, mx = 0, sum = 0, lit = 0; for (var p = 0; p < n; p++) { var q = p * 4, ga = gd[q + 3], ca = cd[q + 3]; var d = Math.abs(ga - ca); if (ca > 0 || ga > 0) { lit++; if (ca > 250 && ga > 250) d = Math.max(d, Math.abs(gd[q] - cd[q]), Math.abs(gd[q + 1] - cd[q + 1]), Math.abs(gd[q + 2] - cd[q + 2])); } if (d > 8) bad++; if (d > mx) mx = d; sum += d; } return JSON.stringify({ px: n, lit: lit, bad: bad, maxd: mx, tGPUms: +tg.toFixed(1), tCPUms: +tc.toFixed(1), cells: gSnap && gSnap.n }); }, gpuState: function () { return { ok: gOK, on: gOn, n: gSnap && gSnap.n }; }, setGPU: function (v) { gOK = !!v && !!gl; }, colorAt: colorAt, setKey: function (k, v) { P[k] = v; applyKey(k, v); if (k === 'lineColor' || k === 'ruleColor' || k === 'circColor') applyLineColor(); touched[k] = 1; save(); }, cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var lastF, lastF2, run = 0, maxRun = 0, sumAbs = 0, bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; if (Math.abs(f - (lastF === undefined ? -9 : lastF)) < 0.01) { run++; maxRun = Math.max(maxRun, run); } else run = 0; lastF = f; sumAbs += lastF2 === undefined ? 0 : Math.abs(f - lastF2); lastF2 = f; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins, maxRunGens: maxRun, meanStep: sumAbs / gens }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, worms: worms, wormStat: wormStat, spores: spores, sporeStat: sporeStat, srcStat: function () { return { n: SRC.n, cells: SRC.cells }; }, shapeStat: function () { var t0 = frameT || performance.now(), asps = [], strings = 0, lobed = 0, rounds = 0, srcs = 0, i, a2, b2; for (i = 0; i < cells.length; i++) { var c = cells[i]; if (!c.alive) continue; var o = { x: [], y: [], r: [], n: 0 }; emitCell(c, t0, 99, o); srcs += o.n; var sh = c.shp || { t: 0 }; if (sh.t === 1) strings++; else if (sh.t === 2) lobed++; else rounds++; var mn = 1e9, mx = 0; for (a2 = 0; a2 < o.n; a2++) { mn = Math.min(mn, o.r[a2]); for (b2 = a2; b2 < o.n; b2++) mx = Math.max(mx, Math.hypot(o.x[a2] - o.x[b2], o.y[a2] - o.y[b2]) + o.r[a2] + o.r[b2]); } asps.push(mx / (2 * mn)); } asps.sort(function (x, y) { return x - y; }); var mean = 0; for (i = 0; i < asps.length; i++) mean += asps[i]; mean = asps.length ? mean / asps.length : 1; var sd = 0; for (i = 0; i < asps.length; i++) sd += (asps[i] - mean) * (asps[i] - mean); sd = asps.length ? Math.sqrt(sd / asps.length) : 0; var hist = [0, 0, 0, 0, 0, 0, 0], cuts = [1.05, 1.5, 2, 3, 4.5, 7, 12]; for (i = 0; i < asps.length; i++) { var bi = 0; while (bi < 6 && asps[i] >= cuts[bi]) bi++; hist[bi]++; } return { cells: asps.length, rounds: rounds, strings: strings, lobed: lobed, geneticSources: srcs, aspectMean: +mean.toFixed(3), aspectSd: +sd.toFixed(3), aspectMin: asps.length ? +asps[0].toFixed(2) : 1, aspectMed: asps.length ? +asps[Math.floor(asps.length / 2)].toFixed(2) : 1, aspectMax: asps.length ? +asps[asps.length - 1].toFixed(2) : 1, hist: hist }; }, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
 
     if (autoRefresh && performance.now() - lastRefresh > refreshInterval * 1000) {
       // never re-deal the universe mid-configuration: while the config area is in use (panel open, lane/panel hovered,
@@ -1243,7 +1421,8 @@
   toggle('growth by eating', !!P.foodGrow, function (v) { P.foodGrow = v ? 1 : 0; }, ['growing', 'steady']);
   toggle('boundary awareness', !!P.boundAware, function (v) { P.boundAware = v ? 1 : 0; }, ['aware', 'blind']);
   toggle('respawn morph', !!P.respawnMorph, function (v) { P.respawnMorph = v ? 1 : 0; }, ['morphing', 'instant']);
-  choice('food life', 'foodMode', ['original', 'game of life', 'amorphous blobs', 'swarm']);
+  choice('food life', 'foodMode', ['original', 'game of life', 'amorphous blobs', 'swarm', 'worms', 'spores']);
+  toggle('body shapes', !!P.cellShapes, function (v) { P.cellShapes = v ? 1 : 0; }, ['varied', 'round']);
   toggle('cell metamorphosis', !!P.cellMorph, function (v) { P.cellMorph = v ? 1 : 0; }, ['drifting', 'snapping']);
   toggle('auto invert', !!P.autoInvert, function (v) { P.autoInvert = v ? 1 : 0; invertTick(); }, ['inverting', 'plain']);
   toggle('title circles', !!P.titleCircles, function (v) { P.titleCircles = v ? 1 : 0; }, ['reactive', 'still']);
