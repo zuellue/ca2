@@ -1194,8 +1194,8 @@
   function wrapSwatches() {
     ctl.querySelectorAll('input[type=color]').forEach(function (inp) {
       if (inp.dataset.sw) return; inp.dataset.sw = 1;
-      var w = document.createElement('span'); w.style.cssText = 'display:inline-block;width:34px;height:18px;vertical-align:middle;flex:none;position:relative';
-      var d = document.createElement('div'); d.className = 'cswatch'; d.style.cssText = 'position:fixed;z-index:12;pointer-events:none;box-sizing:border-box;display:none;outline:1px solid rgba(128,128,128,.55)';
+      var w = document.createElement('span'); w.style.cssText = 'display:block;width:var(--sd,23px);height:var(--sd,23px);margin:2px 0;flex:none;position:relative';
+      var d = document.createElement('div'); d.className = 'cswatch'; d.style.cssText = 'position:fixed;z-index:12;pointer-events:none;box-sizing:border-box;display:none;border-radius:50%;outline:1px solid rgba(128,128,128,.55)';
       document.body.appendChild(d);
       inp.parentNode.insertBefore(w, inp); w.appendChild(inp);
       inp.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0';
