@@ -44,7 +44,7 @@
 
   // ---- cells ----
   function Cell(x, y, gene, mr) {
-    this.x = x; this.y = y; var v = rand2D(); this.popD = Math.random() * INTRO_MS;
+    this.x = x; this.y = y; var v = rand2D(); this.popD = UI_END + Math.random() * (CELL_END - UI_END);
     this.sv = rnd(-1, 1); this.maxSpeed = Math.max(0, P.baseMaxSpeed + this.sv * P.maxSpeedVariation);
     this.vx = v.x * this.maxSpeed; this.vy = v.y * this.maxSpeed;
     this.gene = gene; this.alive = true; this.radius = P.CELL_RADIUS; this.energy = 12; this.mutationRate = mr;
@@ -225,9 +225,10 @@
   // ---- entrance: every element fades in from transparency at its own random time
   var fadeT0 = performance.now(), fadeK = {};
   // intro: no fades. Every graphic element appears at once, at its own random moment within the first INTRO_MS
-  var INTRO_MS = 2200;
+  var INTRO_MS = 2000, UI_END = 800, CELL_END = 1300, FOOD_END = 1700;
   function fadeA(key) {
-    var d = fadeK[key]; if (d === undefined) d = fadeK[key] = Math.random() * INTRO_MS;
+    var d = fadeK[key];
+    if (d === undefined) d = fadeK[key] = key.charAt(0) === 'p' ? FOOD_END + Math.random() * (INTRO_MS - FOOD_END) : Math.random() * UI_END; // UI first, parasites last
     return (performance.now() - fadeT0 >= d) ? 1 : 0;
   }
   function introOn(d) { return performance.now() - fadeT0 >= d; }
@@ -528,7 +529,7 @@
   function drawBlobs() {
     var ol = P.blobOutline; ctx.fillStyle = P.foodColor; ctx.strokeStyle = P.foodColor; ctx.lineWidth = 1.5; ctx.lineCap = 'round'; ctx.globalAlpha = P.foodAlpha;
     for (var i = 0; i < blobs.length; i++) {
-      var b = blobs[i], d = b.d; if (!introOn(((i * 0.6180339) % 1) * INTRO_MS)) continue; if (d.length < 3) { for (var q = 0; q < d.length; q++) { if (ol) ctx.strokeRect(d[q].x - P.foodSize / 2, d[q].y - P.foodSize / 2, P.foodSize, P.foodSize); else ctx.fillRect(d[q].x - P.foodSize / 2, d[q].y - P.foodSize / 2, P.foodSize, P.foodSize); } continue; }
+      var b = blobs[i], d = b.d; if (!introOn(CELL_END + ((i * 0.6180339) % 1) * (FOOD_END - CELL_END))) continue; if (d.length < 3) { for (var q = 0; q < d.length; q++) { if (ol) ctx.strokeRect(d[q].x - P.foodSize / 2, d[q].y - P.foodSize / 2, P.foodSize, P.foodSize); else ctx.fillRect(d[q].x - P.foodSize / 2, d[q].y - P.foodSize / 2, P.foodSize, P.foodSize); } continue; }
       var pts = d.slice().sort(function (u, v) { return Math.atan2(u.y - b.y, u.x - b.x) - Math.atan2(v.y - b.y, v.x - b.x); }), n = pts.length;
       ctx.beginPath(); ctx.moveTo((pts[n - 1].x + pts[0].x) / 2, (pts[n - 1].y + pts[0].y) / 2);
       for (var k = 0; k < (ol ? n - 1 : n); k++) { var p1 = pts[k], p2 = pts[(k + 1) % n]; ctx.quadraticCurveTo(p1.x, p1.y, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2); }
@@ -708,7 +709,7 @@
     }
     curS = DPR * res; drawMetaballs(curS);
 
-    if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow && introOn(food[i].r * INTRO_MS)) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; }
+    if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow && introOn(CELL_END + food[i].r * (FOOD_END - CELL_END))) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; }
     if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { if (!fadeA('pa' + i)) continue; ctx.beginPath(); ctx.arc(parasites[i].x, parasites[i].y, 2.2, 0, 6.2832); ctx.fill(); } ctx.globalAlpha = 1; }
 
     // area outline: no rounded corners. Each side stops `corner` px short of both ends, so the corner lines never meet.
@@ -739,7 +740,7 @@
     } else { curEl.style.display = 'none'; cv.style.cursor = 'default'; curOn0 = false; lockCell = null; }
     curInfo = { on: curOn, ring: ringOn, dot: curInfo3.dot, dp: curInfo3.dp, lx: curInfo2.lx, ly: curInfo2.ly, locked: curInfo2.locked, maxR: curMaxR, cx: curX, cy: curY, rr: curRR, col: curCol, title: !!titleHit };
 
-     window.__ca2 = { fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
+     window.__ca2 = { sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
 
     if (autoRefresh && performance.now() - lastRefresh > refreshInterval * 1000) randomize();
     stepLive(t0);
