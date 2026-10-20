@@ -76,15 +76,15 @@
     if (!par) {
       var u = Math.random();
       if (u < 0.35) return { t: 0, asp: 1, th: 1, wig: 0, wsp: 1, sat: 0, ph: rnd(6.2832), ph2: rnd(6.2832), dir: rnd(6.2832) };
-      if (u < 0.8) return { t: 1, asp: rnd(1.3, 4.2), th: rnd(0.3, 0.55), wig: rnd(0.15, 1.1), wsp: rnd(0.5, 1.8), sat: 0, ph: rnd(6.2832), ph2: rnd(6.2832), dir: rnd(6.2832) };
+      if (u < 0.8) return { t: 1, asp: rnd(1.3, 6), th: rnd(0.3, 1.0), wig: rnd(0.15, 1.1), wsp: rnd(0.5, 1.8), sat: 0, ph: rnd(6.2832), ph2: rnd(6.2832), dir: rnd(6.2832) };
       return { t: 2, asp: 1, th: 1, wig: 0, wsp: rnd(0.3, 1.4), sat: 2 + (Math.random() < 0.4 ? 1 : 0), ph: rnd(6.2832), ph2: rnd(6.2832), dir: rnd(6.2832) };
     }
     var a = P.genomeMut, s = { t: par.t, asp: par.asp, th: par.th, wig: par.wig, wsp: par.wsp, sat: par.sat, ph: rnd(6.2832), ph2: rnd(6.2832), dir: par.dir };
     if (Math.random() < a * 0.4) s.t = Math.floor(rnd(3)); // a rare body-plan jump
-    s.asp = clamp(s.asp * (1 + rnd(-a, a)), 1.15, 5); s.th = clamp(s.th * (1 + rnd(-a, a) * 0.6), 0.25, 0.7);
+    s.asp = clamp(s.asp * (1 + rnd(-a, a)), 1.15, 7); s.th = clamp(s.th * (1 + rnd(-a, a) * 0.6), 0.25, 1.1);
     s.wig = clamp(s.wig + rnd(-a, a) * 0.8, 0, 1.4); s.wsp = clamp(s.wsp * (1 + rnd(-a, a) * 0.5), 0.2, 2.5);
     if (s.t === 0) { s.asp = 1; s.th = 1; s.wig = 0; }
-    if (s.t === 1 && (s.asp < 1.25 || s.th > 0.6)) { s.asp = Math.max(s.asp, 1.3); s.th = Math.min(s.th, 0.6); }
+    if (s.t === 1 && s.asp < 1.25) s.asp = 1.3;
     if (s.t === 2 && !s.sat) s.sat = 2 + (Math.random() < 0.4 ? 1 : 0);
     return s;
   }
@@ -92,7 +92,7 @@
     if (!a2) return b2 ? newShape(b2) : newShape(null); if (!b2) return newShape(a2);
     var s = newShape(a2); s.t = Math.random() < 0.5 ? a2.t : b2.t;
     s.asp = (a2.asp + b2.asp) / 2; s.th = (a2.th + b2.th) / 2; s.wig = (a2.wig + b2.wig) / 2; s.wsp = (a2.wsp + b2.wsp) / 2; s.sat = Math.max(a2.sat || 0, b2.sat || 0);
-    if (s.t === 1 && (s.asp < 1.25 || s.th > 0.6)) { s.asp = Math.max(s.asp, 1.3); s.th = Math.min(s.th, 0.6); }
+    if (s.t === 1 && s.asp < 1.25) s.asp = 1.3;
     if (s.t === 2 && !s.sat) s.sat = 2;
     return s;
   }
@@ -135,11 +135,13 @@
     limit(c, c.maxSpeed * sm * c.speedModifier * (resizeDrag ? 1 + P.restless * 1.5 : 1));
     organic(c);
     c.x += c.vx; c.y += c.vy;
-    if (c.shp && c.shp.t === 1) { // a string turns into its heading and swims with a side-to-side wave
-      var spv = Math.hypot(c.vx, c.vy);
-      if (spv > 0.25) { var wa = Math.atan2(c.vy, c.vx), daa = wa - c.shp.dir; while (daa > 3.1416) daa -= 6.2832; while (daa < -3.1416) daa += 6.2832; c.shp.dir += daa * 0.05; }
-      var swk = Math.sin(performance.now() / 700 * (1 + c.shp.wsp) + c.shp.ph) * c.shp.wig * 0.05 * (c.maxSpeed * 0.4 + 0.4);
-      c.vx += -Math.sin(c.shp.dir) * swk; c.vy += Math.cos(c.shp.dir) * swk;
+    if (c.shp && c.shp.t === 1) { // a string turns into its drift and swims with a side-to-side wave
+      var sh2 = c.shp; sh2.svx = (sh2.svx || 0) * 0.94 + c.vx * 0.06; sh2.svy = (sh2.svy || 0) * 0.94 + c.vy * 0.06;
+      var spv = Math.hypot(sh2.svx, sh2.svy);
+      if (spv > 0.15) { var wa = Math.atan2(sh2.svy, sh2.svx), daa = wa - sh2.dir; while (daa > 3.1416) daa -= 6.2832; while (daa < -3.1416) daa += 6.2832; sh2.dir += daa * 0.12; }
+      var swk = Math.sin(performance.now() / 700 * (1 + sh2.wsp) + sh2.ph) * sh2.wig * 0.05 * (c.maxSpeed * 0.4 + 0.4);
+      c.vx += -Math.sin(sh2.dir) * swk; c.vy += Math.cos(sh2.dir) * swk;
+      var vv = Math.hypot(c.vx, c.vy); if (vv > 0.05) { c.vx = lerp(c.vx, Math.cos(sh2.dir) * vv, 0.04); c.vy = lerp(c.vy, Math.sin(sh2.dir) * vv, 0.04); } // it swims where it points
     }
     var cm = c.cl && P.eatMergeOn ? cmean[c.cl] : null;
     c.energy -= P.energyConsumptionRate * (cm ? 0.85 : 1);
@@ -507,10 +509,10 @@
   function srcGrow(n) { if (n <= SRC.x.length) return; var m = SRC.x.length * 2; while (m < n) m *= 2; ['x', 'y', 'r', 'wr', 'wg', 'wb'].forEach(function (k) { var a2 = new Float32Array(m); a2.set(SRC[k]); SRC[k] = a2; }); }
   function emitCell(c, t0, allowance, o) { // appends the cell's sources (plate-relative) to o = { x, y, r, n }
     var bx = c.x - cont.x, by = c.y - cont.y, sh = c.shp;
-    if (P.cellShapes && sh && sh.t === 1 && allowance > 1) { // string
-      var rs = c.radius * sh.th, ds = rs * 1.15, want = Math.min(9, Math.max(2, Math.round(2 * c.radius * sh.asp / ds) + 1)), nn = Math.min(want, allowance);
+    if (P.cellShapes && sh && sh.t === 1 && allowance > 1) { // string: silhouette aspect asp, thickness th (short fat stubs are 2-3 discs)
+      var rs = c.radius * sh.th, span = 2 * c.radius * sh.th * (sh.asp - 1), want = Math.min(9, Math.max(2, Math.round(span / (1.15 * rs)) + 1)), nn = Math.min(want, allowance);
       if (nn >= 2) {
-        var ux = Math.cos(sh.dir), uy = Math.sin(sh.dir), px = -uy, py = ux, span = ds * (nn - 1), tq = t0 / 850 * (1 + sh.wsp) + sh.ph;
+        var ux = Math.cos(sh.dir), uy = Math.sin(sh.dir), px = -uy, py = ux, ds = span / (nn - 1), tq = t0 / 850 * (1 + sh.wsp) + sh.ph;
         for (var k = 0; k < nn; k++) { var d0 = -span / 2 + ds * k, off2 = sh.wig * rs * Math.sin(tq + k * 0.85); o.x.push(bx + ux * d0 + px * off2); o.y.push(by + uy * d0 + py * off2); o.r.push(rs); o.n++; }
         return;
       }
