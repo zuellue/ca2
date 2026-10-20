@@ -16,6 +16,7 @@ async function launch(port,url,extra){
   const send=(method,params={})=>new Promise(r=>{p[++id]=r;ws.send(JSON.stringify({id,method,params}));});
   await send('Runtime.enable'); await send('Page.enable');
   const ev=async e=>{const r=await send('Runtime.evaluate',{expression:e,returnByValue:true,awaitPromise:true}); if(r.exceptionDetails) return 'EXC:'+JSON.stringify(r.exceptionDetails).slice(0,400); return r.result.value;};
-  return {send,ev,errs,sleep:ms=>new Promise(r=>setTimeout(r,ms)),close:()=>{try{ch.kill()}catch(e){}try{ws.close()}catch(e){}},mouse:(x,y,type='mouseMoved',extra2={})=>send('Input.dispatchMouseEvent',Object.assign({type,x,y},extra2))};
+  return {send,ev,errs,sleep:ms=>new Promise(r=>setTimeout(r,ms)),close:()=>{try{ch.kill()}catch(e){}try{ws.close()}catch(e){}},mouse:(x,y,type='mouseMoved',extra2={})=>send('Input.dispatchMouseEvent',Object.assign({type,x,y},extra2)),
+  shot:async p=>{const r=await send('Page.captureScreenshot',{format:'png'});require('fs').writeFileSync(p,Buffer.from(r.data,'base64'));return p}};
 }
 module.exports={serve,launch};

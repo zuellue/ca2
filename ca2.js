@@ -1500,30 +1500,6 @@
   toggle('axis lines', !!P.showAxis, function (v) { P.showAxis = v ? 1 : 0; }, ['visible', 'hidden']);
   choice('config font', 'cfgFont', CFG_FONTS, applyTypo);
   choice('config case', 'cfgCase', CFG_CASES, applyTypo);
-  var fcRow = document.createElement('div'); fcRow.className = 'row';
-  fcRow.innerHTML = '<div class="lab"><span>food dot color</span><b style="font-weight:normal">' + P.foodColor + '</b></div>';
-  var fcInp = document.createElement('input'); fcInp.type = 'color'; fcInp.value = P.foodColor; fcInp.style.cssText = 'border:0;background:none;padding:0;cursor:pointer';
-  fcInp.addEventListener('input', function () { P.foodColor = fcInp.value; touched.foodColor = 1; fcRow.querySelector('b').textContent = fcInp.value; save(); });
-  fcRow.appendChild(fcInp); ctl.insertBefore(fcRow, gh); SECS[8].els.push(fcRow);
-  var lcRow = document.createElement('div'); lcRow.className = 'row';
-  lcRow.innerHTML = '<div class="lab"><span>parameter line color</span><b style="font-weight:normal">' + P.lineColor + '</b></div>';
-  var lcInp = document.createElement('input'); lcInp.type = 'color'; lcInp.value = P.lineColor; lcInp.style.cssText = 'border:0;background:none;padding:0;cursor:pointer';
-  lcInp.addEventListener('input', function () { P.lineColor = lcInp.value; touched.lineColor = 1; lcRow.querySelector('b').textContent = lcInp.value; applyLineColor(); save(); });
-  function colRow(label, key) {
-    var row = document.createElement('div'); row.className = 'row';
-    row.innerHTML = '<div class="lab"><span>' + label + '</span><b style="font-weight:normal">' + (P[key] || 'auto') + '</b></div>';
-    var inp = document.createElement('input'); inp.type = 'color'; inp.value = P[key] || '#111111'; inp.style.cssText = 'border:0;background:none;padding:0;cursor:pointer';
-    inp.addEventListener('input', function () { P[key] = inp.value; touched[key] = 1; row.querySelector('b').textContent = inp.value; applyLineColor(); save(); });
-    row.appendChild(inp); ctl.insertBefore(row, SECS[2].hdr); SECS[1].els.push(row);
-  }
-  colRow('section line color', 'ruleColor'); colRow('section button stroke color', 'circColor'); colRow('axis line color', 'axisColor');
-  lcRow.appendChild(lcInp); ctl.insertBefore(lcRow, SECS[2].hdr); SECS[1].els.push(lcRow);
-  var bgRow = document.createElement('div'); bgRow.className = 'row';
-  bgRow.innerHTML = '<div class="lab"><span>background</span><b style="font-weight:normal">#e9e9e9</b></div>';
-  var colorInp = document.createElement('input'); colorInp.type = 'color'; colorInp.value = '#' + bgTarget.map(function (v) { return ('0' + (v | 0).toString(16)).slice(-2); }).join(''); colorInp.style.cssText = 'border:0;background:none;padding:0;cursor:pointer';
-  colorInp.addEventListener('input', function () { var v = colorInp.value; bgTarget = [parseInt(v.substr(1, 2), 16), parseInt(v.substr(3, 2), 16), parseInt(v.substr(5, 2), 16)]; bgRow.querySelector('b').textContent = v; save(); });
-  bgRow.appendChild(colorInp); ctl.insertBefore(bgRow, SECS[1].hdr); SECS[0].els.push(bgRow);
-  wrapSwatches();
   function btn(label, fn) { var b = document.createElement('button'); b.textContent = label; b.addEventListener('click', fn); btns.appendChild(b); }
   btn('respawn', function () { randomize(); });
   btn('randomize', function () { lockParams = false; lockBox.checked = false; lockVal.textContent = 'off'; randomize(); });
@@ -1567,30 +1543,6 @@
     pn.classList.toggle('blend', !!P.autoInvert);
     if (P.autoInvert) { pn.style.setProperty('--kl', P.lineColor === '#111111' ? '#ffffff' : P.lineColor); }
     else pn.style.removeProperty('--kl');
-    paintSwatches();
-  }
-  // a colour picker inside the difference-blended panel would show |page - colour|. The native input is made invisible and its swatch is a
-  // plain element outside the panel (fixed, above it, not blended) that follows the input, so the colour you pick is the colour you see.
-  var swatches;
-  function wrapSwatches() {
-    ctl.querySelectorAll('input[type=color]').forEach(function (inp) {
-      if (inp.dataset.sw) return; inp.dataset.sw = 1;
-      var w = document.createElement('span'); w.style.cssText = 'display:block;width:var(--sd,23px);height:var(--sd,23px);margin:2px 0;flex:none;position:relative';
-      var d = document.createElement('div'); d.className = 'cswatch'; d.style.cssText = 'position:fixed;z-index:12;pointer-events:none;box-sizing:border-box;display:none;border-radius:50%;outline:1px solid rgba(128,128,128,.55)';
-      document.body.appendChild(d);
-      inp.parentNode.insertBefore(w, inp); w.appendChild(inp);
-      inp.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0';
-      inp.addEventListener('input', paintSwatches); (swatches = swatches || []).push({ inp: inp, d: d, w: w });
-    });
-    paintSwatches();
-  }
-  function paintSwatches() {
-    var pr = document.getElementById('panel').getBoundingClientRect(), vis = pr.left < W - 4;
-    (swatches || []).forEach(function (sw) {
-      var r = sw.w.getBoundingClientRect(), ok = vis && r.width > 0 && r.top >= pr.top && r.bottom <= pr.bottom && r.left >= pr.left;
-      sw.d.style.display = ok ? 'block' : 'none'; if (!ok) return;
-      sw.d.style.left = r.left + 'px'; sw.d.style.top = r.top + 'px'; sw.d.style.width = r.width + 'px'; sw.d.style.height = r.height + 'px'; sw.d.style.background = sw.inp.value;
-    });
   }
   // knob colours (random R/G/B on hover, live CA colour) are drawn as plain elements outside the blended panel so they stay true R/G/B
   function paintKnobs() {
@@ -1610,7 +1562,7 @@
   }
   if (PERF) { var ph = document.createElement('pre'); ph.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:99;margin:0;font:11px/1.3 monospace;color:#0f0;background:rgba(0,0,0,.7);padding:6px;pointer-events:none'; document.body.appendChild(ph);
     setInterval(function () { var o = 'fps ' + Math.round(fps) + '  frame ' + frameMs.toFixed(1) + ' ms  res ' + res.toFixed(2) + '  dpr ' + DPR + '  cells ' + cells.length + '\n' + 'metaball field: ' + MB.path + '  ' + MB.ms.toFixed(2) + ' ms' + (WC.off ? '  (wasm failed: ' + WC.err + ')' : (/[?&]nowasm=1/.test(location.search) ? '  (?nowasm=1)' : (WC.ok ? '' : '  (wasm: ' + (WC.err || 'loading') + ')'))) + '\n'; for (var k in PF) if (!/total/.test(k)) o += (k + '                    ').slice(0, 18) + PF[k].toFixed(2) + '\n'; ph.textContent = o; }, 500); }
-  (function swLoop() { try { paintSwatches(); paintKnobs(); } catch (e) {} requestAnimationFrame(swLoop); })();
+  (function swLoop() { try { paintKnobs(); } catch (e) {} requestAnimationFrame(swLoop); })();
   setInterval(invertTick, 250);
   function applyLineColor() { invertTick(); var rt = document.documentElement.style; rt.setProperty('--kl', P.lineColor); if (P.ruleColor) rt.setProperty('--kr', P.ruleColor); else rt.removeProperty('--kr'); if (P.circColor) rt.setProperty('--kc', P.circColor); else rt.removeProperty('--kc'); }
   var panel = document.getElementById('panel'), blurEl = document.getElementById('blur'), blurLEl = document.getElementById('blurl');
@@ -1862,6 +1814,36 @@
   // the topmost button is the CONFIG title: one click shows every section again, scrolled to the start
   addCirc({ name: 'config', hdr: panel.querySelector('h1'), els: [] });
   SECS.forEach(addCirc);
+  // ---- colour swatches: knob-size circle switches in their own lane, one per colour. OFF is hollow (default colour),
+  // ON fills with a random R/G/B and applies it; hover paints the circle black; the name shows briefly on every toggle. (owner 21 Oct)
+  var swl = document.createElement('div'); swl.id = 'swl'; document.body.appendChild(swl); hookHov(swl);
+  function hex2rgb(h) { return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)]; }
+  var SW_DEFS = [
+    { label: 'background', on: 'swBg', set: function (c) { if (c) { bgTarget = hex2rgb(c); } else { bgIndex = 0; bgTarget = BGS[0]; } }, get: function () { return '#' + bgTarget.map(function (v) { return ('0' + (v | 0).toString(16)).slice(-2); }).join(''); } },
+    { label: 'knob lines', on: 'swLineColor', key: 'lineColor', dflt: '#111111' },
+    { label: 'section lines', on: 'swRuleColor', key: 'ruleColor', dflt: '' },
+    { label: 'button rings', on: 'swCircColor', key: 'circColor', dflt: '' },
+    { label: 'axis lines', on: 'swAxisColor', key: 'axisColor', dflt: '' },
+    { label: 'food dots', on: 'swFoodColor', key: 'foodColor', dflt: '#000000' }
+  ];
+  SW_DEFS.forEach(function (def) {
+    var row = document.createElement('div'); row.className = 'swr';
+    var nm = document.createElement('span'); nm.textContent = def.label;
+    var c = document.createElement('div'); c.className = 'swc';
+    row.appendChild(nm); row.appendChild(c); swl.appendChild(row);
+    function apply(col) { if (def.set) def.set(col); else { P[def.key] = col; touched[def.key] = 1; applyLineColor(); } }
+    function paint() { c.style.background = P[def.on] ? (def.get ? def.get() : P[def.key]) : 'transparent'; }
+    var hideT = null;
+    c.addEventListener('pointerenter', function () { c.style.background = '#000'; });
+    c.addEventListener('pointerleave', paint);
+    c.addEventListener('click', function () {
+      P[def.on] = P[def.on] ? 0 : 1; touched[def.on] = 1;
+      apply(P[def.on] ? CIRC_COLS[Math.floor(Math.random() * 3)] : (def.dflt === undefined ? null : def.dflt));
+      paint(); save();
+      nm.style.opacity = '1'; clearTimeout(hideT); hideT = setTimeout(function () { nm.style.opacity = '0'; }, 1400);
+    });
+    paint();
+  });
 
   // depth of field on both screen edges, one design: opening the config pulls it in like a lens (edge layer first, small
   // overshoot, soft settle); with no pointer movement for focusIdleMs the same edge field also drifts in over focusInMs;
@@ -2099,7 +2081,7 @@
   function partIn(el, base) { el.style.animation = 'ca2in ' + (0.16 + Math.random() * 0.2).toFixed(2) + 's ease-out both'; el.style.animationDelay = (base + Math.random() * 0.14).toFixed(3) + 's'; }
   [].forEach.call(panel.children, function (el) { if (el.id !== 'controls') partIn(el, Math.random() * 0.25); });
   [].forEach.call(document.querySelectorAll('#controls .row'), function (el, ri) {
-    var base = Math.min(ri, 14) * 0.02, ps = el.querySelectorAll('.lab > span, .lab > b, input, button, .cswatch, select');
+    var base = Math.min(ri, 14) * 0.02, ps = el.querySelectorAll('.lab > span, .lab > b, input, button, select');
     if (!ps.length) { partIn(el, base); return; }
     [].forEach.call(ps, function (p) { partIn(p, base); });
   });

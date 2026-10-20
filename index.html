@@ -52,7 +52,12 @@
 
   @keyframes ca2in { from { opacity: 0 } to { opacity: 1 } }
   #panel h1 { margin: 0 0 6px; font-weight: normal; font-size: 13px; letter-spacing: calc(.3em + 1px); font-family: 'Times New Roman', Times, serif; }
-  input[type=color] { -webkit-appearance: none; appearance: none; display: block; margin: 2px 0; width: var(--sd, 23px); height: var(--sd, 23px); border-radius: 50%; border: 0; padding: 0; background: none; overflow: hidden; cursor: pointer; }
+  #swl { position: fixed; top: 0; right: calc(var(--sd, 23px) + 26px); z-index: 11; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 14px; transform: translateX(200%); transition: transform .2s ease-out; pointer-events: none; }
+  #panel.open ~ #swl, #panel.hov ~ #swl { transform: translateX(0); }
+  @media (hover: hover) { #tab:hover ~ #swl, #panel:hover ~ #swl, #swl:hover { transform: translateX(0); } }
+  .swr { display: flex; align-items: center; justify-content: flex-end; gap: 10px; pointer-events: auto; }
+  .swr span { font-family: var(--cff, 'Times New Roman', Times, serif); font-size: var(--cfs, 13px); color: var(--fg); opacity: 0; transition: opacity .3s; }
+  .swc { width: var(--sd, 23px); height: var(--sd, 23px); border-radius: 50%; box-sizing: border-box; border: var(--lw, 1px) solid var(--kc, var(--fg)); cursor: pointer; background: transparent; }
   input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
   input[type=color]::-webkit-color-swatch { border: 0; border-radius: 50%; }
   input[type=color]::-moz-color-swatch { border: 0; border-radius: 50%; }
