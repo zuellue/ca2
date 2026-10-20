@@ -19,7 +19,7 @@
     minRefreshInterval: 10, maxRefreshInterval: 20, slowDownRadius: 20, speedReductionFactor: 50.3,
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
-    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, titleCircles: 1, circleHold: 1,
+    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, titleCircles: 1, circleHold: 1,
     audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, audioMicro: 0, audioMicroPitch: 1200, audioMicroDecay: 70, audioMicroRand: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1
   };
   // owner's chosen defaults (23:04)
@@ -893,7 +893,7 @@
       ['areaMin', 'area floor', 0.1, 1, 0.01], ['areaMax', 'area ceiling', 0.1, 1, 0.01],
       ['morphEase', 'area morph speed', 0.02, 1, 0.01], ['colorSpeed', 'color speed', 0.02, 1, 0.01]]],
     ['panel', [
-      ['panelAlpha', 'config opacity', 0, 1, 0.01], ['panelWidth', 'config width px', 200, 600, 5], ['blurWidth', 'backdrop blur width px', 0, 600, 5]]],
+      ['panelAlpha', 'config opacity', 0, 1, 0.01], ['panelWidth', 'config width px', 200, 600, 5], ['blurWidth', 'backdrop blur width px', 0, 600, 5], ['blurStrength', 'backdrop blur strength px', 0, 64, 1]]],
     ['cursor', [
       ['cursorSens', 'cursor sensitivity', 0.05, 1, 0.01], ['cursorSize', 'cursor size (x largest cell)', 0.2, 2, 0.01], ['cursorLockMs', 'cursor lock ms', 0, 3000, 50]]],
     ['grain', [
@@ -929,7 +929,8 @@
     else if (k === 'minRadius' || k === 'maxRadius') { P.CELL_RADIUS = clamp(P.CELL_RADIUS, P.minRadius, Math.max(P.minRadius, P.maxRadius)); cells.forEach(function (c) { c.radius = P.CELL_RADIUS; }); }
     else if (k === 'pixelRatio') resizeCanvas();
     else if (k === 'panelWidth' && panel) panel.style.width = v + 'px';
-    else if (k === 'blurWidth' && blurEl) blurEl.style.width = v + 'px';
+    else if (k === 'blurWidth') { if (blurEl) blurEl.style.width = v + 'px'; if (blurLEl) blurLEl.style.width = v + 'px'; }
+    else if (k === 'blurStrength') document.documentElement.style.setProperty('--bmax', v + 'px');
     else if (k === 'resolution') res = v;
     else if (layoutKeys[k]) clampTargets();
     else if (k === 'baseMaxSpeed' || k === 'maxSpeedVariation') cells.forEach(function (c) { c.maxSpeed = speedOf(c); });
@@ -1094,8 +1095,9 @@
     if (!ok && navigator.clipboard && navigator.clipboard.writeText) { try { navigator.clipboard.writeText(txt).then(function () { bt.textContent = 'copied'; }, function () { bt.textContent = 'copy failed'; }); } catch (er) { bt.textContent = 'copy failed'; } return; }
     bt.textContent = ok ? 'copied' : 'copy failed'; window.ca2copy = txt; setTimeout(function () { bt.textContent = 'copy json'; }, 1500);
   });
-  var panel = document.getElementById('panel'), blurEl = document.getElementById('blur');
-  panel.style.width = P.panelWidth + 'px'; blurEl.style.width = P.blurWidth + 'px';
+  var panel = document.getElementById('panel'), blurEl = document.getElementById('blur'), blurLEl = document.getElementById('blurl');
+  panel.style.width = P.panelWidth + 'px'; blurEl.style.width = P.blurWidth + 'px'; blurLEl.style.width = P.blurWidth + 'px';
+  document.documentElement.style.setProperty('--bmax', P.blurStrength + 'px');
 
   // ---- section circles: one per config section in the panel's right lane ----
   // title-dot size (166.5 font units), axis-line stroke, hollow; hover fills a random R/G/B (stroke too) and shows the
@@ -1109,7 +1111,7 @@
     var txt = sec.name.toUpperCase(), spans = [];
     for (var i = 0; i < txt.length; i++) { var sp = document.createElement('span'); sp.textContent = txt[i]; lb.appendChild(sp); spans.push(sp); }
     it.appendChild(c); it.appendChild(lb); secc.appendChild(it); sec.circ = c;
-    var caT = null, caSt = null;
+    var caT = null, caSt = null, t1 = null, t2 = null, clone = null, dividing = false;
     c.addEventListener('pointerenter', function () {
       var col = CIRC_COLS[Math.floor(Math.random() * 3)];
       c.style.background = col; c.style.borderColor = col; lb.style.color = col;
@@ -1117,7 +1119,7 @@
       spans.forEach(function (sp) { sp.style.opacity = '0'; sp.style.transitionDelay = (Math.random() * 0.35).toFixed(2) + 's'; });
       void lb.offsetWidth;
       spans.forEach(function (sp) { sp.style.opacity = '1'; });
-      // the circle stirs with a small rule-110 life of its own, like the knobs (visual only)
+      // the circle stirs with a small rule-110 life of its own, like the knobs - shrinking, not growing (visual only)
       caSt = { s: (hash(sec.name) ^ 0x51f3) || 9 }; var bits = [];
       for (var i = 0; i < 16; i++) bits.push(lcg(caSt) < 0.5 ? 1 : 0);
       var dx = 0;
@@ -1127,15 +1129,41 @@
         if (sum === 0 || sum === 16) nb[Math.floor(lcg(caSt) * 16)] ^= 1;
         bits = nb;
         dx = clamp(dx + (nb[0] + nb[5] + nb[10] - 1.5) * 1.5 + (lcg(caSt) - 0.5) * 2, -6, 6);
-        c.style.transform = 'translate(' + dx.toFixed(1) + 'px,0) scale(' + (1 + sum / 16 * 0.4).toFixed(2) + ')';
+        if (!dividing) c.style.transform = 'translate(' + dx.toFixed(1) + 'px,0) scale(' + (1 - sum / 16 * 0.4).toFixed(2) + ')';
       }, 110);
+      // hover longer than 2 s: the circle divides like a cell
+      t1 = setTimeout(function () {
+        t1 = null; dividing = true;
+        clone = c.cloneNode(false);
+        clone.style.position = 'absolute'; clone.style.left = c.offsetLeft + 'px'; clone.style.top = c.offsetTop + 'px';
+        clone.style.pointerEvents = 'none'; clone.style.margin = '0'; clone.style.transform = 'translate(0,0) scale(1)';
+        clone.style.transition = 'transform .5s ease, opacity .5s ease';
+        c.parentNode.style.position = 'relative'; c.parentNode.appendChild(clone);
+        void clone.offsetWidth;
+        var half = c.offsetWidth / 2 + 2;
+        c.style.transition = 'transform .5s ease';
+        c.style.transform = 'translate(0,' + (-half) + 'px) scale(.55)';
+        clone.style.transform = 'translate(0,' + half + 'px) scale(.55)';
+        // the mouse stays: one daughter dies, the survivor grows back into a stroke-only line button
+        t2 = setTimeout(function () {
+          t2 = null;
+          if (clone) { clone.style.opacity = '0'; setTimeout(function () { if (clone) { clone.remove(); clone = null; } }, 550); }
+          c.style.transition = 'transform .5s ease, background .5s ease';
+          c.style.transform = 'translate(0,0) scale(1)';
+          c.style.background = 'transparent';
+        }, 1200);
+      }, 2000);
     });
     c.addEventListener('pointerleave', function () {
       c.style.background = 'transparent'; c.style.borderColor = '';
       spans.forEach(function (sp) { sp.style.opacity = '0'; sp.style.transitionDelay = '0s'; });
       lb.style.height = '0px';
       if (caT) { clearInterval(caT); caT = null; }
-      c.style.transform = '';
+      if (t1) { clearTimeout(t1); t1 = null; }
+      if (t2) { clearTimeout(t2); t2 = null; }
+      dividing = false;
+      if (clone) { clone.remove(); clone = null; }
+      c.style.transition = ''; c.style.transform = '';
     });
     c.addEventListener('click', function (e) {
       e.stopPropagation();
