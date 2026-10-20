@@ -1097,7 +1097,7 @@
   // section name vertically with a typewriter animation; the circles below slide away from the label; click folds the section.
   var secc = document.createElement('div'); secc.id = 'secc'; panel.appendChild(secc);
   var CIRC_COLS = ['#ff0000', '#00ff00', '#0000ff'];
-  SECS.forEach(function (sec) {
+  function addCirc(sec) {
     var it = document.createElement('div'); it.className = 'sci';
     var c = document.createElement('div'); c.className = 'sc';
     var lb = document.createElement('div'); lb.className = 'sl';
@@ -1140,7 +1140,10 @@
       var targetY = cR.top + cR.height / 2 - pR.top;
       panel.scrollTo({ top: panel.scrollTop + (hR.top - pR.top) - targetY, behavior: 'smooth' });
     });
-  });
+  }
+  // the topmost button is the CONFIG title: one click scrolls the column back to the start
+  addCirc({ name: 'config', hdr: panel.querySelector('h1'), els: [], folded: false });
+  SECS.forEach(addCirc);
   var admCircles = []; // filled by adminInit: 4 stacked digit circles, same lane and size as the section circles
   var circSig = '';
   function placeCircles() {
