@@ -624,10 +624,10 @@
 
     if (pendingSpawn) { // batched first spawn: a few cells per frame after the UI intro, food after the cells
       var el0 = t0 - fadeT0;
-      if (el0 >= UI_END) {
-        var sp = pendingSpawn, nb0 = Math.min(sp.cells, 6);
-        for (var spI = 0; spI < nb0; spI++) { cells.push(new Cell(rnd(cont.tw) + sp.gx, rnd(cont.th) + sp.gy, Math.floor(rnd(P.GENE_MIN, P.GENE_MAX + 1)), P.baseMutationRate + rnd(-P.mutationRateRange, P.mutationRateRange))); sp.cells--; }
-        if (el0 >= CELL_END && sp.food > 0) { var spF = Math.min(sp.food, 1000); for (var spJ = 0; spJ < spF; spJ++) food.push({ x: rnd(cont.tw) + sp.gx, y: rnd(cont.th) + sp.gy, r: Math.random() }); sp.food -= spF; }
+      if (el0 >= UI_END) { // time-boxed batches: the spawn never blocks a frame longer than ~6 ms
+        var sp = pendingSpawn, bt0 = performance.now();
+        while (sp.cells > 0 && performance.now() - bt0 < 6) { cells.push(new Cell(rnd(cont.tw) + sp.gx, rnd(cont.th) + sp.gy, Math.floor(rnd(P.GENE_MIN, P.GENE_MAX + 1)), P.baseMutationRate + rnd(-P.mutationRateRange, P.mutationRateRange))); sp.cells--; }
+        if (el0 >= CELL_END) { var bt1 = performance.now(); while (sp.food > 0 && performance.now() - bt1 < 6) { food.push({ x: rnd(cont.tw) + sp.gx, y: rnd(cont.th) + sp.gy, r: Math.random() }); sp.food--; } }
         if (sp.cells <= 0 && sp.food <= 0) pendingSpawn = null;
       }
     }
@@ -800,7 +800,7 @@
       CA2Audio.update({ density: clamp(cells.length / Math.max(20, P.UNIVERSE_SIZE * 1.5), 0, 1), activity: clamp(spd / nn / 15, 0, 1), pan: ((mx / nn) - W / 2) / (W / 2), birth: ev.birth - aev.b, death: ev.death - aev.d, hit: ev.hit - aev.h }, P);
       aev.b = ev.birth; aev.d = ev.death; aev.h = ev.hit;
     }
-    if (window.CA2Grain && CA2Grain.ok && P.grain && t0 - fadeT0 >= FOOD_END) {
+    if (window.CA2Grain && CA2Grain.ok && P.grain && t0 - fadeT0 >= INTRO_MS + 400) { // grain is the last layer to join, clear of the intro
       cvg.style.display = 'block';
       CA2Grain.render(cv, { amount: P.grainAmount, strength: P.grainStrength, size: P.grainSize, softness: P.grainSoft, chroma: P.grainChroma, development: P.grainDev, fine: P.grainFine, crystal: P.grainCrystal, cloud: P.grainCloud }, P.grainFps > 0 ? Math.floor(performance.now() / 1000 * P.grainFps) : 0, DPR);
     } else cvg.style.display = 'none';
@@ -1171,7 +1171,7 @@
   }
   res = P.resolution;
   (document.fonts && document.fonts.load ? document.fonts.load('40px "Ca2-Thin"') : Promise.resolve()).catch(function () {}).then(function () {
-    resize(); randomize(true, true); firstSpawn = false; fadeT0 = performance.now(); ready = true; setTimeout(function () { if (window.CA2Audio && P.audioOn) CA2Audio.start(); }, FOOD_END); requestAnimationFrame(loop);
+    resize(); randomize(true, true); firstSpawn = false; fadeT0 = performance.now(); ready = true; setTimeout(function () { if (window.CA2Audio && P.audioOn) CA2Audio.start(); }, INTRO_MS + 2000); requestAnimationFrame(loop);
   });
   document.getElementById('tab').addEventListener('click', function () { panel.classList.toggle('open'); });
   if (/open/.test(location.hash)) panel.classList.add('open');
