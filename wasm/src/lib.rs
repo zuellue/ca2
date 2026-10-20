@@ -186,6 +186,8 @@ pub extern "C" fn mb_field_f32(n: usize, bw: usize, bh: usize, s: f64, ms: f64, 
 #[no_mangle] pub extern "C" fn sim_out() -> *const f64 { sim::sim().out.as_ptr() }
 #[no_mangle] pub extern "C" fn sim_step(s0: f64, s1: f64) { sim::sim().step(s0, s1); }
 #[no_mangle] pub extern "C" fn sim_log() -> *const f64 { sim::sim().log.as_ptr() }
+#[no_mangle] pub extern "C" fn sim_cap() -> usize { sim::sim().cap }
+#[no_mangle] pub extern "C" fn sim_cells_ptr() -> *mut f64 { sim::sim().cells.as_mut_ptr() }
 
 #[no_mangle] pub extern "C" fn sw_in(n: usize) -> *mut f64 { let s = swarm::sw(); s.inb.resize(n * 6 + 6, 0.0); s.inb.as_mut_ptr() }
 #[no_mangle] pub extern "C" fn sw_run(n: usize, x0: f64, x1: f64, y0: f64, y1: f64, life: f64, can_birth: f64, low_cap: f64, s0: f64, s1: f64) -> f64 { swarm::sw().step(n, x0, x1, y0, y1, life != 0.0, can_birth != 0.0, low_cap, s0, s1) as f64 }

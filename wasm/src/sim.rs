@@ -102,7 +102,13 @@ impl Sim {
     fn cm_find(&self, id: f64) -> Option<usize> { self.cm_id.iter().position(|&x| x == id) }
     fn new_kid(&mut self, x: f64, y: f64, gene: f64, mr: f64) -> usize {
         // port of the Cell constructor numeric fields
-        if self.n * ST >= self.cells.len() { return usize::MAX; }
+        if self.n * ST >= self.cells.len() {
+            // one-step birth burst overflowed the JS-sized buffer: grow instead of dropping the kid
+            // (JS re-reads sim_cap/sim_cells_ptr after every step)
+            let ncap = (self.cap * 2).max(self.n + 256);
+            self.cap = ncap; self.cells.resize(ncap * ST, 0.0);
+            if self.n * ST >= self.cells.len() { return usize::MAX; }
+        }
         let i = self.n; self.n += 1; self.live += 1;
         let (vdx, vdy) = self.rand2d();
         let sv = self.rnd(-1.0, 1.0);
