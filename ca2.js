@@ -1266,14 +1266,29 @@
         if (!did && t2) { clearInterval(t2); t2 = null; }
       }
       t1 = setTimeout(function () { t1 = null; split(); t2 = setInterval(split, 1300); }, 700);
+      // every section button has its own behaviour for the crowd it splits into (index = the button's place in the lane)
+      var beh = Math.max(0, SECS.indexOf(sec)) % 10, tick = 0;
       var life = setInterval(function () {
+        tick++;
         parts.forEach(function (p, i) {
-          var r = (110 >> (((i + 1) & 1) * 4 + (Math.round(p.x) & 1) * 2 + (Math.round(p.y) & 1))) & 1;
-          p.vx = clamp(p.vx * 0.96 + (r ? 1 : -1) * (lcg(caSt) - 0.45) * 1.6, -7, 7); p.vy = clamp(p.vy * 0.96 + (lcg(caSt) - 0.5) * 2.4, -7, 7);
-          var pd = Math.hypot(p.x, p.y) || 1; if (pd < 170) { p.vx += p.x / pd * 0.5 + (lcg(caSt) - 0.5) * 0.6; p.vy += p.y / pd * 0.5 + (lcg(caSt) - 0.5) * 0.6; } // dispersal: pieces fan out into a cloud around the button
+          var jx = lcg(caSt) - 0.5, jy = lcg(caSt) - 0.5, pd = Math.hypot(p.x, p.y) || 1, ax, ay;
+          switch (beh) {
+            case 0: if (pd < 40) { p.vx += p.x / pd * 0.4 + jx * 0.6; p.vy += p.y / pd * 0.4 + jy * 0.6; } else { p.vx += -p.x * 0.04 + jx * 0.6; p.vy += -p.y * 0.04 + jy * 0.6; } p.vx *= 0.9; p.vy *= 0.9; break; // small loose cloud
+            case 1: p.vx += 0.9; p.vy += jy * 1.6; p.vx *= 0.94; p.vy *= 0.9; break; // piles up against the right edge of the window
+            case 2: p.vy += 0.9; p.vx += jx * 1.4; p.vy *= 0.94; p.vx *= 0.9; break; // falls and settles on the bottom edge
+            case 3: p.vx += -p.y / pd * 0.9 + (p.x / pd) * (55 - pd) * 0.04; p.vy += p.x / pd * 0.9 + (p.y / pd) * (55 - pd) * 0.04; p.vx *= 0.9; p.vy *= 0.9; break; // swirls around the button
+            case 4: p.vx -= 0.9; p.vy += jy * 1.6; p.vx *= 0.94; p.vy *= 0.9; break; // drifts left and piles against the left edge
+            case 5: p.vy -= 0.9; p.vx += jx * 1.4; p.vy *= 0.94; p.vx *= 0.9; break; // floats up to the top edge
+            case 6: p.vx += -p.x * 0.08 + jx * 0.8; p.vy += -p.y * 0.08 + jy * 0.8; p.vx *= 0.85; p.vy *= 0.85; break; // stays a tight shivering clump
+            case 7: ax = 2 * Math.PI * i / parts.length + tick * 0.05; p.vx += (55 * Math.cos(ax) - p.x) * 0.06; p.vy += (55 * Math.sin(ax) - p.y) * 0.06; p.vx *= 0.85; p.vy *= 0.85; break; // forms a slowly turning ring
+            case 8: ax = 90 * Math.cos(tick * 0.04 + i * 0.05); ay = 60 * Math.sin(tick * 0.06 + i * 0.05); p.vx += (ax - p.x) * 0.05 + jx; p.vy += (ay - p.y) * 0.05 + jy; p.vx *= 0.85; p.vy *= 0.85; break; // sweeps a slow figure-eight around the button
+            default: p.vx -= 0.6; p.vy += 0.6 + jy * 0.4; p.vx *= 0.94; p.vy *= 0.94; // slides to the bottom left corner
+          }
+          p.vx = clamp(p.vx, -7, 7); p.vy = clamp(p.vy, -7, 7);
           p.x += p.vx; p.y += p.vy; inDisc(p); put(p);
         });
       }, 110);
+      c.dataset.beh = beh;
       var oc = caT; caT = { _a: oc, _b: life };
     });
     it.addEventListener('pointerleave', function () {
