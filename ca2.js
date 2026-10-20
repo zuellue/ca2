@@ -1133,6 +1133,7 @@
     it.appendChild(c); it.appendChild(lb); secc.appendChild(it); sec.circ = c;
     var caT = null, caSt = null, t1 = null, t2 = null, dividing = false, parts = [], home = null, D0 = 0, endTimers = [], endIv = null;
     function put(p) { p.el.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + p.y.toFixed(1) + 'px) scale(' + p.k.toFixed(2) + ')'; }
+    function inDisc(p) { var m = D0 / 2 * (1 - p.k), d = Math.hypot(p.x, p.y); if (d > m) { var f = m / (d || 1); p.x *= f; p.y *= f; p.vx *= -0.5; p.vy *= -0.5; } }
     // stop everything that animates this circle and put it back to its resting hollow state (also used when the pointer returns mid-ending)
     function cleanup() {
       if (caT) { clearInterval(caT); if (caT._a) clearInterval(caT._a); if (caT._b) clearInterval(caT._b); caT = null; }
@@ -1166,8 +1167,8 @@
       }, 110);
       // hover keeps going: in place the circle splits into four, and the pieces keep living as a tiny vector cellular
       // automaton - every 1.3 s each piece divides into four again, always in multiples of four (the crowd is capped at 24, extra pieces die)
-      D0 = c.offsetWidth; home = { x: c.offsetLeft, y: c.offsetTop }; parts = [{ el: c, x: 0, y: 0, vx: 0, vy: 0, k: 0.6 }];
-      c.parentNode.style.position = 'relative'; dividing = true;
+      c.parentNode.style.position = 'relative'; // first: offsetLeft/Top must be measured against this item, not against the fixed lane
+      D0 = c.offsetWidth; home = { x: c.offsetLeft, y: c.offsetTop }; parts = [{ el: c, x: 0, y: 0, vx: 0, vy: 0, k: 0.6 }]; dividing = true;
       c.style.transition = 'transform .25s ease';
       function mk() { var n = c.cloneNode(false); n.style.position = 'absolute'; n.style.left = home.x + 'px'; n.style.top = home.y + 'px'; n.style.pointerEvents = 'none'; n.style.margin = '0'; n.style.transition = 'transform .25s ease'; n.style.background = c.style.background; n.style.borderColor = c.style.borderColor; c.parentNode.appendChild(n); return n; }
       function split() {
@@ -1181,14 +1182,14 @@
         });
         // cap at 24 (a multiple of 4): extra pieces die, the original circle always survives
         while (out.length > 24) { var i = 1 + Math.floor(lcg(caSt) * (out.length - 1)); out[i].el.remove(); out.splice(i, 1); }
-        parts = out; parts.forEach(put);
+        parts = out; parts.forEach(function (p) { inDisc(p); put(p); });
       }
       t1 = setTimeout(function () { t1 = null; split(); t2 = setInterval(split, 1300); }, 700);
       var life = setInterval(function () {
         parts.forEach(function (p, i) {
           var r = (110 >> (((i + 1) & 1) * 4 + (Math.round(p.x) & 1) * 2 + (Math.round(p.y) & 1))) & 1;
           p.vx = clamp(p.vx * 0.9 + (r ? 1 : -1) * (lcg(caSt) - 0.4) * 1.2, -2.5, 2.5); p.vy = clamp(p.vy * 0.9 + (lcg(caSt) - 0.5) * 1.8, -2.5, 2.5);
-          p.x = clamp(p.x + p.vx, -D0 * 1.1, D0 * 1.1); p.y = clamp(p.y + p.vy, -D0 * 1.3, D0 * 1.3); put(p);
+          p.x += p.vx; p.y += p.vy; inDisc(p); put(p);
         });
       }, 110);
       var oc = caT; caT = { _a: oc, _b: life };
@@ -1221,7 +1222,7 @@
           sv.k = k0 + (1 - k0) * e;
           sv.x = x0 * (1 - e) + (nb[0] + nb[5] + nb[10] - 1.5) * wob; sv.y = y0 * (1 - e) + (nb[2] + nb[7] + nb[12] - 1.5) * wob;
           if (f >= 1) { sv.k = 1; sv.x = 0; sv.y = 0; phase = 1; tP = now; }
-          put(sv);
+          inDisc(sv); put(sv);
         } else if (phase === 1) {
           var h = Math.min(100, (now - tP) / 450 * 100);
           sv.el.style.background = 'radial-gradient(circle closest-side, transparent ' + h.toFixed(1) + '%, ' + col + ' ' + h.toFixed(1) + '%)';
