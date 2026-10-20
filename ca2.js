@@ -891,7 +891,7 @@
       ['panelAlpha', 'config opacity', 0, 1, 0.01], ['panelWidth', 'config width px', 200, 600, 5], ['blurWidth', 'backdrop blur width px', 0, 600, 5]]],
     ['cursor', [
       ['cursorSens', 'cursor sensitivity', 0.05, 1, 0.01], ['cursorSize', 'cursor size (x largest cell)', 0.2, 2, 0.01], ['cursorLockMs', 'cursor lock ms', 0, 3000, 50]]],
-    ['photon grain', [
+    ['grain', [
       ['grainAmount', 'amount', 0, 2, 0.01], ['grainStrength', 'strength', 0, 10, 0.1], ['grainSize', 'size px', 0.3, 6, 0.1],
       ['grainSoft', 'softness', 0, 1, 0.01], ['grainChroma', 'chroma split', 0, 1, 0.01], ['grainDev', 'development', 0.1, 1.5, 0.01],
       ['grainFine', 'fine weight', 0, 1, 0.01], ['grainCrystal', 'crystal weight', 0, 1, 0.01], ['grainCloud', 'cloud weight', 0, 1, 0.01],
@@ -1062,7 +1062,7 @@
   lockBox = lockT.box; lockVal = lockT.val;
   toggle('auto refresh', autoRefresh, function (v) { autoRefresh = v; lastRefresh = performance.now(); });
   toggle('auto quality', !!P.autoQuality, function (v) { P.autoQuality = v ? 1 : 0; });
-  toggle('photon grain', !!P.grain, function (v) { P.grain = v ? 1 : 0; });
+  toggle('grain', !!P.grain, function (v) { P.grain = v ? 1 : 0; });
   toggle('typography', !!P.showHud, function (v) { P.showHud = v ? 1 : 0; });
   toggle('food dots (still eaten when hidden)', !!P.showFood, function (v) { P.showFood = v ? 1 : 0; });
   toggle('axis lines', !!P.showAxis, function (v) { P.showAxis = v ? 1 : 0; });
