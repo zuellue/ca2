@@ -205,7 +205,7 @@
     // all typography metrics derive from one font size; margin is equal on every edge
     var fs = 210 * Math.min(W / 2560, H / 1600) * P.textScale, dh = 0.666 * fs;
     ctx.font = fs + 'px "Ca2-Thin", monospace';
-    var sideW = ctx.measureText('3333').actualBoundingBoxRight; // widest 4-digit number
+    var lr3 = inkLR('3333'), sideW = lr3[1] - lr3[0]; // widest 4-digit number, ink width
     var M = P.margin, G = P.gap;
     var halfW = W / 2 - (M + sideW + G), halfH = H / 2 - (M + dh + G);
     return { fs: fs, dh: dh, M: M, G: G, sideW: sideW, safeW: Math.max(60, halfW * 2), safeH: Math.max(60, halfH * 2) };
@@ -461,12 +461,20 @@
     return [255 - s[0] / n, 255 - s[1] / n, 255 - s[2] / n];
   }
 
+  // ink bounds of a string in the current font: [ink left from origin, ink right from origin].
+  // Margins are measured from real ink, so the font's side bearings (lsb/rsb) cannot skew them.
+  function inkLR(s) {
+    if (!s || !s.length) return [0, 0];
+    var f = ctx.measureText(s[0]), pre = s.length > 1 ? ctx.measureText(s.slice(0, -1)).width : 0, l = ctx.measureText(s[s.length - 1]);
+    return [f.actualBoundingBoxLeft, pre + l.actualBoundingBoxRight];
+  }
+
   // ---- axis lines: width, center gap and diagonal length are parameters ----
   function drawAxis(L, sT, sX) {
     var M = L.M, G = L.G, fs = L.fs, dh = L.dh, cxm = W / 2, cym = H / 2;
     ctx.font = fs + 'px "Ca2-Thin", monospace';
-    ctx.textAlign = 'left'; var mT = ctx.measureText(sT); ctx.textAlign = 'right'; var mX = ctx.measureText(sX);
-    var hL = M + mT.actualBoundingBoxRight + G, hR = W - M - mX.actualBoundingBoxLeft - G, vTop = M + dh + G, vBot = H - M - dh - G, g = P.centerGap;
+    ctx.textAlign = 'left'; var lrT = inkLR(sT), lrX = inkLR(sX);
+    var hL = M + (lrT[1] - lrT[0]) + G, hR = (W - M) - (lrX[1] - lrX[0]) - G, vTop = M + dh + G, vBot = H - M - dh - G, g = P.centerGap;
     ctx.strokeStyle = css(eased.axis); ctx.lineWidth = P.axisWidth; ctx.lineCap = 'butt';
     var segs = [];
     if (g > 0) { segs.push([hL, cym, cxm - g, cym], [cxm + g, cym, hR, cym], [cxm, vTop, cxm, cym - g], [cxm, cym + g, cxm, vBot]); }
@@ -689,31 +697,23 @@
     var L = lay(), M = L.M, G = L.G, fs = L.fs, dh = L.dh;
     var sY = String(Math.round(mouse.y)), sX = String(Math.round(mouse.x)), sT = String(cells.length);
     var vTop = M + dh + G, vBot = H - M - dh - G, cxm = W / 2, cym = H / 2, topBase0 = M + dh;
-    var mT, mX;
     if (P.showHud) {
       ctx.font = fs + 'px "Ca2-Thin", monospace'; ctx.textBaseline = 'alphabetic';
       var hi = 0, put = function (txt, col, align, x, y) {
-        var hk = hi++, w = ctx.measureText(txt).width, x0 = align === 'right' ? x - w : align === 'center' ? x - w / 2 : x;
+        var hk = hi++;
         ctx.fillStyle = css(col); ctx.textAlign = 'left';
+        var lr = inkLR(txt), x0 = align === 'right' ? x - lr[1] : align === 'center' ? x - (lr[0] + lr[1]) / 2 : x - lr[0];
         for (var ci = 0; ci < txt.length; ci++) if (fadeA('c' + hk + ':' + ci)) ctx.fillText(txt[ci], x0 + ctx.measureText(txt.slice(0, ci)).width, y);
       };
       // ink-aligned margins: every edge has the same margin M
       var topBase = M + dh, botBase = H - M, midBase = cym + dh / 2;
-      ctx.textAlign = 'left'; var lz = ctx.measureText('CELYLAR'); 
-      put('CELYLAR', eased.title, 'left', M + lz.actualBoundingBoxLeft, topBase);
-      ctx.textAlign = 'right'; var rz = ctx.measureText('AUTOMW');
-      put('AUTOMW', eased.title, 'right', W - M - rz.actualBoundingBoxRight, topBase);
+      put('CELYLAR', eased.title, 'left', M, topBase);
+      put('AUTOMW', eased.title, 'right', W - M, topBase);
       put(sY, eased.coor, 'center', cxm, topBase);
-      ctx.textAlign = 'right'; mX = ctx.measureText(sX);
-      var rx = W - M - mX.actualBoundingBoxRight;
-      put(sX, eased.coor, 'right', rx, midBase);
-      ctx.textAlign = 'left'; mT = ctx.measureText(sT);
-      var lx = M + mT.actualBoundingBoxLeft;
-      put(sT, eased.total, 'left', lx, midBase);
-      ctx.textAlign = 'right'; var bz = ctx.measureText(String(bc));
-      put(String(bc), eased.b, 'right', W - M - bz.actualBoundingBoxRight, botBase);
-      ctx.textAlign = 'left'; var rzz = ctx.measureText(String(rc));
-      put(String(rc), eased.r, 'left', M + rzz.actualBoundingBoxLeft, botBase);
+      put(sX, eased.coor, 'right', W - M, midBase);
+      put(sT, eased.total, 'left', M, midBase);
+      put(String(bc), eased.b, 'right', W - M, botBase);
+      put(String(rc), eased.r, 'left', M, botBase);
       put(String(gc), eased.g, 'center', cxm, botBase);
     }
 
@@ -721,7 +721,7 @@
     var titleHit = null;
     if (P.showHud && P.titleCircles) {
       ctx.font = fs + 'px "Ca2-Thin", monospace'; ctx.textAlign = 'left';
-      var lz2 = ctx.measureText(TL); ctx.textAlign = 'right'; var rz2 = ctx.measureText(TR); ctx.textAlign = 'left'; var x0L = M + lz2.actualBoundingBoxLeft, x0R = (W - M - rz2.actualBoundingBoxRight) - rz2.width;
+      ctx.textAlign = 'left'; var lrTL = inkLR(TL), lrTR = inkLR(TR), x0L = M - lrTL[0], x0R = (W - M) - lrTR[1];
       var u = fs / 1000, R0 = 166.5 * u, hitKey = null, hitC = null; circlesNow = [];
       [[TL, x0L, 'L'], [TR, x0R, 'R']].forEach(function (t) {
         for (var gi = 0; gi < t[0].length; gi++) {
