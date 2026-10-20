@@ -1134,13 +1134,24 @@
     });
     c.addEventListener('click', function (e) {
       e.stopPropagation();
-      // one click: smooth-scroll the column so the section's header middle sits exactly on the circle's middle
+      if (sec.name === 'config') { solo(null); panel.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+      // one click: only this section stays visible, smooth-scrolled so its header middle sits on the circle's middle
+      solo(sec);
       var pR = panel.getBoundingClientRect(), cR = c.getBoundingClientRect(), hR = sec.hdr.getBoundingClientRect();
       var targetY = cR.top + cR.height / 2 - pR.top - hR.height / 2;
       panel.scrollTo({ top: panel.scrollTop + (hR.top - pR.top) - targetY, behavior: 'smooth' });
     });
   }
-  // the topmost button is the CONFIG title: one click scrolls the column back to the start
+  // solo view: a section circle shows only its own section; the CONFIG circle brings everything back
+  function solo(sec) {
+    SECS.forEach(function (s2) {
+      var on = !sec || s2 === sec;
+      s2.hdr.style.display = on ? '' : 'none';
+      s2.els.forEach(function (el) { el.style.display = on ? '' : 'none'; });
+      if (s2.circ) s2.circ.style.opacity = sec && s2 !== sec ? '.35' : '1';
+    });
+  }
+  // the topmost button is the CONFIG title: one click shows every section again, scrolled to the start
   addCirc({ name: 'config', hdr: panel.querySelector('h1'), els: [] });
   SECS.forEach(addCirc);
   var admCircles = []; // filled by adminInit: 4 stacked digit circles, same lane and size as the section circles
