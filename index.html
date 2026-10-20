@@ -92,7 +92,7 @@
   .row .lab .man { font: inherit; color: inherit; background: transparent; border: 0; box-shadow: none; outline: none; width: 72px; text-align: right; padding: 0; caret-color: var(--fg); }
   .chk { display: flex; justify-content: space-between; padding: 7px 0; cursor: pointer; user-select: none; }
   .chk b { font-weight: normal; }
-  .chk:hover b { opacity: .4; }
+  @media (hover: hover) { .chk:hover b { opacity: .4; } }
   .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; padding-top: 12px; margin-top: 10px; }
   .btns button:nth-child(odd) { justify-self: start; } .btns button:nth-child(even) { justify-self: end; }
   .btns button { font: inherit; color: inherit; background: none; border: 0; padding: 4px 0; cursor: pointer; position: relative; }
