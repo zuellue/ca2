@@ -1053,7 +1053,32 @@
     ctx.globalAlpha = 1;
   }
   var parStat = { rehost: 0 };
+  function stepParasitesW() { // Rust/wasm parasite step (parasites.rs); returns false when unavailable so the JS body below runs (?nowasm=1, ?nosim=1)
+    var E = WC.e; if (!E || !E.pa_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
+    try {
+      if (!P.parasiteOn || !cells.length) { parasites.length = 0; return true; }
+      var n = cells.length, m = parasites.length, i, c, p, b;
+      var cp = E.pa_cells(n), ep = E.pa_energy(n), pp = E.pa_in(m); // alloc before reading the buffer: a resize can grow memory and detach it
+      var ci = new Float64Array(WC.mem.buffer, cp, n * 5 + 5), en = new Float64Array(WC.mem.buffer, ep, n + 1), pi = new Float64Array(WC.mem.buffer, pp, m * 7 + 7);
+      var hidx = {};
+      for (i = 0; i < n; i++) { c = cells[i]; c._pi = i; b = i * 5; ci[b] = c.x; ci[b + 1] = c.y; ci[b + 2] = c.radius; ci[b + 3] = c.cl || 0; ci[b + 4] = c.alive ? 1 : 0; en[i] = c.energy; }
+      for (i = 0; i < m; i++) { p = parasites[i]; b = i * 7; pi[b] = p.x; pi[b + 1] = p.y; pi[b + 2] = p.e; // a spliced host keeps a stale _pi: validate identity before packing
+      pi[b + 3] = (p.host && p.host.alive && cells[p.host._pi] === p.host) ? p.host._pi : -1; pi[b + 4] = p.a; pi[b + 5] = p.ph || 0; pi[b + 6] = p.lost || 0; }
+      var now = performance.now();
+      var q = E.pa_run(n, m, now, 1, P.parasiteFrac, P.parasiteSight, P.parasiteNerv, P.parasiteDrain, P.parasiteEff, P.parasiteHard, P.parasiteHardMs, Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
+      if (q < 0) return false;
+      for (i = 0; i < n; i++) cells[i].energy = en[i];
+      var po = new Float64Array(WC.mem.buffer, E.pa_out(), q * 8), st = new Float64Array(WC.mem.buffer, E.pa_stat(), 4), out = new Array(q);
+      ev.pdeath = (ev.pdeath || 0) + st[0]; ev.pbirth = (ev.pbirth || 0) + st[1]; parStat.rehost += st[2];
+      for (i = 0; i < q; i++) { b = i * 8; var src = po[b + 7];
+        if (src >= 0) { p = parasites[src]; p.x = po[b]; p.y = po[b + 1]; p.e = po[b + 2]; p.a = po[b + 4]; p.ph = po[b + 5]; p.lost = po[b + 6]; }
+        else p = { x: po[b], y: po[b + 1], e: po[b + 2], a: po[b + 4], ph: po[b + 5], lost: po[b + 6] };
+        var hh = po[b + 3]; p.host = hh >= 0 ? cells[hh] : null; out[i] = p; }
+      parasites = out; return true;
+    } catch (e) { return false; }
+  }
   function stepParasites() {
+    if (stepParasitesW()) return;
     if (!P.parasiteOn || !cells.length) { parasites.length = 0; return; }
     var target = Math.round(cells.length * P.parasiteFrac), i, c;
     for (i = 0; i < cells.length; i++) cells[i].pc = 0;
