@@ -1198,6 +1198,32 @@
   }
   [document.getElementById('tab'), panel, secc].forEach(hookHov);
   var CIRC_COLS = ['#ff0000', '#00ff00', '#0000ff'];
+  // local rules a crowd of pieces can follow (p = a piece, c = its surroundings this tick)
+  var RULES = {
+    jitter: function (p, c) { p.vx += c.jx * 1.2; p.vy += c.jy * 1.2; },
+    cohere: function (p, c) { p.vx += (c.cx - p.x) * 0.04 + c.jx * 0.5; p.vy += (c.cy - p.y) * 0.04 + c.jy * 0.5; },
+    repel: function (p, c) { var dx = p.x - c.nbr.x, dy = p.y - c.nbr.y, d = Math.hypot(dx, dy) || 1; if (d < 14) { p.vx += dx / d * 0.7; p.vy += dy / d * 0.7; } else { p.vx += c.jx * 0.4; p.vy += c.jy * 0.4; } },
+    align: function (p, c) { p.vx += (c.nbr.vx - p.vx) * 0.4 + c.jx * 0.3; p.vy += (c.nbr.vy - p.vy) * 0.4 + c.jy * 0.3; },
+    drift: function (p, c) { var a = c.tick * 0.012; p.vx += Math.cos(a) * 0.25 + c.jx * 0.4; p.vy += Math.sin(a) * 0.25 + c.jy * 0.4; },
+    swirl: function (p, c) { p.vx += -p.y / c.pd * 0.35 + c.jx * 0.3; p.vy += p.x / c.pd * 0.35 + c.jy * 0.3; },
+    grid: function (p, c) { p.vx += (Math.round(p.x / 10) * 10 - p.x) * 0.1 + c.jx * 0.2; p.vy += (Math.round(p.y / 10) * 10 - p.y) * 0.1 + c.jy * 0.2; },
+    rows: function (p, c) { p.vy += (Math.round(p.y / 9) * 9 - p.y) * 0.12; p.vx += Math.sin(c.tick * 0.06 + Math.round(p.y / 9)) * 0.5 + c.jx * 0.3; },
+    slide: function (p, c) { p.vx += Math.sin(c.tick * 0.07) * 0.6 + c.jx * 0.3; p.vy += c.jy * 0.3; },
+    pulse: function (p, c) { var k = Math.sin(c.tick * 0.12) * 0.3; p.vx += p.x / c.pd * k + c.jx * 0.3; p.vy += p.y / c.pd * k + c.jy * 0.3; },
+    chain: function (p, c) { p.vx += (c.prev.x - p.x) * 0.08 + c.jx * 0.3; p.vy += (c.prev.y - p.y) * 0.08 + c.jy * 0.3; },
+    flicker: function (p, c) { p.x += c.jx * 5; p.y += c.jy * 5; },
+    wave: function (p, c) { p.vy += Math.cos(c.tick * 0.1 + p.x * 0.15) * 0.5; p.vx += c.jx * 0.3; },
+    tide: function (p, c) { p.vx += Math.sin(c.tick * 0.03) * 0.5 + c.jx * 0.3; p.vy += Math.cos(c.tick * 0.021 + p.x * 0.05) * 0.2 + c.jy * 0.3; },
+    mutate: function (p, c) { p.vx = c.nbr.vx * 0.9 + c.jx * 1.2; p.vy = c.nbr.vy * 0.9 + c.jy * 1.2; },
+    frame: function (p, c) { var hx = 34, hy = 22, ex = Math.abs(p.x) - hx, ey = Math.abs(p.y) - hy; if (ex > ey) p.vx += (Math.sign(p.x || 1) * hx - p.x) * 0.1; else p.vy += (Math.sign(p.y || 1) * hy - p.y) * 0.1; p.vx += c.jx * 0.4; p.vy += c.jy * 0.4; },
+    flip: function (p, c) { p.vx += ((p.b ? 24 : -24) - p.x) * 0.08 + c.jx * 0.3; p.vy += -p.y * 0.05 + c.jy * 0.3; },
+    blink: function (p, c) { p.el.style.opacity = p.b ? '1' : '0.3'; p.vx += c.jx * 0.8; p.vy += c.jy * 0.8; }
+  };
+  var SECT_POOL = {
+    config: ['grid', 'cohere', 'jitter'], picture: ['frame', 'align', 'drift'], panel: ['rows', 'slide', 'repel', 'grid'], cursor: ['chain', 'swirl', 'jitter'],
+    grain: ['flicker', 'repel', 'jitter'], cells: ['cohere', 'repel', 'pulse', 'blink'], evolution: ['mutate', 'drift', 'cohere', 'chain'], life: ['blink', 'pulse', 'cohere', 'swirl'],
+    sound: ['wave', 'pulse', 'align'], field: ['tide', 'drift', 'align', 'wave'], switches: ['flip', 'blink', 'slide']
+  };
   function addCirc(sec) {
     var it = document.createElement('div'); it.className = 'sci';
     var c = document.createElement('div'); c.className = 'sc';
@@ -1250,11 +1276,11 @@
       var cr0 = c.getBoundingClientRect(); ctr = { x: cr0.left + cr0.width / 2, y: cr0.top + cr0.height / 2 }; D0 = c.offsetWidth; home = { x: c.offsetLeft, y: c.offsetTop }; parts = [{ el: c, x: 0, y: 0, vx: 0, vy: 0, k: 0.6 }]; dividing = true;
       c.style.transition = 'transform .25s ease';
       function mk() { var n = c.cloneNode(false); n.style.position = 'absolute'; n.style.left = home.x + 'px'; n.style.top = home.y + 'px'; n.style.pointerEvents = 'none'; n.style.margin = '0'; n.style.transition = 'transform .25s ease'; n.style.background = c.style.background; n.style.borderColor = c.style.borderColor; c.parentNode.appendChild(n); return n; }
-      // no depth or count limit: every piece keeps dividing into four until it is below one device pixel
+      // no count limit: every piece keeps dividing into four until it is about 4 px
       function split() {
         var out = [], did = false;
         parts.forEach(function (p) {
-          if (D0 * p.k < 1) { out.push(p); return; } // smallest size reached: this piece stays whole
+          if (D0 * p.k < 4) { out.push(p); return; } // pieces stop dividing at about 4 px: smaller is meaningless
           did = true;
           var off = D0 * p.k * 0.25;
           [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (d, j) {
@@ -1266,31 +1292,28 @@
         if (!did && t2) { clearInterval(t2); t2 = null; }
       }
       t1 = setTimeout(function () { t1 = null; split(); t2 = setInterval(split, 1300); }, 700);
-      // every section button has its own behaviour for the crowd it splits into (index = the button's place in the lane)
-      var beh = (SECS.indexOf(sec) + 1) % 11, tick = 0;
+      // behaviour pool: each section draws from a few local rules that fit its subject; at every hover two are picked at random and every
+      // piece follows one of them, chosen by its own rule-110 bit (so neighbours of one crowd act differently). No fixed script.
+      var pool = SECT_POOL[sec.name] || SECT_POOL.config, pick = pool.slice().sort(function () { return Math.random() - 0.5; }).slice(0, 2), tick = 0;
+      c.dataset.beh = pick.join('+');
       var life = setInterval(function () {
         tick++;
+        var n = parts.length, cx = 0, cy = 0, i;
+        for (i = 0; i < n; i++) { cx += parts[i].x; cy += parts[i].y; } cx /= n; cy /= n;
+        if (tick % 40 === 0 && Math.random() < 0.5) { var rest = pool.filter(function (r) { return pick.indexOf(r) < 0; }); if (rest.length) { pick[Math.floor(Math.random() * 2)] = rest[Math.floor(Math.random() * rest.length)]; c.dataset.beh = pick.join('+'); } }
+        // rule-110 bit per piece, along the crowd's order
+        var nb = new Array(n);
+        for (i = 0; i < n; i++) { var l = parts[(i + n - 1) % n].b | 0, m = parts[i].b | 0, r2 = parts[(i + 1) % n].b | 0; nb[i] = (110 >> (l * 4 + m * 2 + r2)) & 1; }
+        for (i = 0; i < n; i++) { parts[i].b = (tick < 2 && parts[i].b === undefined) ? (lcg(caSt) < 0.5 ? 1 : 0) : nb[i]; if (Math.random() < 0.02) parts[i].b ^= 1; }
         parts.forEach(function (p, i) {
-          var jx = lcg(caSt) - 0.5, jy = lcg(caSt) - 0.5, pd = Math.hypot(p.x, p.y) || 1, ax, ay;
-          switch (beh) {
-            case 0: if (pd < 40) { p.vx += p.x / pd * 0.4 + jx * 0.6; p.vy += p.y / pd * 0.4 + jy * 0.6; } else { p.vx += -p.x * 0.04 + jx * 0.6; p.vy += -p.y * 0.04 + jy * 0.6; } p.vx *= 0.9; p.vy *= 0.9; break; // small loose cloud
-            case 1: p.vx += 0.9; p.vy += jy * 1.6; p.vx *= 0.94; p.vy *= 0.9; break; // piles up against the right edge of the window
-            case 2: p.vy += 0.9; p.vx += jx * 1.4; p.vy *= 0.94; p.vx *= 0.9; break; // falls and settles on the bottom edge
-            case 3: p.vx += -p.y / pd * 0.9 + (p.x / pd) * (55 - pd) * 0.04; p.vy += p.x / pd * 0.9 + (p.y / pd) * (55 - pd) * 0.04; p.vx *= 0.9; p.vy *= 0.9; break; // swirls around the button
-            case 4: p.vx -= 0.9; p.vy += jy * 1.6; p.vx *= 0.94; p.vy *= 0.9; break; // drifts left and piles against the left edge
-            case 5: p.vy -= 0.9; p.vx += jx * 1.4; p.vy *= 0.94; p.vx *= 0.9; break; // floats up to the top edge
-            case 6: p.vx += -p.x * 0.08 + jx * 0.8; p.vy += -p.y * 0.08 + jy * 0.8; p.vx *= 0.85; p.vy *= 0.85; break; // stays a tight shivering clump
-            case 7: ax = 2 * Math.PI * i / parts.length + tick * 0.05; p.vx += (55 * Math.cos(ax) - p.x) * 0.06; p.vy += (55 * Math.sin(ax) - p.y) * 0.06; p.vx *= 0.85; p.vy *= 0.85; break; // forms a slowly turning ring
-            case 8: ax = 90 * Math.cos(tick * 0.04 + i * 0.05); ay = 60 * Math.sin(tick * 0.06 + i * 0.05); p.vx += (ax - p.x) * 0.05 + jx; p.vy += (ay - p.y) * 0.05 + jy; p.vx *= 0.85; p.vy *= 0.85; break; // sweeps a slow figure-eight around the button
-            case 9: p.vx -= 0.6; p.vy += 0.6 + jy * 0.4; p.vx *= 0.94; p.vy *= 0.94; break; // slides to the bottom left corner
-            default: ax = 2 * Math.PI * i / parts.length; ay = 25 + 55 * (0.5 + 0.5 * Math.sin(tick * 0.09)); p.vx += (ay * Math.cos(ax) - p.x) * 0.08 + jx * 0.5; p.vy += (ay * Math.sin(ax) - p.y) * 0.08 + jy * 0.5; p.vx *= 0.8; p.vy *= 0.8; // breathes in and out like a pulse
-            // p.vy += 0.6 + jy * 0.4; p.vx *= 0.94; p.vy *= 0.94; // slides to the bottom left corner
-          }
-          p.vx = clamp(p.vx, -7, 7); p.vy = clamp(p.vy, -7, 7);
+          var cc = { jx: lcg(caSt) - 0.5, jy: lcg(caSt) - 0.5, cx: cx, cy: cy, tick: tick, i: i, n: n, nbr: parts[(i + 1 + Math.floor(lcg(caSt) * 5)) % n], prev: parts[(i + n - 1) % n], pd: Math.hypot(p.x, p.y) || 1 };
+          RULES[pick[p.b ? 1 : 0]](p, cc);
+          p.vx *= 0.88; p.vy *= 0.88;
+          if (cc.pd > 70) { p.vx -= p.x / cc.pd * (cc.pd - 70) * 0.08; p.vy -= p.y / cc.pd * (cc.pd - 70) * 0.08; } // never far from the button
+          p.vx = clamp(p.vx, -4, 4); p.vy = clamp(p.vy, -4, 4);
           p.x += p.vx; p.y += p.vy; inDisc(p); put(p);
         });
       }, 110);
-      c.dataset.beh = beh;
       var oc = caT; caT = { _a: oc, _b: life };
     });
     it.addEventListener('pointerleave', function () {
@@ -1308,7 +1331,7 @@
         if (p === sv) return;
         endTimers.push(setTimeout(function () { p.el.style.transition = 'transform .3s ease, opacity .3s ease'; p.k = 0; put(p); p.el.style.opacity = '0'; }, Math.random() * 900));
       });
-      sv.el.style.transition = 'transform .06s linear';
+      sv.el.style.opacity = '1'; sv.el.style.transition = 'transform .06s linear';
       var bits = []; for (var i = 0; i < 16; i++) bits.push(lcg(caSt) < 0.5 ? 1 : 0);
       var phase = 0, tS = performance.now(), k0 = sv.k, x0 = sv.x, y0 = sv.y, tP = 0;
       endIv = setInterval(function () {
