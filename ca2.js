@@ -827,8 +827,22 @@
   // ---- food life, amorphous alternatives (no lattice: positions are continuous, shapes keep changing) ----
   // mode 2 blobs: each blob is a soft shape made of a few dots that wobble. Life-like rules on blob neighbours: alone -> shrinks, 2-3 neighbours -> grows, crowded -> shrinks or splits.
   // every mode: dots never stay outside the plate; a shrinking plate sweeps them in and they pile up against the moving walls
+  function foodKeepInW(x0, y0, x1, y1) { // Rust/wasm keepIn (fd3.rs); returns false so the JS loop below runs (?nowasm=1, ?nosim=1)
+    var E = WC.e; if (!E || !E.fk_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
+    try {
+      var n = food.length, i, f, b, any = false;
+      for (i = 0; i < n; i++) { f = food[i]; if (f.x < x0 || f.x > x1 || f.y < y0 || f.y > y1) { any = true; break; } }
+      if (!any) return true; // no strays: no marshal at all
+      var ip = E.fk_in(n), buf = new Float64Array(WC.mem.buffer, ip, n * 5 + 5);
+      for (i = 0; i < n; i++) { f = food[i]; b = i * 5; buf[b] = f.x; buf[b + 1] = f.y; if (f.vx !== undefined) { buf[b + 2] = f.vx; buf[b + 3] = f.vy; buf[b + 4] = 1; } else buf[b + 4] = 0; }
+      if (E.fk_run(n, x0, y0, x1, y1) < 0) return false;
+      for (i = 0; i < n; i++) { f = food[i]; b = i * 5; f.x = buf[b]; f.y = buf[b + 1]; if (buf[b + 4]) { f.vx = buf[b + 2]; f.vy = buf[b + 3]; } }
+      WC.fwKp = (WC.fwKp || 0) + 1; return true;
+    } catch (e) { WC.fwKpErr = String(e && e.stack || e); return false; }
+  }
   function foodKeepIn() {
     var x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h, i, f;
+    if (foodKeepInW(x0, y0, x1, y1)) return;
     for (i = 0; i < food.length; i++) {
       f = food[i];
       if (f.x < x0 || f.x > x1 || f.y < y0 || f.y > y1) { f.x = clamp(f.x, x0, x1); f.y = clamp(f.y, y0, y1); if (f.vx !== undefined) { f.vx *= 0.5; f.vy *= 0.5; } }
