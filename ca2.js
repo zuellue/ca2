@@ -29,6 +29,7 @@
   Object.assign(P, {"UNIVERSE_SIZE": 55.95868745026389, "baseMutationRate": 9.628232288701716, "mutationRateRange": 2.6268439511457253, "interactionRadius": 12.016352372548786, "CELL_RADIUS": 34.57106164334512, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 50, "maxRadius": 150, "baseMaxSpeed": 2, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 2.5, "THRESHOLD": 0.19, "metaballStrength": 0.024, "foodDensity": 0.023801395385356694, "foodEnergyValue": 20, "minRefreshInterval": 2, "maxRefreshInterval": 9, "slowDownRadius": 9, "speedReductionFactor": 37.5, "grain": 1, "grainAmount": 1.22, "grainStrength": 9.2, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 12, "fps": 12, "containerCorner": 29, "resolution": 1, "margin": 10, "gap": 26, "textScale": 0.8, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.74, "morphEase": 0.7, "pixelRatio": 2, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 1, "axisLayer": 0, "genomeOn": 1, "genomeMut": 0.5, "divideOn": 1, "divideAt": 6, "eatMergeOn": 1, "eatRatio": 3, "eatChance": 1, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.19, "clusterMax": 10, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 8, "foodShrink": 0.1, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 2350, "boundAware": 1, "boundZone": 20, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 2.3, "panelAlpha": 0, "panelWidth": 340, "blurWidth": 340, "cursorSens": 0.75, "cursorSize": 0.31, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 0.53, "audioMode": 1, "audioTone": 2120, "audioMod": 1, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#000000", "foodAlpha": 1, "foodSize": 3.5, "foodShow": 0.51, "audioFadeMs": 5000, "dragMargin": 24, "edgeGrab": 20, "restless": 3, "edgeFit": 0.3, "boundZoneR": 0.1, "blobOutline": 1, "plateOverlap": 0.5, "parasiteHard": 39.5, "parasiteSight": 4000, "parasiteNerv": 1, "parasiteHardMs": 20000, "foodMode": 3, "foodBlobR": 70, "foodBlobDots": 8, "foodLife": 1, "foodLifeMs": 300, "foodLifeCell": 4, "foodEatR": 0.26});
   // eating radius is a fixed px distance, independent of cell radius (owner 20 Oct: no factor); migrate the stored factor with the preset radius
   P.foodEatR = Math.round(P.foodEatR * P.CELL_RADIUS * 100) / 100;
+  P.focusIdleMs = 4000; P.focusInMs = 4000; P.focusOutMs = 380; P.focusDepth = 14; // idle depth-of-field blur: wait, slow blur-in, swift refocus, depth px
   var DEFAULTS = JSON.parse(JSON.stringify(P));
   var autoRefresh = true, lockParams = false;
   var BGS = [[233,233,233],[22,22,22],[255,0,0],[0,255,0],[0,0,255]];
@@ -904,7 +905,8 @@
       ['areaMin', 'area floor', 0.1, 1, 0.01], ['areaMax', 'area ceiling', 0.1, 1, 0.01],
       ['morphEase', 'area morph speed', 0.02, 1, 0.01], ['colorSpeed', 'color speed', 0.02, 1, 0.01]]],
     ['panel', [
-      ['panelAlpha', 'config opacity', 0, 1, 0.01], ['panelWidth', 'config width px', 200, 600, 5], ['blurWidth', 'backdrop blur width px', 0, 600, 5], ['blurStrength', 'backdrop blur strength px', 0, 64, 1]]],
+      ['panelAlpha', 'config opacity', 0, 1, 0.01], ['panelWidth', 'config width px', 200, 600, 5], ['blurWidth', 'backdrop blur width px', 0, 600, 5], ['blurStrength', 'backdrop blur strength px', 0, 64, 1],
+      ['focusIdleMs', 'idle focus wait ms', 500, 20000, 100], ['focusInMs', 'idle blur-in ms', 500, 12000, 100], ['focusOutMs', 'refocus snap ms', 60, 3000, 10], ['focusDepth', 'idle blur depth px', 0, 64, 1]]],
     ['cursor', [
       ['cursorSens', 'cursor sensitivity', 0.05, 1, 0.01], ['cursorSize', 'cursor size (x largest cell)', 0.2, 2, 0.01], ['cursorLockMs', 'cursor lock ms', 0, 3000, 50]]],
     ['grain', [
@@ -1085,12 +1087,12 @@
   toggle('axis lines', !!P.showAxis, function (v) { P.showAxis = v ? 1 : 0; });
   var fcRow = document.createElement('div'); fcRow.className = 'row';
   fcRow.innerHTML = '<div class="lab"><span>food dot color</span><b style="font-weight:normal">' + P.foodColor + '</b></div>';
-  var fcInp = document.createElement('input'); fcInp.type = 'color'; fcInp.value = P.foodColor; fcInp.style.cssText = 'width:100%;height:22px;border:0;background:none;padding:0;cursor:pointer';
+  var fcInp = document.createElement('input'); fcInp.type = 'color'; fcInp.value = P.foodColor; fcInp.style.cssText = 'border:0;background:none;padding:0;cursor:pointer';
   fcInp.addEventListener('input', function () { P.foodColor = fcInp.value; touched.foodColor = 1; fcRow.querySelector('b').textContent = fcInp.value; save(); });
   fcRow.appendChild(fcInp); ctl.insertBefore(fcRow, gh); SECS[8].els.push(fcRow);
   var bgRow = document.createElement('div'); bgRow.className = 'row';
   bgRow.innerHTML = '<div class="lab"><span>background</span><b style="font-weight:normal">#e9e9e9</b></div>';
-  var colorInp = document.createElement('input'); colorInp.type = 'color'; colorInp.value = '#' + bgTarget.map(function (v) { return ('0' + (v | 0).toString(16)).slice(-2); }).join(''); colorInp.style.cssText = 'width:100%;height:22px;border:0;background:none;padding:0;cursor:pointer';
+  var colorInp = document.createElement('input'); colorInp.type = 'color'; colorInp.value = '#' + bgTarget.map(function (v) { return ('0' + (v | 0).toString(16)).slice(-2); }).join(''); colorInp.style.cssText = 'border:0;background:none;padding:0;cursor:pointer';
   colorInp.addEventListener('input', function () { var v = colorInp.value; bgTarget = [parseInt(v.substr(1, 2), 16), parseInt(v.substr(3, 2), 16), parseInt(v.substr(5, 2), 16)]; bgRow.querySelector('b').textContent = v; save(); });
   bgRow.appendChild(colorInp); ctl.insertBefore(bgRow, SECS[1].hdr); SECS[0].els.push(bgRow);
   function btn(label, fn) { var b = document.createElement('button'); b.textContent = label; b.addEventListener('click', fn); btns.appendChild(b); }
@@ -1207,23 +1209,33 @@
   addCirc({ name: 'config', hdr: panel.querySelector('h1'), els: [] });
   SECS.forEach(addCirc);
 
-  // config blur: depth of field that pulls into focus like a lens - edge layer first, then inward, easing in with a small
-  // overshoot and a settle; closing relaxes softly. Driven by CSS vars --bk1..4 (0..1.x), no sliding.
+  // depth of field on both screen edges, one design: opening the config pulls it in like a lens (edge layer first, small
+  // overshoot, soft settle); with no pointer movement for focusIdleMs the same edge field also drifts in over focusInMs;
+  // any movement snaps focus back over focusOutMs. Driven by CSS vars --bk1..4, no sliding, left and right alike.
+  var lastMove = performance.now();
+  ['mousemove', 'pointermove', 'mousedown', 'wheel', 'touchstart', 'touchmove', 'keydown'].forEach(function (n) { window.addEventListener(n, function () { lastMove = performance.now(); }, { passive: true }); });
   (function () {
     var tab = document.getElementById('tab'), want = false, t0 = 0, from = [0, 0, 0, 0], cur = [0, 0, 0, 0], dur = 1900;
+    var idleOn = false, iT0 = 0, iFrom = [0, 0, 0, 0], iCur = [0, 0, 0, 0];
     function openNow() { return panel.classList.contains('open') || panel.matches(':hover') || tab.matches(':hover'); }
     function ease(x) { x = clamp(x, 0, 1); return 1 - Math.pow(1 - x, 3); }
-    function focusCurve(x) { // 0..1 with a hunt: overshoots to ~1.12, dips to ~0.96, settles at 1
-      x = clamp(x, 0, 1); return ease(x) + Math.sin(x * Math.PI * 2.2) * 0.12 * (1 - x) * Math.min(1, x * 4);
-    }
+    function easeIO(x) { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); }
+    function focusCurve(x) { x = clamp(x, 0, 1); return ease(x) + Math.sin(x * Math.PI * 2.2) * 0.12 * (1 - x) * Math.min(1, x * 4); }
+    window.__blurState = function () { return { cfg: cur.slice(), idle: iCur.slice(), idleOn: idleOn }; };
     function loop(now) {
       var o = openNow(); if (o !== want) { want = o; t0 = now; from = cur.slice(); }
-      var el = now - t0, root = document.documentElement.style;
+      var ion = !o && now - lastMove >= P.focusIdleMs; if (ion !== idleOn) { idleOn = ion; iT0 = now; iFrom = iCur.slice(); }
+      var el = now - t0, el2 = now - iT0, root = document.documentElement.style, depth = P.focusDepth / Math.max(1, P.blurStrength);
       for (var i = 0; i < 4; i++) {
         var delay = (3 - i) * 0.14 * dur / (want ? 1 : 2.5), x = (el - delay) / (want ? dur : dur * 0.55), tgt = want ? 1 : 0, v;
-        if (want) v = from[i] + (tgt - from[i]) * focusCurve(x) ; else v = from[i] * (1 - ease(x));
+        if (want) v = from[i] + (tgt - from[i]) * focusCurve(x); else v = from[i] * (1 - ease(x));
         if (x <= 0) v = from[i];
-        cur[i] = want ? clamp(v, 0, 1.2) : Math.max(0, v); root.setProperty('--bk' + (i + 1), cur[i].toFixed(3));
+        cur[i] = want ? clamp(v, 0, 1.2) : Math.max(0, v);
+        var iD = idleOn ? P.focusInMs : P.focusOutMs, id = (3 - i) * 0.12 * iD * (idleOn ? 1 : 0.3), ix = (el2 - id) / iD, iv;
+        if (idleOn) iv = iFrom[i] + (1 - iFrom[i]) * easeIO(ix); else iv = iFrom[i] * (1 - ease(ix));
+        if (ix <= 0) iv = iFrom[i];
+        iCur[i] = Math.max(0, iv);
+        root.setProperty('--bk' + (i + 1), Math.max(cur[i], iCur[i] * depth).toFixed(3));
       }
       requestAnimationFrame(loop);
     }
@@ -1233,6 +1245,7 @@
   var circSig = '';
   function placeCircles() {
     var L = lay(), u = L.fs / 1000, R0 = 166.5 * u, D = 2 * R0;
+    document.documentElement.style.setProperty('--sd', D.toFixed(2) + 'px');
     var sig = [D.toFixed(2), L.M, L.dh, P.axisWidth, P.panelWidth].join('|');
     if (sig === circSig) return; circSig = sig;
     var y0 = Math.max(4, L.M + L.dh - 500 * u - R0); // first circle centred on the title's topmost circle

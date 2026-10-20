@@ -28,15 +28,18 @@
   #blur .bf3 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .75 * var(--bk3, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .75 * var(--bk3, 0))); -webkit-mask-image: linear-gradient(to left, #000 15%, rgba(0,0,0,0) 50%); mask-image: linear-gradient(to left, #000 15%, rgba(0,0,0,0) 50%); }
   #blur .bf4 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * var(--bk4, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * var(--bk4, 0))); -webkit-mask-image: linear-gradient(to left, #000 0%, rgba(0,0,0,0) 25%); mask-image: linear-gradient(to left, #000 0%, rgba(0,0,0,0) 25%); }
   /* flipped twin on the left while the config is open: a depth-of-field field across the page */
-  #blurl { position: fixed; top: 0; left: 0; height: 100%; width: 340px; z-index: 9; pointer-events: none; opacity: 0; transition: opacity .35s ease .1s; }
+  #blurl { position: fixed; top: 0; left: 0; height: 100%; width: 340px; z-index: 9; pointer-events: none; }
   #blurl .bf1 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .25 * var(--bk1, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .25 * var(--bk1, 0))); -webkit-mask-image: linear-gradient(to right, #000 55%, rgba(0,0,0,0) 100%); mask-image: linear-gradient(to right, #000 55%, rgba(0,0,0,0) 100%); }
   #blurl .bf2 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .5 * var(--bk2, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .5 * var(--bk2, 0))); -webkit-mask-image: linear-gradient(to right, #000 35%, rgba(0,0,0,0) 75%); mask-image: linear-gradient(to right, #000 35%, rgba(0,0,0,0) 75%); }
   #blurl .bf3 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .75 * var(--bk3, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .75 * var(--bk3, 0))); -webkit-mask-image: linear-gradient(to right, #000 15%, rgba(0,0,0,0) 50%); mask-image: linear-gradient(to right, #000 15%, rgba(0,0,0,0) 50%); }
   #blurl .bf4 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * var(--bk4, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * var(--bk4, 0))); -webkit-mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,0) 25%); mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,0) 25%); }
-  #tab:hover ~ #blurl, #panel:hover ~ #blurl, #panel.open ~ #blurl { opacity: 1; }
 
   @keyframes ca2in { from { opacity: 0 } to { opacity: 1 } }
   #panel h1 { margin: 0 0 6px; font-weight: normal; font-size: 13px; letter-spacing: .3em; font-family: 'Times New Roman', Times, serif; }
+  input[type=color] { -webkit-appearance: none; appearance: none; display: block; margin: 2px 0; width: var(--sd, 23px); height: var(--sd, 23px); border-radius: 50%; border: 0; padding: 0; background: none; overflow: hidden; cursor: pointer; }
+  input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+  input[type=color]::-webkit-color-swatch { border: 0; border-radius: 50%; }
+  input[type=color]::-moz-color-swatch { border: 0; border-radius: 50%; }
   .grp, .stats span:not(.n) { font-family: 'Times New Roman', Times, serif; }
   .stats span:not(.n) { text-transform: uppercase; }
   #secc .sl { font-family: 'Times New Roman', Times, serif; }
