@@ -441,8 +441,10 @@
   var TL = 'CELYLAR', TR = 'AUTOMW';
   // circle centers (font units, 1000/em) per glyph of Ca2-Thin, measured from the font outlines
   var GL = { C: [[166, 500], [166, 167]], E: [[168, 332]], L: [[166, 167]], Y: [[136, 167], [728, 167]], A: [[333, 499]], R: [[166, 500]], U: [[166, 167]], T: [[166, 500], [499, 500]], O: [[146, 500], [146, 167]], M: [[166, 500], [806, 500], [486, 167]], W: [[573, 500], [906, 500], [166, 499], [1313, 499]] };
+  var coarseUI = window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches;
   function onClick(e) {
     if (e.target !== cv) return;
+    if (coarseUI && (panel.classList.contains('open') || panel.classList.contains('hov'))) { panel.classList.remove('open'); panel.classList.remove('hov'); return; }
     var k = keyHeld;
     if (k === 'b') cycleBg(); else if (k === 'a') createCell(); else if (k === 's') randomize(); else if (k === 'd') killNear(); else if (!k) randomAction();
   }
@@ -1385,8 +1387,8 @@
   // the pointer fell back on the tab strip and it slid in again (stutter). A class with a short close delay bridges the hand-over.
   var hovT = null;
   function hookHov(el) {
-    el.addEventListener('pointerenter', function () { clearTimeout(hovT); panel.classList.add('hov'); });
-    el.addEventListener('pointerleave', function () { clearTimeout(hovT); hovT = setTimeout(function () { panel.classList.remove('hov'); }, 220); });
+    el.addEventListener('pointerenter', function (e) { if (e.pointerType === 'touch') return; clearTimeout(hovT); panel.classList.add('hov'); });
+    el.addEventListener('pointerleave', function (e) { if (e.pointerType === 'touch') return; clearTimeout(hovT); hovT = setTimeout(function () { panel.classList.remove('hov'); }, 220); });
   }
   [document.getElementById('tab'), panel, secc].forEach(hookHov);
   var CIRC_COLS = ['#ff0000', '#00ff00', '#0000ff'];
@@ -1780,6 +1782,8 @@
     DPR = P.pixelRatio > 0 ? P.pixelRatio : Math.min(window.devicePixelRatio || 1, 3); W = window.innerWidth; H = window.innerHeight;
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
     DD = Math.min(window.devicePixelRatio || 1, 3); lnc.width = Math.round(W * DD); lnc.height = Math.round(H * DD); applyLW();
+    // CSS size in real px, not 100vw/100vh: on iOS 100vh is the no-URL-bar height, so the bitmap got stretched and taps landed off
+    var rt = document.documentElement.style; rt.setProperty('--vw', W + 'px'); rt.setProperty('--vh', H + 'px');
   }
   function resize() {
     resizeCanvas();
@@ -1790,13 +1794,14 @@
   // a viewport change (rotation, window drag, browser chrome collapsing while scrolling) re-fits the world; it must not
   // wipe it or deal a new random plate - that read as the whole page slipping mid-scroll (owner 20 Oct)
   window.addEventListener('resize', function () { resize(); });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', function () { if (Math.abs(window.innerWidth - W) > 1 || Math.abs(window.innerHeight - H) > 1) resize(); });
   window.addEventListener('mousemove', function (e) { mouse.x = e.clientX; mouse.y = e.clientY; mouse.over = (e.target === cv); if (curEl.style.display === 'block') curEl.style.transform = 'translate(' + (mouse.x - curRRnow) + 'px,' + (mouse.y - curRRnow) + 'px)'; });
   document.addEventListener('mouseleave', function () { mouse.over = false; curEl.style.display = 'none'; curEdge.style.display = 'none'; });
   window.addEventListener('click', onClick);
   // grab the plate border with the mouse and pull to resize it (symmetric around the centre); cells get restless while dragging
   var resizeDrag = null;
-  function edgeHit(x, y) {
-    var k = cont, tol = P.edgeGrab, inX = x > k.x - tol && x < k.x + k.w + tol, inY = y > k.y - tol && y < k.y + k.h + tol, h = 0, v = 0;
+  function edgeHit(x, y, tol) {
+    var k = cont; tol = tol || P.edgeGrab; var inX = x > k.x - tol && x < k.x + k.w + tol, inY = y > k.y - tol && y < k.y + k.h + tol, h = 0, v = 0;
     if (inY && (Math.abs(x - k.x) < tol || Math.abs(x - (k.x + k.w)) < tol)) h = 1;
     if (inX && (Math.abs(y - k.y) < tol || Math.abs(y - (k.y + k.h)) < tol)) v = 1;
     return (h || v) ? { h: h, v: v } : null;
@@ -1818,7 +1823,23 @@
   window.addEventListener('keydown', function (e) { keyHeld = e.key.toLowerCase(); if (keyHeld === 'c') panel.classList.toggle('open'); });
   window.addEventListener('keyup', function () { keyHeld = ''; });
   ['pointerdown', 'pointerup', 'pointermove', 'mousemove', 'mousedown', 'wheel', 'scroll', 'touchstart', 'keydown', 'touchend', 'click'].forEach(function (n) { window.addEventListener(n, function () { if (window.CA2Audio && P.audioOn) CA2Audio.start(); }, { passive: true }); });
-  window.addEventListener('touchstart', function (e) { var t = e.touches[0]; mouse.x = t.clientX; mouse.y = t.clientY; mouse.over = true; }, { passive: true });
+  window.addEventListener('touchstart', function (e) {
+    var t = e.touches[0]; mouse.x = t.clientX; mouse.y = t.clientY; mouse.over = (e.target === cv);
+    if (e.target !== cv) return;
+    var hit = edgeHit(t.clientX, t.clientY, P.edgeGrab * 1.5);
+    if (hit) { hit.rx = t.clientX >= W / 2; hit.dy = t.clientY >= H / 2; resizeDrag = hit; e.preventDefault(); return; }
+    targetCursorScale = 3.5; cursorScale = 3.5;
+  }, { passive: false });
+  window.addEventListener('touchmove', function (e) {
+    var t = e.touches[0]; mouse.x = t.clientX; mouse.y = t.clientY;
+    if (!resizeDrag) return;
+    cont.user = true;
+    if (resizeDrag.h) cont.rawW = Math.max(60, 2 * Math.abs(t.clientX - W / 2));
+    if (resizeDrag.v) cont.rawH = Math.max(60, 2 * Math.abs(t.clientY - H / 2));
+    clampTargets(); cont.ew = cont.tw; cont.eh = cont.th;
+  }, { passive: true });
+  window.addEventListener('touchend', function () { targetCursorScale = 1; resizeDrag = null; mouse.over = false; }, { passive: true });
+  window.addEventListener('touchcancel', function () { targetCursorScale = 1; resizeDrag = null; mouse.over = false; }, { passive: true });
 
   var last = performance.now(), fcount = 0, ftime = last;
   function loop(now) {
@@ -1833,6 +1854,7 @@
     resize(); randomize(true, true); firstSpawn = false; fadeT0 = performance.now(); ready = true; setTimeout(function () { if (window.CA2Audio && P.audioOn) CA2Audio.start(); }, INTRO_MS + 2000); requestAnimationFrame(loop);
   });
   document.getElementById('tab').addEventListener('click', function () { panel.classList.toggle('open'); });
+  if (coarseUI) document.querySelector('#panel .keys').innerHTML = '<div><span>tap</span><span>random action</span></div><div><span>edge drag</span><span>resize plate</span></div><div><span>tab strip</span><span>this panel</span></div>';
   if (/open/.test(location.hash)) panel.classList.add('open');
   // reveal: panel blocks fade in fast; every part of a parameter row (label, value, slider/knob, swatch, button) has its own short fade and its own random delay
   function partIn(el, base) { el.style.animation = 'ca2in ' + (0.16 + Math.random() * 0.2).toFixed(2) + 's ease-out both'; el.style.animationDelay = (base + Math.random() * 0.14).toFixed(3) + 's'; }
