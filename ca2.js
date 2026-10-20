@@ -753,7 +753,7 @@
     // cursor: ring + dot drawn as a DOM overlay that follows the pointer (identical in every browser); the system cursor is hidden only while it shows
     var eHit = resizeDrag || (mouse.over && !panel.matches(':hover') ? edgeHit(mouse.x, mouse.y) : null);
     if (eHit) {
-      var Le = Math.max(10, lay().dh / 2), gE = Math.max(4, Le * 0.22), dE, offE = Math.max(8, Le * 0.3);
+      var Le = Math.max(10, lay().dh / 2), gE = Math.max(4, Le * 0.22), dE, offE = Le + 2; // vertex one full arm-length out: no arm ever crosses the boundary line
       var rightE = mouse.x >= W / 2, downE = mouse.y >= H / 2;
       var bxE = rightE ? cont.x + cont.w : cont.x, byE = downE ? cont.y + cont.h : cont.y;
       if (eHit.h && eHit.v) { // corner: the edge icon rotated onto the diagonal, vertex outside the corner, tip facing the plate
