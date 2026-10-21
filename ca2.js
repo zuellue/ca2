@@ -38,7 +38,7 @@
   P.focusIdleMs = 4000; P.focusInMs = 4000; P.focusOutMs = 380; P.focusDepth = 14; // idle depth-of-field blur: wait, slow blur-in, swift refocus, depth px
   P.cellShapes = 1; // heritable body plans: round / string / lobed (render expands a cell into metaball sources)
   var DEFAULTS = JSON.parse(JSON.stringify(P));
-  var TYPE_SIZE_MAX = 3; // general font size ceiling (owner 21 Oct): the knob range and the layout clamp below share this one value
+  var TYPE_SIZE_MAX = 4; // general font size ceiling (owner 21 Oct): the knob range and the layout clamp below share this one value
   var autoRefresh = true, lockParams = false;
   var BGS = [[233,233,233],[22,22,22],[255,0,0],[0,255,0],[0,0,255]];
   // title-circle hover colors: the palette's own black (22,22,22 - not pitch black) and white, plus its R G B (owner 21 Oct)
