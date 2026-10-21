@@ -100,6 +100,9 @@
   .btns button { font: inherit; color: inherit; background: none; border: 0; padding: 4px 0; cursor: pointer; position: relative; }
   .btns button::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; border-bottom: var(--lw) solid transparent; }
   .btns button:hover::after { border-bottom-color: var(--fg); }
+  /* save is admin-only on desktop (owner 21 Oct): hidden in the button row until the admin code verifies; the mobile lane pins the same node outside .btns, where this rule does not reach */
+  .btns button.ca2savebtn { display: none; }
+  body.ca2admin .btns button.ca2savebtn { display: inline-block; }
   /* section circles: right lane of the config panel, title-dot size, tangent stacking */
   #secc { position: fixed; top: 0; right: var(--m); bottom: var(--m); z-index: 11; display: flex; flex-direction: column; align-items: center; transform: translateX(calc(100% + var(--m) + 4px)); transition: transform .2s ease-out; overflow-y: auto; scrollbar-width: none; }
   #panel.open ~ #secc, #panel.hov ~ #secc { transform: translateX(0); }

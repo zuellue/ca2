@@ -1852,7 +1852,7 @@
   toggle('axis lines', !!P.showAxis, function (v) { P.showAxis = v ? 1 : 0; });
   choice('config font', 'cfgFont', CFG_FONTS, applyTypo);
   choice('config case', 'cfgCase', CFG_CASES, applyTypo);
-  function btn(label, fn) { var b = document.createElement('button'); b.textContent = label; b.addEventListener('click', fn); btns.appendChild(b); }
+  function btn(label, fn) { var b = document.createElement('button'); b.textContent = label; b.addEventListener('click', fn); btns.appendChild(b); return b; }
   btn('respawn', function () { randomize(); });
   btn('randomize', function () { lockParams = false; lockBox.checked = false; lockVal.textContent = 'off'; randomize(); });
   btn('background', cycleBg);
@@ -1872,7 +1872,7 @@
   var perfHdr = document.createElement('div'); perfHdr.style.display = 'none'; ctl.appendChild(perfHdr);
   var perfSec = { name: 'perf', hdr: perfHdr, els: [] }; SECS.push(perfSec);
   // save: write the settings now (independent of the autosave), read them back from storage and compare every key
-  btn('save', function (ev) {
+  var saveB = btn('save', function (ev) {
     var bt = ev.currentTarget, ok = false, n = 0, bad = [];
     try {
       save();
@@ -1885,6 +1885,8 @@
     bt.textContent = ok ? 'saved' : 'save failed'; setTimeout(function () { bt.textContent = 'save'; }, 1500);
     if (window.__adminOn && window.__adminPush) { bt.textContent = 'saving'; window.__adminPush().then(function (r) { bt.textContent = r === 'fail' ? 'saved here, server full' : (ok ? 'saved' : 'save failed'); setTimeout(function () { bt.textContent = 'save'; }, r === 'fail' ? 4000 : 1500); }); }
   });
+  // save is admin-only on desktop (owner 21 Oct): .btns hides it until body.ca2admin; the mobile lane pins the same node outside #btns, where that rule does not reach
+  saveB.classList.add('ca2savebtn');
   function applyTypo() {
     var r = document.documentElement.style;
     if (CFG_STACK[P.cfgFont]) r.setProperty('--cff', CFG_STACK[P.cfgFont]); else r.removeProperty('--cff');
@@ -2422,6 +2424,7 @@
             admin = code; sent = {}; Object.keys(P).forEach(function (k) { sent[k] = P[k]; });
             var ABDU = 'ABDU'; for (var i = 0; i < 4; i++) aglyphs[i].textContent = ABDU[i];
             window.__adminOn = true;
+            document.body.classList.add('ca2admin');
             adm.classList.add('ok');
           } else {
             adm.classList.add('err'); setTimeout(function () { adm.classList.remove('err'); aglyphs.forEach(function (g) { g.textContent = ''; }); }, 600);
@@ -2437,7 +2440,7 @@
     var admDotHit = function (x, y) { for (var i = 0; i < circlesNow.length; i++) { var c = circlesNow[i]; if (/^R0_/.test(c.key) && Math.hypot(x - c.x, y - c.y) < c.r) return true; } return false; };
     window.addEventListener('pointermove', function (e) { admPX = e.clientX; admPY = e.clientY; }, { passive: true });
     var admToggle = function () {
-      if (admin) { admin = null; window.__adminOn = false; adm.classList.remove('ok'); modeSel = null; modePub(); admShow(false); }
+      if (admin) { admin = null; window.__adminOn = false; document.body.classList.remove('ca2admin'); adm.classList.remove('ok'); modeSel = null; modePub(); admShow(false); }
       else if (!adm.classList.contains('on')) admShow(true);
       else admShow(false);
     };
