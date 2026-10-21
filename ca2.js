@@ -2624,7 +2624,10 @@
         configurable: true, enumerable: true,
         get: function () { return crHold; },
         set: function (v) {
-          if (mode === 'm' && typeof v === 'number' && isFinite(v)) {
+          // clamp only an in-flight transition lerp (owner 21 Oct: manual entry takes any valid number - no hidden
+          // ceiling on hand-entered values; the transition guard was the original intent, not an entry cap)
+          var lerp = window.__ca2 && window.__ca2.live && window.__ca2.live.CELL_RADIUS;
+          if (mode === 'm' && lerp && typeof v === 'number' && isFinite(v)) {
             var lo = P.minRadius, hi = P.maxRadius;
             if (typeof lo === 'number' && typeof hi === 'number' && hi >= lo) v = Math.min(hi, Math.max(lo, v));
           }
