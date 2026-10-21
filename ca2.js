@@ -26,7 +26,7 @@
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
     colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, sprayMs: 120, sprayGapPx: 26, titleCircles: 1, circleHold: 1, titleLead: 1.3, titleTrack: 1,
-    audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, audioMicro: 0, audioMicroPitch: 1200, audioMicroDecay: 70, audioMicroRand: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1
+    audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, audioMicro: 0, audioMicroPitch: 1200, audioMicroDecay: 70, audioMicroRand: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1, foodReseed: 1, foodReseedFloor: 0.2, foodReseedMin: 40, foodReseedMax: 900, foodReseedTries: 8, foodEatRate: 1.5, refreshResetEnergy: 1
   };
   // owner's chosen defaults (23:04)
   P.audioFadeMs = 5000;
@@ -187,7 +187,8 @@
       var fd = Math.hypot(c.x - food[i].x, c.y - food[i].y);
       if (fd >= P.foodEatR && fd < reach && fd < bestD) { bestD = fd; bx = food[i].x; by = food[i].y; }
       // eating range reaches from the body EDGE inward: the old centre-based test (foodEatR px from the centre) never fired for bodies larger than foodEatR (owner 21 Oct: cells do not eat)
-      if (fd < c.radius + P.foodEatR) { c.energy += P.foodEnergyValue; habAte(food[i]); food[i].gone = 1; food.splice(i, 1); ev.ate = (ev.ate || 0) + 1; if (P.foodGrow) c.radius = Math.min(c.radius + P.foodGrowAmt, P.CELL_RADIUS * P.foodGrowMax); }
+      if (fd < c.radius + P.foodEatR && Math.random() < 1 - Math.exp(-frameDtf * P.foodEatRate / 1000)) { c.energy += P.foodEnergyValue; habAte(food[i]); food[i].gone = 1; food.splice(i, 1); ev.ate = (ev.ate || 0) + 1; if (P.foodGrow) c.radius = Math.min(c.radius + P.foodGrowAmt, P.CELL_RADIUS * P.foodGrowMax); }
+      // grazing rate above: a touched dot is taken at foodEatRate dots/s, not in the same frame (measured eat vacuum)
     }
     if (reach && bestD < 1e9) { c.vx += (bx - c.x) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); c.vy += (by - c.y) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); }
     if (P.divideOn && P.foodGrow && c.radius >= P.CELL_RADIUS * P.divideAt && cells.length < Math.max(60, P.UNIVERSE_SIZE * 4) && c.energy > 1) divide(c);
@@ -470,7 +471,7 @@
       if (!okp) { px = clamp(px, gx + 8, gx + cont.tw - 8); py = clamp(py, gy + 8, gy + cont.th - 8); } // pathologically tiny plate: keep the old clamp as a floor
       pts.push([px, py]);
     }
-    for (i = 0; i < cells.length; i++) { cells[i].energy = 12; cells[i].cl = 0; cells[i].dst = null; cells[i].dying = false; cells[i].pace = rnd(0.5, 1.5); cells[i].dl = rnd(0, 0.45) * trans.dur; cells[i].durK = rnd(0.55, 1); cells[i].bend = Math.random() < 0.25 ? 0 : rnd(-1, 1); cells[i].sym = null; }
+    for (i = 0; i < cells.length; i++) { if (P.refreshResetEnergy) cells[i].energy = 12; cells[i].cl = 0; cells[i].dst = null; cells[i].dying = false; cells[i].pace = rnd(0.5, 1.5); cells[i].dl = rnd(0, 0.45) * trans.dur; cells[i].durK = rnd(0.55, 1); cells[i].bend = Math.random() < 0.25 ? 0 : rnd(-1, 1); cells[i].sym = null; }
     // greedy matching, cells in random order take the nearest free place
     var free = pts.slice(), order = cells.slice().sort(function () { return Math.random() - 0.5; }), spawnN = 0;
     for (i = 0; i < order.length; i++) {
@@ -761,6 +762,7 @@
       var pi = 0; p[0] = P.interactionRadius; p[1] = P.slowDownRadius; p[2] = P.speedReductionFactor; p[3] = P.baseMaxSpeed; p[4] = P.maxSpeedVariation; p[5] = P.energyConsumptionRate; p[6] = P.selectOn ? 1 : 0; p[7] = P.genomeOn ? 1 : 0; p[8] = P.selStrength; p[9] = P.eatMergeOn ? 1 : 0; p[10] = P.clusterCohesion; p[11] = P.symbiosisOn ? 1 : 0; p[12] = P.foodEatR; p[13] = P.foodEnergyValue; p[14] = P.foodGrow ? 1 : 0; p[15] = P.foodGrowAmt; p[16] = P.CELL_RADIUS; p[17] = P.foodGrowMax; p[18] = P.divideOn ? 1 : 0; p[19] = P.divideAt; p[20] = P.UNIVERSE_SIZE; p[21] = P.foodShrink; p[22] = P.boundAware ? 1 : 0; p[23] = P.boundZone; p[24] = P.boundForce; p[25] = P.restless; p[26] = P.eatRatio; p[27] = P.eatChance; p[28] = P.mergeGene; p[29] = P.mergeChance; p[30] = P.symbiogenesisOn ? 1 : 0; p[31] = P.energyGainFromInteraction; p[32] = P.GENE_MIN; p[33] = P.GENE_MAX; p[34] = P.minEnergyForReproduction; p[35] = P.clusterMax; p[36] = P.genomeMut; p[37] = P.mutationRateRange; p[38] = P.metaballStrength;
       p[39] = env.spd; p[40] = env.app; p[41] = env.bnd; p[42] = env.col ? 1 : 0; if (env.col) { p[43] = env.col[0]; p[44] = env.col[1]; p[45] = env.col[2]; }
       p[46] = mouse.x; p[47] = mouse.y; p[48] = mouse.over ? 1 : 0; p[49] = cont.x; p[50] = cont.y; p[51] = cont.w; p[52] = cont.h; p[53] = resizeDrag ? 1 : 0; p[54] = clusterSeq;
+      p[55] = frameDtf; p[56] = P.foodEatRate === undefined ? 1.5 : P.foodEatRate; // frame dt ms + grazing rate for sim.rs eat roll
       p[57] = P.boundGap || 0; p[58] = P.reproMinAgeMs || 0; p[59] = P.reproChance === undefined ? 0.02 : P.reproChance; // 58: juvenile gate ms, 59: contact birth chance // boundGap slot for sim.rs keep_in (625f4e8 port); 44/45 are env.col
       p[60] = P.crowdTol; p[61] = P.orgLifeDie; p[62] = P.orgLifeGrow; p[63] = P.orgBirth; p[64] = P.orgDead; p[65] = P.orgBrain; p[66] = P.orgR90;
       p[67] = P.symEnergy; p[68] = P.symBreak; p[69] = P.symBreakDist; p[70] = P.eatDistF; p[71] = P.fuseDistF; p[72] = P.symDistF;
@@ -965,6 +967,26 @@
       food = out; WC.fwFd = (WC.fwFd || 0) + 1; return true;
     } catch (e) { WC.fwFdErr = String(e && e.stack || e); return false; }
   }
+  var reseedBudget = 0;
+  function reseedFood(dtf) { // shared density reseed for every dot-field mode (0 original, 1 life, 3 swarm): one mechanism, no copies; spawns stay inside the (moving) plate
+    if (!P.foodReseed) return;
+    var x0 = cont.x, y0 = cont.y, gs = Math.max(1, P.foodLifeCell);
+    var nf = cont.w * cont.h * P.foodDensity / 2, want = Math.max(P.foodReseedMin, nf * P.foodReseedFloor);
+    if (food.length >= want) { reseedBudget = 0; return; }
+    reseedBudget = Math.min(P.foodReseedMax, reseedBudget + P.foodReseedMax * dtf / 1000);
+    var nb = Math.min(Math.ceil((want - food.length) / 5), Math.floor(reseedBudget / 5)), spawned = 0; // ~5 dots per 3x3 blob; isolated dots die at once under Conway's rules
+    for (var b = 0; b < nb; b++) {
+      var bx = 0, by = 0, ok = false;
+      for (var tr = 0; tr < P.foodReseedTries && !ok; tr++) { // a seed dropped inside a cell's eat reach is eaten the same frame; look for a gap
+        bx = Math.floor((x0 + rnd(Math.max(1, cont.w - 4 * gs))) / gs); by = Math.floor((y0 + rnd(Math.max(1, cont.h - 4 * gs))) / gs);
+        var cx = (bx + 1.5) * gs, cy = (by + 1.5) * gs; ok = true;
+        for (var ci = 0; ci < cells.length; ci++) { var cc = cells[ci], rr = cc.radius + P.foodEatR + 2 * gs; if (Math.abs(cc.x - cx) < rr && Math.abs(cc.y - cy) < rr && (cc.x - cx) * (cc.x - cx) + (cc.y - cy) * (cc.y - cy) < rr * rr) { ok = false; break; } }
+      }
+      if (!ok) continue;
+      for (var dx = 0; dx < 3; dx++) for (var dy = 0; dy < 3; dy++) if (Math.random() < 0.55) { food.push({ x: (bx + dx + 0.5) * gs, y: (by + dy + 0.5) * gs, r: Math.random() }); spawned++; }
+    }
+    reseedBudget -= spawned; foodStat.born += spawned;
+  }
   function stepFood() {
     if (stepFoodW()) return;
     var i, f, x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h;
@@ -983,12 +1005,7 @@
     counts.forEach(function (n, kk) {
       if (n === 3 && !map.has(kk)) { var ix2 = Math.floor(kk / M) - 20000, iy2 = (kk % M) - 20000, nx = ox + (ix2 + 0.5) * gs, ny = oy + (iy2 + 0.5) * gs; if (nx > x0 && nx < x1 && ny > y0 && ny < y1) { out.push({ x: nx, y: ny, r: Math.random() }); born++; } }
     });
-    // when the colony runs low, small random 3x3 blobs are seeded (isolated dots would die at once under Conway's rules)
-    var nf = cont.w * cont.h * P.foodDensity / 2, want = Math.max(40, nf * 0.2), nb = out.length < want ? Math.min(60, Math.ceil((want - out.length) / 4)) : 0;
-    for (var b = 0; b < nb; b++) {
-      var bx = Math.floor((x0 + rnd(Math.max(1, cont.w - 4 * gs))) / gs), by = Math.floor((y0 + rnd(Math.max(1, cont.h - 4 * gs))) / gs);
-      for (dx = 0; dx < 3; dx++) for (dy = 0; dy < 3; dy++) if (Math.random() < 0.55) { out.push({ x: ox + (bx + dx + 0.5) * gs, y: oy + (by + dy + 0.5) * gs, r: Math.random() }); born++; }
-    }
+    // reseeding is the shared driver (reseedFood), run from the frame dispatch for every dot mode
     food = out; foodStat.born += born; foodStat.died += died; foodStat.steps++;
   }
   // ---- food life, amorphous alternatives (no lattice: positions are continuous, shapes keep changing) ----
@@ -1426,12 +1443,12 @@
 
   // ---- frame ----
   var res = 1, frameMs = 0;
-  var lastFrameT = performance.now();
+  var lastFrameT = performance.now(), frameDtf = 16.7;
   // stage profiler (?perf=1 shows it; stage ms are exponential averages, __ca2.PF holds them)
   var PF = {}, pfT = 0, PERF = /[?&]perf=1/.test(location.search);
   function pfm(n) { var t = performance.now(); PF[n] = (PF[n] === undefined ? 0 : PF[n]) * 0.9 + (t - pfT) * 0.1; pfT = t; }
   function frame() {
-    var t0 = performance.now(); pfT = t0; frameT = t0; var dtf = Math.min(100, t0 - lastFrameT); lastFrameT = t0;
+    var t0 = performance.now(); pfT = t0; frameT = t0; var dtf = Math.min(100, t0 - lastFrameT); lastFrameT = t0; frameDtf = dtf;
     if (resizeDrag) lastRefresh = t0;
     var pk = trans ? 1 - Math.exp(-dtf * 3 / trans.dur) : P.morphEase;
     cont.ew += (cont.tw - cont.ew) * pk; cont.eh += (cont.th - cont.eh) * pk;
@@ -1457,6 +1474,7 @@
     if (Math.random() < 0.001 && food.length) food.splice(Math.floor(rnd(food.length)), 1);
     pfm('setup');
     if (P.foodMode === 1 || (P.foodMode === undefined && P.foodLife)) stepFood(); else if (P.foodMode === 2) stepBlobs(); else if (P.foodMode === 3) stepSwarm(); else if (P.foodMode === 4) stepWorms(); else if (P.foodMode === 5) stepSpores();
+    if (P.foodMode !== 2 && P.foodMode !== 4 && P.foodMode !== 5) reseedFood(dtf); // structured modes keep their own populations
     pfm('food step');
     if (P.foodMode !== 4 && worms.length) wipeWorms(); if (P.foodMode !== 5 && spores.length) wipeSpores();
     foodKeepIn(); pfm('foodKeepIn');
@@ -1846,9 +1864,10 @@
       ['audioCrackle', 'micro events', 0, 1, 0.01], ['audioMicroPitch', 'micro pitch Hz', 200, 4000, 10], ['audioMicroDecay', 'micro decay ms', 10, 400, 1], ['audioMicroRand', 'micro randomness', 0, 1, 0.01], ['audioWidth', 'stereo width', 0, 1, 0.01]]],
     ['field', [
       ['THRESHOLD', 'metaball threshold', 0.05, 0.6, 0.01], ['metaballStrength', 'metaball strength', 0.005, 0.1, 0.001],
-      ['foodDensity', 'food density', 0, 0.1, 0.005], ['foodEnergyValue', 'food energy', 0, 20, 0.5], ['foodGrowAmt', 'growth per food (px)', 0, 5, 0.05], ['plateOverlap', 'plate over text (x text size)', 0, 0.5, 0.01], ['parasiteHard', 'parasite resilience', 0, 40, 0.5], ['parasiteNerv', 'parasite nervousness', 0, 1, 0.01], ['parasiteHardMs', 'parasite starve delay ms', 0, 60000, 500], ['foodEatR', 'eating radius px', 2, 100, 0.5], ['foodLifeMs', 'food life step ms', 50, 2000, 10], ['foodLifeCell', 'food life lattice px', 1, 20, 0.5], ['foodGrowMax', 'max growth (x radius)', 1, 8, 0.1], ['foodShrink', 'shrink back (px/frame)', 0, 0.5, 0.005],
+      ['foodDensity', 'food density', 0, 0.1, 0.005], ['foodEnergyValue', 'food energy', 0, 20, 0.5], ['foodGrowAmt', 'growth per food (px)', 0, 5, 0.05], ['plateOverlap', 'plate over text (x text size)', 0, 0.5, 0.01], ['parasiteHard', 'parasite resilience', 0, 40, 0.5], ['parasiteNerv', 'parasite nervousness', 0, 1, 0.01], ['parasiteHardMs', 'parasite starve delay ms', 0, 60000, 500], ['foodEatR', 'eating radius px', 2, 100, 0.5], ['foodEatRate', 'eating rate dots/s', 0, 20, 0.1], ['foodLifeMs', 'food life step ms', 50, 2000, 10], ['foodLifeCell', 'food life lattice px', 1, 20, 0.5], ['foodGrowMax', 'max growth (x radius)', 1, 8, 0.1], ['foodShrink', 'shrink back (px/frame)', 0, 0.5, 0.005],
       ['foodAlpha', 'food dot opacity', 0, 1, 0.01], ['foodSize', 'food dot size px', 0.5, 12, 0.5], ['foodShow', 'food dot frequency', 0, 1, 0.01],
-      ['minRefreshInterval', 'refresh min s', 2, 60, 1], ['maxRefreshInterval', 'refresh max s', 3, 90, 1]]]
+      ['foodReseed', 'food reseed', 0, 1, 1], ['foodReseedFloor', 'reseed floor (x target)', 0, 1, 0.05], ['foodReseedMin', 'reseed min dots', 0, 500, 10], ['foodReseedMax', 'reseed rate dots/s', 0, 5000, 50], ['foodReseedTries', 'reseed gap search tries', 1, 20, 1],
+      ['minRefreshInterval', 'refresh min s', 2, 60, 1], ['maxRefreshInterval', 'refresh max s', 3, 90, 1], ['refreshResetEnergy', 'refresh resets energy', 0, 1, 1]]]
   ];
   var layoutKeys = { margin: 1, gap: 1, textScale: 1, areaMin: 1, areaMax: 1 };
   // every change takes effect at once, without a respawn

@@ -38,6 +38,7 @@ const P_CROWD: usize = 60; // checkSurvival crowding tolerance (energy < n * cro
 const P_ORGDIE: usize = 61; const P_ORGGROW: usize = 62; const P_ORGBIRTH: usize = 63; const P_ORGDECAY: usize = 64;
 const P_ORGBRAIN: usize = 65; const P_ORGR90: usize = 66; // organic() life/birth/energy deltas (B3/S23 topology stays)
 const P_SYMEN: usize = 67; const P_SYMBRK: usize = 68; const P_SYMBRKD: usize = 69; // symbiosis bond feed, whim break, distance break (x span)
+const P_DTF: usize = 55; const P_FERATE: usize = 56; // frame dt ms + grazing rate (dots/s per touched dot)
 const P_EATDF: usize = 70; const P_FUSEDF: usize = 71; const P_SYMDF: usize = 72; // eat/fuse/pair contact distance (x radii sum)
 const P_HABON: usize = 73; const P_HABCAP: usize = 74; // habitat soft birth cap (habitat-gated): over habitatBirthCap x UNIVERSE_SIZE the birth chance scales cap/n, never a hard wall
 // out indices
@@ -254,7 +255,7 @@ impl Sim {
             if self.fgone[f] != 0.0 { continue; }
             let fd = hyp(px - self.fx[f], py - self.fy[f]);
             if fd >= eat_r && fd < reach && fd < best_d { best_d = fd; bx = self.fx[f]; by = self.fy[f]; }
-            if fd < crad + eat_r {
+            if fd < crad + eat_r && self.rnd01() < 1.0 - (-self.p[P_DTF] * self.p[P_FERATE] / 1000.0).exp() { // grazing rate, matches the JS fallback
                 let e = self.g(c, EN); self.set(c, EN, e + self.p[P_FEV]);
                 self.fgone[f] = 1.0; self.out[8] += 1.0;
                 if self.p[P_FGROW] != 0.0 { let r = (self.g(c, RAD) + self.p[P_FGAMT]).min(self.p[P_CELLR] * self.p[P_FGMAX]); self.set(c, RAD, r); }

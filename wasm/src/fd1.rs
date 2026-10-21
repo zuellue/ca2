@@ -77,17 +77,8 @@ impl Fd1 {
                 if nx > x0 && nx < x1 && ny > y0 && ny < y1 { let rv = self.r01(); self.out.push(nx); self.out.push(ny); self.out.push(rv); born += 1; }
             }
         }
-        // low-population 3x3 blob seeding
-        let nf = cw * ch * density / 2.0; let want = (40f64).max(nf * 0.2);
-        let have = (self.out.len() / 3) as f64;
-        let nb = if have < want { (60f64).min(((want - have) / 4.0).ceil()) as i64 } else { 0 };
-        for _ in 0..nb {
-            let bx = ((x0 + self.r01() * (1f64).max(cw - 4.0 * gs)) / gs).floor() as i64;
-            let by = ((y0 + self.r01() * (1f64).max(ch - 4.0 * gs)) / gs).floor() as i64;
-            for dx in 0..3i64 { for dy in 0..3i64 { if self.r01() < 0.55 {
-                let rv = self.r01(); self.out.push((bx + dx) as f64 * gs + 0.5 * gs); self.out.push((by + dy) as f64 * gs + 0.5 * gs); self.out.push(rv); born += 1;
-            } } }
-        }
+        // reseeding moved to the shared JS driver (reseedFood): one mechanism for every dot mode
+        let _ = density; let _ = cw; let _ = ch;
         self.stat[0] = died as f64; self.stat[1] = born as f64;
         (self.out.len() / 3) as i64
     }
