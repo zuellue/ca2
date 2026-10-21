@@ -2180,27 +2180,61 @@
   // not a separate lane). Each is a knob-size circle: hollow while off (param at its default),
   // a click turns it on with a random red/green/blue, another click turns it off and restores the
   // default; hovering fills the circle black; the value beside the name flashes the new state.
+  // true-colour ink: the panel blends (difference) under auto invert, which would lie about colours, so the
+  // visible colour chips are plain fixed elements OUTSIDE the panel, synced over their anchors every layout -
+  // the same pattern as the knob hover circles (owner 21 Oct: the picker and the preview show the real colour).
+  var swInks = [];
+  function swInkSync() {
+    for (var i = 0; i < swInks.length; i++) {
+      var it = swInks[i], r = it.anchor.getBoundingClientRect();
+      it.el.style.left = r.left + 'px'; it.el.style.top = r.top + 'px'; it.el.style.width = r.width + 'px'; it.el.style.height = r.height + 'px';
+      it.el.style.visibility = (r.width && r.bottom > 0 && r.top < window.innerHeight) ? 'visible' : 'hidden';
+    }
+  }
+  panel.addEventListener('scroll', swInkSync); window.addEventListener('resize', swInkSync); setInterval(swInkSync, 500);
+  function mkInk(anchor) { var el = document.createElement('div'); el.className = 'swink'; document.body.appendChild(el); var it = { el: el, anchor: anchor }; swInks.push(it); return it; }
   SW_DEFS.forEach(function (def) {
     var row = document.createElement('div'); row.className = 'row';
     row.innerHTML = '<div class="lab"><span>' + def.label + '</span><b style="font-weight:normal;transition:opacity .3s"></b></div>';
     var c = document.createElement('div'); c.className = 'swc';
     row.appendChild(c);
+    // free choice is back (owner 21 Oct): a hex field in the parameter row plus a native colour picker, both
+    // synced with the circle switch; any custom pick turns the switch on and is saved into the preset.
+    var hex = document.createElement('input'); hex.className = 'swhex'; hex.spellcheck = false; hex.autocomplete = 'off'; hex.maxLength = 7; hex.setAttribute('aria-label', def.label + ' hex');
+    var pick = document.createElement('input'); pick.type = 'color'; pick.className = 'swpick'; pick.setAttribute('aria-label', def.label + ' picker');
+    row.appendChild(hex); row.appendChild(pick);
     var home = SW_HOME[def.label]; ctl.insertBefore(row, home[0]); home[1].els.push(row);
     var bv = row.querySelector('b'), hideT = null;
+    var inkC = mkInk(c), inkP = mkInk(pick);
     function apply(col) { if (def.set) def.set(col); else { P[def.key] = col; touched[def.key] = 1; applyLineColor(); } }
     function cur() { return P[def.on] ? (def.get ? def.get() : P[def.key]) : null; }
-    function paint() { c.style.background = cur() || 'transparent'; }
+    function paint() {
+      var v = cur();
+      inkC.el.style.background = v || 'transparent'; inkP.el.style.background = v || 'transparent';
+      if (v) { hex.value = v; try { pick.value = v; } catch (e) {} }
+    }
     function show(flash) {
       bv.textContent = cur() || 'default';
       if (flash) { bv.style.opacity = '1'; clearTimeout(hideT); hideT = setTimeout(function () { bv.style.opacity = ''; }, 1400); }
     }
-    c.addEventListener('pointerenter', function () { c.style.background = '#000'; });
+    function setFree(v) { // a valid #rrggbb from the hex field or the picker: switch on, apply, save (owner 21 Oct)
+      P[def.on] = 1; touched[def.on] = 1;
+      apply(v); paint(); show(true); save();
+    }
+    c.addEventListener('pointerenter', function () { inkC.el.style.background = '#000'; });
     c.addEventListener('pointerleave', paint);
     c.addEventListener('click', function () {
       P[def.on] = P[def.on] ? 0 : 1; touched[def.on] = 1;
       apply(P[def.on] ? CIRC_COLS[Math.floor(Math.random() * 3)] : (def.dflt === undefined ? null : def.dflt));
       paint(); show(true); save();
     });
+    var hexDone = function () {
+      var t = hex.value.trim(); if (t && t[0] !== '#') t = '#' + t;
+      if (/^#[0-9a-fA-F]{6}$/.test(t)) setFree(t.toLowerCase()); else paint();
+    };
+    hex.addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter') { hexDone(); hex.blur(); } });
+    hex.addEventListener('blur', hexDone);
+    pick.addEventListener('input', function () { setFree(pick.value); });
     paint(); show(false);
   });
 
