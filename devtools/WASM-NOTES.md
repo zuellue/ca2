@@ -61,3 +61,13 @@ worms food step 1.27 (542 food), spores 1.88 (517 food), axis+tally 1.5-2.0 (dra
 5. keepIn root cause (boundary/zone=0) hash+diff from desktop team -> port into sim.rs keep_in (zone floor already 0).
 6. body-plan distribution comparison (frozen parameters) + f32 metaball difference (~500-700 bytes / 1.8M, max 198 levels): decide f64 path.
 Tools: devtools/t70 (interact iso), t71 (CDP profiler, node devtools/t71-prof.js "?perf=1" secs name [preJS]), t72 (keepIn iso), t73 (swarm bench), t74 (full-frame iso: A exact RNG-lockstep, B statistical, C birth-pressure, D debug flags), t81 (living-food boot check), t82 (simOff-toggle A/B, confounded - see above), t82b (clean A/B via ?nofoodwasm=1 + history.replaceState - no reload, sim wasm stays on).
+
+## 2026-10-21 11:45 — yatay eksen örüntüsü + hücre dizileri (KAPANDI, 151eeb6)
+- Kök neden: planComposition nokta üretecinin per-eksen hard clamp'ı. Geniş plakada y-clamp %5.4 vs x-clamp %0.8 (offline 500k nokta, 6.7x) → hedefler üst/alt kenarda yatay çizgi; kalabalıkta akış bu çizgilere → görünür yatay sıralar. Sim numeriği TEMİZ: t99c dense node (224 hücre, 5 varyant) banding yok; t115 canlı kontrol (kalabalık, trans yok): row 10.5-12.1/1k ≈ col 9.9-12.2/1k.
+- Ölçüm (canlı, trans açık kalabalık, before): rowPer1k 275.8/139.6/280.7/308 vs colPer1k 9-21 (26x worst). Her iki motor (?nowasm=1 dahil) aynı → wasm regresyonu değil.
+- Fix: 151eeb6 ca2.js planComposition — 12 denemeli rejection-resample, clamp yalnız floor. Offline after: edge nokta %0.00.
+- Canlı after (t114 rerun): worst row/col 5.6x, çoğu kare 1-3x ≈ izotropik. Kalan hafif yataylık = geniş plaka geometrisi (akış hatları yatay daha uzun) — amaçlanan morf akışının doğası, artefakt değil.
+- "Hücre dizileri" cevabı: (a) string gövde planı (shp.t=1) disk dizisi olarak çizilir — gerçek body-plan, yeni etkileşim değil; (b) kalabalık sıralar = yukarıdaki kompozisyon artefaktı (fix'li). COH=0/SYM=0 kapatınca sıralar kaybolmuyordu (308/1k) → etkileşim kaynaklı değil.
+- stringFrac boot-to-boot 0.09-0.77 salınımı = founder effect (kalıtım ~%80 sadakat); shape-atama semantiği wasm-log kd=1/2/3 vs JS divide/reproduce/fuse satır-satır aynı — motor farkı YOK.
+- Testler: devtools/t113-crowd-live.js, t114-rows-live.js (before/after), /tmp/t115-notrans.js (kontrol). Perf: sim loop wasm 1.35ms vs js 11.6ms (8.6x); mb:field headless wasm-simd 73.9ms.
+- Sonraki iş (sıradaki run): panel/HUD desktop ekibinde; TODO listesi yukarıda. t99/t99c node harnessleri /tmp'de (kaybolabilir, gerekirse t114 pattern'inden yeniden yaz).
