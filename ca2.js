@@ -550,7 +550,7 @@
   }
   function cycleBg() { bgIndex = (bgIndex + 1) % BGS.length; bgTarget = BGS[bgIndex]; save(); }
   function createCell() { cells.push(new Cell(mouse.x, mouse.y, Math.floor(rnd(P.GENE_MIN, P.GENE_MAX + 1)), P.baseMutationRate + rnd(-P.mutationRateRange, P.mutationRateRange))); }
-  function killNear() { for (var i = cells.length - 1; i >= 0; i--) if (Math.hypot(mouse.x - cells[i].x, mouse.y - cells[i].y) < 22) cells.splice(i, 1); }
+  function killNear() { for (var i = cells.length - 1; i >= 0; i--) if (Math.hypot(mouse.x - cells[i].x, mouse.y - cells[i].y) < cells[i].radius + 6) cells.splice(i, 1); } // the click target is the visible body: a fixed 22px missed every click once CELL_RADIUS grew past it (owner 21 Oct: D+click did not kill)
   function randomizeOne() {
     var k = Math.floor(rnd(5));
     if (k === 0) P.baseMutationRate = rnd(2, 8); else if (k === 1) P.mutationRateRange = rnd(1, 4);
