@@ -2733,14 +2733,14 @@
   (function adminEntryFix() {
     var saveBtn = [].slice.call(document.querySelectorAll('#btns button')).filter(function (x) { return x.textContent === 'save'; })[0];
     if (saveBtn) saveBtn.dataset.ca2save = '1';
-    // (a) locked save: the core handler writes localStorage only but still shows "saved" - block it and say "kilitli"
+    // (a) locked save: the core handler writes localStorage only but still shows "saved" - block it and say "locked"
     document.addEventListener('click', function (e) {
       var b = e.target && e.target.closest ? e.target.closest('button') : null;
       if (!b || window.__adminOn) return;
       if (b.dataset.ca2save !== '1') return;
       e.stopPropagation(); e.preventDefault();
-      b.textContent = 'kilitli';
-      // mobile: the locked button is also the entry point - tapping it opens the code panel with the tap pad
+      b.textContent = 'locked';
+      // mobile: the locked button is also the entry point - tapping it opens the code entry widget
       if ((window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm') {
         var adm = document.getElementById('adm');
         if (adm && !adm.classList.contains('on')) {
@@ -2752,12 +2752,12 @@
         focusBox(); // synchronous inside the tap gesture - the only focus context phones accept for opening the keyboard
       }
     }, true);
-    // persistent lock state on the pinned button (mobile only): kilitli while locked, save once admin is on
+    // persistent lock state on the pinned button (mobile only): locked while locked, save once admin is on
     setInterval(function () {
       if (!saveBtn) return;
       var m = (window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm';
-      if (m && !window.__adminOn && saveBtn.textContent === 'save') saveBtn.textContent = 'kilitli';
-      if (window.__adminOn && saveBtn.textContent === 'kilitli') saveBtn.textContent = 'save';
+      if (m && !window.__adminOn && saveBtn.textContent === 'save') saveBtn.textContent = 'locked';
+      if (window.__adminOn && saveBtn.textContent === 'locked') saveBtn.textContent = 'save';
     }, 400);
     // (b)+(c) the 5s hold fires from a timer, outside any gesture, so mobile keyboards never open for the code box.
     // Focus it from real gestures instead: the pointerup that ends the hold, and any tap while the panel is open.

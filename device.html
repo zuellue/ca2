@@ -166,13 +166,13 @@
     try { if (!outerOn && fr.contentWindow && fr.contentWindow.__adminOn) setOk(); } catch (e) {}
   }, 400);
   // page-level save: bottom row, centered under the preview, same line as the desktop link (owner 21 Oct).
-  // Drives the real save button inside the frame (its handler, kilitli intercept and text states stay authoritative) and mirrors its label.
+  // Drives the real save button inside the frame (its handler, locked intercept and text states stay authoritative) and mirrors its label.
   var savea = document.getElementById('savea');
   function innerSave() {
     try {
       var d = fr.contentDocument; if (!d) return null;
       var bs = [].slice.call(d.querySelectorAll('button'));
-      return bs.filter(function (x) { return x.dataset && x.dataset.ca2save === '1'; })[0] || bs.filter(function (x) { return x.textContent === 'save' || x.textContent === 'kilitli'; })[0] || null;
+      return bs.filter(function (x) { return x.dataset && x.dataset.ca2save === '1'; })[0] || bs.filter(function (x) { return x.textContent === 'save' || x.textContent === 'locked'; })[0] || null;
     } catch (e) { return null; }
   }
   savea.addEventListener('click', function () { var b = innerSave(); if (b) b.click(); });
