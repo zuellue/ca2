@@ -25,7 +25,7 @@
     minRefreshInterval: 10, maxRefreshInterval: 20, slowDownRadius: 20, speedReductionFactor: 50.3,
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
-    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, titleCircles: 1, circleHold: 1,
+    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, titleCircles: 1, circleHold: 1,
     audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, audioMicro: 0, audioMicroPitch: 1200, audioMicroDecay: 70, audioMicroRand: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1
   };
   // owner's chosen defaults (23:04)
@@ -182,19 +182,19 @@
   // boundary awareness: a soft push inside the zone turns cells before the wall; the wall itself reflects (flat world, no death at the edge)
   function keepIn(c) {
     // the wall acts on the cell's edge, not its centre: the radius inset is automatic. The zone is the boundary distance knob only, independent of cell radius (owner 20 Oct)
-    var r = Math.min(c.radius, Math.min(cont.w, cont.h) * 0.45);
+    var gap = Math.max(0, P.boundGap || 0), rFit = Math.max(8, Math.min(cont.w, cont.h) / 2 - gap), r = Math.min(c.radius, rFit);
     var z = Math.max(0, Math.min(P.boundZone * (P.genomeOn ? c.g.bnd : 1), cont.w / 2.5, cont.h / 2.5)), F = P.boundForce, ms = c.maxSpeed + 1;
-    var x0 = cont.x + r, x1 = cont.x + cont.w - r, y0 = cont.y + r, y1 = cont.y + cont.h - r, d, t;
+    var x0 = cont.x + r + gap, x1 = cont.x + cont.w - r - gap, y0 = cont.y + r + gap, y1 = cont.y + cont.h - r - gap, d, t;
     d = c.x - x0; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vx += F * t * t * ms * 0.25; if (c.vx < 0) c.vx *= 1 - 0.25 * t; }
     d = x1 - c.x; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vx -= F * t * t * ms * 0.25; if (c.vx > 0) c.vx *= 1 - 0.25 * t; }
     d = c.y - y0; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vy += F * t * t * ms * 0.25; if (c.vy < 0) c.vy *= 1 - 0.25 * t; }
     d = y1 - c.y; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vy -= F * t * t * ms * 0.25; if (c.vy > 0) c.vy *= 1 - 0.25 * t; }
     // a wall that moved past a cell pulls it back gradually (no teleport); a plain wall hit reflects
     var ex;
-    if (c.x < x0) { ex = x0 - c.x; if (ex > 40) { c.x += ex * 0.3; c.vx = Math.abs(c.vx); } else { c.x = x0 + ex; c.vx = Math.abs(c.vx) * 0.7; } }
-    else if (c.x > x1) { ex = c.x - x1; if (ex > 40) { c.x -= ex * 0.3; c.vx = -Math.abs(c.vx); } else { c.x = x1 - ex; c.vx = -Math.abs(c.vx) * 0.7; } }
-    if (c.y < y0) { ex = y0 - c.y; if (ex > 40) { c.y += ex * 0.3; c.vy = Math.abs(c.vy); } else { c.y = y0 + ex; c.vy = Math.abs(c.vy) * 0.7; } }
-    else if (c.y > y1) { ex = c.y - y1; if (ex > 40) { c.y -= ex * 0.3; c.vy = -Math.abs(c.vy); } else { c.y = y1 - ex; c.vy = -Math.abs(c.vy) * 0.7; } }
+    if (c.x < x0) { ex = x0 - c.x; if (ex > 40) { c.x = Math.min(x1, c.x + ex * 0.3); c.vx = Math.abs(c.vx); } else { c.x = Math.min(x1, x0 + ex); c.vx = Math.abs(c.vx) * 0.7; } }
+    else if (c.x > x1) { ex = c.x - x1; if (ex > 40) { c.x = Math.max(x0, c.x - ex * 0.3); c.vx = -Math.abs(c.vx); } else { c.x = Math.max(x0, x1 - ex); c.vx = -Math.abs(c.vx) * 0.7; } }
+    if (c.y < y0) { ex = y0 - c.y; if (ex > 40) { c.y = Math.min(y1, c.y + ex * 0.3); c.vy = Math.abs(c.vy); } else { c.y = Math.min(y1, y0 + ex); c.vy = Math.abs(c.vy) * 0.7; } }
+    else if (c.y > y1) { ex = c.y - y1; if (ex > 40) { c.y = Math.max(y0, c.y - ex * 0.3); c.vy = -Math.abs(c.vy); } else { c.y = Math.max(y0, y1 - ex); c.vy = -Math.abs(c.vy) * 0.7; } }
   }
   function divide(c) {
     var ang = Math.random() * 6.2832, nr = Math.max(P.CELL_RADIUS, c.radius * 0.62);
@@ -529,23 +529,26 @@
   function srcGrow(n) { if (n <= SRC.x.length) return; var m = SRC.x.length * 2; while (m < n) m *= 2; ['x', 'y', 'r', 'wr', 'wg', 'wb'].forEach(function (k) { var a2 = new Float32Array(m); a2.set(SRC[k]); SRC[k] = a2; }); }
   function emitCell(c, t0, allowance, o) { // appends the cell's sources (plate-relative) to o = { x, y, r, n }
     var bx = c.x - cont.x, by = c.y - cont.y, sh = c.shp;
+    // wall squeeze: the drawn body never crosses the gap line; a cell pressed at the wall compresses a little so the squeeze is felt (owner 21 Oct)
+    var gap2 = Math.max(0, P.boundGap || 0), rFree = Math.max(1, Math.min(bx - gap2, cont.w - gap2 - bx, by - gap2, cont.h - gap2 - by));
+    var cr = Math.min(c.radius, Math.max(1, rFree)) * (1 - 0.18 * clamp(1 - Math.max(0, rFree - c.radius) / 8, 0, 1));
     if (P.cellShapes && sh && sh.t === 1 && allowance > 1) { // string: silhouette aspect asp, thickness th (short fat stubs are 2-3 discs)
-      var rs = c.radius * sh.th, span = 2 * c.radius * sh.th * (sh.asp - 1), want = Math.min(9, Math.max(2, Math.round(span / (1.15 * rs)) + 1)), nn = Math.min(want, allowance);
+      var rs = cr * sh.th, span = 2 * cr * sh.th * (sh.asp - 1), want = Math.min(9, Math.max(2, Math.round(span / (1.15 * rs)) + 1)), nn = Math.min(want, allowance);
       if (nn >= 2) {
         var ux = Math.cos(sh.dir), uy = Math.sin(sh.dir), px = -uy, py = ux, ds = span / (nn - 1), tq = t0 / 850 * (1 + sh.wsp) + sh.ph;
         for (var k = 0; k < nn; k++) { var d0 = -span / 2 + ds * k, off2 = sh.wig * rs * Math.sin(tq + k * 0.85); o.x.push(bx + ux * d0 + px * off2); o.y.push(by + uy * d0 + py * off2); o.r.push(rs); o.n++; }
         return;
       }
     } else if (P.cellShapes && sh && sh.t === 2 && allowance > 2) { // lobed: amorf even standing alone
-      var r0 = c.radius * 0.78, rot = t0 / 4200 * sh.wsp + sh.ph;
+      var r0 = cr * 0.78, rot = t0 / 4200 * sh.wsp + sh.ph;
       o.x.push(bx); o.y.push(by); o.r.push(r0); o.n++;
       for (var q2 = 0; q2 < sh.sat; q2++) {
-        var aa = rot + q2 * 2.4 + sh.ph2, dd = c.radius * (0.42 + 0.24 * ((q2 * 0.731 + sh.ph) % 1)), rr2 = c.radius * (0.3 + 0.22 * ((q2 * 0.377 + sh.ph2) % 1));
+        var aa = rot + q2 * 2.4 + sh.ph2, dd = cr * (0.42 + 0.24 * ((q2 * 0.731 + sh.ph) % 1)), rr2 = cr * (0.3 + 0.22 * ((q2 * 0.377 + sh.ph2) % 1));
         o.x.push(bx + Math.cos(aa) * dd); o.y.push(by + Math.sin(aa) * dd); o.r.push(rr2); o.n++;
       }
       return;
     }
-    o.x.push(bx); o.y.push(by); o.r.push(c.radius); o.n++;
+    o.x.push(bx); o.y.push(by); o.r.push(cr); o.n++;
   }
   function buildSourcesW(t0) { // Rust/wasm buildSources+emitCell (bs.rs); returns false so the JS body below runs (?nowasm=1, ?nosim=1)
     var E = WC.e; if (!E || !E.bs_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
@@ -1556,7 +1559,7 @@
       ['mergeChance', 'merge chance', 0, 0.3, 0.005], ['mergeGene', 'merge gene distance', 0, 36, 1], ['clusterCohesion', 'cluster cohesion', 0, 1, 0.01], ['clusterMax', 'cluster max size', 2, 30, 1],
       ['parasiteFrac', 'parasite share', 0, 0.5, 0.01], ['parasiteDrain', 'parasite drain', 0, 0.2, 0.005], ['parasiteEff', 'parasite efficiency', 0, 1, 0.01], ['selStrength', 'selection strength', 0, 4, 0.05]]],
     ['life', [
-      ['boundZone', 'boundary awareness zone', 0, 200, 1], ['dragMargin', 'drag resize viewport margin px', 0, 100, 1], ['edgeGrab', 'border grab width px', 3, 40, 1], ['restless', 'cell restlessness while resizing', 0, 3, 0.05], ['boundForce', 'boundary push', 0, 3, 0.05], ['cellMorphMs', 'metamorphosis time ms', 100, 6000, 50]]],
+      ['boundGap', 'wall gap px (every cell)', 0, 200, 1], ['boundZone', 'boundary awareness zone', 0, 200, 1], ['dragMargin', 'drag resize viewport margin px', 0, 100, 1], ['edgeGrab', 'border grab width px', 3, 40, 1], ['restless', 'cell restlessness while resizing', 0, 3, 0.05], ['boundForce', 'boundary push', 0, 3, 0.05], ['cellMorphMs', 'metamorphosis time ms', 100, 6000, 50]]],
     ['sound', [
       ['audioVol', 'volume', 0, 1, 0.01], ['audioTone', 'tone (cutoff Hz)', 200, 8000, 10], ['audioMod', 'CA modulation', 0, 1, 0.01],
       ['audioCrackle', 'micro events', 0, 1, 0.01], ['audioMicroPitch', 'micro pitch Hz', 200, 4000, 10], ['audioMicroDecay', 'micro decay ms', 10, 400, 1], ['audioMicroRand', 'micro randomness', 0, 1, 0.01], ['audioWidth', 'stereo width', 0, 1, 0.01]]],
