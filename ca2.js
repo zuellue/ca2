@@ -25,7 +25,7 @@
     minRefreshInterval: 10, maxRefreshInterval: 20, slowDownRadius: 20, speedReductionFactor: 50.3,
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
-    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, panelRowGap: 11, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, sprayMs: 120, sprayGapPx: 26, titleCircles: 1, circleHold: 1, titleLead: 1.3, titleTrack: 1,
+    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, panelRowGap: 11, spawnProtect: 1, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, sprayMs: 120, sprayGapPx: 26, titleCircles: 1, circleHold: 1, titleLead: 1.3, titleTrack: 1,
     audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, audioMicro: 0, audioMicroPitch: 1200, audioMicroDecay: 70, audioMicroRand: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1, foodReseed: 1, foodReseedFloor: 0.2, foodReseedMin: 40, foodReseedMax: 900, foodReseedTries: 8, foodEatRate: 1.5, refreshResetEnergy: 1
   };
   // owner's chosen defaults (23:04)
@@ -474,11 +474,12 @@
     }
     for (i = 0; i < cells.length; i++) { if (P.refreshResetEnergy) cells[i].energy = 12; cells[i].cl = 0; cells[i].dst = null; cells[i].dying = false; cells[i].pace = rnd(0.5, 1.5); cells[i].dl = rnd(0, 0.45) * trans.dur; cells[i].durK = rnd(0.55, 1); cells[i].bend = Math.random() < 0.25 ? 0 : rnd(-1, 1); cells[i].sym = null; }
     // greedy matching, cells in random order take the nearest free place
-    var free = pts.slice(), order = cells.slice().sort(function () { return Math.random() - 0.5; }), spawnN = 0;
+    var free = pts.slice(), order = cells.slice().sort(function (a, b2) { return ((b2.userAdded && P.spawnProtect) ? 1 : 0) - ((a.userAdded && P.spawnProtect) ? 1 : 0) || Math.random() - 0.5; }), spawnN = 0;
+    // user-added cells take places first (owner 21 Oct: added cells must join the life, not be culled): the surplus cull falls on natural-born cells only
     for (i = 0; i < order.length; i++) {
       var c = order[i];
       if (free.length) { var bi = 0, bd = 1e18; for (j2 = 0; j2 < free.length; j2++) { var d = (free[j2][0] - c.x) * (free[j2][0] - c.x) + (free[j2][1] - c.y) * (free[j2][1] - c.y); if (d < bd) { bd = d; bi = j2; } } c.dst = free.splice(bi, 1)[0]; }
-      else { c.dst = pts[Math.floor(Math.random() * pts.length)]; c.dying = true; }
+      else { c.dst = pts[Math.floor(Math.random() * pts.length)]; if (!(P.spawnProtect && c.userAdded)) c.dying = true; }
     }
     trans.pending = free; trans.plan = { points: pts.length, dying: order.filter(function (c) { return c.dying; }).length, birthsDue: free.length, from: cells.length };
     // fresh food for the new cycle
@@ -587,8 +588,9 @@
         if (free) { px = cx2; py = cy2; ok = true; }
       }
     }
-    cells.push(new Cell(px, py, Math.floor(rnd(P.GENE_MIN, P.GENE_MAX + 1)), P.baseMutationRate + rnd(-P.mutationRateRange, P.mutationRateRange)));
-    return cells[cells.length - 1];
+    var nc = new Cell(px, py, Math.floor(rnd(P.GENE_MIN, P.GENE_MAX + 1)), P.baseMutationRate + rnd(-P.mutationRateRange, P.mutationRateRange));
+    nc.userAdded = 1; cells.push(nc);
+    return nc;
   }
   function createCell() { spawnAt(mouse.x, mouse.y); }
   function killNear() { for (var i = cells.length - 1; i >= 0; i--) if (Math.hypot(mouse.x - cells[i].x, mouse.y - cells[i].y) < cells[i].radius + 6) { habReap(cells[i]); cells.splice(i, 1); } } // the click target is the visible body: a fixed 22px missed every click once CELL_RADIUS grew past it (owner 21 Oct: D+click did not kill)
@@ -1861,7 +1863,7 @@
       ['symEnergy', 'symbiosis feed', 0, 0.01, 0.00025], ['symBreak', 'symbiosis whim break', 0, 0.01, 0.0001], ['symBreakDist', 'symbiosis distance break (x span)', 1, 10, 0.1],
       ['eatDistF', 'eat contact (x radii)', 0.1, 2, 0.05], ['fuseDistF', 'fusion contact (x radii)', 0.1, 2, 0.05], ['symDistF', 'pair contact (x radii)', 0.1, 3, 0.05]]],
     ['life', [
-      ['boundGap', 'wall gap px (every cell)', 0, 200, 1], ['boundZone', 'boundary awareness zone', 0, 200, 1], ['dragMargin', 'drag resize viewport margin px', 0, 100, 1], ['edgeGrab', 'border grab width px', 3, 40, 1], ['restless', 'cell restlessness while resizing', 0, 3, 0.05], ['boundForce', 'boundary push', 0, 3, 0.05], ['cellMorphMs', 'metamorphosis time ms', 100, 6000, 50]]],
+      ['spawnProtect', 'added cells survive refresh', 0, 1, 1], ['boundGap', 'wall gap px (every cell)', 0, 200, 1], ['boundZone', 'boundary awareness zone', 0, 200, 1], ['dragMargin', 'drag resize viewport margin px', 0, 100, 1], ['edgeGrab', 'border grab width px', 3, 40, 1], ['restless', 'cell restlessness while resizing', 0, 3, 0.05], ['boundForce', 'boundary push', 0, 3, 0.05], ['cellMorphMs', 'metamorphosis time ms', 100, 6000, 50]]],
     ['sound', [
       ['audioVol', 'volume', 0, 1, 0.01], ['audioTone', 'tone (cutoff Hz)', 200, 8000, 10], ['audioMod', 'CA modulation', 0, 1, 0.01],
       ['audioCrackle', 'micro events', 0, 1, 0.01], ['audioMicroPitch', 'micro pitch Hz', 200, 4000, 10], ['audioMicroDecay', 'micro decay ms', 10, 400, 1], ['audioMicroRand', 'micro randomness', 0, 1, 0.01], ['audioWidth', 'stereo width', 0, 1, 0.01]]],
