@@ -277,15 +277,52 @@
 
   // ---- simulation control ----
   var VS = 1; // container scale: pde targets are for a 1280x800 window
+  // title font metrics, cached per font size: the two words' ink widths and the font's letter spacing (tracking) -
+  // the average inter-letter whitespace of the title words, measured from advance widths and ink boxes, never hardcoded
+  // (owner 21 Oct: the three-line title's line gap equals the letter spacing)
+  var tmCache = { fs: 0, trk: 0, inkTL: 0, inkTR: 0 };
+  function titleMetrics(fs) {
+    if (tmCache.fs === fs) return tmCache;
+    var w1 = ctx.measureText(TL).width, i1 = inkLR(TL), w2 = ctx.measureText(TR).width, i2 = inkLR(TR);
+    tmCache = { fs: fs, inkTL: i1[1] - i1[0], inkTR: i2[1] - i2[0],
+      trk: ((w1 - (i1[1] - i1[0])) / (TL.length - 1) + (w2 - (i2[1] - i2[0])) / (TR.length - 1)) / 2 };
+    return tmCache;
+  }
+  var rsbCache = { key: '', dx: 0, done: false };
+  function rsbKey(fs, M) { return fs.toFixed(2) + '|' + M + '|' + W + '|' + H + '|' + (bg ? bg.map(Math.round).join(',') : ''); }
+  // one-shot pixel scan of the rendered title line: distance from the last ink column to the right window edge,
+  // minus the margin - that residual is the platform's rsb error the draw then compensates for
+  function rsbScan(fs, dh, M) {
+    if (rsbCache.done) return;
+    var cv = ctx.canvas, sx = cv.width / W, bandH = Math.max(1, Math.round((M + dh + 4) * sx));
+    var wPx = Math.min(cv.width, Math.round((M + 7 * fs) * sx)), x0 = cv.width - wPx;
+    var img; try { img = ctx.getImageData(x0, 0, wPx, bandH).data; } catch (e) { return; }
+    var bgr = bg[0], bgg = bg[1], bgb = bg[2];
+    for (var x = wPx - 1; x >= 0; x--) {
+      for (var y = 0; y < bandH; y++) {
+        var i = (y * wPx + x) * 4;
+        if (Math.abs(img[i] - bgr) + Math.abs(img[i + 1] - bgg) + Math.abs(img[i + 2] - bgb) > 96) {
+          rsbCache.dx = Math.max(-0.1 * fs, Math.min(0.25 * fs, (wPx - 1 - x) / sx - M)); // a padded bbox can hide the whole rsb
+          rsbCache.done = true; return;
+        }
+      }
+    }
+    rsbCache.done = true;
+  }
   function lay() {
     // all typography metrics derive from one font size; margin is equal on every edge
     var fs = 210 * Math.min(W / 2560, H / 1600) * Math.min(P.textScale, 1.265), dh = 0.666 * fs;
-    var row = P.textScale > 1.03 ? dh + 15 : 0; // above type size 1.03 the mouse-y value drops one row (15 px leading) and the vertical axis starts below it
     ctx.font = fs + 'px "Ca2-Thin", monospace';
-    var lr3 = inkLR('3333'), sideW = lr3[1] - lr3[0]; // widest 4-digit number, ink width
     var M = P.margin, G = P.gap;
+    // the title goes three centred lines (word / word / mouse-y) when the two words no longer fit side by side:
+    // decided from the measured ink widths and the live margin, not a fixed ratio, so any margin/window works (owner 21 Oct:
+    // they must never overlap; the switch is when the gap between them closes to one letter space, the 1.217 point on his screen)
+    var tm = titleMetrics(fs), wordGap = W - 2 * M - tm.inkTL - tm.inkTR;
+    var three = wordGap < tm.trk, lead = three ? dh + tm.trk : 0;
+    var row = three ? 2 * lead : P.textScale > 1.03 ? dh + 15 : 0; // above type size 1.03 the mouse-y value drops one row (15 px leading) and the vertical axis starts below it
+    var lr3 = inkLR('3333'), sideW = lr3[1] - lr3[0]; // widest 4-digit number, ink width
     var halfW = W / 2 - (M + sideW + G), halfH = H / 2 - (M + dh + row + G);
-    return { row: row, fs: fs, dh: dh, M: M, G: G, sideW: sideW, safeW: Math.max(60, halfW * 2), safeH: Math.max(60, halfH * 2) };
+    return { row: row, three: three, lead: lead, fs: fs, dh: dh, M: M, G: G, sideW: sideW, safeW: Math.max(60, halfW * 2), safeH: Math.max(60, halfH * 2) };
   }
   function setTargets() {
     var cWHf = Math.floor(rnd(7, 8));
@@ -1316,10 +1353,22 @@
         for (var ci = 0; ci < txt.length; ci++) if (fadeA('c' + hk + ':' + ci)) ctx.fillText(txt[ci], x0 + ctx.measureText(txt.slice(0, ci)).width, y);
       };
       // ink-aligned margins: every edge has the same margin M
+      // right-edge compensation (owner 21 Oct, font file untouched): on some platforms the final glyph's rsb leaves the
+      // word's true ink short of the right margin. Pixel-measure the rendered title line once per layout and shift the
+      // word by the residual so the right distance equals the top one. One frame of lag, invisible; margins/font sizes
+      // re-measure themselves because they are part of the key.
+      if (rsbCache.key !== rsbKey(fs, M)) rsbCache = { key: rsbKey(fs, M), dx: 0, done: false };
       var topBase = M + dh, botBase = H - M, midBase = cym + dh / 2;
-      put('CELYLAR', eased.title, 'left', M, topBase);
-      put('AUTOMW', eased.title, 'right', W - M, topBase);
-      put(sY, eased.coor, 'center', cxm, topBase + L.row);
+      if (L.three) { // CELLULAR / AUTOMATA / mouse-y, ink-centred, baseline step = cap height + the font's letter spacing
+        put(TL, eased.title, 'center', cxm, topBase);
+        put(TR, eased.title, 'center', cxm, topBase + L.lead);
+        put(sY, eased.coor, 'center', cxm, topBase + 2 * L.lead);
+      } else {
+        put(TL, eased.title, 'left', M, topBase);
+        put(TR, eased.title, 'right', W - M + rsbCache.dx, topBase);
+        put(sY, eased.coor, 'center', cxm, topBase + L.row);
+      }
+      if (!L.three) rsbScan(fs, dh, M); // re-measure after the draw when the layout key changed; next frame applies it
       put(sX, eased.coor, 'right', W - M, midBase);
       put(sT, eased.total, 'left', M, midBase);
       put(String(bc), eased.b, 'right', W - M, botBase);
@@ -1332,13 +1381,15 @@
     var titleHit = null;
     if (P.showHud && P.titleCircles) {
       ctx.font = fs + 'px "Ca2-Thin", monospace'; ctx.textAlign = 'left';
-      ctx.textAlign = 'left'; var lrTL = inkLR(TL), lrTR = inkLR(TR), x0L = M - lrTL[0], x0R = (W - M) - lrTR[1];
+      ctx.textAlign = 'left'; var lrTL = inkLR(TL), lrTR = inkLR(TR);
+      var x0L = L.three ? cxm - (lrTL[0] + lrTL[1]) / 2 : M - lrTL[0], x0R = L.three ? cxm - (lrTR[0] + lrTR[1]) / 2 : (W - M + rsbCache.dx) - lrTR[1];
+      var baseTL = topBase0, baseTR = topBase0 + (L.three ? L.lead : 0);
       var u = fs / 1000, R0 = 166.5 * u, hitKey = null, hitC = null; circlesNow = [];
-      [[TL, x0L, 'L'], [TR, x0R, 'R']].forEach(function (t) {
+      [[TL, x0L, 'L', baseTL], [TR, x0R, 'R', baseTR]].forEach(function (t) {
         for (var gi = 0; gi < t[0].length; gi++) {
           var cs = GL[t[0][gi]]; if (!cs) continue; var ox = t[1] + ctx.measureText(t[0].slice(0, gi)).width;
           for (var ci = 0; ci < cs.length; ci++) {
-            var cx2 = ox + cs[ci][0] * u, cy2 = topBase0 - cs[ci][1] * u, key = t[2] + gi + '_' + ci;
+            var cx2 = ox + cs[ci][0] * u, cy2 = t[3] - cs[ci][1] * u, key = t[2] + gi + '_' + ci;
             circlesNow.push({ key: key, x: cx2, y: cy2, r: R0 });
             if (mouse.over && Math.hypot(mouse.x - cx2, mouse.y - cy2) < R0) { hitKey = key; hitC = { x: cx2, y: cy2, r: R0 }; }
           }
