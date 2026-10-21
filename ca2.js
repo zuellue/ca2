@@ -2641,7 +2641,26 @@
       });
       applying = true; try { window.dispatchEvent(new Event('resize')); } finally { applying = false; } // re-fit the world + re-derive line widths
     }
-    function refresh(m) { var nm = m || detect(); if (nm === mode) return; mode = nm; applyMode(); }
+    // owner 21 Oct: on mobile the plate is dealt from a 1280x800 landscape reference scaled by window WIDTH, so it
+    // squats and wastes the vertical band. Mirror the desktop deal rotated 90 degrees: portrait reference 800x1280,
+    // axes swapped (the tall reference side deals the height, the short one the width), clamped by the same safe band.
+    var dealW = 0, dealH = 0;
+    function dealPortrait() {
+      var c = window.__ca2.cont; if (!c || c.user) return; // a hand-pulled size is the owner's, never override it
+      var VS = Math.min(window.innerHeight / 1280, window.innerWidth / 800);
+      var cWHf = 7 + Math.floor(Math.random() * 2);
+      var a = Math.floor(Math.random() * 2) === 0 ? 5120 : 2160, b = Math.floor(Math.random() * 2) === 0 ? 5120 : 2160;
+      c.rawW = b / cWHf * VS;
+      c.rawH = a / (cWHf + Math.trunc(Math.random() * 4.5 - 3.5)) * VS;
+      window.__ca2.clampTargets();
+      dealW = c.rawW; dealH = c.rawH;
+    }
+    function portraitGuard() {
+      if (mode !== 'm') return;
+      var c = window.__ca2.cont; if (!c || c.user) return;
+      if (c.rawW !== dealW || c.rawH !== dealH) dealPortrait(); // the sim re-dealt a landscape plate (transition): rotate it
+    }
+    function refresh(m) { var nm = m || detect(); if (nm === mode) return; mode = nm; applyMode(); if (mode === 'm') dealPortrait(); }
     window.addEventListener('ca2mode', function (e) {
       lane = true; if (!e.detail || !e.detail.mode) return;
       // B picked on a wide desktop window opens the phone-frame preview (owner 21 Oct); the frame is device.html
@@ -2651,7 +2670,7 @@
     window.addEventListener('resize', function () { if (applying || lane || window.__ca2Mode || lsSel) return; refresh(); }); // fallback auto-switch only while no lane module and no explicit pick
     // the other lane's pullG applies fresh desktop keys over the mobile layer; re-apply it after every global update
     var g0 = storedG(); seenV = (g0 && g0._v) || 0;
-    setInterval(function () { var g = storedG(), v = g && g._v; if (v && v !== seenV) { seenV = v; if (mode === 'm') applyMode(); } }, 1000);
+    setInterval(function () { var g = storedG(), v = g && g._v; if (v && v !== seenV) { seenV = v; if (mode === 'm') applyMode(); } portraitGuard(); }, 1000);
     // admin Save in mobile mode -> touched keys go into _mobile, not the desktop top level
     var of = window.fetch;
     window.fetch = function (url, opt) {
