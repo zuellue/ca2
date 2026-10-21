@@ -2446,11 +2446,32 @@
   var AUTO_W = 820; // an unselected window this narrow or smaller runs mobile mode (matches the UI lane's breakpoint)
   var MODE_Q = /[?&]mobile=1/.test(location.search); // the device.html phone frame forces mobile mode with this
   var coarse = window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches;
+  // the device.html frame passes the phone's dpr as &dpr=; overriding devicePixelRatio makes the line canvas (DD) and every dpr consumer render hairlines like the real phone
+  if (MODE_Q) {
+    var dprQ = parseFloat((location.search.match(/[?&]dpr=([0-9.]+)/) || [])[1]);
+    if (dprQ >= 1 && dprQ <= 4) try { Object.defineProperty(window, 'devicePixelRatio', { configurable: true, get: function () { return dprQ; } }); } catch (e) {}
+  }
   function boot() {
     if (!window.__ca2 || !window.__ca2.P) { setTimeout(boot, 100); return; } // __ca2 appears with the first frame
     var P = window.__ca2.P, panel = document.getElementById('panel'), blurEl = document.getElementById('blur'), blurLEl = document.getElementById('blurl');
     var mode = null, lastMob = null, seenV = 0, applying = false, lane = false;
     var lsSel = (function () { var ls = ''; try { ls = localStorage.getItem('ca2.mode') || ''; } catch (e) {} return (ls === 'mobile' || ls === 'm') ? 'm' : (ls === 'desktop' || ls === 'd') ? 'd' : null; })();
+    // an in-flight plate transition can keep lerping CELL_RADIUS toward a target dealt under the desktop bounds
+    // (~230 measured) for seconds after the switch to mobile; clamp every write while the mobile layer is active
+    var crHold = P.CELL_RADIUS;
+    try {
+      Object.defineProperty(P, 'CELL_RADIUS', {
+        configurable: true, enumerable: true,
+        get: function () { return crHold; },
+        set: function (v) {
+          if (mode === 'm' && typeof v === 'number' && isFinite(v)) {
+            var lo = P.minRadius, hi = P.maxRadius;
+            if (typeof lo === 'number' && typeof hi === 'number' && hi >= lo) v = Math.min(hi, Math.max(lo, v));
+          }
+          crHold = v;
+        }
+      });
+    } catch (e) {}
     function storedG() { try { return JSON.parse(localStorage.getItem('ca2.global') || 'null'); } catch (e) { return null; } }
     function detect() {
       if (window.__ca2Mode) return window.__ca2Mode(); // the UI lane owns mode state whenever its module is present
