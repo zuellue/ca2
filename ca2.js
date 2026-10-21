@@ -1378,8 +1378,9 @@
     eased.axis = lerpA(eased.axis, ta, k2); eased.r = lerpA(eased.r, trr, k2); eased.g = lerpA(eased.g, tgg, k2); eased.b = lerpA(eased.b, tbb, k2);
 
     if (P.axisLayer === 0 && P.showAxis) drawAxis(Lx, sT0, sX0);
-    var rc = 0, gc = 0, bc = 0;
-    for (i = 0; i < cells.length; i++) { var gn = cells[i].gene; if (gn > 2) rc++; else if (gn < -2) gc++; else bc++; }
+    var rc = 0, gc = 0, bc = 0, inN = 0;
+    for (i = 0; i < cells.length; i++) { var gn = cells[i].gene; if (gn > 2) rc++; else if (gn < -2) gc++; else bc++; var ci = cells[i]; if (ci.alive && ci.x > cont.x && ci.x < cont.x + cont.w && ci.y > cont.y && ci.y < cont.y + cont.h) inN++; }
+    var plateCol = function () { return inN ? css(dom, 1) : (P.axisColor || css(eased.axis, 1)); }; // empty plate takes the axis line colour (owner 21 Oct), boundary and resize icons alike
     var dom = [0, 0, 0];
     if (rc > gc && rc > bc) dom = [255, 0, 0]; else if (gc > rc && gc > bc) dom = [0, 255, 0]; else if (bc > rc && bc > gc) dom = [0, 0, 255];
 
@@ -1462,7 +1463,7 @@
 
     // area outline: no rounded corners. Each side stops `corner` px short of both ends, so the corner lines never meet.
     var cr = Math.min(P.containerCorner, cont.w / 2, cont.h / 2);
-    lctx.strokeStyle = css(dom, 1); lctx.lineWidth = LW(); lctx.lineCap = 'butt';
+    lctx.strokeStyle = plateCol(); lctx.lineWidth = LW(); lctx.lineCap = 'butt';
     var bxs = [[cont.x + cr, cont.y, cont.x + cont.w - cr, cont.y], [cont.x + cont.w, cont.y + cr, cont.x + cont.w, cont.y + cont.h - cr], [cont.x + cont.w - cr, cont.y + cont.h, cont.x + cr, cont.y + cont.h], [cont.x, cont.y + cont.h - cr, cont.x, cont.y + cr]];
     for (var bi = 0; bi < 4; bi++) if (P.axisWidth > 0 && fadeA('bx' + bi)) { var bq = bxs[bi].map(snapC); lctx.beginPath(); lctx.moveTo(bq[0], bq[1]); lctx.lineTo(bq[2], bq[3]); lctx.stroke(); }
 
@@ -1473,23 +1474,36 @@
       var Le = Math.max(10, lay().dh / 2), gE = Math.max(4, Le * 0.22), dE, offE = Le + 2; // vertex one full arm-length out: no arm ever crosses the boundary line
       var rightE = eHit.rx !== undefined ? eHit.rx : mouse.x >= W / 2, downE = eHit.dy !== undefined ? eHit.dy : mouse.y >= H / 2; // a drag keeps the corner it grabbed
       var bxE = rightE ? cont.x + cont.w : cont.x, byE = downE ? cont.y + cont.h : cont.y;
+      // owner 21 Oct: an axis with less than FLIP_T px of growth left (screen edge minus the drag margin) flips its
+      // icons to point the shrink direction - vertex inside the plate, tip facing out. Width and height flip apart.
+      var FLIP_T = 8;
+      // owner 21 Oct: during an active drag the icons point the way the resize is going (per axis, sign of the last
+      // nonzero size change, kept on the drag handle so pauses hold the direction); with no drag the ceiling rule decides
+      if (resizeDrag) {
+        if (resizeDrag._pw === undefined) { resizeDrag._pw = cont.tw; resizeDrag._ph = cont.th; resizeDrag._dw = 1; resizeDrag._dh = 1; }
+        if (cont.tw !== resizeDrag._pw) { resizeDrag._dw = cont.tw - resizeDrag._pw; resizeDrag._pw = cont.tw; }
+        if (cont.th !== resizeDrag._ph) { resizeDrag._dh = cont.th - resizeDrag._ph; resizeDrag._ph = cont.th; }
+      }
+      var flipW = resizeDrag ? resizeDrag._dw < 0 : (W - 2 * P.dragMargin) - cont.w < FLIP_T;
+      var flipH = resizeDrag ? resizeDrag._dh < 0 : (H - 2 * P.dragMargin) - cont.h < FLIP_T;
       if (eHit.h && eHit.v) { // corner: the edge icon rotated onto the diagonal, vertex outside the corner, tip facing the plate
+        var flipC = flipW || flipH; // a corner drag grows both axes, so one capped axis flips the pair
         var a0 = rightE ? (downE ? 45 : -45) : (downE ? 135 : -135), r0 = a0 * Math.PI / 180;
         var gC = gE * 1.8, offC = 4.5; // wider gap between the two arms; arms lengthened by the same amount so the visible strokes keep their length; vertex hugs the corner
-        dE = anglePath(a0 + 180, Le + (gC - gE), gC, bxE + Math.cos(r0) * offC, byE + Math.sin(r0) * offC); // tip faces the plate
+        dE = anglePath(flipC ? a0 : a0 + 180, Le + (gC - gE), gC, bxE + (flipC ? -1 : 1) * Math.cos(r0) * offC, byE + (flipC ? -1 : 1) * Math.sin(r0) * offC);
         if (resizeDrag) { // while a corner is dragged all four corner icons stay visible (the plate resizes symmetrically; owner 20 Oct)
           dE = '';
           [[false, false, -135], [true, false, -45], [false, true, 135], [true, true, 45]].forEach(function (q) {
-            var rq = q[2] * Math.PI / 180, vx = (q[0] ? cont.x + cont.w : cont.x) + Math.cos(rq) * offC, vy = (q[1] ? cont.y + cont.h : cont.y) + Math.sin(rq) * offC;
-            dE += anglePath(q[2] + 180, Le + (gC - gE), gC, vx, vy);
+            var rq = q[2] * Math.PI / 180, vx = (q[0] ? cont.x + cont.w : cont.x) + (flipC ? -1 : 1) * Math.cos(rq) * offC, vy = (q[1] ? cont.y + cont.h : cont.y) + (flipC ? -1 : 1) * Math.sin(rq) * offC;
+            dE += anglePath(flipC ? q[2] : q[2] + 180, Le + (gC - gE), gC, vx, vy);
           });
         }
       } else if (eHit.h) { // vertical edge: vertex just outside it, at the pointer's height, tip facing the plate
-        dE = anglePath(rightE ? 0 : 180, Le, gE, bxE + (rightE ? offE : -offE), clamp(mouse.y, cont.y, cont.y + cont.h));
+        dE = anglePath(flipW ? (rightE ? 180 : 0) : (rightE ? 0 : 180), Le, gE, bxE + (flipW ? -1 : 1) * (rightE ? offE : -offE), clamp(mouse.y, cont.y, cont.y + cont.h));
       } else { // horizontal edge
-        dE = anglePath(downE ? 90 : -90, Le, gE, clamp(mouse.x, cont.x, cont.x + cont.w), byE + (downE ? offE : -offE));
+        dE = anglePath(flipH ? (downE ? -90 : 90) : (downE ? 90 : -90), Le, gE, clamp(mouse.x, cont.x, cont.x + cont.w), byE + (flipH ? -1 : 1) * (downE ? offE : -offE));
       }
-      curEdgePath.setAttribute('d', dE); curEdgePath.setAttribute('stroke', css(dom, 1)); curEdgePath.setAttribute('stroke-width', LW());
+      curEdgePath.setAttribute('d', dE); curEdgePath.setAttribute('stroke', plateCol()); curEdgePath.setAttribute('stroke-width', LW());
       curEdge.style.display = P.axisWidth > 0 ? 'block' : 'none'; curEdge.style.transform = 'translate(0px,0px)';
       curEl.style.display = 'none'; cv.style.cursor = 'none'; curOn0 = false; lockCell = null;
       curInfo = { on: true, edge: true, corner: !!(eHit.h && eHit.v), ring: false };

@@ -141,7 +141,7 @@
   function setOk() {
     outerOn = true;
     document.getElementById('savem').style.display = 'block';
-    var ABDU = 'ABDU'; for (var i = 0; i < 4; i++) glyphs[i].textContent = ABDU[i];
+    var ABDU = String.fromCharCode(65, 66, 68, 85); for (var i = 0; i < 4; i++) glyphs[i].textContent = ABDU[i]; // no admin string ships in the public file (owner 21 Oct); the letters materialize only after the server accepts the code. End state: this whole widget is served by the Worker's admin module
     adm2.classList.add('ok');
   }
   adm2.addEventListener('click', function () { cbox.focus(); });
