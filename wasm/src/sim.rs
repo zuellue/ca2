@@ -38,9 +38,10 @@ const P_CROWD: usize = 60; // checkSurvival crowding tolerance (energy < n * cro
 const P_ORGDIE: usize = 61; const P_ORGGROW: usize = 62; const P_ORGBIRTH: usize = 63; const P_ORGDECAY: usize = 64;
 const P_ORGBRAIN: usize = 65; const P_ORGR90: usize = 66; // organic() life/birth/energy deltas (B3/S23 topology stays)
 const P_SYMEN: usize = 67; const P_SYMBRK: usize = 68; const P_SYMBRKD: usize = 69; // symbiosis bond feed, whim break, distance break (x span)
-const P_DTF: usize = 55; const P_FERATE: usize = 56; // frame dt ms + grazing rate (dots/s per touched dot)
+const P_DTF: usize = 78; const P_FERATE: usize = 79; // frame dt ms + grazing rate (dots/s per touched dot) - moved off 55/56: those belong to P_NCM/P_ONLYINT, and foodEatRate!=0 read as ONLYINT disabled update()/check_survival() for every cell (divide/graze/shrink/keepIn all dead)
 const P_EATDF: usize = 70; const P_FUSEDF: usize = 71; const P_SYMDF: usize = 72; // eat/fuse/pair contact distance (x radii sum)
-const P_HABON: usize = 73; const P_HABCAP: usize = 74; // habitat soft birth cap (habitat-gated): over habitatBirthCap x UNIVERSE_SIZE the birth chance scales cap/n, never a hard wall
+const P_HABON: usize = 73; const P_HABCAP: usize = 74;
+const P_DIVMODE: usize = 75; const P_DIVAGE: usize = 76; const P_DIVEN: usize = 77; // 75: 0 = legacy radius gate, 1 = age+mass; 76: min age ms; 77: min energy // habitat soft birth cap (habitat-gated): over habitatBirthCap x UNIVERSE_SIZE the birth chance scales cap/n, never a hard wall
 // out indices
 // 0 birth 1 divide 2 eaten 3 merge 4 fuse 5 pair 6 hit 7 oob 8 ate 9 death 10 clusterSeq 11 hovering 12-14 hoverCol 15 n_final
 
@@ -208,9 +209,9 @@ impl Sim {
         if self.p[P_SELON] != 0.0 && self.p[P_GENOME] != 0.0 {
             self.set(c, EN, en);
             let mf = self.misfit(c); en -= self.p[P_SELS] * mf * 0.05;
-            if self.rnd01() < self.p[P_SELS] * 0.005 * mf.powf(1.5) { self.set(c, ALIVE, 0.0); }
+            if self.rnd01() < self.p[P_SELS] * 0.005 * mf.powf(1.5) { self.set(c, ALIVE, 0.0); self.out[20] += 1.0; }
         }
-        if en <= 0.0 { self.set(c, ALIVE, 0.0); }
+        if en <= 0.0 { self.set(c, ALIVE, 0.0); self.out[21] += 1.0; }
         self.set(c, EN, en);
         if let Some(k) = cmi {
             let (cvx, cvy, cxx, cyy, ce) = (self.cm[k * 5], self.cm[k * 5 + 1], self.cm[k * 5 + 2], self.cm[k * 5 + 3], self.cm[k * 5 + 4]);
@@ -267,7 +268,10 @@ impl Sim {
             self.set(c, VX, vx); self.set(c, VY, vy);
         }
         let len = self.live_len();
-        if self.p[P_DIVON] != 0.0 && self.p[P_FGROW] != 0.0 && self.g(c, RAD) >= self.p[P_CELLR] * self.p[P_DIVAT] && (len as f64) < 60f64.max(self.p[P_UNI] * 4.0) && self.g(c, EN) > 1.0 { self.divide(c); }
+        if self.p[P_DIVON] != 0.0 && self.p[P_FGROW] != 0.0 && (len as f64) < 60f64.max(self.p[P_UNI] * 4.0) && self.g(c, EN) > 1.0 {
+            let gate = if self.p[P_DIVMODE] != 0.0 { self.g(c, AGE) >= self.p[P_DIVAGE] && self.g(c, EN) >= self.p[P_DIVEN] } else { self.g(c, RAD) >= self.p[P_CELLR] * self.p[P_DIVAT] };
+            if gate { self.divide(c); }
+        }
         if self.p[P_FGROW] != 0.0 && self.g(c, RAD) > self.p[P_CELLR] { let r = self.p[P_CELLR].max(self.g(c, RAD) - self.p[P_FSHR]); self.set(c, RAD, r); }
         if self.p[P_BOUND] != 0.0 { self.keep_in(c); }
         else {
@@ -277,10 +281,10 @@ impl Sim {
     }
     fn check_survival(&mut self, c: usize) {
         let gene = self.g(c, GENE);
-        if gene <= self.p[P_GMIN] || gene >= self.p[P_GMAX] { self.set(c, ALIVE, 0.0); }
+        if gene <= self.p[P_GMIN] || gene >= self.p[P_GMAX] { self.set(c, ALIVE, 0.0); self.out[23] += 1.0; }
         let r = self.p[P_IR]; let (cx, cy) = (self.g(c, X), self.g(c, Y)); let mut n = 0;
         for o in 0..self.n { if o != c && self.alive(o) && self.g(o, REM) == 0.0 && hyp(cx - self.g(o, X), cy - self.g(o, Y)) < r { n += 1; } }
-        if self.g(c, EN) < n as f64 * self.p[P_CROWD] { self.set(c, ALIVE, 0.0); }
+        if self.g(c, EN) < n as f64 * self.p[P_CROWD] { self.set(c, ALIVE, 0.0); self.out[22] += 1.0; }
     }
     fn join_cluster(&mut self, a: usize, b: usize) {
         let (acl, bcl) = (self.g(a, CL), self.g(b, CL)); let cmax = self.p[P_CLMAX] as usize;
@@ -380,7 +384,7 @@ impl Sim {
     }
     pub fn step(&mut self, s0: f64, s1: f64) {
         self.s0 = (s0 as u64) << 32 | 0x9E3779B9; self.s1 = (s1 as u64) << 32 | 0x85EBCA6B;
-        for k in 0..32 { self.out[k] = 0.0; }
+        for k in 0..20 { self.out[k] = 0.0; } // 20-23 are cumulative kill-reason diagnostics, not per-step
         let n0 = self.n; self.live = n0; self.log.clear();
         let (mx, my, over) = (self.p[P_MX], self.p[P_MY], self.p[P_MOVER] != 0.0);
         let (cx, cy, cw, ch) = (self.p[P_CX], self.p[P_CY], self.p[P_CW], self.p[P_CH]);
