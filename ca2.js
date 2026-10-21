@@ -2346,6 +2346,7 @@
   // ---- loop / events ----
   function resizeCanvas() {
     DPR = P.pixelRatio > 0 ? P.pixelRatio : Math.min(window.devicePixelRatio || 1, 3); W = window.innerWidth; H = window.innerHeight;
+    window.__ca2DPR = DPR; // mobile lane: the phone frame reads the real dpr so thin lines stay crisp
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
     DD = Math.min(window.devicePixelRatio || 1, 3); lnc.width = Math.round(W * DD); lnc.height = Math.round(H * DD); applyLW();
     // CSS size in real px, not 100vw/100vh: on iOS 100vh is the no-URL-bar height, so the bitmap got stretched and taps landed off
