@@ -25,7 +25,7 @@
     minRefreshInterval: 10, maxRefreshInterval: 20, slowDownRadius: 20, speedReductionFactor: 50.3,
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
-    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, titleCircles: 1, circleHold: 1,
+    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, titleCircles: 1, circleHold: 1, titleLead: 1.3, titleTrack: 1,
     audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, audioMicro: 0, audioMicroPitch: 1200, audioMicroDecay: 70, audioMicroRand: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1
   };
   // owner's chosen defaults (23:04)
@@ -289,17 +289,50 @@
     return tmCache;
   }
   var rsbCache = { key: '', dx: 0, done: false };
-  function rsbKey(fs, M) { return fs.toFixed(2) + '|' + M + '|' + W + '|' + H + '|' + (bg ? bg.map(Math.round).join(',') : ''); }
-  // one-shot pixel scan of the rendered title line: distance from the last ink column to the right window edge,
-  // minus the margin - that residual is the platform's rsb error the draw then compensates for
-  function rsbScan(fs, dh, M) {
+  function rsbKey(fs, M, ex) { return fs.toFixed(2) + '|' + M + '|' + ex.toFixed(2) + '|' + (bg ? bg.map(Math.round).join(',') : ''); }
+  // isolated pixel measure of the rendered title word on an offscreen canvas: same font, size, scale and letter
+  // spacing, but no simulation ink - scanning the live canvas caught wandering cells and food dots as "title ink",
+  // which shifted the word past the right margin and off the frame and made the margin look dead (owner 21 Oct)
+  var rsbCv = null;
+  function drawSpaced(c, txt, x0, y, ex) { for (var ci = 0; ci < txt.length; ci++) c.fillText(txt[ci], x0 + c.measureText(txt.slice(0, ci)).width + ci * ex, y); }
+  // the last glyph's dot ink reaches past the metrics' bounding box: measured once per platform at 100px, scaled
+  // linearly - the fit cap counts this overshoot so the visible dots (not just the metrics) stay inside the margins
+  var ovsCache = -1;
+  function titleOvershoot() {
+    if (ovsCache >= 0) return ovsCache;
+    if (!rsbCv) rsbCv = document.createElement('canvas');
+    var fs = 100, c2 = rsbCv.getContext('2d', { willReadFrequently: true });
+    var w = 8 * fs; rsbCv.width = w; rsbCv.height = 2 * fs;
+    c2.setTransform(1, 0, 0, 1, 0, 0);
+    c2.fillStyle = '#fff'; c2.fillRect(0, 0, w, 2 * fs);
+    c2.font = fs + 'px "Ca2-Thin", monospace'; c2.textBaseline = 'alphabetic'; c2.textAlign = 'left'; c2.fillStyle = '#000';
+    var pre = TR.length > 1 ? c2.measureText(TR.slice(0, -1)).width : 0, l = c2.measureText(TR[TR.length - 1]);
+    var metric = pre + l.actualBoundingBoxRight;
+    drawSpaced(c2, TR, 0, 1.5 * fs, 0);
+    var img = c2.getImageData(0, 0, w, 2 * fs).data, lastX = 0;
+    for (var x = w - 1; x >= 0; x--) { var hit = false; for (var y = 0; y < 2 * fs; y++) { var i = (y * w + x) * 4; if (img[i] < 160) { hit = true; break; } } if (hit) { lastX = x; break; } }
+    ovsCache = Math.max(0, lastX + 1 - metric) / fs; // right overshoot per em, never negative
+    return ovsCache;
+  }
+  function rsbScan(fs, dh, M, ex) {
     if (rsbCache.done) return;
-    var cv = ctx.canvas, sx = cv.width / W, bandH = Math.max(1, Math.round((M + dh + 4) * sx));
-    var wPx = Math.min(cv.width, Math.round((M + 7 * fs) * sx)), x0 = cv.width - wPx;
-    var img; try { img = ctx.getImageData(x0, 0, wPx, bandH).data; } catch (e) { return; }
+    if (!rsbCv) rsbCv = document.createElement('canvas');
+    var sx = DPR, wCss = M + 7 * fs, hCss = M + dh + 4, wPx = Math.max(1, Math.ceil(wCss * sx));
+    rsbCv.width = wPx; rsbCv.height = Math.max(1, Math.ceil(hCss * sx));
+    var c2 = rsbCv.getContext('2d', { willReadFrequently: true });
+    c2.setTransform(sx, 0, 0, sx, 0, 0);
+    var lite = (bg[0] * 299 + bg[1] * 587 + bg[2] * 114) / 1000 > 127;
+    c2.fillStyle = css(bg, 1); c2.fillRect(0, 0, wCss, hCss);
+    c2.font = fs + 'px "Ca2-Thin", monospace'; c2.textBaseline = 'alphabetic'; c2.textAlign = 'left';
+    c2.fillStyle = lite ? '#000' : '#fff';
+    var lr = [0, 0];
+    if (TR.length) { var f = c2.measureText(TR[0]), pre = TR.length > 1 ? c2.measureText(TR.slice(0, -1)).width : 0, l = c2.measureText(TR[TR.length - 1]); lr = [f.actualBoundingBoxLeft, pre + l.actualBoundingBoxRight]; }
+    var x0 = (wCss - M) - lr[1] - (TR.length - 1) * ex; // same right-anchor as the live draw
+    drawSpaced(c2, TR, x0, M + dh, ex);
+    var img; try { img = c2.getImageData(0, 0, wPx, rsbCv.height).data; } catch (e) { rsbCache.done = true; return; }
     var bgr = bg[0], bgg = bg[1], bgb = bg[2];
     for (var x = wPx - 1; x >= 0; x--) {
-      for (var y = 0; y < bandH; y++) {
+      for (var y = 0; y < rsbCv.height; y++) {
         var i = (y * wPx + x) * 4;
         if (Math.abs(img[i] - bgr) + Math.abs(img[i + 1] - bgg) + Math.abs(img[i + 2] - bgb) > 96) {
           rsbCache.dx = Math.max(-0.1 * fs, Math.min(0.25 * fs, (wPx - 1 - x) / sx - M)); // a padded bbox can hide the whole rsb
@@ -311,18 +344,26 @@
   }
   function lay() {
     // all typography metrics derive from one font size; margin is equal on every edge
-    var fs = 210 * Math.min(W / 2560, H / 1600) * Math.min(P.textScale, 1.265), dh = 0.666 * fs;
+    // type size runs 0.5..2 in the config, but the effective ceiling is the fit: the widest word of the title
+    // must always fit the page width inside the margins, so a manual entry can never push ink off the frame (owner 21 Oct)
+    var fs = 210 * Math.min(W / 2560, H / 1600) * Math.min(P.textScale, 2), dh = 0.666 * fs;
     ctx.font = fs + 'px "Ca2-Thin", monospace';
     var M = P.margin, G = P.gap;
+    var tm = titleMetrics(fs), ex = tm.trk * (P.titleTrack - 1), inkTLe = tm.inkTL + (TL.length - 1) * ex, inkTRe = tm.inkTR + (TR.length - 1) * ex, trkE = tm.trk + ex;
+    var inkMax = Math.max(inkTLe, inkTRe) + titleOvershoot() * fs, fit = inkMax > 0 ? (W - 2 * M) / inkMax : 1;
+    if (fit < 1) {
+      fs *= fit; dh = 0.666 * fs; ctx.font = fs + 'px "Ca2-Thin", monospace';
+      tm = titleMetrics(fs); ex = tm.trk * (P.titleTrack - 1); inkTLe = tm.inkTL + (TL.length - 1) * ex; inkTRe = tm.inkTR + (TR.length - 1) * ex; trkE = tm.trk + ex; inkMax = Math.max(inkTLe, inkTRe) + ovsCache * fs; fit = inkMax > 0 ? (W - 2 * M) / inkMax : 1; if (fit < 1) { fs *= fit; dh = 0.666 * fs; ctx.font = fs + 'px "Ca2-Thin", monospace'; tm = titleMetrics(fs); ex = tm.trk * (P.titleTrack - 1); inkTLe = tm.inkTL + (TL.length - 1) * ex; inkTRe = tm.inkTR + (TR.length - 1) * ex; trkE = tm.trk + ex; }
+    }
     // the title goes three centred lines (word / word / mouse-y) when the two words no longer fit side by side:
     // decided from the measured ink widths and the live margin, not a fixed ratio, so any margin/window works (owner 21 Oct:
     // they must never overlap; the switch is when the gap between them closes to one letter space, the 1.217 point on his screen)
-    var tm = titleMetrics(fs), wordGap = W - 2 * M - tm.inkTL - tm.inkTR;
-    var three = wordGap < tm.trk, lead = three ? dh + tm.trk : 0;
-    var row = three ? 2 * lead : P.textScale > 1.03 ? dh + 15 : 0; // above type size 1.03 the mouse-y value drops one row (15 px leading) and the vertical axis starts below it
+    var wordGap = W - 2 * M - inkTLe - inkTRe;
+    var three = wordGap < trkE, lead = three ? dh + trkE * P.titleLead : 0;
+    var row = three ? 2 * lead : P.textScale > 1.03 ? dh + 15 * P.titleLead : 0; // above type size 1.03 the mouse-y value drops one row and the vertical axis starts below it
     var lr3 = inkLR('3333'), sideW = lr3[1] - lr3[0]; // widest 4-digit number, ink width
     var halfW = W / 2 - (M + sideW + G), halfH = H / 2 - (M + dh + row + G);
-    return { row: row, three: three, lead: lead, fs: fs, dh: dh, M: M, G: G, sideW: sideW, safeW: Math.max(60, halfW * 2), safeH: Math.max(60, halfH * 2) };
+    return { row: row, three: three, lead: lead, fs: fs, dh: dh, M: M, G: G, ex: ex, sideW: sideW, safeW: Math.max(60, halfW * 2), safeH: Math.max(60, halfH * 2) };
   }
   function setTargets() {
     var cWHf = Math.floor(rnd(7, 8));
@@ -1346,29 +1387,30 @@
     var vTop = M + dh + L.row + G, vBot = H - M - dh - G, cxm = W / 2, cym = H / 2, topBase0 = M + dh;
     if (P.showHud) {
       ctx.font = fs + 'px "Ca2-Thin", monospace'; ctx.textBaseline = 'alphabetic';
-      var hi = 0, put = function (txt, col, align, x, y) {
+      var hi = 0, put = function (txt, col, align, x, y, ex) {
+        ex = ex || 0;
         var hk = hi++;
         ctx.fillStyle = css(col); ctx.textAlign = 'left';
-        var lr = inkLR(txt), x0 = align === 'right' ? x - lr[1] : align === 'center' ? x - (lr[0] + lr[1]) / 2 : x - lr[0];
-        for (var ci = 0; ci < txt.length; ci++) if (fadeA('c' + hk + ':' + ci)) ctx.fillText(txt[ci], x0 + ctx.measureText(txt.slice(0, ci)).width, y);
+        var lr = inkLR(txt), wEx = (txt.length - 1) * ex, x0 = align === 'right' ? x - lr[1] - wEx : align === 'center' ? x - (lr[0] + lr[1]) / 2 - wEx / 2 : x - lr[0];
+        for (var ci = 0; ci < txt.length; ci++) if (fadeA('c' + hk + ':' + ci)) ctx.fillText(txt[ci], x0 + ctx.measureText(txt.slice(0, ci)).width + ci * ex, y);
       };
       // ink-aligned margins: every edge has the same margin M
       // right-edge compensation (owner 21 Oct, font file untouched): on some platforms the final glyph's rsb leaves the
       // word's true ink short of the right margin. Pixel-measure the rendered title line once per layout and shift the
       // word by the residual so the right distance equals the top one. One frame of lag, invisible; margins/font sizes
       // re-measure themselves because they are part of the key.
-      if (rsbCache.key !== rsbKey(fs, M)) rsbCache = { key: rsbKey(fs, M), dx: 0, done: false };
+      if (rsbCache.key !== rsbKey(fs, M, L.ex)) rsbCache = { key: rsbKey(fs, M, L.ex), dx: 0, done: false };
+      if (!L.three) rsbScan(fs, dh, M, L.ex); // offscreen and synchronous: the compensation applies in this same frame
       var topBase = M + dh, botBase = H - M, midBase = cym + dh / 2;
-      if (L.three) { // CELLULAR / AUTOMATA / mouse-y, ink-centred, baseline step = cap height + the font's letter spacing
-        put(TL, eased.title, 'center', cxm, topBase);
-        put(TR, eased.title, 'center', cxm, topBase + L.lead);
+      if (L.three) { // CELLULAR / AUTOMATA / mouse-y, ink-centred, baseline step = cap height + the letter space x the line-space knob
+        put(TL, eased.title, 'center', cxm, topBase, L.ex);
+        put(TR, eased.title, 'center', cxm, topBase + L.lead, L.ex);
         put(sY, eased.coor, 'center', cxm, topBase + 2 * L.lead);
       } else {
-        put(TL, eased.title, 'left', M, topBase);
-        put(TR, eased.title, 'right', W - M + rsbCache.dx, topBase);
+        put(TL, eased.title, 'left', M, topBase, L.ex);
+        put(TR, eased.title, 'right', W - M + rsbCache.dx, topBase, L.ex);
         put(sY, eased.coor, 'center', cxm, topBase + L.row);
       }
-      if (!L.three) rsbScan(fs, dh, M); // re-measure after the draw when the layout key changed; next frame applies it
       put(sX, eased.coor, 'right', W - M, midBase);
       put(sT, eased.total, 'left', M, midBase);
       put(String(bc), eased.b, 'right', W - M, botBase);
@@ -1382,12 +1424,12 @@
     if (P.showHud && P.titleCircles) {
       ctx.font = fs + 'px "Ca2-Thin", monospace'; ctx.textAlign = 'left';
       ctx.textAlign = 'left'; var lrTL = inkLR(TL), lrTR = inkLR(TR);
-      var x0L = L.three ? cxm - (lrTL[0] + lrTL[1]) / 2 : M - lrTL[0], x0R = L.three ? cxm - (lrTR[0] + lrTR[1]) / 2 : (W - M + rsbCache.dx) - lrTR[1];
+      var x0L = L.three ? cxm - (lrTL[0] + lrTL[1]) / 2 - (TL.length - 1) * L.ex / 2 : M - lrTL[0], x0R = L.three ? cxm - (lrTR[0] + lrTR[1]) / 2 - (TR.length - 1) * L.ex / 2 : (W - M + rsbCache.dx) - lrTR[1] - (TR.length - 1) * L.ex;
       var baseTL = topBase0, baseTR = topBase0 + (L.three ? L.lead : 0);
       var u = fs / 1000, R0 = 166.5 * u, hitKey = null, hitC = null; circlesNow = [];
       [[TL, x0L, 'L', baseTL], [TR, x0R, 'R', baseTR]].forEach(function (t) {
         for (var gi = 0; gi < t[0].length; gi++) {
-          var cs = GL[t[0][gi]]; if (!cs) continue; var ox = t[1] + ctx.measureText(t[0].slice(0, gi)).width;
+          var cs = GL[t[0][gi]]; if (!cs) continue; var ox = t[1] + ctx.measureText(t[0].slice(0, gi)).width + gi * L.ex;
           for (var ci = 0; ci < cs.length; ci++) {
             var cx2 = ox + cs[ci][0] * u, cy2 = t[3] - cs[ci][1] * u, key = t[2] + gi + '_' + ci;
             circlesNow.push({ key: key, x: cx2, y: cy2, r: R0 });
@@ -1481,6 +1523,7 @@
       CA2Audio.update({ density: clamp(cells.length / Math.max(20, P.UNIVERSE_SIZE * 1.5), 0, 1), activity: clamp(spd / nn / 15, 0, 1), pan: ((mx / nn) - W / 2) / (W / 2), birth: ev.birth - aev.b, death: ev.death - aev.d, hit: ev.hit - aev.h }, P);
       aev.b = ev.birth; aev.d = ev.death; aev.h = ev.hit;
     }
+    applyDof(); // depth of field lives in the scene canvas now, so the grain pass lands on top of it (owner 21 Oct)
     if (window.CA2Grain && CA2Grain.ok && P.grain && t0 - fadeT0 >= INTRO_MS + 400) { // grain is the last layer to join, clear of the intro
       cvg.style.display = 'block';
       CA2Grain.render(cv, { amount: P.grainAmount, strength: P.grainStrength, size: P.grainSize, softness: P.grainSoft, chroma: P.grainChroma, development: P.grainDev, fine: P.grainFine, crystal: P.grainCrystal, cloud: P.grainCloud }, P.grainFps > 0 ? Math.floor(performance.now() / 1000 * P.grainFps) : 0, DPR);
@@ -1598,7 +1641,7 @@
     ['picture', [
       ['resolution', 'resolution', 0.25, 1, 0.01], ['pixelRatio', 'pixel ratio (0 = auto)', 0, 3, 0.25], ['fps', 'fps', 5, 120, 1],
       ['margin', 'margin (all edges)', 0, 120, 1], ['gap', 'line gap to numbers', 0, 60, 1],
-      ['textScale', 'type size', 0.4, 1.265, 0.005], ['containerCorner', 'corner gap', 0, 80, 1],
+      ['textScale', 'type size', 0.5, 2, 0.005], ['titleLead', 'line space (title)', 0.5, 3, 0.05], ['titleTrack', 'letter space (title)', 0.5, 2, 0.01], ['containerCorner', 'corner gap', 0, 80, 1],
       ['centerGap', 'center gap (axis crossing)', 0, 120, 1], ['diagLen', 'diagonal length', 0.2, 1.3, 0.01], ['axisWidth', 'line width (all lines)', 0, 6, 0.1],
       ['areaMin', 'area floor', 0.1, 1, 0.01], ['areaMax', 'area ceiling', 0.1, 1, 0.01],
       ['morphEase', 'area morph speed', 0.02, 1, 0.01], ['colorSpeed', 'color speed', 0.02, 1, 0.01]]],
@@ -2097,7 +2140,7 @@
     it.addEventListener('click', function (e) {
       e.stopPropagation();
       if (sec.name === 'config') { solo(null); panel.scrollTo({ top: 0, behavior: 'smooth' }); return; }
-      if (sec.name === 'perf') { perfOn = !perfOn; lastSync = 0; return; } // perf appends its rows under the config stats in place; nothing else moves (owner 21 Oct)
+      if (sec.name === 'perf') { perfOn = !perfOn; solo(perfOn ? perfSec : null); lastSync = 0; return; } // perf view: the 5 config stats and the button rows stay visible, the knob sections fold away (owner 21 Oct)
       // one click: only this section stays visible, smooth-scrolled so its header middle sits on the circle's middle
       solo(sec);
       var pR = panel.getBoundingClientRect(), cR = it.getBoundingClientRect(), hR = sec.hdr.getBoundingClientRect();
@@ -2164,6 +2207,44 @@
   // any movement snaps focus back over focusOutMs. Driven by CSS vars --bk1..4, no sliding, left and right alike.
   var lastMove = performance.now();
   ['mousemove', 'pointermove', 'mousedown', 'wheel', 'touchstart', 'touchmove', 'keydown'].forEach(function (n) { window.addEventListener(n, function () { lastMove = performance.now(); }, { passive: true }); });
+  // in-canvas depth of field: same four progressive levels and masks as the CSS field, painted into the scene right
+  // before the grain pass - the grain stays visible over the blur (owner 21 Oct: grain above everything). The CSS
+  // field is the fallback for browsers without canvas filters.
+  var dofOK = typeof CanvasRenderingContext2D !== 'undefined' && 'filter' in CanvasRenderingContext2D.prototype;
+  var dofK = [0, 0, 0, 0]; window.__dofK = dofK;
+  var dofCv = null, dofLay = null;
+  function applyDof() {
+    if (!dofOK || P.blurStrength <= 0 || P.blurWidth <= 0) return;
+    var on = false, i;
+    for (i = 0; i < 4; i++) if (dofK[i] > 0.004) on = true;
+    if (!on) return;
+    var bw = Math.min(P.blurWidth, W / 2), hs = 0.5; // half-res scratch: blur is a low-pass, the softness hides the scale
+    var sw = Math.max(1, Math.ceil(bw * DPR * hs)), sh = Math.max(1, Math.ceil(H * DPR * hs));
+    if (!dofCv) { dofCv = document.createElement('canvas'); dofLay = document.createElement('canvas'); }
+    if (dofCv.width !== sw || dofCv.height !== sh) { dofCv.width = sw; dofCv.height = sh; dofLay.width = sw; dofLay.height = sh; }
+    var MSK = [[0.55, 1], [0.35, 0.75], [0.15, 0.5], [0, 0.25]]; // the CSS mask stops: strongest at the screen edge
+    for (var side = 0; side < 2; side++) {
+      var sx = side === 0 ? W - bw : 0; // right strip first (the config side), then its left twin
+      var c2 = dofCv.getContext('2d'), l2 = dofLay.getContext('2d');
+      c2.setTransform(1, 0, 0, 1, 0, 0); c2.globalCompositeOperation = 'source-over'; c2.filter = 'none';
+      c2.drawImage(cv, sx * DPR, 0, bw * DPR, H * DPR, 0, 0, sw, sh);
+      for (i = 0; i < 4; i++) {
+        var bl = P.blurStrength * (i + 1) / 4 * dofK[i] * DPR * hs;
+        if (bl < 0.05) continue;
+        l2.setTransform(1, 0, 0, 1, 0, 0); l2.globalCompositeOperation = 'source-over'; l2.clearRect(0, 0, sw, sh);
+        l2.filter = 'blur(' + bl.toFixed(2) + 'px)';
+        l2.drawImage(dofCv, 0, 0);
+        l2.filter = 'none'; l2.globalCompositeOperation = 'destination-in';
+        var gr = side === 0 ? l2.createLinearGradient(sw, 0, 0, 0) : l2.createLinearGradient(0, 0, sw, 0);
+        gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(MSK[i][0], 'rgba(0,0,0,1)'); gr.addColorStop(MSK[i][1], 'rgba(0,0,0,0)');
+        l2.fillStyle = gr; l2.fillRect(0, 0, sw, sh);
+        c2.drawImage(dofLay, 0, 0);
+      }
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(dofCv, 0, 0, sw, sh, sx * DPR, 0, bw * DPR, H * DPR);
+      ctx.restore();
+    }
+  }
   (function () {
     var tab = document.getElementById('tab'), want = false, t0 = 0, from = [0, 0, 0, 0], cur = [0, 0, 0, 0], dur = 1900;
     var idleOn = false, iT0 = 0, iFrom = [0, 0, 0, 0], iCur = [0, 0, 0, 0];
@@ -2185,7 +2266,9 @@
         if (idleOn) iv = iFrom[i] + (1 - iFrom[i]) * easeIO(ix); else iv = iFrom[i] * (1 - ease(ix));
         if (ix <= 0) iv = iFrom[i];
         iCur[i] = Math.max(0, iv);
-        root.setProperty('--bk' + (i + 1), Math.max(cur[i], iCur[i] * depth).toFixed(3));
+        var kb = Math.max(cur[i], iCur[i] * depth);
+        dofK[i] = dofOK ? kb : 0;
+        root.setProperty('--bk' + (i + 1), dofOK ? '0' : kb.toFixed(3));
       }
       requestAnimationFrame(loop);
     }
