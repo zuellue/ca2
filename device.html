@@ -19,8 +19,9 @@
   #meta { position: fixed; right: 22px; top: 16px; color: rgba(233,233,233,.35); font-size: 11px; letter-spacing: .04em; text-align: right; line-height: 1.5; z-index: 2; }
   #back { position: fixed; right: 22px; bottom: 16px; z-index: 2; }
   #scale { position: fixed; left: 22px; bottom: 16px; z-index: 2; }
-  #back a, #scale a { color: #e9e9e9; text-decoration: none; font-size: 13px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; cursor: pointer; }
-  #back a:hover, #scale a:hover { color: #fff; }
+  #savem { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 2; }
+  #back a, #scale a, #savem a { color: #e9e9e9; text-decoration: none; font-size: 13px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; cursor: pointer; }
+  #back a:hover, #scale a:hover, #savem a:hover { color: #fff; }
 </style>
 </head>
 <body>
@@ -29,6 +30,7 @@
 <div id="meta"></div>
 <div id="back"><a href="index.html" id="backa">desktop</a></div>
 <div id="scale"><a id="scalea">scale: fit</a></div>
+<div id="savem"><a id="savea">save</a></div>
 <script>
 (function () {
   // name, css width, css height, device pixel ratio - real values, verified 21 Oct (webmobilefirst / screensize.net / blisk.io)
@@ -97,6 +99,18 @@
     fit();
   });
   document.getElementById('backa').addEventListener('click', function () { try { localStorage.setItem('ca2.mode', 'desktop'); } catch (e) {} });
+  // page-level save: bottom row, centered under the preview, same line as the desktop link (owner 21 Oct).
+  // Drives the real save button inside the frame (its handler, kilitli intercept and text states stay authoritative) and mirrors its label.
+  var savea = document.getElementById('savea');
+  function innerSave() {
+    try {
+      var d = fr.contentDocument; if (!d) return null;
+      var bs = [].slice.call(d.querySelectorAll('button'));
+      return bs.filter(function (x) { return x.dataset && x.dataset.ca2save === '1'; })[0] || bs.filter(function (x) { return x.textContent === 'save' || x.textContent === 'kilitli'; })[0] || null;
+    } catch (e) { return null; }
+  }
+  savea.addEventListener('click', function () { var b = innerSave(); if (b) b.click(); });
+  setInterval(function () { var b = innerSave(); if (b && savea.textContent !== b.textContent) savea.textContent = b.textContent; }, 400);
   window.addEventListener('resize', fit);
   pick(cur, true);
 })();

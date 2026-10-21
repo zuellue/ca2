@@ -2664,13 +2664,18 @@
       var a = Math.floor(Math.random() * 2) === 0 ? 5120 : 2160, b = Math.floor(Math.random() * 2) === 0 ? 5120 : 2160;
       c.rawH = b / cWHf * (ceilH / 580); // desktop's height-deal-to-ceiling ratio, mirrored tall
       c.rawW = a / (cWHf + Math.trunc(Math.random() * 4.5 - 3.5)) * (ceilW / 1138); // desktop's width ratio (5120/4.5 = 1138 top deal)
+      var minBW = window.innerWidth / 3; // owner 21 Oct: the boundary may narrow at most to a third of the screen width
+      if (c.rawW < minBW) c.rawW = minBW;
       window.__ca2.clampTargets();
+      if (c.tw < minBW) c.tw = minBW; // the shared area ceiling sits below the floor on phones - the floor wins for width
       dealW = c.rawW; dealH = c.rawH;
     }
     function portraitGuard() {
       if (mode !== 'm') return;
       var c = window.__ca2.cont; if (!c || c.user) return;
       if (c.rawW !== dealW || c.rawH !== dealH) dealPortrait(); // the sim re-dealt a landscape plate (transition): rotate it
+      var minBW = window.innerWidth / 3; // owner 21 Oct: boundary floor - a third of the screen width
+      if (c.rawW < minBW || c.tw < minBW) { if (c.rawW < minBW) c.rawW = minBW; window.__ca2.clampTargets(); if (c.tw < minBW) c.tw = minBW; dealW = c.rawW; dealH = c.rawH; }
     }
     function refresh(m) { var nm = m || detect(); if (nm === mode) return; mode = nm; applyMode(); if (mode === 'm') dealPortrait(); }
     window.addEventListener('ca2mode', function (e) {
@@ -2682,7 +2687,8 @@
     window.addEventListener('resize', function () { if (applying || lane || window.__ca2Mode || lsSel) return; refresh(); }); // fallback auto-switch only while no lane module and no explicit pick
     // the other lane's pullG applies fresh desktop keys over the mobile layer; re-apply it after every global update
     var g0 = storedG(); seenV = (g0 && g0._v) || 0;
-    setInterval(function () { var g = storedG(), v = g && g._v; if (v && v !== seenV) { seenV = v; if (mode === 'm') applyMode(); } portraitGuard(); }, 1000);
+    setInterval(function () { var g = storedG(), v = g && g._v; if (v && v !== seenV) { seenV = v; if (mode === 'm') applyMode(); } }, 1000);
+    setInterval(portraitGuard, 200); // fast cadence: a re-dealt thin plate must not visibly ease below the width floor (owner 21 Oct)
     // admin Save in mobile mode -> touched keys go into _mobile, not the desktop top level
     var of = window.fetch;
     window.fetch = function (url, opt) {
@@ -2716,8 +2722,48 @@
       if (b.dataset.ca2save !== '1') return;
       e.stopPropagation(); e.preventDefault();
       b.textContent = 'kilitli';
-      setTimeout(function () { b.textContent = 'save'; }, 1500);
+      // mobile: the locked button is also the entry point - tapping it opens the code panel with the tap pad
+      if ((window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm') {
+        var adm = document.getElementById('adm');
+        if (adm && !adm.classList.contains('on')) {
+          adm.classList.add('on');
+          var bx = document.querySelector('input[inputmode="numeric"]');
+          if (bx) bx.value = '';
+          [].slice.call(document.querySelectorAll('#adm span')).forEach(function (g) { g.textContent = ''; });
+          setTimeout(focusBox, 0);
+        }
+      }
     }, true);
+    // persistent lock state on the pinned button (mobile only) + a tappable digit pad while the code panel is open:
+    // the keyboard-free path - real phones often refuse to open a keyboard for the hidden code box (owner 21 Oct)
+    var pad = null;
+    function buildPad() {
+      pad = document.createElement('div'); pad.id = 'ca2pad';
+      pad.style.cssText = 'position:fixed;right:10px;bottom:130px;z-index:41;display:grid;grid-template-columns:repeat(3,44px);gap:6px;background:var(--bg);border:var(--lw) solid var(--fg);padding:8px';
+      '1234567890'.split('').forEach(function (dg) {
+        var pb = document.createElement('button'); pb.type = 'button'; pb.textContent = dg;
+        pb.style.cssText = 'font:inherit;font-size:16px;width:44px;height:44px;background:none;border:var(--lw) solid var(--fg);color:var(--fg);cursor:pointer;padding:0';
+        pb.addEventListener('click', function (e) {
+          e.stopPropagation(); e.preventDefault();
+          var box = document.querySelector('input[inputmode="numeric"]');
+          if (!box || box.value.length >= 4) return;
+          box.value += dg;
+          box.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        pad.appendChild(pb);
+      });
+      document.body.appendChild(pad);
+    }
+    setInterval(function () {
+      if (!saveBtn) return;
+      var m = (window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm';
+      if (m && !window.__adminOn && saveBtn.textContent === 'save') saveBtn.textContent = 'kilitli';
+      if (window.__adminOn && saveBtn.textContent === 'kilitli') saveBtn.textContent = 'save';
+      var adm2 = document.getElementById('adm');
+      var wantPad = m && !!(adm2 && adm2.classList.contains('on') && !window.__adminOn);
+      if (wantPad && !pad) buildPad();
+      if (pad) pad.style.display = wantPad ? 'grid' : 'none';
+    }, 400);
     // (b)+(c) the 5s hold fires from a timer, outside any gesture, so mobile keyboards never open for the code box.
     // Focus it from real gestures instead: the pointerup that ends the hold, and any tap while the panel is open.
     function focusBox() {
@@ -2730,11 +2776,11 @@
     document.addEventListener('click', function () { setTimeout(focusBox, 0); }, true);
     // (d) pinned save on mobile: the real save button sits far below the fold - move the same element (listeners intact) to the viewport corner in mobile mode, park it back in #btns on desktop
     if (saveBtn) {
-      var home = saveBtn.parentNode, pinned = false, pst = document.createElement('style');
-      pst.textContent = 'button.ca2savepin{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:40;font:inherit;color:var(--fg);background:var(--bg);border:var(--lw) solid var(--fg);padding:6px 10px;cursor:pointer}';
+      var home = saveBtn.parentNode, pinned = false, inFrame = window.self !== window.top, pst = document.createElement('style');
+      pst.textContent = 'button.ca2savepin{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));z-index:40;font:inherit;color:var(--fg);background:var(--bg);border:var(--lw) solid var(--fg);padding:6px 10px;cursor:pointer}';
       document.head.appendChild(pst);
       var pinSave = function () {
-        var m = (window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm';
+        var m = (window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm' && !inFrame;
         if (m && !pinned) { pinned = true; saveBtn.classList.add('ca2savepin'); document.body.appendChild(saveBtn); }
         else if (!m && pinned) { pinned = false; saveBtn.classList.remove('ca2savepin'); home.appendChild(saveBtn); }
       };
