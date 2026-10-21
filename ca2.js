@@ -2647,11 +2647,13 @@
     var dealW = 0, dealH = 0;
     function dealPortrait() {
       var c = window.__ca2.cont; if (!c || c.user) return; // a hand-pulled size is the owner's, never override it
-      var VS = Math.min(window.innerHeight / 1280, window.innerWidth / 800);
+      // per-axis scales against the rotated reference: a single min() scale lets the width ratio shrink the height deal,
+      // while the safe band grows with H - that mismatch is exactly the squatting the owner measured on phones
+      var VSw = window.innerWidth / 800, VSh = window.innerHeight / 1280;
       var cWHf = 7 + Math.floor(Math.random() * 2);
       var a = Math.floor(Math.random() * 2) === 0 ? 5120 : 2160, b = Math.floor(Math.random() * 2) === 0 ? 5120 : 2160;
-      c.rawW = b / cWHf * VS;
-      c.rawH = a / (cWHf + Math.trunc(Math.random() * 4.5 - 3.5)) * VS;
+      c.rawW = b / cWHf * VSw;
+      c.rawH = a / (cWHf + Math.trunc(Math.random() * 4.5 - 3.5)) * VSh;
       window.__ca2.clampTargets();
       dealW = c.rawW; dealH = c.rawH;
     }
