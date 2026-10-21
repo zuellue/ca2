@@ -5,7 +5,7 @@ pub const ST: usize = 24; // f64 per cell
 const X: usize = 0; const Y: usize = 1; const VX: usize = 2; const VY: usize = 3; const RAD: usize = 4; const EN: usize = 5; const GENE: usize = 6;
 const ALIVE: usize = 7; const MAXS: usize = 8; const SPM: usize = 9; const HOST: usize = 10; const MUT: usize = 11; const SV: usize = 12; const CL: usize = 13;
 const SYM: usize = 14; const GSPD: usize = 15; const GAPP: usize = 16; const GBND: usize = 17; const C0: usize = 18; const C1: usize = 19; const C2: usize = 20;
-const COMP: usize = 21; const REM: usize = 22;
+const COMP: usize = 21; const REM: usize = 22; const AGE: usize = 23; // 23: age in ms, packed by JS every frame (juvenile reproduction gate)
 
 pub struct Sim {
     pub cells: Vec<f64>, pub n: usize, pub cap: usize,
@@ -32,7 +32,7 @@ const P_SYMG: usize = 30; const P_EGAIN: usize = 31; const P_GMIN: usize = 32; c
 const P_GMUT: usize = 36; const P_MRR: usize = 37; const P_MBS: usize = 38; const P_ESPD: usize = 39; const P_EAPP: usize = 40; const P_EBND: usize = 41;
 const P_ECOL: usize = 42; const P_EC0: usize = 43; const P_MX: usize = 46; const P_MY: usize = 47; const P_MOVER: usize = 48; const P_CX: usize = 49; const P_CY: usize = 50;
 const P_CW: usize = 51; const P_CH: usize = 52; const P_RDRAG: usize = 53; const P_CLSEQ: usize = 54; const P_NCM: usize = 55; const P_ONLYINT: usize = 56; // debug: 1 = interact only, 2 = keepIn only (isolation tests; 0 = normal)
-const P_BGAP: usize = 57; // boundGap: wall distance for every cell independent of cell r (desktop fix 625f4e8). 44/45 are env.col g/b (P_EC0+1/+2)
+const P_BGAP: usize = 57; const P_RMINAGE: usize = 58; const P_REPROCH: usize = 59; // 58: juvenile gate ms, 59: contact birth chance (owner 21 Oct) // boundGap: wall distance for every cell independent of cell r (desktop fix 625f4e8). 44/45 are env.col g/b (P_EC0+1/+2)
 // out indices
 // 0 birth 1 divide 2 eaten 3 merge 4 fuse 5 pair 6 hit 7 oob 8 ate 9 death 10 clusterSeq 11 hovering 12-14 hoverCol 15 n_final
 
@@ -241,12 +241,13 @@ impl Sim {
         let reach = if genome { self.g(c, RAD) * (2.0 + 6.0 * self.g(c, GAPP)) } else { 0.0 };
         let (mut best_d, mut bx, mut by) = (1e9f64, 0.0, 0.0);
         let eat_r = self.p[P_FEATR];
+        let crad = self.g(c, RAD); // eating range reaches from the body EDGE inward (owner 21 Oct: cells do not eat)
         let (px, py) = (self.g(c, X), self.g(c, Y));
         for f in (0..self.nf).rev() {
             if self.fgone[f] != 0.0 { continue; }
             let fd = hyp(px - self.fx[f], py - self.fy[f]);
             if fd >= eat_r && fd < reach && fd < best_d { best_d = fd; bx = self.fx[f]; by = self.fy[f]; }
-            if fd < eat_r {
+            if fd < crad + eat_r {
                 let e = self.g(c, EN); self.set(c, EN, e + self.p[P_FEV]);
                 self.fgone[f] = 1.0; self.out[8] += 1.0;
                 if self.p[P_FGROW] != 0.0 { let r = (self.g(c, RAD) + self.p[P_FGAMT]).min(self.p[P_CELLR] * self.p[P_FGMAX]); self.set(c, RAD, r); }
@@ -357,7 +358,7 @@ impl Sim {
         let host = self.g(a, HOST);
         if host > 0.5 { let l = if dist != 0.0 { dist } else { 1.0 }; let vx = self.g(a, VX) + (-dx / l) * 0.05 * host; let vy = self.g(a, VY) + (-dy / l) * 0.05 * host; self.set(a, VX, vx); self.set(a, VY, vy); }
         if dist < ra + rb { self.out[6] += 1.0; }
-        if dist < ra + rb && self.g(a, EN) > self.p[P_MINREP] && self.g(b, EN) > self.p[P_MINREP] { self.reproduce(a, b); }
+        if dist < ra + rb && self.rnd01() < self.p[P_REPROCH] && self.g(a, EN) > self.p[P_MINREP] && self.g(b, EN) > self.p[P_MINREP] && self.g(a, AGE) >= self.p[P_RMINAGE] && self.g(b, AGE) >= self.p[P_RMINAGE] { self.reproduce(a, b); } // juveniles do not reproduce: newborns overlap their parents and ungated contact births chained into rows (owner 21 Oct)
         let nl = if dist != 0.0 { dist } else { 1.0 };
         let (nx, ny) = (dx / nl, dy / nl); let sep = (ra + rb - dist) * 0.5;
         self.set(a, X, self.g(a, X) - nx * sep); self.set(a, Y, self.g(a, Y) - ny * sep);

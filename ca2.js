@@ -20,7 +20,7 @@
   var P = {
     UNIVERSE_SIZE: 75, baseMutationRate: 5, mutationRateRange: 2, interactionRadius: 20, CELL_RADIUS: 10,
     GENE_MIN: -18, GENE_MAX: 18, minRadius: 5, maxRadius: 75, baseMaxSpeed: 10, maxSpeedVariation: 15,
-    energyConsumptionRate: 0.058, energyGainFromInteraction: 0.004, minEnergyForReproduction: 0.22,
+    energyConsumptionRate: 0.058, energyGainFromInteraction: 0.004, minEnergyForReproduction: 0.22, reproMinAgeMs: 5000, reproChance: 0.02,
     THRESHOLD: 0.2, metaballStrength: 0.02, foodDensity: 0.025, foodEnergyValue: 5,
     minRefreshInterval: 10, maxRefreshInterval: 20, slowDownRadius: 20, speedReductionFactor: 50.3,
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
@@ -69,7 +69,7 @@
     this.hostility = Math.random(); this.speedModifier = rnd(0.7, 2.3);
     var k0 = gene > 2 ? 0 : gene < -2 ? 1 : 2, cv = [0.12, 0.12, 0.12]; cv[k0] = 0.76;
     this.g = { spd: 1 + rnd(-0.3, 0.3), app: rnd(0.05, 0.95), bnd: 1 + rnd(-0.4, 0.4), col: normCol([cv[0] + rnd(0, 0.1), cv[1] + rnd(0, 0.1), cv[2] + rnd(0, 0.1)]) };
-    this.cl = 0; this.maxSpeed = this.maxSpeed * (P.genomeOn ? this.g.spd : 1); this.shp = newShape(null);
+    this.cl = 0; this.maxSpeed = this.maxSpeed * (P.genomeOn ? this.g.spd : 1); this.shp = newShape(null); this.bornAt = frameT || 0;
     this.age = 0; this.life = P.cellLife > 0 ? Math.max(1, P.cellLife * (1 + rnd(-P.cellLifeVar, P.cellLifeVar))) : 0;
   }
   function normCol(v) { var s = v[0] + v[1] + v[2] || 1; return [v[0] / s, v[1] / s, v[2] / s]; }
@@ -180,7 +180,8 @@
     for (var i = food.length - 1; i >= 0; i--) {
       var fd = Math.hypot(c.x - food[i].x, c.y - food[i].y);
       if (fd >= P.foodEatR && fd < reach && fd < bestD) { bestD = fd; bx = food[i].x; by = food[i].y; }
-      if (fd < P.foodEatR) { c.energy += P.foodEnergyValue; habAte(food[i]); food[i].gone = 1; food.splice(i, 1); ev.ate = (ev.ate || 0) + 1; if (P.foodGrow) c.radius = Math.min(c.radius + P.foodGrowAmt, P.CELL_RADIUS * P.foodGrowMax); }
+      // eating range reaches from the body EDGE inward: the old centre-based test (foodEatR px from the centre) never fired for bodies larger than foodEatR (owner 21 Oct: cells do not eat)
+      if (fd < c.radius + P.foodEatR) { c.energy += P.foodEnergyValue; habAte(food[i]); food[i].gone = 1; food.splice(i, 1); ev.ate = (ev.ate || 0) + 1; if (P.foodGrow) c.radius = Math.min(c.radius + P.foodGrowAmt, P.CELL_RADIUS * P.foodGrowMax); }
     }
     if (reach && bestD < 1e9) { c.vx += (bx - c.x) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); c.vy += (by - c.y) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); }
     if (P.divideOn && P.foodGrow && c.radius >= P.CELL_RADIUS * P.divideAt && cells.length < Math.max(60, P.UNIVERSE_SIZE * 4) && c.energy > 1) divide(c);
@@ -256,7 +257,7 @@
       var l = dist || 1; a.vx += (-dx / l) * 0.05 * a.hostility; a.vy += (-dy / l) * 0.05 * a.hostility;
     }
     if (dist < a.radius + b.radius) ev.hit++;
-    if (dist < a.radius + b.radius && a.energy > P.minEnergyForReproduction && b.energy > P.minEnergyForReproduction) reproduce(a, b);
+    if (dist < a.radius + b.radius && Math.random() < P.reproChance && a.energy > P.minEnergyForReproduction && b.energy > P.minEnergyForReproduction && frameT - (a.bornAt || 0) >= P.reproMinAgeMs && frameT - (b.bornAt || 0) >= P.reproMinAgeMs) reproduce(a, b); // juveniles do not reproduce: newborns overlap their parents, and ungated contact births chained into rows (owner 21 Oct: one click must be one cell)
     var nl = dist || 1, nx = dx / nl, ny = dy / nl, sep = (a.radius + b.radius - dist) * 0.5;
     a.x -= nx * sep; a.y -= ny * sep; b.x += nx * sep; b.y += ny * sep;
     var ad = a.vx * nx + a.vy * ny, bd = b.vx * nx + b.vy * ny;
@@ -555,7 +556,23 @@
     refreshInterval = rnd(lo, hi); lastRefresh = performance.now();
   }
   function cycleBg() { bgIndex = (bgIndex + 1) % BGS.length; bgTarget = BGS[bgIndex]; save(); }
-  function createCell() { cells.push(new Cell(mouse.x, mouse.y, Math.floor(rnd(P.GENE_MIN, P.GENE_MAX + 1)), P.baseMutationRate + rnd(-P.mutationRateRange, P.mutationRateRange))); }
+  // shared spawn (desktop click, drag spray and the mobile touch path all use this - lane agreement 21 Oct):
+  // one placement = one cell, NEVER overlapped: an overlapped spawn shoves the neighbourhood apart and the
+  // displacement wave reads as a burst of contact births (owner 21 Oct: one click must be one cell)
+  function spawnAt(x, y) {
+    var r = P.CELL_RADIUS, px = x, py = y, ok = false, i, k;
+    for (var ring = 0; ring <= 4 && !ok; ring++) {
+      var n = ring ? ring * 6 : 1;
+      for (k = 0; k < n && !ok; k++) {
+        var a = k / n * 6.2832, cx2 = x + Math.cos(a) * ring * r, cy2 = y + Math.sin(a) * ring * r, free = true;
+        for (i = 0; i < cells.length; i++) { var o = cells[i]; if (Math.hypot(cx2 - o.x, cy2 - o.y) < o.radius + r) { free = false; break; } }
+        if (free) { px = cx2; py = cy2; ok = true; }
+      }
+    }
+    cells.push(new Cell(px, py, Math.floor(rnd(P.GENE_MIN, P.GENE_MAX + 1)), P.baseMutationRate + rnd(-P.mutationRateRange, P.mutationRateRange)));
+    return cells[cells.length - 1];
+  }
+  function createCell() { spawnAt(mouse.x, mouse.y); }
   function killNear() { for (var i = cells.length - 1; i >= 0; i--) if (Math.hypot(mouse.x - cells[i].x, mouse.y - cells[i].y) < cells[i].radius + 6) { habReap(cells[i]); cells.splice(i, 1); } } // the click target is the visible body: a fixed 22px missed every click once CELL_RADIUS grew past it (owner 21 Oct: D+click did not kill)
   function randomizeOne() {
     var k = Math.floor(rnd(5));
@@ -716,7 +733,7 @@
       for (i = 0; i < n; i++) {
         c = cells[i]; b = i * 24; var g = c.g;
         cf[b] = c.x; cf[b + 1] = c.y; cf[b + 2] = c.vx; cf[b + 3] = c.vy; cf[b + 4] = c.radius; cf[b + 5] = c.energy; cf[b + 6] = c.gene; cf[b + 7] = c.alive ? 1 : 0; cf[b + 8] = c.maxSpeed; cf[b + 9] = c.speedModifier; cf[b + 10] = c.hostility; cf[b + 11] = c.mutationRate; cf[b + 12] = c.sv; cf[b + 13] = c.cl || 0;
-        cf[b + 14] = (c.sym && c.sym._f === simStamp) ? c.sym._i : -1; cf[b + 15] = g.spd; cf[b + 16] = g.app; cf[b + 17] = g.bnd; cf[b + 18] = g.col[0]; cf[b + 19] = g.col[1]; cf[b + 20] = g.col[2]; cf[b + 21] = c.comp || 0; cf[b + 22] = 0;
+        cf[b + 14] = (c.sym && c.sym._f === simStamp) ? c.sym._i : -1; cf[b + 15] = g.spd; cf[b + 16] = g.app; cf[b + 17] = g.bnd; cf[b + 18] = g.col[0]; cf[b + 19] = g.col[1]; cf[b + 20] = g.col[2]; cf[b + 21] = c.comp || 0; cf[b + 22] = 0; cf[b + 23] = frameT - (c.bornAt || 0); // slot 23: age ms (juvenile reproduction gate; 22 is the wasm REM flag)
       }
       E.sim_set_n(n); E.sim_set_nf(nf);
       for (i = 0; i < nf; i++) { fx[i] = food[i].x; fy[i] = food[i].y; }
@@ -725,7 +742,7 @@
       var pi = 0; p[0] = P.interactionRadius; p[1] = P.slowDownRadius; p[2] = P.speedReductionFactor; p[3] = P.baseMaxSpeed; p[4] = P.maxSpeedVariation; p[5] = P.energyConsumptionRate; p[6] = P.selectOn ? 1 : 0; p[7] = P.genomeOn ? 1 : 0; p[8] = P.selStrength; p[9] = P.eatMergeOn ? 1 : 0; p[10] = P.clusterCohesion; p[11] = P.symbiosisOn ? 1 : 0; p[12] = P.foodEatR; p[13] = P.foodEnergyValue; p[14] = P.foodGrow ? 1 : 0; p[15] = P.foodGrowAmt; p[16] = P.CELL_RADIUS; p[17] = P.foodGrowMax; p[18] = P.divideOn ? 1 : 0; p[19] = P.divideAt; p[20] = P.UNIVERSE_SIZE; p[21] = P.foodShrink; p[22] = P.boundAware ? 1 : 0; p[23] = P.boundZone; p[24] = P.boundForce; p[25] = P.restless; p[26] = P.eatRatio; p[27] = P.eatChance; p[28] = P.mergeGene; p[29] = P.mergeChance; p[30] = P.symbiogenesisOn ? 1 : 0; p[31] = P.energyGainFromInteraction; p[32] = P.GENE_MIN; p[33] = P.GENE_MAX; p[34] = P.minEnergyForReproduction; p[35] = P.clusterMax; p[36] = P.genomeMut; p[37] = P.mutationRateRange; p[38] = P.metaballStrength;
       p[39] = env.spd; p[40] = env.app; p[41] = env.bnd; p[42] = env.col ? 1 : 0; if (env.col) { p[43] = env.col[0]; p[44] = env.col[1]; p[45] = env.col[2]; }
       p[46] = mouse.x; p[47] = mouse.y; p[48] = mouse.over ? 1 : 0; p[49] = cont.x; p[50] = cont.y; p[51] = cont.w; p[52] = cont.h; p[53] = resizeDrag ? 1 : 0; p[54] = clusterSeq;
-      p[57] = P.boundGap || 0; // boundGap slot for sim.rs keep_in (625f4e8 port); 44/45 are env.col
+      p[57] = P.boundGap || 0; p[58] = P.reproMinAgeMs || 0; p[59] = P.reproChance === undefined ? 0.02 : P.reproChance; // 58: juvenile gate ms, 59: contact birth chance // boundGap slot for sim.rs keep_in (625f4e8 port); 44/45 are env.col
       var tp = performance.now(); E.sim_step(Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
       var ts = performance.now(); SIMW.pack = (SIMW.pack || 0) * 0.9 + (tp - t0) * 0.1; SIMW.step = (SIMW.step || 0) * 0.9 + (ts - tp) * 0.1;
       var o = new Float64Array(WC.mem.buffer, E.sim_out(), 32), nf2 = o[15];
@@ -1752,7 +1769,7 @@
       ['UNIVERSE_SIZE', 'universe', 1, 400, 1], ['CELL_RADIUS', 'cell r', 2, 100, 1], ['minRadius', 'cell r min', 1, 50, 1], ['maxRadius', 'cell r max', 5, 150, 1],
       ['baseMaxSpeed', 'speed', 0.5, 25, 0.5], ['maxSpeedVariation', 'speed variation', 0, 30, 0.5],
       ['interactionRadius', 'interaction r', 5, 100, 1], ['baseMutationRate', 'mutation', 0.5, 20, 0.5], ['mutationRateRange', 'mutation range', 0.5, 8, 0.5],
-      ['energyConsumptionRate', 'energy use', 0, 0.5, 0.002], ['energyGainFromInteraction', 'energy gain', 0, 0.05, 0.001], ['minEnergyForReproduction', 'repro energy', 0.05, 10, 0.05],
+      ['energyConsumptionRate', 'energy use', 0, 0.5, 0.002], ['energyGainFromInteraction', 'energy gain', 0, 0.05, 0.001], ['minEnergyForReproduction', 'repro energy', 0.05, 10, 0.05], ['reproMinAgeMs', 'repro min age (ms)', 0, 30000, 250], ['reproChance', 'repro chance', 0, 1, 0.005],
       ['slowDownRadius', 'mouse slow r', 0, 100, 1], ['speedReductionFactor', 'mouse slow x', 1, 100, 0.5]]],
     ['evolution', [
       ['genomeMut', 'genome mutation', 0, 0.5, 0.01], ['divideAt', 'divide at size (x radius)', 1.2, 6, 0.1], ['eatRatio', 'eat when size ratio >', 1.05, 3, 0.05], ['eatChance', 'eat chance', 0, 1, 0.01],
