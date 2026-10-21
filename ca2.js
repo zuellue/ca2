@@ -25,7 +25,7 @@
     minRefreshInterval: 10, maxRefreshInterval: 20, slowDownRadius: 20, speedReductionFactor: 50.3,
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
-    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, sprayMs: 120, sprayGapPx: 26, titleCircles: 1, circleHold: 1, titleLead: 1.3, titleTrack: 1,
+    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, panelRowGap: 11, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, sprayMs: 120, sprayGapPx: 26, titleCircles: 1, circleHold: 1, titleLead: 1.3, titleTrack: 1,
     audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, audioMicro: 0, audioMicroPitch: 1200, audioMicroDecay: 70, audioMicroRand: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1, foodReseed: 1, foodReseedFloor: 0.2, foodReseedMin: 40, foodReseedMax: 900, foodReseedTries: 8, foodEatRate: 1.5, refreshResetEnergy: 1
   };
   // owner's chosen defaults (23:04)
@@ -1826,7 +1826,7 @@
       ['morphEase', 'area morph speed', 0.02, 1, 0.01], ['colorSpeed', 'color speed', 0.02, 1, 0.01]]],
     ['panel', [
       ['panelAlpha', 'config opacity', 0, 1, 0.01], ['cfgFontSize', 'config font size px', 8, 28, 1], ['panelWidth', 'config width px', 200, 600, 5], ['blurWidth', 'backdrop blur width px', 0, 600, 5], ['blurStrength', 'backdrop blur strength px', 0, 64, 1],
-      ['focusIdleMs', 'idle focus wait ms', 500, 20000, 100], ['focusInMs', 'idle blur-in ms', 500, 12000, 100], ['focusOutMs', 'refocus snap ms', 60, 3000, 10], ['focusDepth', 'idle blur depth px', 0, 64, 1]]],
+      ['panelRowGap', 'row gap px', 0, 30, 1], ['focusIdleMs', 'idle focus wait ms', 500, 20000, 100], ['focusInMs', 'idle blur-in ms', 500, 12000, 100], ['focusOutMs', 'refocus snap ms', 60, 3000, 10], ['focusDepth', 'idle blur depth px', 0, 64, 1]]],
     ['cursor', [
       ['cursorSens', 'cursor sensitivity', 0.05, 1, 0.01], ['cursorSize', 'cursor size (x largest cell)', 0.2, 2, 0.01], ['cursorLockMs', 'cursor lock ms', 0, 3000, 50], ['sprayMs', 'spray interval (ms)', 40, 1000, 10], ['sprayGapPx', 'spray spacing (px)', 4, 200, 1]]],
     ['grain', [
@@ -1881,6 +1881,7 @@
     else if (k === 'blurWidth') { if (blurEl) blurEl.style.width = v + 'px'; if (blurLEl) blurLEl.style.width = v + 'px'; }
     else if (k === 'blurStrength') document.documentElement.style.setProperty('--bmax', v + 'px');
     else if (k === 'margin') document.documentElement.style.setProperty('--m', v + 'px');
+    else if (k === 'panelRowGap') document.documentElement.style.setProperty('--rg', v + 'px');
     else if (k === 'resolution') res = v;
     else if (k === 'axisWidth') applyLW();
     else if (k === 'cfgFontSize') applyTypo();
@@ -2515,6 +2516,7 @@
     }
   }
   document.documentElement.style.setProperty('--m', P.margin + 'px');
+  document.documentElement.style.setProperty('--rg', P.panelRowGap + 'px');
   placeCircles(); applyLW(); applyLineColor(); applyTypo();
   panel.addEventListener('click', function (e) { e.stopPropagation(); });
   var lastSync = 0;

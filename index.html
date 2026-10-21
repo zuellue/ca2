@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" href="favicon.png">
 <style>
   @font-face { font-family: 'Ca2-Thin'; src: url('Ca2-Thin.ttf') format('truetype'); font-display: block; }
-  :root { --lw: 1px; --fg: #111; --fg-soft: rgba(17,17,17,.35); --bg: #fff; --m: 24px; }
+  :root { --lw: 1px; --rg: 11px; --fg: #111; --fg-soft: rgba(17,17,17,.35); --bg: #fff; --m: 24px; }
   html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); }
   canvas#c, canvas#g { display: block; position: fixed; inset: 0; width: var(--vw, 100vw); height: var(--vh, 100vh); }
   canvas#g { pointer-events: none; } /* grain goes above everything once it is a transparent overlay (owner 21 Oct) - the current #g canvas is the OPAQUE scene+grain composite and must not be z-raised as-is */
@@ -68,7 +68,7 @@
   .grp { position: relative; width: fit-content; margin: 14px 0 2px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; font-size: var(--cfs, 13px); color: var(--fg-soft); padding-top: 8px; padding-bottom: 3px; }
   /* the rule above a section title is exactly as wide as the title text (letter-spacing tail excluded); thickness = the one line-width parameter */
   .grp::before { content: ''; position: absolute; left: 0; top: 0; width: calc(100% - .3em - 1px); border-top: var(--lw) solid var(--kr, var(--kl, #111)); }
-  .row { padding: 7px 0 4px; }
+  .row { padding: calc(var(--rg) * 0.64) 0 calc(var(--rg) * 0.36); } /* top/bottom keep the 7:4 rhythm of the old fixed 11px gap */
   .row .lab { display: flex; justify-content: space-between; }
   .row input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; margin: 2px 0 0; background: transparent; cursor: pointer; }
   .row input[type=range]::-webkit-slider-runnable-track { height: var(--lw); background: var(--kl, #111); }
