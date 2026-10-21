@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ca2 · mobile</title>
+<style>
+  /* phone-frame preview of the mobile mode: the site at an exact phone viewport, centered, pitch black outside (owner 21 Oct) */
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+  body { font-family: 'Fragment Mono', ui-monospace, 'SF Mono', Menlo, monospace; }
+  #stage { position: fixed; left: 50%; top: 50%; transform-origin: 0 0; }
+  #stage iframe { border: 0; display: block; background: #fff; }
+  #devs { position: fixed; left: 22px; top: 50%; transform: translateY(-50%); color: #e9e9e9; font-size: 12px; letter-spacing: .04em; line-height: 1.3; z-index: 2; }
+  #devs .t { color: rgba(233,233,233,.35); text-transform: uppercase; letter-spacing: calc(.3em + 1px); padding-bottom: 3px; margin-bottom: 8px; border-bottom: 1px solid #333; width: fit-content; }
+  #devs a { display: block; color: inherit; text-decoration: none; padding: 6px 0; cursor: pointer; }
+  #devs a small { color: rgba(233,233,233,.35); }
+  #devs a.on { color: #fff; }
+  #devs a.on::after { content: ' \2022'; }
+  #meta { position: fixed; right: 22px; top: 16px; color: rgba(233,233,233,.35); font-size: 11px; letter-spacing: .04em; text-align: right; line-height: 1.5; z-index: 2; }
+  #back { position: fixed; right: 22px; bottom: 16px; z-index: 2; }
+  #back a { color: #e9e9e9; text-decoration: none; font-size: 13px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; }
+  #back a:hover { color: #fff; }
+</style>
+</head>
+<body>
+<div id="devs"><div class="t">device</div></div>
+<div id="stage"><iframe id="fr" title="ca2 mobile"></iframe></div>
+<div id="meta"></div>
+<div id="back"><a href="index.html" id="backa">desktop</a></div>
+<script>
+(function () {
+  // name, css width, css height, device pixel ratio
+  var DEVS = [
+    ['iphone se', 375, 667, 2],
+    ['iphone 14 pro', 393, 852, 3],
+    ['iphone 14 pro max', 430, 932, 3],
+    ['pixel 7', 412, 915, 2.625],
+    ['galaxy s23', 360, 780, 3]
+  ];
+  var devs = document.getElementById('devs'), stage = document.getElementById('stage'), fr = document.getElementById('fr'), meta = document.getElementById('meta');
+  var cur = 1; try { cur = Math.min(DEVS.length - 1, Math.max(0, parseInt(localStorage.getItem('ca2.device') || '1', 10) || 0)); } catch (e) {}
+  var links = [];
+  DEVS.forEach(function (d, i) {
+    var a = document.createElement('a');
+    a.innerHTML = d[0] + ' <small>' + d[1] + '\u00d7' + d[2] + '</small>';
+    a.addEventListener('click', function () { pick(i, true); });
+    devs.appendChild(a); links.push(a);
+  });
+  function fit() {
+    var d = DEVS[cur];
+    var s = Math.min(1, (window.innerWidth - 170) / d[1], (window.innerHeight - 48) / d[2]);
+    if (s <= 0) s = 1;
+    fr.width = d[1]; fr.height = d[2];
+    stage.style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+    stage.style.left = '50%'; stage.style.top = '50%';
+    // keep the frame's top-left at the visual centre: transform-origin 0 0 with an explicit offset
+    stage.style.transform = 'translate(' + (-d[1] * s / 2) + 'px,' + (-d[2] * s / 2) + 'px) scale(' + s + ')';
+    meta.innerHTML = d[0] + '<br>' + d[1] + ' \u00d7 ' + d[2] + ' @ ' + d[3] + 'x<br>' + Math.round(s * 100) + '%';
+  }
+  function pick(i, nav) {
+    cur = i; try { localStorage.setItem('ca2.device', String(i)); } catch (e) {}
+    links.forEach(function (a, j) { a.classList.toggle('on', j === i); });
+    var d = DEVS[i];
+    if (nav || !fr.src) fr.src = 'index.html?mobile=1&dpr=' + d[3];
+    fit();
+  }
+  document.getElementById('backa').addEventListener('click', function () { try { localStorage.setItem('ca2.mode', 'desktop'); } catch (e) {} });
+  window.addEventListener('resize', fit);
+  pick(cur, true);
+})();
+</script>
+</body>
+</html>

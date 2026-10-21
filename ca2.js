@@ -2422,7 +2422,7 @@
     resize(); randomize(true, true); firstSpawn = false; fadeT0 = performance.now(); ready = true; setTimeout(function () { if (window.CA2Audio && P.audioOn) CA2Audio.start(); }, INTRO_MS + 2000); requestAnimationFrame(loop);
   });
   document.getElementById('tab').addEventListener('click', function () { panel.classList.toggle('open'); });
-  if (coarseUI) document.querySelector('#panel .keys').innerHTML = '<div><span>tap</span><span>random action</span></div><div><span>edge drag</span><span>resize plate</span></div><div><span>tab strip</span><span>this panel</span></div>';
+  var keysEl0 = document.querySelector('#panel .keys'); if (coarseUI && keysEl0) keysEl0.innerHTML = '<div><span>tap</span><span>random action</span></div><div><span>edge drag</span><span>resize plate</span></div><div><span>tab strip</span><span>this panel</span></div>';
   if (/open/.test(location.hash)) panel.classList.add('open');
   // reveal: panel blocks fade in fast; every part of a parameter row (label, value, slider/knob, swatch, button) has its own short fade and its own random delay
   function partIn(el, base) { el.style.animation = 'ca2in ' + (0.16 + Math.random() * 0.2).toFixed(2) + 's ease-out both'; el.style.animationDelay = (base + Math.random() * 0.14).toFixed(3) + 's'; }
@@ -2432,4 +2432,80 @@
     if (!ps.length) { partIn(el, base); return; }
     [].forEach.call(ps, function (p) { partIn(p, base); });
   });
+})();
+
+// ==== mobile lane: mobile preset layer + phone-frame support (lane agreement: new code only in this trailing IIFE) ====
+// Owner 21 Oct: mobile needs its own presets - the desktop profile does not fit. Effective mobile config =
+// desktop profile (built-in + Worker global) overridden by MOBILE_SEED, itself overridden by the Worker global's _mobile.
+// In mobile mode an admin Save is rerouted (fetch wrap below) into the global's _mobile object, sent whole every time
+// because the Worker merges patches shallowly. Desktop keys are never touched by this IIFE.
+(function () {
+  'use strict';
+  var MOBILE_SEED = { CELL_RADIUS: 24, minRadius: 15, maxRadius: 60, edgeGrab: 30, panelWidth: 320, blurWidth: 260, foodEatR: 7 };
+  var AUTO_W = 820; // an unselected window this narrow or smaller runs mobile mode (matches the UI lane's breakpoint)
+  var MODE_Q = /[?&]mobile=1/.test(location.search); // the device.html phone frame forces mobile mode with this
+  var coarse = window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches;
+  function boot() {
+    if (!window.__ca2 || !window.__ca2.P) { setTimeout(boot, 100); return; } // __ca2 appears with the first frame
+    var P = window.__ca2.P, panel = document.getElementById('panel'), blurEl = document.getElementById('blur'), blurLEl = document.getElementById('blurl');
+    var mode = null, lastMob = null, seenV = 0, applying = false, lane = false;
+    var lsSel = (function () { var ls = ''; try { ls = localStorage.getItem('ca2.mode') || ''; } catch (e) {} return (ls === 'mobile' || ls === 'm') ? 'm' : (ls === 'desktop' || ls === 'd') ? 'd' : null; })();
+    function storedG() { try { return JSON.parse(localStorage.getItem('ca2.global') || 'null'); } catch (e) { return null; } }
+    function detect() {
+      if (window.__ca2Mode) return window.__ca2Mode(); // the UI lane owns mode state whenever its module is present
+      if (lsSel) return lsSel;
+      return (coarse || MODE_Q || window.innerWidth <= AUTO_W) ? 'm' : 'd';
+    }
+    function layerKeys() {
+      var g = storedG() || {}, o = {};
+      Object.keys(MOBILE_SEED).forEach(function (k) { o[k] = 1; });
+      if (g._mobile && typeof g._mobile === 'object') Object.keys(g._mobile).forEach(function (k) { o[k] = 1; });
+      // radius bounds must land before CELL_RADIUS so the clamp uses the new range
+      return Object.keys(o).sort(function (a, b) { return (a === 'minRadius' || a === 'maxRadius' ? -1 : 0) - (b === 'minRadius' || b === 'maxRadius' ? -1 : 0); });
+    }
+    function applyMode() {
+      var g = storedG() || {}, mob = (mode === 'm');
+      layerKeys().forEach(function (k) {
+        var v;
+        if (mob) v = (g._mobile && g._mobile[k] !== undefined) ? g._mobile[k] : MOBILE_SEED[k];
+        else v = (g[k] !== undefined) ? g[k] : MOBILE_SEED[k]; // no desktop source offline: keep the seed value
+        if (v === undefined) return;
+        if (k === 'minRadius' || k === 'maxRadius') { window.__ca2.setKey(k, v); return; } // clamps CELL_RADIUS into range
+        if (k === 'CELL_RADIUS' && (v < P.minRadius || v > Math.max(P.minRadius, P.maxRadius))) v = Math.min(Math.max(v, P.minRadius), Math.max(P.minRadius, P.maxRadius));
+        window.__ca2.setKey(k, v);
+      });
+      applying = true; try { window.dispatchEvent(new Event('resize')); } finally { applying = false; } // re-fit the world + re-derive line widths
+    }
+    function refresh(m) { var nm = m || detect(); if (nm === mode) return; mode = nm; applyMode(); }
+    window.addEventListener('ca2mode', function (e) {
+      lane = true; if (!e.detail || !e.detail.mode) return;
+      // B picked on a wide desktop window opens the phone-frame preview (owner 21 Oct); the frame is device.html
+      if (e.detail.sel === 'm' && !MODE_Q && !coarse && window.innerWidth > AUTO_W && !/device\.html/.test(location.pathname)) { location.href = 'device.html'; return; }
+      refresh(e.detail.mode);
+    });
+    window.addEventListener('resize', function () { if (applying || lane || window.__ca2Mode || lsSel) return; refresh(); }); // fallback auto-switch only while no lane module and no explicit pick
+    // the other lane's pullG applies fresh desktop keys over the mobile layer; re-apply it after every global update
+    var g0 = storedG(); seenV = (g0 && g0._v) || 0;
+    setInterval(function () { var g = storedG(), v = g && g._v; if (v && v !== seenV) { seenV = v; if (mode === 'm') applyMode(); } }, 1000);
+    // admin Save in mobile mode -> touched keys go into _mobile, not the desktop top level
+    var of = window.fetch;
+    window.fetch = function (url, opt) {
+      var rewrote = false, mob = null;
+      try {
+        if (mode === 'm' && opt && opt.method === 'POST' && typeof url === 'string' && url.indexOf('ca2-presets') >= 0 && typeof opt.body === 'string') {
+          var b = JSON.parse(opt.body);
+          if (b && b.patch && !b.check) {
+            var g = storedG() || {};
+            mob = lastMob || (g._mobile && typeof g._mobile === 'object' ? JSON.parse(JSON.stringify(g._mobile)) : {});
+            Object.keys(b.patch).forEach(function (k) { if (k === '_live' || k === '_mobile') return; mob[k] = b.patch[k]; delete b.patch[k]; rewrote = true; });
+            if (rewrote) b.patch._mobile = mob;
+            opt = Object.assign({}, opt, { body: JSON.stringify(b) });
+          }
+        }
+      } catch (e) {}
+      return of.call(this, url, opt).then(function (r) { if (rewrote && r && r.ok) { lastMob = mob; } return r; });
+    };
+    refresh();
+  }
+  boot();
 })();
