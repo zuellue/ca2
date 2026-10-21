@@ -2370,11 +2370,13 @@
   window.addEventListener('touchcancel', function () { targetCursorScale = 1; resizeDrag = null; mouse.over = false; }, { passive: true });
 
   var last = performance.now(), fcount = 0, ftime = last;
+  var rdySet = false;
   function loop(now) {
     requestAnimationFrame(loop);
     if (!ready) return;
     if (now - last < 1000 / P.fps - 1) return;
     last = now; frame(); fcount++;
+    if (!rdySet) { rdySet = true; document.body.classList.add('rdy'); } // first real frame is on the canvas: reveal (boot FOUC gate)
     if (now - ftime >= 1000) { fps = fcount * 1000 / (now - ftime); fcount = 0; ftime = now; }
   }
   res = P.resolution;

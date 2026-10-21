@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>CA2</title>
+<title>Cellular Automata</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
 <link rel="apple-touch-icon" href="favicon.png">
@@ -101,7 +101,7 @@
   .btns button::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; border-bottom: var(--lw) solid transparent; }
   .btns button:hover::after { border-bottom-color: var(--fg); }
   /* section circles: right lane of the config panel, title-dot size, tangent stacking */
-  #secc { position: fixed; top: 0; right: 8px; z-index: 11; display: flex; flex-direction: column; align-items: center; transform: translateX(150%); transition: transform .2s ease-out; }
+  #secc { position: fixed; top: 0; right: 8px; z-index: 11; display: flex; flex-direction: column; align-items: center; transform: translateX(calc(100% + 16px)); transition: transform .2s ease-out; }
   #panel.open ~ #secc, #panel.hov ~ #secc { transform: translateX(0); }
   @media (hover: hover) { #tab:hover ~ #secc, #panel:hover ~ #secc { transform: translateX(0); } }
   #secc .sci { display: flex; flex-direction: column; align-items: center; }
@@ -119,7 +119,12 @@
   #adm.err .ac { border-color: #ff3c3c !important; color: #ff3c3c; }
   #cur { position: fixed; left: 0; top: 0; display: none; pointer-events: none; z-index: 8; box-sizing: border-box; border: 1px solid #000; border-radius: 50%; will-change: transform; }
   #cur i { position: absolute; left: 50%; top: 50%; width: 2px; height: 2px; border-radius: 50%; transform: translate(-50%, -50%); background: #000; }
+  body:not(.rdy) canvas { opacity: 0; }
+  canvas { transition: opacity .3s ease-in; }
 </style>
+<script>
+try { var s0 = JSON.parse(localStorage.getItem('ca2.config') || 'null'); if (s0 && s0.bgTarget && s0.bgTarget.length === 3) document.documentElement.style.setProperty('--bg', 'rgb(' + (s0.bgTarget[0] | 0) + ',' + (s0.bgTarget[1] | 0) + ',' + (s0.bgTarget[2] | 0) + ')'); } catch (e) {}
+</script>
 </head>
 <body>
 <canvas id="c"></canvas>
