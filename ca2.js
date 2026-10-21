@@ -2705,4 +2705,27 @@
     refresh();
   }
   boot();
+  // ---- honest save button + gesture-context code-box focus (owner 21 Oct: locked save must not fake "saved"; lane agreement: trailing IIFE only) ----
+  (function adminEntryFix() {
+    // (a) locked save: the core handler writes localStorage only but still shows "saved" - block it and say "kilitli"
+    document.addEventListener('click', function (e) {
+      var b = e.target && e.target.closest ? e.target.closest('#btns button') : null;
+      if (!b || window.__adminOn) return;
+      if (b.dataset.ca2save !== '1' && b.textContent !== 'save') return;
+      b.dataset.ca2save = '1';
+      e.stopPropagation(); e.preventDefault();
+      b.textContent = 'kilitli';
+      setTimeout(function () { b.textContent = 'save'; }, 1500);
+    }, true);
+    // (b)+(c) the 5s hold fires from a timer, outside any gesture, so mobile keyboards never open for the code box.
+    // Focus it from real gestures instead: the pointerup that ends the hold, and any tap while the panel is open.
+    function focusBox() {
+      var adm = document.getElementById('adm');
+      if (!adm || !adm.classList.contains('on') || window.__adminOn) return;
+      var box = document.querySelector('input[inputmode="numeric"]');
+      if (box && document.activeElement !== box) box.focus();
+    }
+    window.addEventListener('pointerup', function () { setTimeout(focusBox, 0); }); // bubble: registered after adminInit, so the panel is already open when this runs
+    document.addEventListener('click', function () { setTimeout(focusBox, 0); }, true);
+  })();
 })();
