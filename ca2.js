@@ -25,7 +25,7 @@
     minRefreshInterval: 10, maxRefreshInterval: 20, slowDownRadius: 20, speedReductionFactor: 50.3,
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
-    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, titleCircles: 1, circleHold: 1, titleLead: 1.3, titleTrack: 1,
+    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, sprayMs: 120, sprayGapPx: 26, titleCircles: 1, circleHold: 1, titleLead: 1.3, titleTrack: 1,
     audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, audioMicro: 0, audioMicroPitch: 1200, audioMicroDecay: 70, audioMicroRand: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1
   };
   // owner's chosen defaults (23:04)
@@ -614,6 +614,7 @@
     if (e.target !== cv) return;
     if (coarseUI && (panel.classList.contains('open') || panel.classList.contains('hov'))) { panel.classList.remove('open'); panel.classList.remove('hov'); return; }
     var k = keyHeld;
+    if (k === 'a' && sprayMoved) { sprayMoved = false; return; } // the drag already sprayed; the release click adds no extra cell
     if (k === 'b') cycleBg(); else if (k === 'a') createCell(); else if (k === 's') randomize(); else if (k === 'd') killNear(); else if (!k) randomAction();
   }
 
@@ -1759,7 +1760,7 @@
       ['panelAlpha', 'config opacity', 0, 1, 0.01], ['cfgFontSize', 'config font size px', 8, 28, 1], ['panelWidth', 'config width px', 200, 600, 5], ['blurWidth', 'backdrop blur width px', 0, 600, 5], ['blurStrength', 'backdrop blur strength px', 0, 64, 1],
       ['focusIdleMs', 'idle focus wait ms', 500, 20000, 100], ['focusInMs', 'idle blur-in ms', 500, 12000, 100], ['focusOutMs', 'refocus snap ms', 60, 3000, 10], ['focusDepth', 'idle blur depth px', 0, 64, 1]]],
     ['cursor', [
-      ['cursorSens', 'cursor sensitivity', 0.05, 1, 0.01], ['cursorSize', 'cursor size (x largest cell)', 0.2, 2, 0.01], ['cursorLockMs', 'cursor lock ms', 0, 3000, 50]]],
+      ['cursorSens', 'cursor sensitivity', 0.05, 1, 0.01], ['cursorSize', 'cursor size (x largest cell)', 0.2, 2, 0.01], ['cursorLockMs', 'cursor lock ms', 0, 3000, 50], ['sprayMs', 'spray interval (ms)', 40, 1000, 10], ['sprayGapPx', 'spray spacing (px)', 4, 200, 1]]],
     ['grain', [
       ['grainAmount', 'amount', 0, 2, 0.01], ['grainStrength', 'strength', 0, 10, 0.1], ['grainSize', 'size px', 0.3, 6, 0.1],
       ['grainSoft', 'softness', 0, 1, 0.01], ['grainChroma', 'chroma split', 0, 1, 0.01], ['grainDev', 'development', 0.1, 1.5, 0.01],
@@ -2629,7 +2630,17 @@
     if (resizeDrag.v) cont.rawH = Math.max(60, 2 * Math.abs(e.clientY - H / 2));
     clampTargets(); cont.ew = cont.tw; cont.eh = cont.th;
   });
-  window.addEventListener('mouseup', function () { targetCursorScale = 1; resizeDrag = null; });
+  window.addEventListener('mouseup', function () { targetCursorScale = 1; resizeDrag = null; });  // A + drag spray: continuous spawns along the held-drag trail, paced by preset knobs (owner 21 Oct). spawnAt stays the single spawn path (click / spray / mobile touch)
+  var sprayOn = false, sprayMoved = false, sprayT = 0, sprayX = 0, sprayY = 0;
+  window.addEventListener('mousedown', function (e) { if (e.target === cv && !edgeHit(e.clientX, e.clientY)) { sprayOn = true; sprayMoved = false; sprayT = 0; sprayX = e.clientX; sprayY = e.clientY; } });
+  window.addEventListener('mousemove', function (e) {
+    if (!sprayOn || keyHeld !== 'a') return;
+    var t = performance.now();
+    if (t - sprayT < P.sprayMs || Math.hypot(e.clientX - sprayX, e.clientY - sprayY) < P.sprayGapPx) return;
+    sprayT = t; sprayX = e.clientX; sprayY = e.clientY; sprayMoved = true; spawnAt(sprayX, sprayY);
+  });
+  window.addEventListener('mouseup', function () { sprayOn = false; });
+
   window.addEventListener('keydown', function (e) { keyHeld = e.key.toLowerCase(); if (keyHeld === 'c') panel.classList.toggle('open'); });
   window.addEventListener('keyup', function () { keyHeld = ''; });
   ['pointerdown', 'pointerup', 'pointermove', 'mousemove', 'mousedown', 'wheel', 'scroll', 'touchstart', 'keydown', 'touchend', 'click'].forEach(function (n) { window.addEventListener(n, function () { if (window.CA2Audio && P.audioOn) CA2Audio.start(); }, { passive: true }); });
