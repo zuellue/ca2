@@ -1613,8 +1613,11 @@
         var k = q[0];
         var ed = document.createElement('input'); ed.type = 'text'; ed.className = 'man'; ed.value = fmt(P[k]);
         ed.setAttribute('inputmode', 'decimal'); ed.spellcheck = false; ed.autocomplete = 'off';
+        var labH = val.parentNode.offsetHeight;
+        ed.style.height = labH + 'px'; ed.style.lineHeight = labH + 'px';
+        ed.style.caretColor = ['#ff0000', '#00ff00', '#0000ff'][Math.floor(Math.random() * 3)];
         val.style.display = 'none'; val.parentNode.appendChild(ed);
-        ed.focus(); ed.select();
+        ed.focus({ preventScroll: true }); ed.select();
         var done = false;
         var fin = function (commit) {
           if (done) return; done = true;
@@ -2241,7 +2244,18 @@
     statsEl.innerHTML = '<span>Cells</span><span class="n">' + total + '</span><span>Universe</span><span class="n">' + Math.round(P.UNIVERSE_SIZE) + '</span><span>Refresh S</span><span class="n">' + Math.round(Math.max(0, refreshInterval - (now - lastRefresh) / 1000)) + '</span><span>FPS</span><span class="n">' + Math.round(fps) + '</span><span>Res</span><span class="n">' + Math.round(res * 100) + '</span>';
     if (soloSec === perfSec) {
       var pf1 = function (k) { return PF[k] === undefined ? '...' : PF[k].toFixed(2); };
-      statsEl.innerHTML += '<span>frame</span><span class="n">' + frameMs.toFixed(1) + '</span><span>setup</span><span class="n">' + pf1('setup') + '</span><span>sim+ui draw</span><span class="n">' + pf1('sim+ui draw') + '</span><span>grain+rest</span><span class="n">' + pf1('grain+rest') + '</span><span>gpu:draw+field</span><span class="n">' + pf1('gpu:draw+field') + '</span><span>gpu:drawImage</span><span class="n">' + pf1('gpu:drawImage') + '</span>';
+      statsEl.innerHTML += '<span>Frame</span><span class="n">' + frameMs.toFixed(1) + '</span><span>Setup</span><span class="n">' + pf1('setup') + '</span><span>Sim UI</span><span class="n">' + pf1('sim+ui draw') + '</span><span>Grain Rest</span><span class="n">' + pf1('grain+rest') + '</span><span>GPU: Draw+Field</span><span class="n">' + pf1('gpu:draw+field') + '</span><span>GPU: Draw Image</span><span class="n">' + pf1('gpu:drawImage') + '</span>';
+    }
+    // stats font tracks the config width: the whole block (labels AND the 54px Ca2-Thin values) scales down only when a row would overflow (owner 21 Oct)
+    statsEl.style.fontSize = '';
+    var ns2 = statsEl.querySelectorAll('.n'), ni2;
+    for (ni2 = 0; ni2 < ns2.length; ni2++) ns2[ni2].style.fontSize = '';
+    var sW = statsEl.scrollWidth, cW = statsEl.clientWidth;
+    if (cW > 0 && sW > cW) {
+      var fit = (cW - 12) / Math.max(1, sW - 12);
+      statsEl.style.fontSize = (Math.max(7, Math.floor(13 * fit * 10) / 10)) + 'px';
+      for (ni2 = 0; ni2 < ns2.length; ni2++) ns2[ni2].style.fontSize = Math.max(12, Math.floor(54 * fit)) + 'px';
+      if (statsEl.scrollWidth > cW) { var fit2 = cW / statsEl.scrollWidth; for (ni2 = 0; ni2 < ns2.length; ni2++) { var cur = parseFloat(ns2[ni2].style.fontSize) || 54; ns2[ni2].style.fontSize = Math.max(12, Math.floor(cur * fit2)) + 'px'; } }
     }
     for (var lk in live) { var lr = rows[lk]; lr.inp.value = P[lk]; lr.val.textContent = fmt(P[lk]); }
     if (panel.matches(':hover')) return;

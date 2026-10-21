@@ -62,7 +62,7 @@
   #secc .sl { font-family: var(--cff, 'Times New Roman', Times, serif); }
   .n { font-family: 'Ca2-Thin', monospace; font-size: 54px; white-space: nowrap; line-height: 1; letter-spacing: 0; }
   .stats { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; white-space: nowrap; padding: 8px 0 12px; margin-bottom: 10px; }
-  .stats span:nth-child(even) { text-align: right; }
+  .stats span:nth-child(even) { text-align: left; }
   .stats span:nth-child(odd) { align-self: center; }
   .grp { position: relative; width: fit-content; margin: 14px 0 2px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; font-size: var(--cfs, 13px); color: var(--fg-soft); padding-top: 8px; padding-bottom: 3px; }
   /* the rule above a section title is exactly as wide as the title text (letter-spacing tail excluded); thickness = the one line-width parameter */
@@ -90,7 +90,7 @@
   .row.live input[type=range]::-moz-range-track { background: var(--kl, #111) !important; }
   .row.live .lab b { color: inherit !important; }
   .row .lab b { cursor: text; }
-  .row .lab .man { font: inherit; color: inherit; background: transparent; border: 0; box-shadow: none; outline: none; width: 72px; text-align: right; padding: 0; caret-color: var(--fg); }
+  .row .lab .man { font: inherit; color: inherit; background: transparent; border: 0; box-shadow: none; outline: none; width: 72px; text-align: right; padding: 0; margin: 0; -webkit-appearance: none; appearance: none; caret-color: var(--fg); }
   .chk { display: flex; justify-content: space-between; padding: 7px 0; cursor: pointer; user-select: none; }
   .chk b { font-weight: normal; }
   @media (hover: hover) { .chk:hover b { opacity: .4; } }
