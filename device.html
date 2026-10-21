@@ -17,18 +17,25 @@
   #devs a.on { color: #fff; }
   #devs a.on::after { content: ' \2022'; }
   #meta { position: fixed; right: 22px; top: 16px; color: rgba(233,233,233,.35); font-size: 11px; letter-spacing: .04em; text-align: right; line-height: 1.5; z-index: 2; }
-  #back { position: fixed; right: 22px; bottom: 16px; z-index: 2; }
   #scale { position: fixed; left: 22px; bottom: 16px; z-index: 2; }
   #savem { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 2; }
-  #back a, #scale a, #savem a { color: #e9e9e9; text-decoration: none; font-size: 13px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; cursor: pointer; }
-  #back a:hover, #scale a:hover, #savem a:hover { color: #fff; }
+  #scale a, #savem a { color: #e9e9e9; text-decoration: none; font-size: 13px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; cursor: pointer; }
+  #scale a:hover, #savem a:hover { color: #fff; }
+  /* the desktop page's code entry, moved here verbatim (owner 21 Oct): 4 hollow stacked circles bottom-right,
+     the code fills them top to bottom, an accepted code turns them into A B D U and B / D become buttons */
+  #adm2 { position: fixed; right: 22px; bottom: 16px; z-index: 2; display: flex; flex-direction: column; align-items: center; cursor: text; }
+  #adm2 .ac { width: 34px; height: 34px; border: 1px solid #e9e9e9; border-radius: 50%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: #e9e9e9; font-size: 13px; }
+  #adm2 .ac span { line-height: 1; }
+  #adm2.err .ac { border-color: #ff3c3c !important; color: #ff3c3c; }
+  #adm2.ok .ac.mb { cursor: pointer; }
+  #adm2.ok .ac.mb:hover { border-color: #fff; color: #fff; }
 </style>
 </head>
 <body>
 <div id="devs"><div class="t">device</div></div>
 <div id="stage"><iframe id="fr" title="ca2 mobile"></iframe></div>
 <div id="meta"></div>
-<div id="back"><a href="index.html" id="backa">desktop</a></div>
+<div id="adm2"><div class="ac"><span></span></div><div class="ac"><span></span></div><div class="ac"><span></span></div><div class="ac"><span></span></div></div>
 <div id="scale"><a id="scalea">scale: fit</a></div>
 <div id="savem"><a id="savea">save</a></div>
 <script>
@@ -98,7 +105,66 @@
     try { localStorage.setItem('ca2.scale', SCALES[scaleMode]); } catch (e) {}
     fit();
   });
-  document.getElementById('backa').addEventListener('click', function () { try { localStorage.setItem('ca2.mode', 'desktop'); } catch (e) {} });
+  // ---- code entry + B/D, the desktop page's admin widget moved here verbatim (owner 21 Oct) ----
+  // The code entered here unlocks the preview inside the frame too (same origin): the mobile page never asks again.
+  var WK = 'https://ca2-presets.middots.workers.dev/';
+  var adm2 = document.getElementById('adm2');
+  var acs = [].slice.call(adm2.querySelectorAll('.ac'));
+  var glyphs = acs.map(function (a) { return a.firstChild; });
+  var adminCode = null, outerOn = false;
+  // the real input is invisible and only catches keys, same as the desktop widget
+  var cbox = document.createElement('input');
+  cbox.type = 'text'; cbox.maxLength = 4; cbox.setAttribute('inputmode', 'numeric'); cbox.autocomplete = 'off'; cbox.spellcheck = false;
+  cbox.style.cssText = 'position:fixed;left:-200px;top:0;width:20px;height:20px;opacity:0;border:0;padding:0;outline:none';
+  document.body.appendChild(cbox);
+  function wpost(b) { return fetch(WK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(function (r) { return r.json(); }); }
+  function unlockInner(code) { // hand the accepted code to the page inside the frame through its own entry widget
+    try {
+      var w = fr.contentWindow, d = fr.contentDocument;
+      if (!w || !d || w.__adminOn) return;
+      var ib = d.querySelector('input[inputmode="numeric"]');
+      if (ib) { ib.value = code; ib.dispatchEvent(new w.Event('input', { bubbles: true })); }
+    } catch (e) {}
+  }
+  function setOk() {
+    outerOn = true;
+    var ABDU = 'ABDU'; for (var i = 0; i < 4; i++) glyphs[i].textContent = ABDU[i];
+    adm2.classList.add('ok');
+  }
+  adm2.addEventListener('click', function () { cbox.focus(); });
+  cbox.addEventListener('input', function () {
+    cbox.value = cbox.value.replace(/\D/g, '').slice(0, 4);
+    for (var i = 0; i < 4; i++) glyphs[i].textContent = cbox.value[i] || '';
+    if (cbox.value.length === 4) {
+      var code = cbox.value;
+      wpost({ code: code, check: true }).then(function (r) {
+        if (r && r.ok) { adminCode = code; setOk(); unlockInner(code); }
+        else { adm2.classList.add('err'); setTimeout(function () { adm2.classList.remove('err'); glyphs.forEach(function (g) { g.textContent = ''; }); }, 600); }
+        cbox.value = ''; cbox.blur();
+      }).catch(function () { cbox.value = ''; cbox.blur(); });
+    }
+  });
+  // B and D are buttons once the accepted code turns the glyphs into A B D U: B stays on the mobile preview, D goes to the desktop page
+  acs[1].classList.add('mb'); acs[2].classList.add('mb');
+  acs[1].addEventListener('click', function (e) { if (!outerOn) return; e.stopPropagation(); }); // B: already the mobile preview
+  acs[2].addEventListener('click', function (e) { // D: the desktop page (replaces the old desktop link)
+    if (!outerOn) return;
+    e.stopPropagation();
+    try { localStorage.setItem('ca2.mode', 'desktop'); } catch (e2) {}
+    location.href = 'index.html';
+  });
+  // a fresh frame inherits the unlocked state; an unlock done inside the frame mirrors back out here
+  fr.addEventListener('load', function () {
+    if (!adminCode) return;
+    var tries = 0, iv = setInterval(function () {
+      try { if (fr.contentWindow && fr.contentWindow.__adminOn) { clearInterval(iv); return; } } catch (e) {}
+      unlockInner(adminCode);
+      if (++tries >= 40) clearInterval(iv); // ~10s of retries while the frame boots
+    }, 250);
+  });
+  setInterval(function () {
+    try { if (!outerOn && fr.contentWindow && fr.contentWindow.__adminOn) setOk(); } catch (e) {}
+  }, 400);
   // page-level save: bottom row, centered under the preview, same line as the desktop link (owner 21 Oct).
   // Drives the real save button inside the frame (its handler, kilitli intercept and text states stay authoritative) and mirrors its label.
   var savea = document.getElementById('savea');
