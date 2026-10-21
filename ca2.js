@@ -1723,7 +1723,7 @@
     applyDof(); // depth of field lives in the scene canvas now, so the grain pass lands on top of it (owner 21 Oct)
     if (window.CA2Grain && CA2Grain.ok && P.grain && t0 - fadeT0 >= INTRO_MS + 400) { // grain is the last layer to join, clear of the intro
       cvg.style.display = 'block';
-      CA2Grain.render(cv, { amount: P.grainAmount, strength: P.grainStrength, size: P.grainSize, softness: P.grainSoft, chroma: P.grainChroma, development: P.grainDev, fine: P.grainFine, crystal: P.grainCrystal, cloud: P.grainCloud }, P.grainFps > 0 ? Math.floor(performance.now() / 1000 * P.grainFps) : 0, DPR);
+      CA2Grain.render(cv, { amount: P.grainAmount, strength: P.grainStrength, size: P.grainSize, softness: P.grainSoft, chroma: P.grainChroma, development: P.grainDev, fine: P.grainFine, crystal: P.grainCrystal, cloud: P.grainCloud }, P.grainFps > 0 ? Math.floor(performance.now() / 1000 * P.grainFps) : 0, DPR, 1); // overlay pass: #g is a transparent layer above all UI (owner 21 Oct)
     } else cvg.style.display = 'none';
     pfm('grain+rest');
     // quality governor: keeps the frame rate by lowering resolution, raises it back when there is room

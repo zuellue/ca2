@@ -12,7 +12,7 @@
   :root { --lw: 1px; --rg: 11px; --fg: #111; --fg-soft: rgba(17,17,17,.35); --bg: #fff; --m: 24px; }
   html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); }
   canvas#c, canvas#g { display: block; position: fixed; inset: 0; width: var(--vw, 100vw); height: var(--vh, 100vh); }
-  canvas#g { pointer-events: none; } /* grain goes above everything once it is a transparent overlay (owner 21 Oct) - the current #g canvas is the OPAQUE scene+grain composite and must not be z-raised as-is */
+  canvas#g { pointer-events: none; z-index: 2147483647; } /* transparent grain overlay above EVERYTHING incl. UI (owner 21 Oct); the hover split (#secc, z 59) sits just under it */
   /* touch: the plate canvas owns its gestures - no page scroll, rubber-band or double-tap zoom while on it */
   canvas#c { touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
   canvas#c, canvas#g { image-rendering: pixelated; image-rendering: crisp-edges; image-rendering: pixelated; }
@@ -102,7 +102,7 @@
   .btns button:hover::after { border-bottom-color: var(--fg); }
   /* save is admin-only on desktop (owner 21 Oct): hidden in the button row until the admin code verifies; the mobile lane pins the same node outside .btns, where this rule does not reach */
   /* section circles: right lane of the config panel, title-dot size, tangent stacking */
-  #secc { position: fixed; top: 0; right: var(--m); bottom: var(--m); z-index: 59; /* the hover split sits just under the grain (owner 21 Oct) */ display: flex; flex-direction: column; align-items: center; transform: translateX(calc(100% + var(--m) + 4px)); transition: transform .2s ease-out; overflow-y: auto; scrollbar-width: none; }
+  #secc { position: fixed; top: 0; right: var(--m); bottom: var(--m); z-index: 59; /* the hover split sits just under the grain (owner 21 Oct) */ display: flex; flex-direction: column; align-items: center; transform: translateX(calc(100% + var(--m) + 4px)); transition: transform .2s ease-out; overflow: visible; scrollbar-width: none; } /* overflow:visible - overflow-y:auto force-clips x, and the hover split pieces fly out of the button (owner 21 Oct: no clip; the mobile lane's override becomes redundant) */
   #panel.open ~ #secc, #panel.hov ~ #secc { transform: translateX(0); }
   @media (hover: hover) { #tab:hover ~ #secc, #panel:hover ~ #secc { transform: translateX(0); } }
   #secc .sci { display: flex; flex-direction: column; align-items: center; flex: none; }
