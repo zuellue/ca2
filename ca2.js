@@ -38,6 +38,7 @@
   P.focusIdleMs = 4000; P.focusInMs = 4000; P.focusOutMs = 380; P.focusDepth = 14; // idle depth-of-field blur: wait, slow blur-in, swift refocus, depth px
   P.cellShapes = 1; // heritable body plans: round / string / lobed (render expands a cell into metaball sources)
   var DEFAULTS = JSON.parse(JSON.stringify(P));
+  var TYPE_SIZE_MAX = 3; // general font size ceiling (owner 21 Oct): the knob range and the layout clamp below share this one value
   var autoRefresh = true, lockParams = false;
   var BGS = [[233,233,233],[22,22,22],[255,0,0],[0,255,0],[0,0,255]];
   // title-circle hover colors: the palette's own black (22,22,22 - not pitch black) and white, plus its R G B (owner 21 Oct)
@@ -346,7 +347,7 @@
     // all typography metrics derive from one font size; margin is equal on every edge
     // type size runs 0.5..2 in the config, but the effective ceiling is the fit: the widest word of the title
     // must always fit the page width inside the margins, so a manual entry can never push ink off the frame (owner 21 Oct)
-    var fs = 210 * Math.min(W / 2560, H / 1600) * Math.min(P.textScale, 2), dh = 0.666 * fs;
+    var fs = 210 * Math.min(W / 2560, H / 1600) * Math.min(P.textScale, TYPE_SIZE_MAX), dh = 0.666 * fs;
     ctx.font = fs + 'px "Ca2-Thin", monospace';
     var M = P.margin, G = P.gap;
     var tm = titleMetrics(fs), ex = tm.trk * (P.titleTrack - 1), inkTLe = tm.inkTL + (TL.length - 1) * ex, inkTRe = tm.inkTR + (TR.length - 1) * ex, trkE = tm.trk + ex;
@@ -1641,7 +1642,7 @@
     ['picture', [
       ['resolution', 'resolution', 0.25, 1, 0.01], ['pixelRatio', 'pixel ratio (0 = auto)', 0, 3, 0.25], ['fps', 'fps', 5, 120, 1],
       ['margin', 'margin (all edges)', 0, 120, 1], ['gap', 'line gap to numbers', 0, 60, 1],
-      ['textScale', 'type size', 0.5, 2, 0.005], ['titleLead', 'line space (title)', 0.5, 3, 0.05], ['titleTrack', 'letter space (title)', 0.5, 2, 0.01], ['containerCorner', 'corner gap', 0, 80, 1],
+      ['textScale', 'type size', 0.5, TYPE_SIZE_MAX, 0.005], ['titleLead', 'line space (title)', 0.5, 3, 0.05], ['titleTrack', 'letter space (title)', 0.5, 2, 0.01], ['containerCorner', 'corner gap', 0, 80, 1],
       ['centerGap', 'center gap (axis crossing)', 0, 120, 1], ['diagLen', 'diagonal length', 0.2, 1.3, 0.01], ['axisWidth', 'line width (all lines)', 0, 6, 0.1],
       ['areaMin', 'area floor', 0.1, 1, 0.01], ['areaMax', 'area ceiling', 0.1, 1, 0.01],
       ['morphEase', 'area morph speed', 0.02, 1, 0.01], ['colorSpeed', 'color speed', 0.02, 1, 0.01]]],
