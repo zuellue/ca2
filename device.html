@@ -18,8 +18,9 @@
   #devs a.on::after { content: ' \2022'; }
   #meta { position: fixed; right: 22px; top: 16px; color: rgba(233,233,233,.35); font-size: 11px; letter-spacing: .04em; text-align: right; line-height: 1.5; z-index: 2; }
   #back { position: fixed; right: 22px; bottom: 16px; z-index: 2; }
-  #back a { color: #e9e9e9; text-decoration: none; font-size: 13px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; }
-  #back a:hover { color: #fff; }
+  #scale { position: fixed; left: 22px; bottom: 16px; z-index: 2; }
+  #back a, #scale a { color: #e9e9e9; text-decoration: none; font-size: 13px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; cursor: pointer; }
+  #back a:hover, #scale a:hover { color: #fff; }
 </style>
 </head>
 <body>
@@ -27,18 +28,26 @@
 <div id="stage"><iframe id="fr" title="ca2 mobile"></iframe></div>
 <div id="meta"></div>
 <div id="back"><a href="index.html" id="backa">desktop</a></div>
+<div id="scale"><a id="scalea">scale: fit</a></div>
 <script>
 (function () {
-  // name, css width, css height, device pixel ratio
+  // name, css width, css height, device pixel ratio - real values, verified 21 Oct (webmobilefirst / screensize.net / blisk.io)
+  // near-duplicates dropped: two viewports within 15 css px in width and 20 in height count as one (measured over 14 candidates)
   var DEVS = [
+    ['galaxy s24', 360, 780, 3],
     ['iphone se', 375, 667, 2],
-    ['iphone 14 pro', 393, 852, 3],
-    ['iphone 14 pro max', 430, 932, 3],
-    ['pixel 7', 412, 915, 2.625],
-    ['galaxy s23', 360, 780, 3]
+    ['iphone 13 mini', 375, 812, 3],
+    ['iphone 15 / 16', 393, 852, 3],
+    ['iphone 16 pro', 402, 874, 3],
+    ['pixel 8', 412, 915, 2.625],
+    ['iphone 15 pro max', 430, 932, 3],
+    ['iphone 16 pro max', 440, 956, 3]
   ];
-  var devs = document.getElementById('devs'), stage = document.getElementById('stage'), fr = document.getElementById('fr'), meta = document.getElementById('meta');
+  // scale modes: 'fit' fills the window (may exceed 100% - the old cap at 100% was the 'too small' complaint), then fixed sizes
+  var SCALES = ['fit', '100%', '125%', '150%', '200%'];
+  var devs = document.getElementById('devs'), stage = document.getElementById('stage'), fr = document.getElementById('fr'), meta = document.getElementById('meta'), scalea = document.getElementById('scalea');
   var cur = 1; try { cur = Math.min(DEVS.length - 1, Math.max(0, parseInt(localStorage.getItem('ca2.device') || '1', 10) || 0)); } catch (e) {}
+  var scaleMode = 0; try { scaleMode = Math.max(0, Math.min(SCALES.length - 1, SCALES.indexOf(localStorage.getItem('ca2.scale') || 'fit'))); } catch (e) {}
   var links = [];
   DEVS.forEach(function (d, i) {
     var a = document.createElement('a');
@@ -48,14 +57,32 @@
   });
   function fit() {
     var d = DEVS[cur];
-    var s = Math.min(1, (window.innerWidth - 170) / d[1], (window.innerHeight - 48) / d[2]);
-    if (s <= 0) s = 1;
+    var fitS = Math.min((window.innerWidth - 170) / d[1], (window.innerHeight - 48) / d[2]);
+    var s, fixed = scaleMode > 0;
+    if (fixed) s = parseFloat(SCALES[scaleMode]) / 100;
+    else s = Math.min(3, Math.max(0.2, fitS)); // fit now fills the window instead of capping at 100%
     fr.width = d[1]; fr.height = d[2];
-    stage.style.transform = 'translate(-50%,-50%) scale(' + s + ')';
-    stage.style.left = '50%'; stage.style.top = '50%';
-    // keep the frame's top-left at the visual centre: transform-origin 0 0 with an explicit offset
-    stage.style.transform = 'translate(' + (-d[1] * s / 2) + 'px,' + (-d[2] * s / 2) + 'px) scale(' + s + ')';
+    if (fixed && s > fitS) {
+      // bigger than the window: pin top-center and let the page scroll the phone
+      document.body.style.height = 'auto';
+      document.body.style.minHeight = (Math.round(d[2] * s) + 64) + 'px';
+      document.body.style.overflowY = 'auto';
+      stage.style.position = 'absolute';
+      stage.style.left = '50%'; stage.style.top = '24px';
+      stage.style.transformOrigin = 'top center';
+      stage.style.transform = 'translateX(-50%) scale(' + s + ')';
+    } else {
+      document.body.style.height = '100%';
+      document.body.style.minHeight = '0';
+      document.body.style.overflowY = 'hidden';
+      stage.style.position = 'fixed';
+      stage.style.left = '50%'; stage.style.top = '50%';
+      stage.style.transformOrigin = '0 0';
+      // keep the frame's top-left at the visual centre: transform-origin 0 0 with an explicit offset
+      stage.style.transform = 'translate(' + (-d[1] * s / 2) + 'px,' + (-d[2] * s / 2) + 'px) scale(' + s + ')';
+    }
     meta.innerHTML = d[0] + '<br>' + d[1] + ' \u00d7 ' + d[2] + ' @ ' + d[3] + 'x<br>' + Math.round(s * 100) + '%';
+    scalea.textContent = 'scale: ' + SCALES[scaleMode];
   }
   function pick(i, nav) {
     cur = i; try { localStorage.setItem('ca2.device', String(i)); } catch (e) {}
@@ -64,6 +91,11 @@
     if (nav || !fr.src) fr.src = 'index.html?mobile=1&dpr=' + d[3];
     fit();
   }
+  scalea.addEventListener('click', function () {
+    scaleMode = (scaleMode + 1) % SCALES.length;
+    try { localStorage.setItem('ca2.scale', SCALES[scaleMode]); } catch (e) {}
+    fit();
+  });
   document.getElementById('backa').addEventListener('click', function () { try { localStorage.setItem('ca2.mode', 'desktop'); } catch (e) {} });
   window.addEventListener('resize', fit);
   pick(cur, true);
