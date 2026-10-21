@@ -205,12 +205,17 @@
     d = x1 - c.x; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vx -= F * t * t * ms * 0.25; if (c.vx > 0) c.vx *= 1 - 0.25 * t; }
     d = c.y - y0; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vy += F * t * t * ms * 0.25; if (c.vy < 0) c.vy *= 1 - 0.25 * t; }
     d = y1 - c.y; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vy -= F * t * t * ms * 0.25; if (c.vy > 0) c.vy *= 1 - 0.25 * t; }
-    // a wall that moved past a cell pulls it back gradually (no teleport); a plain wall hit reflects
-    var ex;
-    if (c.x < x0) { ex = x0 - c.x; if (ex > 40) { c.x = Math.min(x1, c.x + ex * 0.3); c.vx = Math.abs(c.vx); } else { c.x = Math.min(x1, x0 + ex); c.vx = Math.abs(c.vx) * 0.7; } }
-    else if (c.x > x1) { ex = c.x - x1; if (ex > 40) { c.x = Math.max(x0, c.x - ex * 0.3); c.vx = -Math.abs(c.vx); } else { c.x = Math.max(x0, x1 - ex); c.vx = -Math.abs(c.vx) * 0.7; } }
-    if (c.y < y0) { ex = y0 - c.y; if (ex > 40) { c.y = Math.min(y1, c.y + ex * 0.3); c.vy = Math.abs(c.vy); } else { c.y = Math.min(y1, y0 + ex); c.vy = Math.abs(c.vy) * 0.7; } }
-    else if (c.y > y1) { ex = c.y - y1; if (ex > 40) { c.y = Math.max(y0, c.y - ex * 0.3); c.vy = -Math.abs(c.vy); } else { c.y = Math.max(y0, y1 - ex); c.vy = -Math.abs(c.vy) * 0.7; } }
+    wallPull(c, r, true); // the shared boundary-morph rule; cells add velocity reflection
+  }
+  // the boundary-morph rule for ANY body: a wall that moved past it pulls it back gradually (no teleport);
+  // a plain wall hit reflects. Shared by cells (keepIn) and every food kind (owner 21 Oct: one mechanism, no copies)
+  function wallPull(p, r, vel) {
+    var gap = Math.max(0, P.boundGap || 0), rFit = Math.max(8, Math.min(cont.w, cont.h) / 2 - gap), rr = Math.min(r, rFit);
+    var x0 = cont.x + rr + gap, x1 = cont.x + cont.w - rr - gap, y0 = cont.y + rr + gap, y1 = cont.y + cont.h - rr - gap, ex;
+    if (p.x < x0) { ex = x0 - p.x; if (ex > 40) { p.x = Math.min(x1, p.x + ex * 0.3); if (vel) p.vx = Math.abs(p.vx); } else { p.x = Math.min(x1, x0 + ex); if (vel) p.vx = Math.abs(p.vx) * 0.7; } }
+    else if (p.x > x1) { ex = p.x - x1; if (ex > 40) { p.x = Math.max(x0, p.x - ex * 0.3); if (vel) p.vx = -Math.abs(p.vx); } else { p.x = Math.max(x0, x1 - ex); if (vel) p.vx = -Math.abs(p.vx) * 0.7; } }
+    if (p.y < y0) { ex = y0 - p.y; if (ex > 40) { p.y = Math.min(y1, p.y + ex * 0.3); if (vel) p.vy = Math.abs(p.vy); } else { p.y = Math.min(y1, y0 + ex); if (vel) p.vy = Math.abs(p.vy) * 0.7; } }
+    else if (p.y > y1) { ex = p.y - y1; if (ex > 40) { p.y = Math.max(y0, p.y - ex * 0.3); if (vel) p.vy = -Math.abs(p.vy); } else { p.y = Math.max(y0, y1 - ex); if (vel) p.vy = -Math.abs(p.vy) * 0.7; } }
   }
   function divide(c) {
     var ang = Math.random() * 6.2832, nr = Math.max(P.CELL_RADIUS, c.radius * 0.62);
@@ -963,10 +968,10 @@
   function stepFood() {
     if (stepFoodW()) return;
     var i, f, x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h;
-    // dots outside the (moving) plate flow in, the way cells are pulled back; they are never left outside
+    // dots outside the (moving) plate ride the shared boundary morph (wallPull), the same rule cells use (owner 21 Oct: one mechanism)
     for (i = 0; i < food.length; i++) {
       f = food[i];
-      if (f.x < x0 || f.x > x1 || f.y < y0 || f.y > y1) { var tx = clamp(f.x, x0 + 1, x1 - 1), ty = clamp(f.y, y0 + 1, y1 - 1); f.x += (tx - f.x) * 0.25; f.y += (ty - f.y) * 0.25; foodStat.inflow++; }
+      if (f.x < x0 || f.x > x1 || f.y < y0 || f.y > y1) { wallPull(f, P.foodSize / 2, false); foodStat.inflow++; }
     }
     // keep the dot population near the density target: seeds appear when it runs low
     var now = performance.now(); if (now - foodT < P.foodLifeMs) return; foodT = now;
@@ -1578,6 +1583,12 @@
       lastCircleHit = hitKey || '';
       circlesNow.forEach(function (c) { var v = circleCol[c.key]; if (v !== undefined) { ctx.fillStyle = css(v); ctx.beginPath(); ctx.arc(c.x, c.y, c.r + 0.6, 0, 6.2832); ctx.fill(); } });
       if (hitKey) titleHit = { c: hitC, v: circleCol[hitKey] };
+    }
+    // food rides the same boundary morph as cells (owner 21 Oct): dots/spores directly, blobs and worms by their owner
+    if (P.boundAware) {
+      for (i = 0; i < blobs.length; i++) wallPull(blobs[i], blobs[i].r, false);
+      for (i = 0; i < worms.length; i++) wallPull(worms[i], P.foodSize / 2, false);
+      for (i = 0; i < food.length; i++) { var ff = food[i]; if (!ff.blob && !ff.worm) wallPull(ff, P.foodSize / 2, false); }
     }
     if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 4) drawWorms(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 5) drawSpores(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow && introOn(CELL_END + food[i].r * (FOOD_END - CELL_END))) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; } // food first: it sits under the cells
     pfm('sim+ui draw'); curS = DPR * res; if (cells.length || t0 - fadeT0 > INTRO_MS) { var tmb = performance.now(); drawMetaballs(curS); MB.ms = MB.ms * 0.9 + (performance.now() - tmb) * 0.1; MB.path = gOn ? 'GPU' : (WC.ok && !WC.off ? (WC.simd ? 'wasm-simd' : 'wasm') : 'JS'); } pfm('metaballs total'); // an empty intro plate skips the full-buffer pass

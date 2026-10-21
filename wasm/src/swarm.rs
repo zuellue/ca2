@@ -58,7 +58,10 @@ impl Sw {
             vx = vx * 0.97 + (self.r01() - 0.5) * 0.08; vy = vy * 0.97 + (self.r01() - 0.5) * 0.08;
             x += vx; y += vy;
             if x < x0 || x > x1 || y < y0 || y > y1 {
-                x += (x.max(x0 + 1.0).min(x1 - 1.0) - x) * 0.25; y += (y.max(y0 + 1.0).min(y1 - 1.0) - y) * 0.25; vx *= 0.8; vy *= 0.8;
+                // the shared boundary-morph rule (port of ca2.js wallPull, vel=false)
+                if x < x0 { let ex = x0 - x; x = if ex > 40.0 { (x + ex * 0.3).min(x1) } else { x0 + ex }; } else if x > x1 { let ex = x - x1; x = if ex > 40.0 { (x - ex * 0.3).max(x0) } else { x1 - ex }; }
+                if y < y0 { let ex = y0 - y; y = if ex > 40.0 { (y + ex * 0.3).min(y1) } else { y0 + ex }; } else if y > y1 { let ex = y - y1; y = if ex > 40.0 { (y - ex * 0.3).max(y0) } else { y1 - ex }; }
+                vx *= 0.8; vy *= 0.8;
             }
             self.inb[i * 6] = x; self.inb[i * 6 + 1] = y; self.inb[i * 6 + 2] = vx; self.inb[i * 6 + 3] = vy;
             let mut keep = true;

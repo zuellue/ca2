@@ -28,8 +28,10 @@ impl Fd1 {
             let (mut x, mut y) = (self.rows[b], self.rows[b + 1]);
             if !(x.is_finite() && y.is_finite()) { return -1; }
             if x < x0 || x > x1 || y < y0 || y > y1 {
-                let tx = x.max(x0 + 1.0).min(x1 - 1.0); let ty = y.max(y0 + 1.0).min(y1 - 1.0);
-                x += (tx - x) * 0.25; y += (ty - y) * 0.25; infl += 1;
+                // the shared boundary-morph rule (port of ca2.js wallPull, vel=false): big overshoots pull 30%/frame, small ones reflect inside
+                if x < x0 { let ex = x0 - x; x = if ex > 40.0 { (x + ex * 0.3).min(x1) } else { x0 + ex }; } else if x > x1 { let ex = x - x1; x = if ex > 40.0 { (x - ex * 0.3).max(x0) } else { x1 - ex }; }
+                if y < y0 { let ex = y0 - y; y = if ex > 40.0 { (y + ex * 0.3).min(y1) } else { y0 + ex }; } else if y > y1 { let ex = y - y1; y = if ex > 40.0 { (y - ex * 0.3).max(y0) } else { y1 - ex }; }
+                infl += 1;
                 self.rows[b] = x; self.rows[b + 1] = y;
             }
         }
