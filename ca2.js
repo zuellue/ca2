@@ -358,7 +358,16 @@
     var gx = (W - cont.tw) / 2, gy = (H - cont.th) / 2, nC = 2 + Math.floor(Math.random() * 4), ctr = [], i, j2;
     for (i = 0; i < nC; i++) ctr.push([gx + cont.tw * rnd(0.12, 0.88), gy + cont.th * rnd(0.12, 0.88)]);
     var sg = Math.min(cont.tw, cont.th) * rnd(0.08, 0.2), pts = [];
-    for (i = 0; i < Math.max(1, tg.U); i++) { var cc = ctr[i % nC]; pts.push([clamp(cc[0] + (Math.random() + Math.random() + Math.random() - 1.5) * 2 * sg, gx + 8, gx + cont.tw - 8), clamp(cc[1] + (Math.random() + Math.random() + Math.random() - 1.5) * 2 * sg, gy + 8, gy + cont.th - 8)]); }
+    for (i = 0; i < Math.max(1, tg.U); i++) { // resample instead of hard-clamping: a clamp piles points onto the plate edges, and on a wide plate that is the top/bottom edges -> visible horizontal rows when a crowd chases them
+      var cc = ctr[i % nC], px = 0, py = 0, okp = false;
+      for (j2 = 0; j2 < 12; j2++) {
+        px = cc[0] + (Math.random() + Math.random() + Math.random() - 1.5) * 2 * sg;
+        py = cc[1] + (Math.random() + Math.random() + Math.random() - 1.5) * 2 * sg;
+        if (px > gx + 8 && px < gx + cont.tw - 8 && py > gy + 8 && py < gy + cont.th - 8) { okp = true; break; }
+      }
+      if (!okp) { px = clamp(px, gx + 8, gx + cont.tw - 8); py = clamp(py, gy + 8, gy + cont.th - 8); } // pathologically tiny plate: keep the old clamp as a floor
+      pts.push([px, py]);
+    }
     for (i = 0; i < cells.length; i++) { cells[i].energy = 12; cells[i].cl = 0; cells[i].dst = null; cells[i].dying = false; cells[i].pace = rnd(0.5, 1.5); cells[i].dl = rnd(0, 0.45) * trans.dur; cells[i].durK = rnd(0.55, 1); cells[i].bend = Math.random() < 0.25 ? 0 : rnd(-1, 1); cells[i].sym = null; }
     // greedy matching, cells in random order take the nearest free place
     var free = pts.slice(), order = cells.slice().sort(function () { return Math.random() - 0.5; }), spawnN = 0;
