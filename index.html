@@ -101,8 +101,6 @@
   .btns button::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; border-bottom: var(--lw) solid transparent; }
   .btns button:hover::after { border-bottom-color: var(--fg); }
   /* save is admin-only on desktop (owner 21 Oct): hidden in the button row until the admin code verifies; the mobile lane pins the same node outside .btns, where this rule does not reach */
-  .btns button.ca2savebtn { display: none; }
-  body.ca2admin .btns button.ca2savebtn { display: inline-block; }
   /* section circles: right lane of the config panel, title-dot size, tangent stacking */
   #secc { position: fixed; top: 0; right: var(--m); bottom: var(--m); z-index: 11; display: flex; flex-direction: column; align-items: center; transform: translateX(calc(100% + var(--m) + 4px)); transition: transform .2s ease-out; overflow-y: auto; scrollbar-width: none; }
   #panel.open ~ #secc, #panel.hov ~ #secc { transform: translateX(0); }
@@ -111,19 +109,6 @@
   #secc .sc { border-radius: 50%; box-sizing: border-box; cursor: pointer; flex: none; }
   #secc .sl { text-transform: uppercase; font-size: var(--cfs, 13px); overflow: hidden; height: 0; transition: height .25s ease; pointer-events: none; margin-top: 16px; text-align: center; }
   #secc .sl span { display: block; opacity: 0; transform-origin: 50% 0; transition: opacity .06s linear; line-height: calc(var(--cfs, 13px) * 1.3077); }
-  /* admin entry: 4 hollow circles stacked at the bottom right, on the section-circle axis */
-  #adm { display: none; position: fixed; right: var(--m); bottom: var(--m); z-index: 11; flex-direction: column; align-items: center; cursor: text; opacity: 0; pointer-events: none; transition: opacity .2s ease-out; }
-  #adm.on { display: flex; }
-  /* the admin entry lives and dies with the config area */
-  #panel.open ~ #adm.on, #panel.hov ~ #adm.on { opacity: 1; pointer-events: auto; }
-  @media (hover: hover) { #tab:hover ~ #adm.on, #panel:hover ~ #adm.on { opacity: 1; pointer-events: auto; } }
-  #adm .ac { border-radius: 50%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: var(--fg); font-family: 'Fragment Mono', ui-monospace, monospace; }
-  #adm .ac span { line-height: 1; -webkit-text-stroke-width: 0; transition: color .3s ease, -webkit-text-stroke-width .3s ease, -webkit-text-stroke-color .3s ease; }
-  #adm.err .ac { border-color: #ff3c3c !important; color: #ff3c3c; }
-  /* owner 21 Oct: hovering the A/B/D/U letters smooth-bolds them. Fragment Mono ships a single weight, so
-     the bold is an animated stroke, not a font-weight jump; on B/D JS additionally assigns random colours. */
-  @media (hover: hover) { #adm.ok .ac:hover span { -webkit-text-stroke-width: .6px; } }
-  #adm.ok .ac.mb { cursor: pointer; }
   #cur { position: fixed; left: 0; top: 0; display: none; pointer-events: none; z-index: 8; box-sizing: border-box; border: 1px solid #000; border-radius: 50%; will-change: transform; }
   #cur i { position: absolute; left: 50%; top: 50%; width: 2px; height: 2px; border-radius: 50%; transform: translate(-50%, -50%); background: #000; }
   body:not(.rdy) canvas { opacity: 0; }
