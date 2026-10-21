@@ -2781,7 +2781,8 @@
         + '@media (hover:none){#adm.on{opacity:1;pointer-events:auto}}'
         + (inFrame ? '#adm{display:none!important}' : '')
         + 'body[data-camode="m"]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}' // keep iOS from interrupting the 5s hold
-        + 'body[data-camode="m"]:not(.ca2admin) button[data-ca2save]{display:none!important}'; // no admin trace for visitors (owner 21 Oct)
+        + 'body[data-camode="m"]:not(.ca2admin) button[data-ca2save]{display:none!important}' // no admin trace for visitors (owner 21 Oct)
+        + 'body[data-camode="m"] #secc .sl{margin-top:8px}'; // mobile section-button spacing halved (owner 21 Oct: the gap was too wide, cut to half) - the gap lives in the label margin (16px desktop, untouched), the circle size and --sd are unchanged
       document.head.appendChild(pst);
       var pinSave = function () {
         var m = (window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm' && !inFrame && !!window.__adminOn;
