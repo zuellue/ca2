@@ -618,8 +618,10 @@
     if (e.target !== cv) return;
     if (coarseUI && (panel.classList.contains('open') || panel.classList.contains('hov'))) { panel.classList.remove('open'); panel.classList.remove('hov'); return; }
     var k = keyHeld;
-    if (k === 'a' && sprayMoved) { sprayMoved = false; return; } // the drag already sprayed; the release click adds no extra cell
-    if (k === 'b') cycleBg(); else if (k === 'a') createCell(); else if (k === 's') randomize(); else if (k === 'd') killNear(); else if (!k) randomAction();
+    if ((k === 'a' || coarseUI) && sprayMoved) { sprayMoved = false; return; } // the drag already sprayed; the release click adds no extra cell (touch holds no keys, same guard)
+    // touch has no held keys: a coarse tap is the A+click equivalent - one tap, one overlap-free cell at the tap point
+    // through the shared spawnAt (lane agreement 21 Oct; the drag spray's touch counterpart binds to the same spawnAt)
+    if (k === 'b') cycleBg(); else if (k === 'a') createCell(); else if (k === 's') randomize(); else if (k === 'd') killNear(); else if (!k) { if (coarseUI) spawnAt(e.clientX, e.clientY); else randomAction(); }
   }
 
   // ---- colour helpers ----
@@ -2661,18 +2663,27 @@
     if (e.target !== cv) return;
     var hit = edgeHit(t.clientX, t.clientY, P.edgeGrab * 1.5);
     if (hit) { hit.rx = t.clientX >= W / 2; hit.dy = t.clientY >= H / 2; resizeDrag = hit; e.preventDefault(); return; }
+    // no edge drag: arm the touch counterpart of the A+drag spray - hold + drag sprays through the same spawnAt,
+    // paced by the same sprayMs/sprayGapPx knobs (lane agreement 21 Oct); a tap stays a tap until a spray lands
+    sprayOn = true; sprayMoved = false; sprayT = performance.now(); sprayX = t.clientX; sprayY = t.clientY;
     targetCursorScale = 3.5; cursorScale = 3.5;
   }, { passive: false });
   window.addEventListener('touchmove', function (e) {
     var t = e.touches[0]; mouse.x = t.clientX; mouse.y = t.clientY;
+    if (!resizeDrag && sprayOn) { // the held-drag spray: one overlap-free cell per sprayMs AND sprayGapPx of travel
+      var st = performance.now();
+      if (st - sprayT >= P.sprayMs && Math.hypot(t.clientX - sprayX, t.clientY - sprayY) >= P.sprayGapPx) {
+        sprayT = st; sprayX = t.clientX; sprayY = t.clientY; sprayMoved = true; spawnAt(sprayX, sprayY);
+      }
+    }
     if (!resizeDrag) return;
     cont.user = true;
     if (resizeDrag.h) cont.rawW = Math.max(60, 2 * Math.abs(t.clientX - W / 2));
     if (resizeDrag.v) cont.rawH = Math.max(60, 2 * Math.abs(t.clientY - H / 2));
     clampTargets(); cont.ew = cont.tw; cont.eh = cont.th;
   }, { passive: true });
-  window.addEventListener('touchend', function () { targetCursorScale = 1; resizeDrag = null; mouse.over = false; }, { passive: true });
-  window.addEventListener('touchcancel', function () { targetCursorScale = 1; resizeDrag = null; mouse.over = false; }, { passive: true });
+  window.addEventListener('touchend', function () { targetCursorScale = 1; resizeDrag = null; mouse.over = false; sprayOn = false; }, { passive: true });
+  window.addEventListener('touchcancel', function () { targetCursorScale = 1; resizeDrag = null; mouse.over = false; sprayOn = false; }, { passive: true });
 
   var last = performance.now(), fcount = 0, ftime = last;
   var rdySet = false;
@@ -2689,7 +2700,7 @@
     resize(); randomize(true, true); firstSpawn = false; fadeT0 = performance.now(); ready = true; setTimeout(function () { if (window.CA2Audio && P.audioOn) CA2Audio.start(); }, INTRO_MS + 2000); requestAnimationFrame(loop);
   });
   document.getElementById('tab').addEventListener('click', function () { panel.classList.toggle('open'); });
-  var keysEl0 = document.querySelector('#panel .keys'); if (coarseUI && keysEl0) keysEl0.innerHTML = '<div><span>tap</span><span>random action</span></div><div><span>edge drag</span><span>resize plate</span></div><div><span>tab strip</span><span>this panel</span></div>';
+  var keysEl0 = document.querySelector('#panel .keys'); if (coarseUI && keysEl0) keysEl0.innerHTML = '<div><span>tap</span><span>add a cell</span></div><div><span>hold + drag</span><span>spray cells</span></div><div><span>edge drag</span><span>resize plate</span></div><div><span>tab strip</span><span>this panel</span></div>';
   if (/open/.test(location.hash)) panel.classList.add('open');
   // reveal: panel blocks fade in fast; every part of a parameter row (label, value, slider/knob, swatch, button) has its own short fade and its own random delay
   function partIn(el, base) { el.style.animation = 'ca2in ' + (0.16 + Math.random() * 0.2).toFixed(2) + 's ease-out both'; el.style.animationDelay = (base + Math.random() * 0.14).toFixed(3) + 's'; }
