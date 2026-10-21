@@ -2611,9 +2611,9 @@
     // axes swapped (the tall reference side deals the height, the short one the width), clamped by the same safe band.
     var dealW = 0, dealH = 0;
     // owner 21 Oct: mobile size band - the boundary may narrow at most to a third of the screen width and may widen
-    // until a gap of margin + the section button size remains on each side ('tavan margin + section buton boyutu'; the
-    // buttons are circles, so the size is the diameter, read live from --sd). Both axes, automatic deals AND manual
-    // pulls alike (owner 21 Oct: 'kullanici manuel genisletmesi icin de aynisi, yukseklik icin de gecerli').
+    // until a gap of margin + the section button size remains on each side (the ceiling is margin plus one section
+    // button; the buttons are circles, so the size is the diameter, read live from --sd). Both axes, automatic deals
+    // AND manual pulls alike, height included (owner 21 Oct: same rule for a manual pull and for height).
     function bandGap() { var sd = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sd')) || 0; return (P.margin || 0) + sd; }
     function bandW() { var g = bandGap(); return { lo: window.innerWidth / 3, hi: window.innerWidth - 2 * g }; }
     function bandH() { var g = bandGap(); return { hi: window.innerHeight - 2 * g }; }
