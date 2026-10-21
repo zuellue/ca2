@@ -2667,29 +2667,41 @@
     // squats and wastes the vertical band. Mirror the desktop deal rotated 90 degrees: portrait reference 800x1280,
     // axes swapped (the tall reference side deals the height, the short one the width), clamped by the same safe band.
     var dealW = 0, dealH = 0;
+    // owner 21 Oct: mobile size band - the boundary may narrow at most to a third of the screen width and may widen
+    // until a gap of margin + the section button size remains on each side ('tavan margin + section buton boyutu'; the
+    // buttons are circles, so the size is the diameter, read live from --sd). Both axes, automatic deals AND manual
+    // pulls alike (owner 21 Oct: 'kullanici manuel genisletmesi icin de aynisi, yukseklik icin de gecerli').
+    function bandGap() { var sd = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sd')) || 0; return (P.margin || 0) + sd; }
+    function bandW() { var g = bandGap(); return { lo: window.innerWidth / 3, hi: window.innerWidth - 2 * g }; }
+    function bandH() { var g = bandGap(); return { hi: window.innerHeight - 2 * g }; }
     function dealPortrait() {
       var c = window.__ca2.cont; if (!c || c.user) return; // a hand-pulled size is the owner's, never override it
-      // deal against the band itself: probe the clamp ceilings, then deal the desktop's own ratios of them.
+      // deal against the band itself: probe the height clamp ceiling, then deal the desktop's own ratios of the band.
       // Desktop height deals run 2160/8 .. 5120/7.5 = 270..731 against a ~580 ceiling (0.47..1.26x), so top deals fill
       // the band; a window-ratio scale (VSh) shrinks the deal on phones while the band grows with H - the squatting.
-      c.rawW = 1e9; c.rawH = 1e9; window.__ca2.clampTargets(); // targets clamp to the band ceilings; eased plate barely moves in one frame
-      var ceilW = c.tw, ceilH = c.th;
+      var bw = bandW(), bh = bandH();
       var cWHf = 7 + Math.floor(Math.random() * 2);
       var a = Math.floor(Math.random() * 2) === 0 ? 5120 : 2160, b = Math.floor(Math.random() * 2) === 0 ? 5120 : 2160;
-      c.rawH = b / cWHf * (ceilH / 580); // desktop's height-deal-to-ceiling ratio, mirrored tall
-      c.rawW = a / (cWHf + Math.trunc(Math.random() * 4.5 - 3.5)) * (ceilW / 1138); // desktop's width ratio (5120/4.5 = 1138 top deal)
-      var minBW = window.innerWidth / 3; // owner 21 Oct: the boundary may narrow at most to a third of the screen width
-      if (c.rawW < minBW) c.rawW = minBW;
+      c.rawH = b / cWHf * (bh.hi / 580); // desktop's height-deal-to-ceiling ratio, mirrored tall, against the margin + section-button ceiling
+      c.rawW = a / (cWHf + Math.trunc(Math.random() * 4.5 - 3.5)) * (bw.hi / 1138); // desktop's width ratio (5120/4.5 = 1138 top deal) against the margin + section-button ceiling
+      c.rawW = Math.min(Math.max(c.rawW, bw.lo), bw.hi);
+      c.rawH = Math.min(c.rawH, bh.hi);
       window.__ca2.clampTargets();
-      if (c.tw < minBW) c.tw = minBW; // the shared area ceiling sits below the floor on phones - the floor wins for width
+      c.tw = c.rawW; c.th = c.rawH; // the band overrides the shared area ceilings on phones
       dealW = c.rawW; dealH = c.rawH;
     }
     function portraitGuard() {
       if (mode !== 'm') return;
       var c = window.__ca2.cont; if (!c || c.user) return;
       if (c.rawW !== dealW || c.rawH !== dealH) dealPortrait(); // the sim re-dealt a landscape plate (transition): rotate it
-      var minBW = window.innerWidth / 3; // owner 21 Oct: boundary floor - a third of the screen width
-      if (c.rawW < minBW || c.tw < minBW) { if (c.rawW < minBW) c.rawW = minBW; window.__ca2.clampTargets(); if (c.tw < minBW) c.tw = minBW; dealW = c.rawW; dealH = c.rawH; }
+      var bw = bandW(), bh = bandH();
+      if (c.rawW < bw.lo || c.rawW > bw.hi || c.tw < bw.lo || c.tw > bw.hi || c.rawH > bh.hi || c.th > bh.hi) {
+        c.rawW = Math.min(Math.max(c.rawW, bw.lo), bw.hi);
+        c.rawH = Math.min(c.rawH, bh.hi);
+        window.__ca2.clampTargets();
+        c.tw = c.rawW; c.th = c.rawH;
+        dealW = c.rawW; dealH = c.rawH;
+      }
     }
     function refresh(m) { var nm = m || detect(); if (nm === mode) return; mode = nm; applyMode(); if (mode === 'm') dealPortrait(); }
     window.addEventListener('ca2mode', function (e) {
@@ -2703,12 +2715,20 @@
     var g0 = storedG(); seenV = (g0 && g0._v) || 0;
     setInterval(function () { var g = storedG(), v = g && g._v; if (v && v !== seenV) { seenV = v; if (mode === 'm') applyMode(); } }, 1000);
     setInterval(portraitGuard, 200); // fast cadence: a re-dealt thin plate must not visibly ease below the width floor (owner 21 Oct)
-    (function wFloor() { // render-synced: intervals stall on the saturated main thread, so the eased width itself is floored every painted frame
-      requestAnimationFrame(wFloor);
+    (function wBand() { // render-synced: intervals stall on the saturated main thread, so the eased size itself is held inside the band every painted frame
+      requestAnimationFrame(wBand);
       if (mode !== 'm') return;
-      var c = window.__ca2 && window.__ca2.cont; if (!c || c.user) return;
-      var f = window.innerWidth / 3;
-      if (c.w < f) c.w = f;
+      var c = window.__ca2 && window.__ca2.cont; if (!c) return;
+      var bw = bandW(), bh = bandH();
+      if (c.user) { // manual pull: the same margin + section-button ceiling on both axes (owner 21 Oct); the third-of-screen floor stays automatic-only
+        c.tw = Math.min(c.rawW, bw.hi); c.th = Math.min(c.rawH, bh.hi);
+        if (c.w > bw.hi) c.w = bw.hi;
+        if (c.h > bh.hi) c.h = bh.hi;
+        return;
+      }
+      if (c.w < bw.lo) c.w = bw.lo;
+      if (c.w > bw.hi) c.w = bw.hi;
+      if (c.h > bh.hi) c.h = bh.hi;
     })();
     // admin Save in mobile mode -> touched keys go into _mobile, not the desktop top level
     var of = window.fetch;
