@@ -2695,6 +2695,13 @@
     var g0 = storedG(); seenV = (g0 && g0._v) || 0;
     setInterval(function () { var g = storedG(), v = g && g._v; if (v && v !== seenV) { seenV = v; if (mode === 'm') applyMode(); } }, 1000);
     setInterval(portraitGuard, 200); // fast cadence: a re-dealt thin plate must not visibly ease below the width floor (owner 21 Oct)
+    (function wFloor() { // render-synced: intervals stall on the saturated main thread, so the eased width itself is floored every painted frame
+      requestAnimationFrame(wFloor);
+      if (mode !== 'm') return;
+      var c = window.__ca2 && window.__ca2.cont; if (!c || c.user) return;
+      var f = window.innerWidth / 3;
+      if (c.w < f) c.w = f;
+    })();
     // admin Save in mobile mode -> touched keys go into _mobile, not the desktop top level
     var of = window.fetch;
     window.fetch = function (url, opt) {
