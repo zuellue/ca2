@@ -2618,23 +2618,28 @@
       });
     } catch (e) {}
     function storedG() { try { return JSON.parse(localStorage.getItem('ca2.global') || 'null'); } catch (e) { return null; } }
+    function mobOf(g) { // _mobile may be an object (seeded) or a JSON string (Worker-posted); both parse to the same overrides
+      var m = g && g._mobile; if (typeof m === 'string') { try { m = JSON.parse(m); } catch (e) { m = null; } }
+      return (m && typeof m === 'object') ? JSON.parse(JSON.stringify(m)) : {};
+    }
     function detect() {
       if (window.__ca2Mode) return window.__ca2Mode(); // the UI lane owns mode state whenever its module is present
       if (lsSel) return lsSel;
       return (coarse || MODE_Q || window.innerWidth <= AUTO_W) ? 'm' : 'd';
     }
     function layerKeys() {
-      var g = storedG() || {}, o = {};
+      var g = storedG() || {}, o = {}, mb = mobOf(g);
       Object.keys(MOBILE_SEED).forEach(function (k) { o[k] = 1; });
-      if (g._mobile && typeof g._mobile === 'object') Object.keys(g._mobile).forEach(function (k) { o[k] = 1; });
+      Object.keys(mb).forEach(function (k) { o[k] = 1; });
       // radius bounds must land before CELL_RADIUS so the clamp uses the new range
       return Object.keys(o).sort(function (a, b) { return (a === 'minRadius' || a === 'maxRadius' ? -1 : 0) - (b === 'minRadius' || b === 'maxRadius' ? -1 : 0); });
     }
     function applyMode() {
       var g = storedG() || {}, mob = (mode === 'm');
+      var mb2 = mobOf(g);
       layerKeys().forEach(function (k) {
         var v;
-        if (mob) v = (g._mobile && g._mobile[k] !== undefined) ? g._mobile[k] : MOBILE_SEED[k];
+        if (mob) v = (mb2[k] !== undefined) ? mb2[k] : MOBILE_SEED[k];
         else v = (g[k] !== undefined) ? g[k] : MOBILE_SEED[k]; // no desktop source offline: keep the seed value
         if (v === undefined) return;
         if (k === 'minRadius' || k === 'maxRadius') { window.__ca2.setKey(k, v); return; } // clamps CELL_RADIUS into range
@@ -2686,9 +2691,10 @@
           var b = JSON.parse(opt.body);
           if (b && b.patch && !b.check) {
             var g = storedG() || {};
-            mob = lastMob || (g._mobile && typeof g._mobile === 'object' ? JSON.parse(JSON.stringify(g._mobile)) : {});
+            mob = lastMob || mobOf(g);
             Object.keys(b.patch).forEach(function (k) { if (k === '_live' || k === '_mobile') return; mob[k] = b.patch[k]; delete b.patch[k]; rewrote = true; });
-            if (rewrote) b.patch._mobile = mob;
+            // the Worker stores primitives only - an object patch value is dropped silently, so _mobile travels as a JSON string like _live
+            if (rewrote) b.patch._mobile = JSON.stringify(mob);
             opt = Object.assign({}, opt, { body: JSON.stringify(b) });
           }
         }
