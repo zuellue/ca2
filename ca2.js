@@ -38,8 +38,12 @@
   // micro habitat (pilot): the nutrient cycle between cells and the food field - death returns biomass and colour to the
   // dots, and fed dots seed new small cells when the plate empties. Switch-gated, off by default. Every constant is a knob.
   P.habitatOn = 0; P.habitatFloor = 0; P.habitatFedMin = 20; P.habitatConv = 2; P.habitatSeedR = 0.5; P.habitatMut = 0.12;
-  P.habitatSun = 1; P.habitatDeadFed = 6; P.habitatDeadR = 120; P.habitatDeadCol = 0.35; P.habitatHueK = 0.25;
+  P.habitatSun = 1; P.habitatDeadFed = 6; P.habitatDeadR = 0.25; P.habitatDeadCol = 0.35; P.habitatHueK = 0.25;
   P.cellLife = 0; P.cellLifeVar = 0.3; // lifespan: 0 = no aging (existing behaviour), spread is the per-cell jitter on it
+  P.habitatFedDecay = 0.2; // fed decays per second: corpses are a pulse, not a permanent reservoir
+  // formerly hardcoded biological constants (owner 21 Oct: every biological parameter adjustable). Defaults = the old constants.
+  P.crowdTol = 0.5; P.orgLifeDie = -0.005; P.orgLifeGrow = 1.0025; P.orgBirth = 1.005; P.orgDead = -0.0025; P.orgBrain = 0.008; P.orgR90 = 0.0025;
+  P.symEnergy = 0.00075; P.symBreak = 0.0002; P.symBreakDist = 3; P.eatDistF = 0.85; P.fuseDistF = 0.6; P.symDistF = 1.1;
   P.focusIdleMs = 4000; P.focusInMs = 4000; P.focusOutMs = 380; P.focusDepth = 14; // idle depth-of-field blur: wait, slow blur-in, swift refocus, depth px
   P.cellShapes = 1; // heritable body plans: round / string / lobed (render expands a cell into metaball sources)
   var DEFAULTS = JSON.parse(JSON.stringify(P));
@@ -129,9 +133,9 @@
         if (o.x > c.x && (!right || o.x < right.x)) right = o;
       }
     }
-    var life = c.alive ? ((n < 2 || n > 3) ? -0.005 : 1.0025) : (n === 3 ? 1.005 : -0.0025);
-    var brain = n === 2 ? 0.008 : 0;
-    var r90 = ((left ? 1 : 0) ^ (right ? 1 : 0)) ? 0.0025 : 0;
+    var life = c.alive ? ((n < 2 || n > 3) ? P.orgLifeDie : P.orgLifeGrow) : (n === 3 ? P.orgBirth : P.orgDead);
+    var brain = n === 2 ? P.orgBrain : 0;
+    var r90 = ((left ? 1 : 0) ^ (right ? 1 : 0)) ? P.orgR90 : 0;
     var d = rand2D(), t = life + brain + r90 + rnd(-0.1, 0.1);
     c.vx += d.x * t; c.vy += d.y * t;
     var q = rand2D(); c.vx = lerp(c.vx, q.x * c.maxSpeed, 0.04); c.vy = lerp(c.vy, q.y * c.maxSpeed, 0.04);
@@ -164,15 +168,15 @@
     // when a partner dies, when they drift too far apart, or on a whim
     if (P.symbiosisOn) {
       var sp = c.sym;
-      if (sp && (!sp.alive || sp.sym !== c || Math.random() < 0.0002)) { if (sp.alive && sp.sym === c) sp.sym = null; c.sym = null; }
+      if (sp && (!sp.alive || sp.sym !== c || Math.random() < P.symBreak)) { if (sp.alive && sp.sym === c) sp.sym = null; c.sym = null; }
       else if (sp) {
         var sdx = sp.x - c.x, sdy = sp.y - c.y, sdd = Math.hypot(sdx, sdy) || 1, sw = (c.radius + sp.radius) * 1.4;
-        if (sdd > sw * 3) { sp.sym = null; c.sym = null; }
+        if (sdd > sw * P.symBreakDist) { sp.sym = null; c.sym = null; }
         else {
           var coh2 = P.clusterCohesion * 0.25;
           c.vx = lerp(c.vx, sp.vx, coh2); c.vy = lerp(c.vy, sp.vy, coh2);
           c.vx += sdx / sdd * (sdd - sw) * 0.004; c.vy += sdy / sdd * (sdd - sw) * 0.004;
-          c.energy += 0.00075;
+          c.energy += P.symEnergy;
         }
       }
     } else if (c.sym) c.sym = null;
@@ -230,24 +234,24 @@
     big.speedModifier = clamp(big.speedModifier / 1.25, 0.2, 3);
     if (big.sym && big.sym !== sm) big.sym.sym = null;
     if (sm.sym && sm.sym !== big) sm.sym.sym = null;
-    big.sym = null; sm.sym = null; sm.alive = false;
+    big.sym = null; sm.sym = null; sm.alive = false; sm.absorbed = 1;
     ev.fuse = (ev.fuse || 0) + 1;
   }
   function interact(a, b) {
     if (a === b || !a.alive || !b.alive) return;
     var dx = b.x - a.x, dy = b.y - a.y, dist = Math.hypot(dx, dy);
     if (dist >= P.interactionRadius) return;
-    if (P.eatMergeOn && dist < (a.radius + b.radius) * 0.85) {
+    if (P.eatMergeOn && dist < (a.radius + b.radius) * P.eatDistF) {
       var big = a.radius >= b.radius ? a : b, sm = big === a ? b : a, ratio = big.radius / Math.max(0.01, sm.radius);
       if (ratio >= P.eatRatio) {
         if (Math.random() < P.eatChance && (!big.cl || big.cl !== sm.cl)) {
           big.radius = Math.min(Math.sqrt(big.radius * big.radius + 0.5 * sm.radius * sm.radius), P.CELL_RADIUS * P.foodGrowMax * 1.2);
-          big.energy += sm.energy * 0.6 + 1; sm.alive = false; ev.eaten = (ev.eaten || 0) + 1; return;
+          big.energy += sm.energy * 0.6 + 1; sm.alive = false; sm.absorbed = 1; ev.eaten = (ev.eaten || 0) + 1; return;
         }
       } else if (Math.abs(a.gene - b.gene) <= P.mergeGene && Math.random() < P.mergeChance) joinCluster(a, b);
     }
-    if (P.symbiogenesisOn && dist < (a.radius + b.radius) * 0.6 && Math.abs(a.gene - b.gene) <= P.mergeGene && Math.random() < P.mergeChance * 0.3) { fuseCells(a, b); return; }
-    if (P.symbiosisOn && !a.sym && !b.sym && dist < (a.radius + b.radius) * 1.1 && Math.random() < P.mergeChance * 0.5) { a.sym = b; b.sym = a; ev.pair = (ev.pair || 0) + 1; }
+    if (P.symbiogenesisOn && dist < (a.radius + b.radius) * P.fuseDistF && Math.abs(a.gene - b.gene) <= P.mergeGene && Math.random() < P.mergeChance * 0.3) { fuseCells(a, b); return; }
+    if (P.symbiosisOn && !a.sym && !b.sym && dist < (a.radius + b.radius) * P.symDistF && Math.random() < P.mergeChance * 0.5) { a.sym = b; b.sym = a; ev.pair = (ev.pair || 0) + 1; }
     var infl = map(dist, 0, P.interactionRadius, 1, 0);
     var gc = Math.trunc(infl * (b.gene - a.gene) * 0.1);
     var et = P.energyGainFromInteraction * infl * (1 - Math.abs(a.gene - b.gene) / (P.GENE_MAX - P.GENE_MIN));
@@ -280,7 +284,7 @@
     if (c.gene <= P.GENE_MIN || c.gene >= P.GENE_MAX) c.alive = false;
     var n = 0, R = P.interactionRadius;
     for (var i = 0; i < cells.length; i++) { var o = cells[i]; if (o !== c && o.alive && Math.hypot(c.x - o.x, c.y - o.y) < R) n++; }
-    if (c.energy < n * 0.5) c.alive = false;
+    if (c.energy < n * P.crowdTol) c.alive = false;
   }
 
   // ---- simulation control ----
@@ -734,7 +738,7 @@
       for (i = 0; i < n; i++) {
         c = cells[i]; b = i * 24; var g = c.g;
         cf[b] = c.x; cf[b + 1] = c.y; cf[b + 2] = c.vx; cf[b + 3] = c.vy; cf[b + 4] = c.radius; cf[b + 5] = c.energy; cf[b + 6] = c.gene; cf[b + 7] = c.alive ? 1 : 0; cf[b + 8] = c.maxSpeed; cf[b + 9] = c.speedModifier; cf[b + 10] = c.hostility; cf[b + 11] = c.mutationRate; cf[b + 12] = c.sv; cf[b + 13] = c.cl || 0;
-        cf[b + 14] = (c.sym && c.sym._f === simStamp) ? c.sym._i : -1; cf[b + 15] = g.spd; cf[b + 16] = g.app; cf[b + 17] = g.bnd; cf[b + 18] = g.col[0]; cf[b + 19] = g.col[1]; cf[b + 20] = g.col[2]; cf[b + 21] = c.comp || 0; cf[b + 22] = 0; cf[b + 23] = frameT - (c.bornAt || 0); // slot 23: age ms (juvenile reproduction gate; 22 is the wasm REM flag)
+        cf[b + 14] = (c.sym && c.sym._f === simStamp) ? c.sym._i : -1; cf[b + 15] = g.spd; cf[b + 16] = g.app; cf[b + 17] = g.bnd; cf[b + 18] = g.col[0]; cf[b + 19] = g.col[1]; cf[b + 20] = g.col[2]; cf[b + 21] = c.comp || 0; cf[b + 22] = 0; cf[b + 23] = frameT - (c.bornAt || 0); // slot 23: age ms in, -1 = absorbed out (eaten/fused: no nutrient pulse); 22 is the wasm REM flag
       }
       E.sim_set_n(n); E.sim_set_nf(nf);
       for (i = 0; i < nf; i++) { fx[i] = food[i].x; fy[i] = food[i].y; }
@@ -744,6 +748,8 @@
       p[39] = env.spd; p[40] = env.app; p[41] = env.bnd; p[42] = env.col ? 1 : 0; if (env.col) { p[43] = env.col[0]; p[44] = env.col[1]; p[45] = env.col[2]; }
       p[46] = mouse.x; p[47] = mouse.y; p[48] = mouse.over ? 1 : 0; p[49] = cont.x; p[50] = cont.y; p[51] = cont.w; p[52] = cont.h; p[53] = resizeDrag ? 1 : 0; p[54] = clusterSeq;
       p[57] = P.boundGap || 0; p[58] = P.reproMinAgeMs || 0; p[59] = P.reproChance === undefined ? 0.02 : P.reproChance; // 58: juvenile gate ms, 59: contact birth chance // boundGap slot for sim.rs keep_in (625f4e8 port); 44/45 are env.col
+      p[60] = P.crowdTol; p[61] = P.orgLifeDie; p[62] = P.orgLifeGrow; p[63] = P.orgBirth; p[64] = P.orgDead; p[65] = P.orgBrain; p[66] = P.orgR90;
+      p[67] = P.symEnergy; p[68] = P.symBreak; p[69] = P.symBreakDist; p[70] = P.eatDistF; p[71] = P.fuseDistF; p[72] = P.symDistF;
       var tp = performance.now(); E.sim_step(Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
       var ts = performance.now(); SIMW.pack = (SIMW.pack || 0) * 0.9 + (tp - t0) * 0.1; SIMW.step = (SIMW.step || 0) * 0.9 + (ts - tp) * 0.1;
       var o = new Float64Array(WC.mem.buffer, E.sim_out(), 32), nf2 = o[15];
@@ -754,7 +760,7 @@
         b = i * 24; c = i < n ? cells[i] : new Cell(cf[b], cf[b + 1], cf[b + 6], cf[b + 11]);
         if (i >= n) { cells.push(c); c._i = i; c._f = simStamp; }
         c.x = cf[b]; c.y = cf[b + 1]; c.vx = cf[b + 2]; c.vy = cf[b + 3]; c.radius = cf[b + 4]; c.energy = cf[b + 5]; c.gene = cf[b + 6]; c.alive = cf[b + 7] !== 0; c.maxSpeed = cf[b + 8]; c.speedModifier = cf[b + 9]; c.hostility = cf[b + 10]; c.mutationRate = cf[b + 11]; c.sv = cf[b + 12]; c.cl = cf[b + 13];
-        var gg = c.g; gg.spd = cf[b + 15]; gg.app = cf[b + 16]; gg.bnd = cf[b + 17]; gg.col = [cf[b + 18], cf[b + 19], cf[b + 20]]; if (cf[b + 21] > 0) c.comp = cf[b + 21];
+        var gg = c.g; gg.spd = cf[b + 15]; gg.app = cf[b + 16]; gg.bnd = cf[b + 17]; gg.col = [cf[b + 18], cf[b + 19], cf[b + 20]]; if (cf[b + 21] > 0) c.comp = cf[b + 21]; c.absorbed = cf[b + 23] < 0 ? 1 : 0;
       }
       for (i = 0; i < nf2; i++) { var sy = cf[i * 24 + 14]; cells[i].sym = sy >= 0 ? cells[sy] : null; }
       var fg = new Float64Array(WC.mem.buffer, fgp, nf + 1);
@@ -1331,9 +1337,9 @@
   // swarm isotropy is untouched; mode-owned bodies (worm links, spores, blob rings) are never converted.
   var habStat = { pulse: 0, seed: 0, ate: 0 };
   var ateHueV = null; // decayed memory of eaten-dot hues: the dominant eaten-food colour
-  function habReap(c) { // one spliced cell -> one nutrient pulse into the dots around it
-    if (!P.habitatOn || !c) return;
-    var col = c.g && c.g.col ? c.g.col : null, R = P.habitatDeadR, R2 = R * R;
+  function habReap(c) { // one spliced cell -> one nutrient pulse into the dots around it (absorbed = eaten/fused: biomass stayed in a cell)
+    if (!P.habitatOn || !c || c.absorbed) return;
+    var col = c.g && c.g.col ? c.g.col : null, R = P.habitatDeadR * cont.w, R2 = R * R;
     for (var i = 0; i < food.length; i++) {
       var f = food[i], dx = f.x - c.x, dy = f.y - c.y;
       if (dx * dx + dy * dy > R2) continue;
@@ -1366,10 +1372,11 @@
     var dt = dtf / 1000, i, f;
     var x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h, inPlate = 0;
     for (i = 0; i < cells.length; i++) { var c = cells[i]; if (c.alive && c.x > x0 && c.x < x1 && c.y > y0 && c.y < y1) inPlate++; }
-    var seeding = inPlate <= P.habitatFloor, sun = P.habitatSun, conv = P.habitatConv * dt;
+    var seeding = inPlate <= P.habitatFloor && cells.length < P.UNIVERSE_SIZE, sun = P.habitatSun, conv = P.habitatConv * dt * cont.w * cont.h / Math.max(1, W * H);
     for (i = food.length - 1; i >= 0; i--) {
       f = food[i];
       if (f.worm || f.spore || f.blob) continue; // mode-owned bodies stay their mode's business
+      if (f.fed > 0 && P.habitatFedDecay > 0) f.fed = Math.max(0, f.fed - P.habitatFedDecay * dt);
       if (sun > 0 && f.x > x0 && f.x < x1 && f.y > y0 && f.y < y1) f.fed = (f.fed || 0) + sun * dt;
       if (seeding && (f.fed || 0) >= P.habitatFedMin && Math.random() < conv) { habSeed(f); f.gone = 1; food.splice(i, 1); }
     }
@@ -1777,10 +1784,15 @@
       ['mergeChance', 'merge chance', 0, 0.3, 0.005], ['mergeGene', 'merge gene distance', 0, 36, 1], ['clusterCohesion', 'cluster cohesion', 0, 1, 0.01], ['clusterMax', 'cluster max size', 2, 30, 1],
       ['parasiteFrac', 'parasite share', 0, 0.5, 0.01], ['parasiteDrain', 'parasite drain', 0, 0.2, 0.005], ['parasiteEff', 'parasite efficiency', 0, 1, 0.01], ['selStrength', 'selection strength', 0, 4, 0.05]]],
     ['habitat', [
-      ['habitatFedMin', 'seed fed threshold', 0, 200, 1], ['habitatConv', 'seed rate (per dot per s)', 0, 50, 0.1], ['habitatSeedR', 'seed size (x cell r)', 0.05, 2, 0.05], ['habitatMut', 'seed colour mutation', 0, 1, 0.01],
-      ['habitatSun', 'food sunlight (fed per s)', 0, 20, 0.1], ['habitatDeadFed', 'corpse nutrient (fed)', 0, 50, 0.5], ['habitatDeadR', 'corpse nutrient radius px', 0, 600, 5], ['habitatDeadCol', 'corpse colour transfer', 0, 1, 0.01],
+      ['habitatFedMin', 'seed fed threshold', 0, 200, 1], ['habitatConv', 'seed rate (dot s, full-screen dish)', 0, 50, 0.1], ['habitatSeedR', 'seed size (x cell r)', 0.05, 2, 0.05], ['habitatMut', 'seed colour mutation', 0, 1, 0.01],
+      ['habitatSun', 'food sunlight (fed per s)', 0, 20, 0.1], ['habitatDeadFed', 'corpse nutrient (fed)', 0, 50, 0.5], ['habitatDeadR', 'corpse radius (x dish w)', 0, 1, 0.01], ['habitatDeadCol', 'corpse colour transfer', 0, 1, 0.01],
       ['habitatHueK', 'eaten colour memory', 0, 1, 0.01], ['habitatFloor', 'seeding below N cells', 0, 20, 1],
-      ['cellLife', 'lifespan s (0 = none)', 0, 900, 5], ['cellLifeVar', 'lifespan spread', 0, 1, 0.05]]],
+      ['habitatFedDecay', 'fed decay (per s)', 0, 10, 0.05], ['cellLife', 'lifespan s (0 = none)', 0, 900, 5], ['cellLifeVar', 'lifespan spread', 0, 1, 0.05]]],
+    ['biology', [
+      ['crowdTol', 'crowding tolerance', 0, 5, 0.05], ['orgLifeDie', 'organic death pull', -0.1, 0, 0.001], ['orgLifeGrow', 'organic life push', 0, 2, 0.0025], ['orgBirth', 'organic birth push', 0, 2, 0.005],
+      ['orgDead', 'organic dead decay', -0.1, 0, 0.0005], ['orgBrain', 'pair brain push', 0, 0.1, 0.001], ['orgR90', 'flanked push', 0, 0.05, 0.0005],
+      ['symEnergy', 'symbiosis feed', 0, 0.01, 0.00025], ['symBreak', 'symbiosis whim break', 0, 0.01, 0.0001], ['symBreakDist', 'symbiosis distance break (x span)', 1, 10, 0.1],
+      ['eatDistF', 'eat contact (x radii)', 0.1, 2, 0.05], ['fuseDistF', 'fusion contact (x radii)', 0.1, 2, 0.05], ['symDistF', 'pair contact (x radii)', 0.1, 3, 0.05]]],
     ['life', [
       ['boundGap', 'wall gap px (every cell)', 0, 200, 1], ['boundZone', 'boundary awareness zone', 0, 200, 1], ['dragMargin', 'drag resize viewport margin px', 0, 100, 1], ['edgeGrab', 'border grab width px', 3, 40, 1], ['restless', 'cell restlessness while resizing', 0, 3, 0.05], ['boundForce', 'boundary push', 0, 3, 0.05], ['cellMorphMs', 'metamorphosis time ms', 100, 6000, 50]]],
     ['sound', [

@@ -5,7 +5,7 @@ pub const ST: usize = 24; // f64 per cell
 const X: usize = 0; const Y: usize = 1; const VX: usize = 2; const VY: usize = 3; const RAD: usize = 4; const EN: usize = 5; const GENE: usize = 6;
 const ALIVE: usize = 7; const MAXS: usize = 8; const SPM: usize = 9; const HOST: usize = 10; const MUT: usize = 11; const SV: usize = 12; const CL: usize = 13;
 const SYM: usize = 14; const GSPD: usize = 15; const GAPP: usize = 16; const GBND: usize = 17; const C0: usize = 18; const C1: usize = 19; const C2: usize = 20;
-const COMP: usize = 21; const REM: usize = 22; const AGE: usize = 23; // 23: age in ms, packed by JS every frame (juvenile reproduction gate)
+const COMP: usize = 21; const REM: usize = 22; const AGE: usize = 23; // 23: age in ms, packed by JS every frame (juvenile reproduction gate); wasm writes -1 here on eat/fuse = absorbed flag (biomass stayed in a cell, no nutrient pulse)
 
 pub struct Sim {
     pub cells: Vec<f64>, pub n: usize, pub cap: usize,
@@ -33,6 +33,12 @@ const P_GMUT: usize = 36; const P_MRR: usize = 37; const P_MBS: usize = 38; cons
 const P_ECOL: usize = 42; const P_EC0: usize = 43; const P_MX: usize = 46; const P_MY: usize = 47; const P_MOVER: usize = 48; const P_CX: usize = 49; const P_CY: usize = 50;
 const P_CW: usize = 51; const P_CH: usize = 52; const P_RDRAG: usize = 53; const P_CLSEQ: usize = 54; const P_NCM: usize = 55; const P_ONLYINT: usize = 56; // debug: 1 = interact only, 2 = keepIn only (isolation tests; 0 = normal)
 const P_BGAP: usize = 57; const P_RMINAGE: usize = 58; const P_REPROCH: usize = 59; // 58: juvenile gate ms, 59: contact birth chance (owner 21 Oct) // boundGap: wall distance for every cell independent of cell r (desktop fix 625f4e8). 44/45 are env.col g/b (P_EC0+1/+2)
+// biological constants, formerly hardcoded (owner 21 Oct: every biological parameter is a knob, nothing hardcoded)
+const P_CROWD: usize = 60; // checkSurvival crowding tolerance (energy < n * crowdTol)
+const P_ORGDIE: usize = 61; const P_ORGGROW: usize = 62; const P_ORGBIRTH: usize = 63; const P_ORGDECAY: usize = 64;
+const P_ORGBRAIN: usize = 65; const P_ORGR90: usize = 66; // organic() life/birth/energy deltas (B3/S23 topology stays)
+const P_SYMEN: usize = 67; const P_SYMBRK: usize = 68; const P_SYMBRKD: usize = 69; // symbiosis bond feed, whim break, distance break (x span)
+const P_EATDF: usize = 70; const P_FUSEDF: usize = 71; const P_SYMDF: usize = 72; // eat/fuse/pair contact distance (x radii sum)
 // out indices
 // 0 birth 1 divide 2 eaten 3 merge 4 fuse 5 pair 6 hit 7 oob 8 ate 9 death 10 clusterSeq 11 hovering 12-14 hoverCol 15 n_final
 
@@ -84,9 +90,9 @@ impl Sim {
         }
         let _ = n0;
         let alive = self.alive(c);
-        let life = if alive { if n < 2 || n > 3 { -0.005 } else { 1.0025 } } else if n == 3 { 1.005 } else { -0.0025 };
-        let brain = if n == 2 { 0.008 } else { 0.0 };
-        let r90 = if left.is_some() != right.is_some() { 0.0025 } else { 0.0 };
+        let life = if alive { if n < 2 || n > 3 { self.p[P_ORGDIE] } else { self.p[P_ORGGROW] } } else if n == 3 { self.p[P_ORGBIRTH] } else { self.p[P_ORGDECAY] };
+        let brain = if n == 2 { self.p[P_ORGBRAIN] } else { 0.0 };
+        let r90 = if left.is_some() != right.is_some() { self.p[P_ORGR90] } else { 0.0 };
         let (dx, dy) = self.rand2d();
         let t = life + brain + r90 + self.rnd(-0.1, 0.1);
         let (mut vx, mut vy) = (self.g(c, VX) + dx * t, self.g(c, VY) + dy * t);
@@ -217,7 +223,7 @@ impl Sim {
         if self.p[P_SYMB] != 0.0 {
             if sp_raw >= 0.0 {
                 let sp = sp_raw as usize;
-                let drop = !self.alive(sp) || self.g(sp, SYM) != c as f64 || self.rnd01() < 0.0002;
+                let drop = !self.alive(sp) || self.g(sp, SYM) != c as f64 || self.rnd01() < self.p[P_SYMBRK];
                 if drop {
                     if self.alive(sp) && self.g(sp, SYM) == c as f64 { self.set(sp, SYM, -1.0); }
                     self.set(c, SYM, -1.0);
@@ -225,13 +231,13 @@ impl Sim {
                     let (sdx, sdy) = (self.g(sp, X) - self.g(c, X), self.g(sp, Y) - self.g(c, Y));
                     let mut sdd = hyp(sdx, sdy); if sdd == 0.0 { sdd = 1.0; }
                     let sw = (self.g(c, RAD) + self.g(sp, RAD)) * 1.4;
-                    if sdd > sw * 3.0 { self.set(sp, SYM, -1.0); self.set(c, SYM, -1.0); }
+                    if sdd > sw * self.p[P_SYMBRKD] { self.set(sp, SYM, -1.0); self.set(c, SYM, -1.0); }
                     else {
                         let coh2 = self.p[P_COH] * 0.25;
                         let mut vx = lerp(self.g(c, VX), self.g(sp, VX), coh2); let mut vy = lerp(self.g(c, VY), self.g(sp, VY), coh2);
                         vx += sdx / sdd * (sdd - sw) * 0.004; vy += sdy / sdd * (sdd - sw) * 0.004;
                         self.set(c, VX, vx); self.set(c, VY, vy);
-                        let e = self.g(c, EN); self.set(c, EN, e + 0.00075);
+                        let e = self.g(c, EN); self.set(c, EN, e + self.p[P_SYMEN]);
                     }
                 }
             }
@@ -272,7 +278,7 @@ impl Sim {
         if gene <= self.p[P_GMIN] || gene >= self.p[P_GMAX] { self.set(c, ALIVE, 0.0); }
         let r = self.p[P_IR]; let (cx, cy) = (self.g(c, X), self.g(c, Y)); let mut n = 0;
         for o in 0..self.n { if o != c && self.alive(o) && self.g(o, REM) == 0.0 && hyp(cx - self.g(o, X), cy - self.g(o, Y)) < r { n += 1; } }
-        if self.g(c, EN) < n as f64 * 0.5 { self.set(c, ALIVE, 0.0); }
+        if self.g(c, EN) < n as f64 * self.p[P_CROWD] { self.set(c, ALIVE, 0.0); }
     }
     fn join_cluster(&mut self, a: usize, b: usize) {
         let (acl, bcl) = (self.g(a, CL), self.g(b, CL)); let cmax = self.p[P_CLMAX] as usize;
@@ -298,7 +304,7 @@ impl Sim {
         let spm = clamp(self.g(big, SPM) / 1.25, 0.2, 3.0); self.set(big, SPM, spm);
         let bs = self.g(big, SYM); if bs >= 0.0 && bs as usize != sm { self.set(bs as usize, SYM, -1.0); }
         let ss = self.g(sm, SYM); if ss >= 0.0 && ss as usize != big { self.set(ss as usize, SYM, -1.0); }
-        self.set(big, SYM, -1.0); self.set(sm, SYM, -1.0); self.set(sm, ALIVE, 0.0);
+        self.set(big, SYM, -1.0); self.set(sm, SYM, -1.0); self.set(sm, ALIVE, 0.0); self.set(sm, AGE, -1.0); // AGE=-1: absorbed
         self.out[4] += 1.0; self.log.extend_from_slice(&[big as f64, sm as f64, -1.0, 3.0]);
     }
     fn reproduce(&mut self, a: usize, b: usize) {
@@ -331,7 +337,7 @@ impl Sim {
         let ir = self.p[P_IR];
         if dist >= ir { return; }
         let (ra, rb) = (self.g(a, RAD), self.g(b, RAD));
-        if self.p[P_EATMERGE] != 0.0 && dist < (ra + rb) * 0.85 {
+        if self.p[P_EATMERGE] != 0.0 && dist < (ra + rb) * self.p[P_EATDF] {
             let (big, sm) = if ra >= rb { (a, b) } else { (b, a) };
             let ratio = self.g(big, RAD) / self.g(sm, RAD).max(0.01);
             if ratio >= self.p[P_EATRATIO] {
@@ -339,13 +345,13 @@ impl Sim {
                     let (rbg, rsm) = (self.g(big, RAD), self.g(sm, RAD));
                     let r = (rbg * rbg + 0.5 * rsm * rsm).sqrt().min(self.p[P_CELLR] * self.p[P_FGMAX] * 1.2); self.set(big, RAD, r);
                     let e = self.g(big, EN) + self.g(sm, EN) * 0.6 + 1.0; self.set(big, EN, e);
-                    self.set(sm, ALIVE, 0.0); self.out[2] += 1.0; return;
+                    self.set(sm, ALIVE, 0.0); self.set(sm, AGE, -1.0); self.out[2] += 1.0; return; // AGE=-1: absorbed
                 }
             } else if (self.g(a, GENE) - self.g(b, GENE)).abs() <= self.p[P_MGENE] && self.rnd01() < self.p[P_MCH] { self.join_cluster(a, b); }
         }
         let (ra, rb) = (self.g(a, RAD), self.g(b, RAD));
-        if self.p[P_SYMG] != 0.0 && dist < (ra + rb) * 0.6 && (self.g(a, GENE) - self.g(b, GENE)).abs() <= self.p[P_MGENE] && self.rnd01() < self.p[P_MCH] * 0.3 { self.fuse(a, b); return; }
-        if self.p[P_SYMB] != 0.0 && self.g(a, SYM) < 0.0 && self.g(b, SYM) < 0.0 && dist < (ra + rb) * 1.1 && self.rnd01() < self.p[P_MCH] * 0.5 {
+        if self.p[P_SYMG] != 0.0 && dist < (ra + rb) * self.p[P_FUSEDF] && (self.g(a, GENE) - self.g(b, GENE)).abs() <= self.p[P_MGENE] && self.rnd01() < self.p[P_MCH] * 0.3 { self.fuse(a, b); return; }
+        if self.p[P_SYMB] != 0.0 && self.g(a, SYM) < 0.0 && self.g(b, SYM) < 0.0 && dist < (ra + rb) * self.p[P_SYMDF] && self.rnd01() < self.p[P_MCH] * 0.5 {
             self.set(a, SYM, b as f64); self.set(b, SYM, a as f64); self.out[5] += 1.0;
         }
         let infl = 1.0 + (0.0 - 1.0) * (dist - 0.0) / (ir - 0.0);

@@ -10,8 +10,11 @@ const names=['rand2D','normCol','speedOf','mutGenome','mixGenome','newShape','mi
 const code=`var UI_END=800,CELL_END=1300;
 var rnd=function(a,b){if(b===undefined){b=a;a=0;}return a+Math.random()*(b-a);};var clamp=function(v,a,b){return v<a?a:v>b?b:v;};var lerp=function(a,b,t){return a+(b-a)*t;};var map=function(v,a,b,c,d){return c+(d-c)*(v-a)/(b-a);};
 ${vr('P')}
+P.habitatOn=0;P.cellLife=0;P.cellLifeVar=0.3;P.habitatFedDecay=0.2;P.crowdTol=0.5;P.orgLifeDie=-0.005;P.orgLifeGrow=1.0025;P.orgBirth=1.005;P.orgDead=-0.0025;P.orgBrain=0.008;P.orgR90=0.0025;P.symEnergy=0.00075;P.symBreak=0.0002;P.symBreakDist=3;P.eatDistF=0.85;P.fuseDistF=0.6;P.symDistF=1.1;
+function habAte(){}function habReap(){}
 var cells=[],food=[],ev={birth:0,death:0,hit:0,oob:0},clusterSeq=0,env={spd:1,app:0.5,bnd:1,col:null},cmean={};
 var cont={x:0,y:0,w:0,h:0},mouse={x:-1e9,y:-1e9,over:false},resizeDrag=false;
+var frameT=0; // stub for the Cell ctor bornAt read (desktop team AGE slot)
 ${names.map(fn).join('\n')}
 return {P:P,Cell:Cell,get cells(){return cells;},set cells(v){cells=v;},get food(){return food;},set food(v){food=v;},ev:ev,env:env,cmean:cmean,cont:cont,
  get seq(){return clusterSeq;},set seq(v){clusterSeq=v;},
@@ -41,6 +44,7 @@ function pack(cs,nf,cmObj,SEQ,cont){
  PI.forEach((k,i)=>{let v=P[k];p[i]=typeof v==='boolean'?(v?1:0):v;});
  p[39]=J.env.spd;p[40]=J.env.app;p[41]=J.env.bnd;p[42]=J.env.col?1:0;if(J.env.col){p[43]=J.env.col[0];p[44]=J.env.col[1];p[45]=J.env.col[2];}
  p[46]=-1e9;p[47]=-1e9;p[48]=0;p[49]=cont.x;p[50]=cont.y;p[51]=cont.w;p[52]=cont.h;p[53]=0;p[54]=SEQ;p[56]=0;
+ p[58]=P.reproMinAgeMs||0;p[59]=P.reproChance===undefined?0.02:P.reproChance;p[60]=P.crowdTol;p[61]=P.orgLifeDie;p[62]=P.orgLifeGrow;p[63]=P.orgBirth;p[64]=P.orgDead;p[65]=P.orgBrain;p[66]=P.orgR90;p[67]=P.symEnergy;p[68]=P.symBreak;p[69]=P.symBreakDist;p[70]=P.eatDistF;p[71]=P.fuseDistF;p[72]=P.symDistF;
  return{cp:cp};
 }
 // deterministic trial generation (reproducible across runs)
