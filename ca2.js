@@ -1685,6 +1685,7 @@
     else if (k === 'panelWidth' && panel) panel.style.width = v + 'px';
     else if (k === 'blurWidth') { if (blurEl) blurEl.style.width = v + 'px'; if (blurLEl) blurLEl.style.width = v + 'px'; }
     else if (k === 'blurStrength') document.documentElement.style.setProperty('--bmax', v + 'px');
+    else if (k === 'margin') document.documentElement.style.setProperty('--m', v + 'px');
     else if (k === 'resolution') res = v;
     else if (k === 'axisWidth') applyLW();
     else if (k === 'cfgFontSize') applyTypo();
@@ -2283,7 +2284,7 @@
     if (sig === circSig) return; circSig = sig;
     var y0 = Math.max(4, L.M + L.dh - 500 * u - R0); // first circle centred on the title's topmost circle
     secc.style.top = y0 + 'px'; // body-level fixed lane: never rides the panel scroll
-    panel.style.paddingRight = (D + 16) + 'px';
+    panel.style.paddingRight = (L.M + D + L.M / 2) + 'px';
     for (var i = 0; i < secc.childNodes.length; i++) {
       var c = secc.childNodes[i].firstChild;
       c.style.width = D + 'px'; c.style.height = D + 'px';
@@ -2296,6 +2297,7 @@
       admCircles[j].style.fontSize = '13px';
     }
   }
+  document.documentElement.style.setProperty('--m', P.margin + 'px');
   placeCircles(); applyLW(); applyLineColor(); applyTypo();
   panel.addEventListener('click', function (e) { e.stopPropagation(); });
   var lastSync = 0;
