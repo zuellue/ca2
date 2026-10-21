@@ -51,7 +51,8 @@
   P.cellShapes = 1; // heritable body plans: round / string / lobed (render expands a cell into metaball sources)
   var DEFAULTS = JSON.parse(JSON.stringify(P));
   var TYPE_SIZE_MAX = 4; // the type-size KNOB range end (owner 21 Oct); manual entry is unbounded (the width fit is the only limit)
-  var autoRefresh = true, lockParams = false;
+  // params lock to the preset/current values by default (Main 22:03): morph cycles must not re-roll U/mut/mr/ir/cr; re-roll only after the admin unlocks in the panel (session-scoped, see load below)
+  var autoRefresh = true, lockParams = true;
   var BGS = [[233,233,233],[22,22,22],[255,0,0],[0,255,0],[0,0,255]];
   // title-circle hover colors: the palette's own black (22,22,22 - not pitch black) and white, plus its R G B (owner 21 Oct)
   var CIRCLE_COLS = [[22,22,22],[255,255,255],[255,0,0],[0,255,0],[0,0,255]];
@@ -1813,7 +1814,8 @@
       if (typeof p.lineColor === 'string' && /^#[0-9a-f]{6}$/i.test(p.lineColor)) P.lineColor = p.lineColor;
       ['axisColor', 'circColor', 'ruleColor'].forEach(function (k) { if (typeof p[k] === 'string' && /^#[0-9a-f]{6}$/i.test(p[k])) P[k] = p[k]; });
       if (typeof sv.autoRefresh === 'boolean') autoRefresh = sv.autoRefresh;
-      if (typeof sv.lockParams === 'boolean') lockParams = sv.lockParams;
+      // stale visitor saves carry lockParams:false from the old default; restoring it would keep the 2-9s re-roll alive. Unlock is now a per-session admin action, so only an explicit locked:true is honored.
+      if (sv.lockParams === true) lockParams = true;
       if (sv.bgTarget && sv.bgTarget.length === 3) { bgTarget = sv.bgTarget.slice(); bg = sv.bgTarget.slice(); }
       if (typeof sv.bgIndex === 'number') bgIndex = sv.bgIndex;
     } catch (e) {}
