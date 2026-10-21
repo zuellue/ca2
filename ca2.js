@@ -2734,58 +2734,42 @@
   boot();
   // ---- honest save button + gesture-context code-box focus (owner 21 Oct: locked save must not fake "saved"; lane agreement: trailing IIFE only) ----
   (function adminEntryFix() {
+    var inFrame = window.self !== window.top; // inside the device.html preview: the page's own code widget is the single entry, the in-preview one stays hidden (owner 21 Oct)
     var saveBtn = [].slice.call(document.querySelectorAll('#btns button')).filter(function (x) { return x.textContent === 'save'; })[0];
     if (saveBtn) saveBtn.dataset.ca2save = '1';
-    // (a) locked save: the core handler writes localStorage only but still shows "saved" - block it and say "locked"
-    document.addEventListener('click', function (e) {
-      var b = e.target && e.target.closest ? e.target.closest('button') : null;
-      if (!b || window.__adminOn) return;
-      if (b.dataset.ca2save !== '1') return;
-      e.stopPropagation(); e.preventDefault();
-      b.textContent = 'locked';
-      // mobile: the locked button is also the entry point - tapping it opens the code entry widget
-      if ((window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm') {
-        var adm = document.getElementById('adm');
-        if (adm && !adm.classList.contains('on')) {
-          adm.classList.add('on'); // the desktop entry widget itself (owner 21 Oct: unlock = the desktop design, no separate pad)
-          var bx = document.querySelector('input[inputmode="numeric"]');
-          if (bx) bx.value = '';
-          [].slice.call(document.querySelectorAll('#adm span')).forEach(function (g) { g.textContent = ''; });
-        }
-        focusBox(); // synchronous inside the tap gesture - the only focus context phones accept for opening the keyboard
-      }
-    }, true);
-    // persistent lock state on the pinned button (mobile only): locked while locked, save once admin is on
-    setInterval(function () {
-      if (!saveBtn) return;
-      var m = (window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm';
-      if (m && !window.__adminOn && saveBtn.textContent === 'save') saveBtn.textContent = 'locked';
-      if (window.__adminOn && saveBtn.textContent === 'locked') saveBtn.textContent = 'save';
-    }, 400);
-    // (b)+(c) the 5s hold fires from a timer, outside any gesture, so mobile keyboards never open for the code box.
-    // Focus it from real gestures instead: the pointerup that ends the hold, and any tap while the panel is open.
+    // Visitors get zero admin trace (owner 21 Oct: 'admin bilgisi nasil sizar'): no pinned save, no locked label, no
+    // widget, no B/D until a verified admin session. The only entry is the hidden 5s title-hold (the desktop design).
     function focusBox() {
       var adm = document.getElementById('adm');
       if (!adm || !adm.classList.contains('on') || window.__adminOn) return;
       var box = document.querySelector('input[inputmode="numeric"]');
       if (box && document.activeElement !== box) box.focus();
     }
+    document.addEventListener('contextmenu', function (e) { if ((window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm') e.preventDefault(); }, true); // iOS long-press menu would cancel the 5s hold
     window.addEventListener('pointerup', focusBox); // bubble: registered after adminInit, so the panel is already open when this runs
     document.addEventListener('click', focusBox, true);
-    // (d) pinned save on mobile: the real save button sits far below the fold - move the same element (listeners intact) to the viewport corner in mobile mode, park it back in #btns on desktop
+    // pinned save on mobile: only for a verified admin - the button stays parked (and hidden) in #btns for visitors
     if (saveBtn) {
-      var home = saveBtn.parentNode, pinned = false, inFrame = window.self !== window.top, pst = document.createElement('style');
+      var home = saveBtn.parentNode, pinned = false, pst = document.createElement('style');
       pst.textContent = 'button.ca2savepin{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));z-index:40;font:inherit;color:var(--fg);background:var(--bg);border:var(--lw) solid var(--fg);padding:6px 10px;cursor:pointer}'
         + 'body[data-camode="m"] #adm.on{opacity:1;pointer-events:auto}' // desktop gates #adm behind the panel hover area; mobile has no hover frame, so an open widget must simply show
-        + '@media (hover:none){#adm.on{opacity:1;pointer-events:auto}}';
+        + '@media (hover:none){#adm.on{opacity:1;pointer-events:auto}}'
+        + (inFrame ? '#adm{display:none!important}' : '')
+        + 'body[data-camode="m"]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}' // keep iOS from interrupting the 5s hold
+        + 'body[data-camode="m"]:not(.ca2admin) button[data-ca2save]{display:none!important}'; // no admin trace for visitors (owner 21 Oct)
       document.head.appendChild(pst);
       var pinSave = function () {
-        var m = (window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm' && !inFrame;
+        var m = (window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm' && !inFrame && !!window.__adminOn;
         if (m && !pinned) { pinned = true; saveBtn.classList.add('ca2savepin'); document.body.appendChild(saveBtn); }
         else if (!m && pinned) { pinned = false; saveBtn.classList.remove('ca2savepin'); home.appendChild(saveBtn); }
       };
       window.addEventListener('ca2mode', pinSave);
       window.addEventListener('resize', pinSave);
+      setInterval(function () {
+        var on = !!window.__adminOn;
+        if (document.body.classList.contains('ca2admin') !== on) { document.body.classList.toggle('ca2admin', on); }
+        pinSave();
+      }, 400);
       pinSave();
     }
   })();

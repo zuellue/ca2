@@ -18,7 +18,7 @@
   #devs a.on::after { content: ' \2022'; }
   #meta { position: fixed; right: 22px; top: 16px; color: rgba(233,233,233,.35); font-size: 11px; letter-spacing: .04em; text-align: right; line-height: 1.5; z-index: 2; }
   #scale { position: fixed; left: 22px; bottom: 16px; z-index: 2; }
-  #savem { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 2; }
+  #savem { display: none; position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 2; }
   #scale a, #savem a { color: #e9e9e9; text-decoration: none; font-size: 13px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; cursor: pointer; }
   #scale a:hover, #savem a:hover { color: #fff; }
   /* the desktop page's code entry, moved here verbatim (owner 21 Oct): 4 hollow stacked circles bottom-right,
@@ -40,17 +40,21 @@
 <div id="savem"><a id="savea">save</a></div>
 <script>
 (function () {
-  // name, css width, css height, device pixel ratio - real values, verified 21 Oct (webmobilefirst / screensize.net / blisk.io)
-  // near-duplicates dropped: two viewports within 15 css px in width and 20 in height count as one (measured over 14 candidates)
+  // name, css width, css height, device pixel ratio - real values, verified 21 Oct (webmobilefirst / screensize.io / yesviz / store.google.com)
+  // near-duplicates dropped (owner 21 Oct): two viewports within 20 css px in width and 30 in height count as one, the
+  // representative stays. Dropped: iphone 16 pro (402x874, 9px/22px from iphone 15/16) and iphone 15 pro max (430x932,
+  // 10px/24px from iphone 16 pro max). Foldables opened (near-square, owner 21 Oct): fold 8 816x616@3 (2448x1848 panel),
+  // pixel 11 pro fold 791x820@2.625 (2076x2152 panel), iphone duo 890x626@3 (2670x1878 panel).
   var DEVS = [
     ['galaxy s24', 360, 780, 3],
     ['iphone se', 375, 667, 2],
     ['iphone 13 mini', 375, 812, 3],
     ['iphone 15 / 16', 393, 852, 3],
-    ['iphone 16 pro', 402, 874, 3],
     ['pixel 8', 412, 915, 2.625],
-    ['iphone 15 pro max', 430, 932, 3],
-    ['iphone 16 pro max', 440, 956, 3]
+    ['iphone 16 pro max', 440, 956, 3],
+    ['pixel 11 pro fold', 791, 820, 2.625],
+    ['galaxy z fold 8', 816, 616, 3],
+    ['iphone duo', 890, 626, 3]
   ];
   // scale modes: 'fit' fills the window (may exceed 100% - the old cap at 100% was the 'too small' complaint), then fixed sizes
   var SCALES = ['fit', '100%', '125%', '150%', '200%'];
@@ -121,13 +125,23 @@
   function unlockInner(code) { // hand the accepted code to the page inside the frame through its own entry widget
     try {
       var w = fr.contentWindow, d = fr.contentDocument;
-      if (!w || !d || w.__adminOn) return;
+      if (!w || !d || w.__adminOn) return true;
       var ib = d.querySelector('input[inputmode="numeric"]');
       if (ib) { ib.value = code; ib.dispatchEvent(new w.Event('input', { bubbles: true })); }
     } catch (e) {}
+    return false;
+  }
+  var pushIv = null;
+  function pushCode() { // retry until the frame takes it - it may still be booting when the code is accepted
+    if (!adminCode || pushIv) return;
+    var n = 0;
+    pushIv = setInterval(function () {
+      if (++n > 40 || unlockInner(adminCode)) { clearInterval(pushIv); pushIv = null; }
+    }, 250);
   }
   function setOk() {
     outerOn = true;
+    document.getElementById('savem').style.display = 'block';
     var ABDU = 'ABDU'; for (var i = 0; i < 4; i++) glyphs[i].textContent = ABDU[i];
     adm2.classList.add('ok');
   }
@@ -138,7 +152,7 @@
     if (cbox.value.length === 4) {
       var code = cbox.value;
       wpost({ code: code, check: true }).then(function (r) {
-        if (r && r.ok) { adminCode = code; setOk(); unlockInner(code); }
+        if (r && r.ok) { adminCode = code; setOk(); pushCode(); }
         else { adm2.classList.add('err'); setTimeout(function () { adm2.classList.remove('err'); glyphs.forEach(function (g) { g.textContent = ''; }); }, 600); }
         cbox.value = ''; cbox.blur();
       }).catch(function () { cbox.value = ''; cbox.blur(); });
@@ -154,25 +168,18 @@
     location.href = 'index.html';
   });
   // a fresh frame inherits the unlocked state; an unlock done inside the frame mirrors back out here
-  fr.addEventListener('load', function () {
-    if (!adminCode) return;
-    var tries = 0, iv = setInterval(function () {
-      try { if (fr.contentWindow && fr.contentWindow.__adminOn) { clearInterval(iv); return; } } catch (e) {}
-      unlockInner(adminCode);
-      if (++tries >= 40) clearInterval(iv); // ~10s of retries while the frame boots
-    }, 250);
-  });
+  fr.addEventListener('load', function () { pushIv && clearInterval(pushIv); pushIv = null; pushCode(); }); // a fresh frame inherits the unlocked state
   setInterval(function () {
     try { if (!outerOn && fr.contentWindow && fr.contentWindow.__adminOn) setOk(); } catch (e) {}
   }, 400);
   // page-level save: bottom row, centered under the preview, same line as the desktop link (owner 21 Oct).
-  // Drives the real save button inside the frame (its handler, locked intercept and text states stay authoritative) and mirrors its label.
+  // Drives the real save button inside the frame (its handler and text states stay authoritative) and mirrors its label.
   var savea = document.getElementById('savea');
   function innerSave() {
     try {
       var d = fr.contentDocument; if (!d) return null;
       var bs = [].slice.call(d.querySelectorAll('button'));
-      return bs.filter(function (x) { return x.dataset && x.dataset.ca2save === '1'; })[0] || bs.filter(function (x) { return x.textContent === 'save' || x.textContent === 'locked'; })[0] || null;
+      return bs.filter(function (x) { return x.dataset && x.dataset.ca2save === '1'; })[0] || bs.filter(function (x) { return x.textContent === 'save'; })[0] || null;
     } catch (e) { return null; }
   }
   savea.addEventListener('click', function () { var b = innerSave(); if (b) b.click(); });
