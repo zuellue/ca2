@@ -41,6 +41,8 @@
   P.habitatSun = 1; P.habitatDeadFed = 6; P.habitatDeadR = 0.25; P.habitatDeadCol = 0.35; P.habitatHueK = 0.25;
   P.cellLife = 0; P.cellLifeVar = 0.3; // lifespan: 0 = no aging (existing behaviour), spread is the per-cell jitter on it
   P.habitatFedDecay = 0.2; // fed decays per second: corpses are a pulse, not a permanent reservoir
+  P.habitatBirthCap = 2; P.habitatNiches = 4; P.habitatNicheSun = 0.5; P.habitatNicheMix = 1; // soft birth cap (x UNIVERSE_SIZE), niche grid per axis, regional sun spread, edge smoothing
+  P.habitatDrift = 0.02; P.habitatDriftAmp = 0.3; P.habitatDriftFloor = 0.2; // slow environment drift: cycles/s, amplitude, sun multiplier floor
   // formerly hardcoded biological constants (owner 21 Oct: every biological parameter adjustable). Defaults = the old constants.
   P.crowdTol = 0.5; P.orgLifeDie = -0.005; P.orgLifeGrow = 1.0025; P.orgBirth = 1.005; P.orgDead = -0.0025; P.orgBrain = 0.008; P.orgR90 = 0.0025;
   P.symEnergy = 0.00075; P.symBreak = 0.0002; P.symBreakDist = 3; P.eatDistF = 0.85; P.fuseDistF = 0.6; P.symDistF = 1.1;
@@ -237,6 +239,11 @@
     big.sym = null; sm.sym = null; sm.alive = false; sm.absorbed = 1;
     ev.fuse = (ev.fuse || 0) + 1;
   }
+  function birthCapF() { // soft birth cap, habitat-gated: over habitatBirthCap x UNIVERSE_SIZE the contact-birth chance decays as cap/n (never a hard wall); habitat off = untouched core behaviour
+    if (!P.habitatOn || !(P.habitatBirthCap > 0)) return 1;
+    var cap = P.habitatBirthCap * P.UNIVERSE_SIZE;
+    return cells.length > cap ? cap / cells.length : 1;
+  }
   function interact(a, b) {
     if (a === b || !a.alive || !b.alive) return;
     var dx = b.x - a.x, dy = b.y - a.y, dist = Math.hypot(dx, dy);
@@ -261,7 +268,7 @@
       var l = dist || 1; a.vx += (-dx / l) * 0.05 * a.hostility; a.vy += (-dy / l) * 0.05 * a.hostility;
     }
     if (dist < a.radius + b.radius) ev.hit++;
-    if (dist < a.radius + b.radius && Math.random() < P.reproChance && a.energy > P.minEnergyForReproduction && b.energy > P.minEnergyForReproduction && frameT - (a.bornAt || 0) >= P.reproMinAgeMs && frameT - (b.bornAt || 0) >= P.reproMinAgeMs) reproduce(a, b); // juveniles do not reproduce: newborns overlap their parents, and ungated contact births chained into rows (owner 21 Oct: one click must be one cell)
+    if (dist < a.radius + b.radius && Math.random() < P.reproChance * birthCapF() && a.energy > P.minEnergyForReproduction && b.energy > P.minEnergyForReproduction && frameT - (a.bornAt || 0) >= P.reproMinAgeMs && frameT - (b.bornAt || 0) >= P.reproMinAgeMs) reproduce(a, b); // juveniles do not reproduce: newborns overlap their parents, and ungated contact births chained into rows (owner 21 Oct: one click must be one cell)
     var nl = dist || 1, nx = dx / nl, ny = dy / nl, sep = (a.radius + b.radius - dist) * 0.5;
     a.x -= nx * sep; a.y -= ny * sep; b.x += nx * sep; b.y += ny * sep;
     var ad = a.vx * nx + a.vy * ny, bd = b.vx * nx + b.vy * ny;
@@ -752,6 +759,7 @@
       p[57] = P.boundGap || 0; p[58] = P.reproMinAgeMs || 0; p[59] = P.reproChance === undefined ? 0.02 : P.reproChance; // 58: juvenile gate ms, 59: contact birth chance // boundGap slot for sim.rs keep_in (625f4e8 port); 44/45 are env.col
       p[60] = P.crowdTol; p[61] = P.orgLifeDie; p[62] = P.orgLifeGrow; p[63] = P.orgBirth; p[64] = P.orgDead; p[65] = P.orgBrain; p[66] = P.orgR90;
       p[67] = P.symEnergy; p[68] = P.symBreak; p[69] = P.symBreakDist; p[70] = P.eatDistF; p[71] = P.fuseDistF; p[72] = P.symDistF;
+      p[73] = P.habitatOn ? 1 : 0; p[74] = P.habitatBirthCap; // habitat soft birth cap (sim.rs interact)
       var tp = performance.now(); E.sim_step(Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
       var ts = performance.now(); SIMW.pack = (SIMW.pack || 0) * 0.9 + (tp - t0) * 0.1; SIMW.step = (SIMW.step || 0) * 0.9 + (ts - tp) * 0.1;
       var o = new Float64Array(WC.mem.buffer, E.sim_out(), 32), nf2 = o[15];
@@ -1337,7 +1345,27 @@
   // Engine-agnostic by construction: the hooks sit at the two splice points (JS loop and wasm unpack) and the two eat
   // sites, so the JS and wasm sims and every food mode share identical semantics. No forces are ever added to dots, so
   // swarm isotropy is untouched; mode-owned bodies (worm links, spores, blob rings) are never converted.
-  var habStat = { pulse: 0, seed: 0, ate: 0 };
+  var habStat = { pulse: 0, seed: 0, ate: 0 }, habT = 0; // habT: accumulated habitat seconds, drives the drift phase
+  function habHash(x, y) { var h = (Math.imul(x, 73856093) ^ Math.imul(y, 19349663)) >>> 0; h ^= h >>> 13; h = Math.imul(h, 0x5bd1e995) >>> 0; h ^= h >>> 15; return (h >>> 0) / 4294967296; }
+  function habField(x, y) { // the single environment field: regional niches x slow drift; writes the sun and fedDecay multipliers exactly once
+    var K = Math.floor(P.habitatNiches), niche = 1, x0 = 0, y0 = 0;
+    if (K > 1 && cont.w > 0 && cont.h > 0) {
+      var gx = (x - cont.x) / cont.w * K, gy = (y - cont.y) / cont.h * K; x0 = Math.floor(gx); y0 = Math.floor(gy);
+      var rv = function (ix, iy) { return 1 + P.habitatNicheSun * (2 * habHash(ix, iy) - 1); };
+      var fx2 = gx - x0, fy2 = gy - y0;
+      var smooth = rv(x0, y0) * (1 - fx2) * (1 - fy2) + rv(x0 + 1, y0) * fx2 * (1 - fy2) + rv(x0, y0 + 1) * (1 - fx2) * fy2 + rv(x0 + 1, y0 + 1) * fx2 * fy2;
+      var m = Math.max(0, Math.min(1, P.habitatNicheMix));
+      niche = rv(x0, y0) * (1 - m) + smooth * m;
+    }
+    var dMul = 1;
+    if (P.habitatDriftAmp > 0 && P.habitatDrift > 0) {
+      var dk = K > 1 ? K : 4, dx0 = Math.floor((x - cont.x) / Math.max(1, cont.w) * dk), dy0 = Math.floor((y - cont.y) / Math.max(1, cont.h) * dk);
+      var ph = 2 * Math.PI * P.habitatDrift * habT, off = 2 * Math.PI * habHash(dx0, dy0);
+      dMul = 1 + P.habitatDriftAmp * (0.6 * Math.sin(ph + off) + 0.4 * Math.sin(1.618 * ph + 2 * off));
+    }
+    var sunMul = Math.max(P.habitatDriftFloor, niche * dMul); // the drift never starves the dish: sun multiplier has a floor
+    return { sun: sunMul, dec: 1 + (1 - Math.min(1, sunMul)) }; // lean times rot faster
+  }
   var ateHueV = null; // decayed memory of eaten-dot hues: the dominant eaten-food colour
   function habReap(c) { // one spliced cell -> one nutrient pulse into the dots around it (absorbed = eaten/fused: biomass stayed in a cell)
     if (!P.habitatOn || !c || c.absorbed) return;
@@ -1374,12 +1402,14 @@
     var dt = dtf / 1000, i, f;
     var x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h, inPlate = 0;
     for (i = 0; i < cells.length; i++) { var c = cells[i]; if (c.alive && c.x > x0 && c.x < x1 && c.y > y0 && c.y < y1) inPlate++; }
+    habT += dt;
     var seeding = inPlate <= P.habitatFloor && cells.length < P.UNIVERSE_SIZE, sun = P.habitatSun, conv = P.habitatConv * dt * cont.w * cont.h / Math.max(1, W * H);
     for (i = food.length - 1; i >= 0; i--) {
       f = food[i];
       if (f.worm || f.spore || f.blob) continue; // mode-owned bodies stay their mode's business
-      if (f.fed > 0 && P.habitatFedDecay > 0) f.fed = Math.max(0, f.fed - P.habitatFedDecay * dt);
-      if (sun > 0 && f.x > x0 && f.x < x1 && f.y > y0 && f.y < y1) f.fed = (f.fed || 0) + sun * dt;
+      var fld = habField(f.x, f.y);
+      if (f.fed > 0 && P.habitatFedDecay > 0) f.fed = Math.max(0, f.fed - P.habitatFedDecay * fld.dec * dt);
+      if (sun > 0 && f.x > x0 && f.x < x1 && f.y > y0 && f.y < y1) f.fed = (f.fed || 0) + sun * fld.sun * dt;
       if (seeding && (f.fed || 0) >= P.habitatFedMin && Math.random() < conv) { habSeed(f); f.gone = 1; food.splice(i, 1); }
     }
   }
@@ -1789,7 +1819,10 @@
       ['habitatFedMin', 'seed fed threshold', 0, 200, 1], ['habitatConv', 'seed rate (dot s, full-screen dish)', 0, 50, 0.1], ['habitatSeedR', 'seed size (x cell r)', 0.05, 2, 0.05], ['habitatMut', 'seed colour mutation', 0, 1, 0.01],
       ['habitatSun', 'food sunlight (fed per s)', 0, 20, 0.1], ['habitatDeadFed', 'corpse nutrient (fed)', 0, 50, 0.5], ['habitatDeadR', 'corpse radius (x dish w)', 0, 1, 0.01], ['habitatDeadCol', 'corpse colour transfer', 0, 1, 0.01],
       ['habitatHueK', 'eaten colour memory', 0, 1, 0.01], ['habitatFloor', 'seeding below N cells', 0, 20, 1],
-      ['habitatFedDecay', 'fed decay (per s)', 0, 10, 0.05], ['cellLife', 'lifespan s (0 = none)', 0, 900, 5], ['cellLifeVar', 'lifespan spread', 0, 1, 0.05]]],
+      ['habitatFedDecay', 'fed decay (per s)', 0, 10, 0.05], ['habitatBirthCap', 'birth cap (x universe)', 0, 10, 0.1],
+      ['habitatNiches', 'niche grid (per axis)', 0, 8, 1], ['habitatNicheSun', 'niche sun spread', 0, 1, 0.05], ['habitatNicheMix', 'niche edge smoothing', 0, 1, 0.05],
+      ['habitatDrift', 'env drift (cycles per s)', 0, 1, 0.005], ['habitatDriftAmp', 'env drift amplitude', 0, 1, 0.05], ['habitatDriftFloor', 'drift sun floor', 0, 1, 0.05],
+      ['cellLife', 'lifespan s (0 = none)', 0, 900, 5], ['cellLifeVar', 'lifespan spread', 0, 1, 0.05]]],
     ['biology', [
       ['crowdTol', 'crowding tolerance', 0, 5, 0.05], ['orgLifeDie', 'organic death pull', -0.1, 0, 0.001], ['orgLifeGrow', 'organic life push', 0, 2, 0.0025], ['orgBirth', 'organic birth push', 0, 2, 0.005],
       ['orgDead', 'organic dead decay', -0.1, 0, 0.0005], ['orgBrain', 'pair brain push', 0, 0.1, 0.001], ['orgR90', 'flanked push', 0, 0.05, 0.0005],
