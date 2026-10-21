@@ -2649,13 +2649,15 @@
     var dealW = 0, dealH = 0;
     function dealPortrait() {
       var c = window.__ca2.cont; if (!c || c.user) return; // a hand-pulled size is the owner's, never override it
-      // per-axis scales against the rotated reference: a single min() scale lets the width ratio shrink the height deal,
-      // while the safe band grows with H - that mismatch is exactly the squatting the owner measured on phones
-      var VSw = window.innerWidth / 800, VSh = window.innerHeight / 1280;
+      // deal against the band itself: probe the clamp ceilings, then deal the desktop's own ratios of them.
+      // Desktop height deals run 2160/8 .. 5120/7.5 = 270..731 against a ~580 ceiling (0.47..1.26x), so top deals fill
+      // the band; a window-ratio scale (VSh) shrinks the deal on phones while the band grows with H - the squatting.
+      c.rawW = 1e9; c.rawH = 1e9; window.__ca2.clampTargets(); // targets clamp to the band ceilings; eased plate barely moves in one frame
+      var ceilW = c.tw, ceilH = c.th;
       var cWHf = 7 + Math.floor(Math.random() * 2);
       var a = Math.floor(Math.random() * 2) === 0 ? 5120 : 2160, b = Math.floor(Math.random() * 2) === 0 ? 5120 : 2160;
-      c.rawW = b / cWHf * VSw;
-      c.rawH = a / (cWHf + Math.trunc(Math.random() * 4.5 - 3.5)) * VSh;
+      c.rawH = b / cWHf * (ceilH / 580); // desktop's height-deal-to-ceiling ratio, mirrored tall
+      c.rawW = a / (cWHf + Math.trunc(Math.random() * 4.5 - 3.5)) * (ceilW / 1138); // desktop's width ratio (5120/4.5 = 1138 top deal)
       window.__ca2.clampTargets();
       dealW = c.rawW; dealH = c.rawH;
     }
