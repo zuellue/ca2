@@ -40,6 +40,8 @@
   var DEFAULTS = JSON.parse(JSON.stringify(P));
   var autoRefresh = true, lockParams = false;
   var BGS = [[233,233,233],[22,22,22],[255,0,0],[0,255,0],[0,0,255]];
+  // title-circle hover colors: the palette's own black (22,22,22 - not pitch black) and white, plus its R G B (owner 21 Oct)
+  var CIRCLE_COLS = [[22,22,22],[255,255,255],[255,0,0],[0,255,0],[0,0,255]];
   var bgIndex = 0, bg = [255,255,255], bgTarget = [233,233,233];
   
   var ready = false, parasites = [], clusterSeq = 0, env = { spd: 1, app: 0.5, bnd: 1, col: null }, cmean = {};
@@ -1333,10 +1335,11 @@
           }
         }
       });
-      if (hitKey && hitKey !== lastCircleHit) { circleCol[hitKey] = Math.random() < 0.5 ? 0 : 255; targetCursorScale = 3.5; cursorScale = 3.5; }
-      if (!hitKey && lastCircleHit && !P.circleHold) delete circleCol[lastCircleHit];
+      if (hitKey && hitKey !== lastCircleHit) { circleCol[hitKey] = CIRCLE_COLS[(Math.random() * CIRCLE_COLS.length) | 0]; targetCursorScale = 3.5; cursorScale = 3.5; }
+      // hold off: the circle the cursor LEFT reverts too, not only the last one when nothing is hovered (direct circle-to-circle moves used to leave the old color stuck)
+      if (lastCircleHit && lastCircleHit !== hitKey && !P.circleHold) delete circleCol[lastCircleHit];
       lastCircleHit = hitKey || '';
-      circlesNow.forEach(function (c) { var v = circleCol[c.key]; if (v !== undefined) { ctx.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')'; ctx.beginPath(); ctx.arc(c.x, c.y, c.r + 0.6, 0, 6.2832); ctx.fill(); } });
+      circlesNow.forEach(function (c) { var v = circleCol[c.key]; if (v !== undefined) { ctx.fillStyle = css(v); ctx.beginPath(); ctx.arc(c.x, c.y, c.r + 0.6, 0, 6.2832); ctx.fill(); } });
       if (hitKey) titleHit = { c: hitC, v: circleCol[hitKey] };
     }
     if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 4) drawWorms(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 5) drawSpores(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) if (food[i].r < P.foodShow && introOn(CELL_END + food[i].r * (FOOD_END - CELL_END))) ctx.fillRect(food[i].x - fh, food[i].y - fh, fs, fs); ctx.globalAlpha = 1; } // food first: it sits under the cells
@@ -1383,13 +1386,13 @@
     if (hovering && mouse.over && hoverCell) { curOn = true; var mxr = 0; for (var q = 0; q < cells.length; q++) { var cq = cells[q]; if (cq.alive && cq.x > cont.x && cq.x < cont.x + cont.w && cq.y > cont.y && cq.y < cont.y + cont.h && cq.radius > mxr) mxr = cq.radius; }
       curMaxR += (mxr - curMaxR) * 0.3; curRR = Math.max(3, curMaxR * P.cursorSize);
       var tnow = performance.now(); if (hoverCell !== lockCell) { lockCell = hoverCell; lockT0 = tnow; } curCol = css(hoverCol, 1); }
-    else if (titleHit) { curOn = true; curRR = Math.max(5, titleHit.c.r * 0.55 * (0.8 + 0.2 * cursorScale)); var iv = 255 - titleHit.v; curCol = 'rgb(' + iv + ',' + iv + ',' + iv + ')'; }
+    else if (titleHit) { curOn = true; curRR = Math.max(5, titleHit.c.r * 0.55 * (0.8 + 0.2 * cursorScale)); var iv = [255 - titleHit.v[0], 255 - titleHit.v[1], 255 - titleHit.v[2]]; curCol = css(iv); }
     var ringOn = curOn;
     if (!curOn && mouse.over && !panel.matches(':hover')) { curOn = true; dotOnly = true; }
     if (curOn) {
       curEl.style.display = 'block'; curRRnow = curRR;
       curEl.style.width = curEl.style.height = (curRR * 2) + 'px'; curEl.style.borderWidth = dotOnly ? '0px' : LW() + 'px'; curEl.style.borderColor = curCol;
-      var dp = 4.4, dcol = titleHit && !(hovering && hoverCell) ? 'rgb(' + (255 - titleHit.v) + ',' + (255 - titleHit.v) + ',' + (255 - titleHit.v) + ')' : css(invAt(mouse.x, mouse.y), 1); curDot.style.width = curDot.style.height = dp + 'px'; curDot.style.background = dcol; curDot.style.display = ''; curInfo3 = { dot: dcol, dp: dp };
+      var dp = 4.4, dcol = titleHit && !(hovering && hoverCell) ? css([255 - titleHit.v[0], 255 - titleHit.v[1], 255 - titleHit.v[2]]) : css(invAt(mouse.x, mouse.y), 1); curDot.style.width = curDot.style.height = dp + 'px'; curDot.style.background = dcol; curDot.style.display = ''; curInfo3 = { dot: dcol, dp: dp };
       var tx = mouse.x, ty = mouse.y, locked = P.cursorLockMs > 0 && hovering && lockCell && lockCell.alive && performance.now() - lockT0 < P.cursorLockMs;
       if (locked) { tx = lockCell.x; ty = lockCell.y; }
       var sens = clamp(P.cursorSens, 0.05, 1), ke = locked ? Math.min(1, sens + 0.1) : sens; curX = curOn0 ? curX + (tx - curX) * ke : tx; curY = curOn0 ? curY + (ty - curY) * ke : ty; curOn0 = true; curInfo2 = { locked: locked, x: curX, y: curY, lx: lockCell ? lockCell.x : 0, ly: lockCell ? lockCell.y : 0 };
