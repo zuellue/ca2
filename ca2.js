@@ -1406,9 +1406,14 @@
       // the left/right numbers on the middle axis - measured ink bands, not a fixed threshold - the numbers leave the
       // axis line and sit on the title's 3rd line, riding down with it as it grows. No overlap: nothing moves. The
       // axis line and the axis centre never move. (Ink bands: digits/caps have no descenders, so a row's ink is
-      // [baseline-dh, baseline].)
+      // [baseline-dh, baseline].) Guard (mobile team edge case, 780x360 ts4): when the page is so short that the 3rd
+      // line itself already reaches the bottom numbers row, the move would interleave the numbers with that row -
+      // the same collision the rule exists to prevent - so the numbers keep their natural place instead.
       var topBase = M + dh, botBase = H - M, midBase = cym + dh / 2;
-      if (L.three && topBase + 2 * L.lead > midBase - dh) midBase = topBase + 2 * L.lead;
+      if (L.three) {
+        var yRow = topBase + 2 * L.lead;
+        if (yRow > midBase - dh && yRow <= botBase - dh) midBase = yRow;
+      }
       if (L.three) { // CELLULAR / AUTOMATA / mouse-y, ink-centred, baseline step = cap height + the letter space x the line-space knob
         put(TL, eased.title, 'center', cxm, topBase, L.ex);
         put(TR, eased.title, 'center', cxm, topBase + L.lead, L.ex);
