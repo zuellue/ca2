@@ -2782,7 +2782,8 @@
         + (inFrame ? '#adm{display:none!important}' : '')
         + 'body[data-camode="m"]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}' // keep iOS from interrupting the 5s hold
         + 'body[data-camode="m"]:not(.ca2admin) button[data-ca2save]{display:none!important}' // no admin trace for visitors (owner 21 Oct)
-        + 'body[data-camode="m"] #secc .sl{margin-top:8px}'; // mobile section-button spacing halved (owner 21 Oct: the gap was too wide, cut to half) - the gap lives in the label margin (16px desktop, untouched), the circle size and --sd are unchanged
+        + 'body[data-camode="m"] #secc .sl{margin-top:8px}' // mobile section-button spacing halved
+        + 'body[data-camode="m"] #secc{overflow:visible}'; // the hover division was clipped at the lane edge (owner 21 Oct): overflow-y:auto forced overflow-x to clip the wandering pieces to the button width. All 12 items fit every supported phone, so the lane needs no scroll on mobile (owner 21 Oct: the gap was too wide, cut to half) - the gap lives in the label margin (16px desktop, untouched), the circle size and --sd are unchanged
       document.head.appendChild(pst);
       var pinSave = function () {
         var m = (window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm' && !inFrame && !!window.__adminOn;
