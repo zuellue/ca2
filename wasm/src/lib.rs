@@ -217,7 +217,7 @@ pub extern "C" fn mb_field_f32(n: usize, bw: usize, bh: usize, s: f64, ms: f64, 
 
 #[no_mangle] pub extern "C" fn bs_alloc(cap: usize) -> *mut f64 { bs::bs().cap(cap).0 }
 #[no_mangle] pub extern "C" fn bs_out() -> *const f32 { bs::bs().out.as_ptr() }
-#[no_mangle] pub extern "C" fn bs_run(n: usize, elapsed: f64, t0: f64, cx: f64, cy: f64, cw: f64, ch: f64, cell_shapes: f64, src_max: f64) -> f64 { bs::bs().run(n, elapsed, t0, cx, cy, cw, ch, cell_shapes != 0.0, src_max) as f64 }
+#[no_mangle] pub extern "C" fn bs_run(n: usize, elapsed: f64, t0: f64, cx: f64, cy: f64, cw: f64, ch: f64, cell_shapes: f64, src_max: f64, bgap: f64) -> f64 { bs::bs().run(n, elapsed, t0, cx, cy, cw, ch, cell_shapes != 0.0, src_max, bgap) as f64 }
 #[no_mangle] pub extern "C" fn bs_stat() -> *const f64 { bs::bs().stat.as_ptr() }
 
 #[no_mangle] pub extern "C" fn tr_cells(cap: usize) -> *mut f64 { let s = tr::tr(); s.cells.resize(cap * 13 + 13, 0.0); s.cells.as_mut_ptr() }

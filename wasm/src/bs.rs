@@ -20,7 +20,8 @@ impl Bs {
         (self.rows.as_mut_ptr(), self.out.as_mut_ptr())
     }
     #[allow(clippy::too_many_arguments)]
-    pub fn run(&mut self, n: usize, elapsed: f64, t0: f64, cx: f64, cy: f64, cw: f64, ch: f64, cell_shapes: bool, src_max: f64) -> i64 {
+    #[allow(clippy::too_many_arguments)]
+    pub fn run(&mut self, n: usize, elapsed: f64, t0: f64, cx: f64, cy: f64, cw: f64, ch: f64, cell_shapes: bool, src_max: f64, bgap: f64) -> i64 {
         self.stat = [0.0; 4];
         if self.rows.len() < n * 17 { return -1; }
         let mut alive = 0i64;
@@ -41,9 +42,13 @@ impl Bs {
             let (wr, wg, wb) = (self.rows[b + 14], self.rows[b + 15], self.rows[b + 16]);
             let sht = self.rows[b + 5];
             let start = m;
+            // wall squeeze (desktop fix 625f4e8): drawn body never crosses the gap line
+            let gap2 = 0f64.max(bgap);
+            let rfree = 1f64.max((bx - gap2).min(cw - gap2 - bx).min(by - gap2).min(ch - gap2 - by));
+            let cr = radius.min(1f64.max(rfree)) * (1.0 - 0.18 * (1.0 - 0f64.max(rfree - radius) / 8.0).max(0.0).min(1.0));
             if cell_shapes && sht == 1.0 && allowance > 1.0 {
                 let th = self.rows[b + 6]; let asp = self.rows[b + 7];
-                let rs = radius * th; let span = 2.0 * radius * th * (asp - 1.0);
+                let rs = cr * th; let span = 2.0 * cr * th * (asp - 1.0);
                 let want = (9f64).min((2f64).max((span / (1.15 * rs)).round() + 1.0));
                 let nn = want.min(allowance) as i64;
                 if nn >= 2 {
@@ -58,20 +63,20 @@ impl Bs {
                 }
             } else if cell_shapes && sht == 2.0 && allowance > 2.0 {
                 let wsp = self.rows[b + 9]; let ph = self.rows[b + 10]; let sat = self.rows[b + 12] as i64; let ph2 = self.rows[b + 13];
-                let r0 = radius * 0.78; let rot = t0 / 4200.0 * wsp + ph;
+                let r0 = cr * 0.78; let rot = t0 / 4200.0 * wsp + ph;
                 if m >= c12 { return -1; }
                 self.out[m] = bx as f32; self.out[c12 + m] = by as f32; self.out[2 * c12 + m] = r0 as f32; m += 1;
                 for q2 in 0..sat {
                     let aa = rot + q2 as f64 * 2.4 + ph2;
-                    let dd = radius * (0.42 + 0.24 * ((q2 as f64 * 0.731 + ph) % 1.0));
-                    let rr2 = radius * (0.3 + 0.22 * ((q2 as f64 * 0.377 + ph2) % 1.0));
+                    let dd = cr * (0.42 + 0.24 * ((q2 as f64 * 0.731 + ph) % 1.0));
+                    let rr2 = cr * (0.3 + 0.22 * ((q2 as f64 * 0.377 + ph2) % 1.0));
                     if m >= c12 { return -1; }
                     self.out[m] = (bx + aa.cos() * dd) as f32; self.out[c12 + m] = (by + aa.sin() * dd) as f32; self.out[2 * c12 + m] = rr2 as f32; m += 1;
                 }
             }
             if m == start { // default single disc
                 if m >= c12 { return -1; }
-                self.out[m] = bx as f32; self.out[c12 + m] = by as f32; self.out[2 * c12 + m] = radius as f32; m += 1;
+                self.out[m] = bx as f32; self.out[c12 + m] = by as f32; self.out[2 * c12 + m] = cr as f32; m += 1;
             }
             for k in start..m { self.out[3 * c12 + k] = wr as f32; self.out[4 * c12 + k] = wg as f32; self.out[5 * c12 + k] = wb as f32; }
         }

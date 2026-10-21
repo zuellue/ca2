@@ -32,6 +32,7 @@ const P_SYMG: usize = 30; const P_EGAIN: usize = 31; const P_GMIN: usize = 32; c
 const P_GMUT: usize = 36; const P_MRR: usize = 37; const P_MBS: usize = 38; const P_ESPD: usize = 39; const P_EAPP: usize = 40; const P_EBND: usize = 41;
 const P_ECOL: usize = 42; const P_EC0: usize = 43; const P_MX: usize = 46; const P_MY: usize = 47; const P_MOVER: usize = 48; const P_CX: usize = 49; const P_CY: usize = 50;
 const P_CW: usize = 51; const P_CH: usize = 52; const P_RDRAG: usize = 53; const P_CLSEQ: usize = 54; const P_NCM: usize = 55; const P_ONLYINT: usize = 56; // debug: 1 = interact only, 2 = keepIn only (isolation tests; 0 = normal)
+const P_BGAP: usize = 57; // boundGap: wall distance for every cell independent of cell r (desktop fix 625f4e8). 44/45 are env.col g/b (P_EC0+1/+2)
 // out indices
 // 0 birth 1 divide 2 eaten 3 merge 4 fuse 5 pair 6 hit 7 oob 8 ate 9 death 10 clusterSeq 11 hovering 12-14 hoverCol 15 n_final
 
@@ -160,11 +161,12 @@ impl Sim {
     fn keep_in(&mut self, c: usize) {
         let (cx, cy, cw, ch) = (self.p[P_CX], self.p[P_CY], self.p[P_CW], self.p[P_CH]);
         let rad = self.g(c, RAD);
-        let r = rad.min(cw.min(ch) * 0.45);
+        let gap = 0f64.max(self.p[P_BGAP]); let rfit = 8f64.max(cw.min(ch) / 2.0 - gap);
+        let r = rad.min(rfit);
         let bnd = if self.p[P_GENOME] != 0.0 { self.g(c, GBND) } else { 1.0 };
         let z = 0f64.max((self.p[P_BZONE] * bnd).min(cw / 2.5).min(ch / 2.5));
         let f = self.p[P_BFORCE]; let ms = self.g(c, MAXS) + 1.0;
-        let (x0, x1, y0, y1) = (cx + r, cx + cw - r, cy + r, cy + ch - r);
+        let (x0, x1, y0, y1) = (cx + r + gap, cx + cw - r - gap, cy + r + gap, cy + ch - r - gap);
         let (mut x, mut y, mut vx, mut vy) = (self.g(c, X), self.g(c, Y), self.g(c, VX), self.g(c, VY));
         let mut d; let mut t;
         d = x - x0; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vx += f * t * t * ms * 0.25; if vx < 0.0 { vx *= 1.0 - 0.25 * t; } }
@@ -172,10 +174,10 @@ impl Sim {
         d = y - y0; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vy += f * t * t * ms * 0.25; if vy < 0.0 { vy *= 1.0 - 0.25 * t; } }
         d = y1 - y; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vy -= f * t * t * ms * 0.25; if vy > 0.0 { vy *= 1.0 - 0.25 * t; } }
         let mut ex;
-        if x < x0 { ex = x0 - x; if ex > 40.0 { x += ex * 0.3; vx = vx.abs(); } else { x = x0 + ex; vx = vx.abs() * 0.7; } }
-        else if x > x1 { ex = x - x1; if ex > 40.0 { x -= ex * 0.3; vx = -vx.abs(); } else { x = x1 - ex; vx = -vx.abs() * 0.7; } }
-        if y < y0 { ex = y0 - y; if ex > 40.0 { y += ex * 0.3; vy = vy.abs(); } else { y = y0 + ex; vy = vy.abs() * 0.7; } }
-        else if y > y1 { ex = y - y1; if ex > 40.0 { y -= ex * 0.3; vy = -vy.abs(); } else { y = y1 - ex; vy = -vy.abs() * 0.7; } }
+        if x < x0 { ex = x0 - x; if ex > 40.0 { x = x1.min(x + ex * 0.3); vx = vx.abs(); } else { x = x1.min(x0 + ex); vx = vx.abs() * 0.7; } }
+        else if x > x1 { ex = x - x1; if ex > 40.0 { x = x0.max(x - ex * 0.3); vx = -vx.abs(); } else { x = x0.max(x1 - ex); vx = -vx.abs() * 0.7; } }
+        if y < y0 { ex = y0 - y; if ex > 40.0 { y = y1.min(y + ex * 0.3); vy = vy.abs(); } else { y = y1.min(y0 + ex); vy = vy.abs() * 0.7; } }
+        else if y > y1 { ex = y - y1; if ex > 40.0 { y = y0.max(y - ex * 0.3); vy = -vy.abs(); } else { y = y0.max(y1 - ex); vy = -vy.abs() * 0.7; } }
         self.set(c, X, x); self.set(c, Y, y); self.set(c, VX, vx); self.set(c, VY, vy);
     }
     fn update(&mut self, c: usize) {

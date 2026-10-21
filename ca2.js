@@ -567,7 +567,7 @@
         else if (c.gene < -2) { rb[b + 14] = 0; rb[b + 15] = 1; rb[b + 16] = 0; }
         else { rb[b + 14] = 0; rb[b + 15] = 0; rb[b + 16] = 1; }
       }
-      var m = E.bs_run(n, elapsed, t0, cont.x, cont.y, cont.w, cont.h, P.cellShapes ? 1 : 0, SRC_MAX);
+      var m = E.bs_run(n, elapsed, t0, cont.x, cont.y, cont.w, cont.h, P.cellShapes ? 1 : 0, SRC_MAX, P.boundGap || 0);
       if (m < 0) return false;
       var st = new Float64Array(WC.mem.buffer, E.bs_stat(), 4), ob = E.bs_out(), c12 = st[2];
       srcGrow(m + 8);
@@ -629,6 +629,7 @@
       var pi = 0; p[0] = P.interactionRadius; p[1] = P.slowDownRadius; p[2] = P.speedReductionFactor; p[3] = P.baseMaxSpeed; p[4] = P.maxSpeedVariation; p[5] = P.energyConsumptionRate; p[6] = P.selectOn ? 1 : 0; p[7] = P.genomeOn ? 1 : 0; p[8] = P.selStrength; p[9] = P.eatMergeOn ? 1 : 0; p[10] = P.clusterCohesion; p[11] = P.symbiosisOn ? 1 : 0; p[12] = P.foodEatR; p[13] = P.foodEnergyValue; p[14] = P.foodGrow ? 1 : 0; p[15] = P.foodGrowAmt; p[16] = P.CELL_RADIUS; p[17] = P.foodGrowMax; p[18] = P.divideOn ? 1 : 0; p[19] = P.divideAt; p[20] = P.UNIVERSE_SIZE; p[21] = P.foodShrink; p[22] = P.boundAware ? 1 : 0; p[23] = P.boundZone; p[24] = P.boundForce; p[25] = P.restless; p[26] = P.eatRatio; p[27] = P.eatChance; p[28] = P.mergeGene; p[29] = P.mergeChance; p[30] = P.symbiogenesisOn ? 1 : 0; p[31] = P.energyGainFromInteraction; p[32] = P.GENE_MIN; p[33] = P.GENE_MAX; p[34] = P.minEnergyForReproduction; p[35] = P.clusterMax; p[36] = P.genomeMut; p[37] = P.mutationRateRange; p[38] = P.metaballStrength;
       p[39] = env.spd; p[40] = env.app; p[41] = env.bnd; p[42] = env.col ? 1 : 0; if (env.col) { p[43] = env.col[0]; p[44] = env.col[1]; p[45] = env.col[2]; }
       p[46] = mouse.x; p[47] = mouse.y; p[48] = mouse.over ? 1 : 0; p[49] = cont.x; p[50] = cont.y; p[51] = cont.w; p[52] = cont.h; p[53] = resizeDrag ? 1 : 0; p[54] = clusterSeq;
+      p[57] = P.boundGap || 0; // boundGap slot for sim.rs keep_in (625f4e8 port); 44/45 are env.col
       var tp = performance.now(); E.sim_step(Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
       var ts = performance.now(); SIMW.pack = (SIMW.pack || 0) * 0.9 + (tp - t0) * 0.1; SIMW.step = (SIMW.step || 0) * 0.9 + (ts - tp) * 0.1;
       var o = new Float64Array(WC.mem.buffer, E.sim_out(), 32), nf2 = o[15];
