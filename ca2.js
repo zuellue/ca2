@@ -432,9 +432,9 @@
       if (!touched.baseMutationRate) P.baseMutationRate = rnd(2, 8);
       if (!touched.mutationRateRange) P.mutationRateRange = rnd(1, 4);
       if (!touched.interactionRadius) P.interactionRadius = lockParams ? rnd(0.1, 20) : rnd(10, 30);
-      if (!touched.CELL_RADIUS) P.CELL_RADIUS = rnd(P.minRadius, P.maxRadius);
     }
     setTargets();
+    if (!firstSpawn && !touched.CELL_RADIUS) P.CELL_RADIUS = Math.min(rnd(P.minRadius, P.maxRadius), Math.max(8, Math.min(cont.tw, cont.th) / 8)); // same isotropy guard as startTrans
     if (staged) { // the opening: typography first, the heavy population follows in batches (owner 20 Oct)
       pendingSpawn = { cells: Math.max(1, Math.round(P.UNIVERSE_SIZE)), food: Math.round(cont.tw * cont.th * P.foodDensity / 2), gx: cont.tw ? (W - cont.tw) / 2 : 0, gy: cont.th ? (H - cont.th) / 2 : 0 };
       newRefresh();
@@ -458,9 +458,12 @@
       mut: touched.baseMutationRate ? P.baseMutationRate : rnd(2, 8),
       mr: touched.mutationRateRange ? P.mutationRateRange : rnd(1, 4),
       ir: touched.interactionRadius ? P.interactionRadius : (lockParams ? rnd(0.1, 20) : rnd(10, 30)),
-      cr: touched.CELL_RADIUS ? P.CELL_RADIUS : rnd(P.minRadius, P.maxRadius)
+      cr: 0
     };
     setTargets();
+    // isotropy guard (owner 21 Oct 15:14): a dealt radius must leave the plate's short side at least 4 cell
+    // diameters across - below that the swarm is forced into single-file rows/columns (desktop rows, mobile columns)
+    tg.cr = touched.CELL_RADIUS ? P.CELL_RADIUS : Math.min(rnd(P.minRadius, P.maxRadius), Math.max(8, Math.min(cont.tw, cont.th) / 8));
     // food outside the new plate is lost, the rest stays
     var x0 = (W - cont.tw) / 2, y0 = (H - cont.th) / 2; if (!P.foodLife) food = food.filter(function (f) { return f.x > x0 && f.x < x0 + cont.tw && f.y > y0 && f.y < y0 + cont.th; });
     if (P.selectOn) newEnv();
