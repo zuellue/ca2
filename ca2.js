@@ -2034,6 +2034,7 @@
     it.addEventListener('click', function (e) {
       e.stopPropagation();
       if (sec.name === 'config') { solo(null); panel.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+      if (sec.name === 'perf') { perfOn = !perfOn; lastSync = 0; return; } // perf appends its rows under the config stats in place; nothing else moves (owner 21 Oct)
       // one click: only this section stays visible, smooth-scrolled so its header middle sits on the circle's middle
       solo(sec);
       var pR = panel.getBoundingClientRect(), cR = it.getBoundingClientRect(), hR = sec.hdr.getBoundingClientRect();
@@ -2042,7 +2043,7 @@
     });
   }
   // solo view: a section circle shows only its own section; the CONFIG circle brings everything back
-  var soloSec = null;
+  var soloSec = null, perfOn = false, statGeom = null;
   function solo(sec) {
     soloSec = sec || null;
     SECS.forEach(function (s2) {
@@ -2232,32 +2233,70 @@
       }
     });
     box.addEventListener('keydown', function (e) { e.stopPropagation(); });
-    window.addEventListener('dblclick', function () {
-      if (!/^R0_/.test(lastCircleHit || '')) return;
+    var admIv = null, admT0 = 0, admPX = 0, admPY = 0;
+    var admStop = function () { if (admIv) { clearInterval(admIv); admIv = null; } };
+    // direct hit test against the live circles: on touch there is no hover frame before the press, so lastCircleHit cannot be trusted at pointerdown
+    var admDotHit = function (x, y) { for (var i = 0; i < circlesNow.length; i++) { var c = circlesNow[i]; if (/^R0_/.test(c.key) && Math.hypot(x - c.x, y - c.y) < c.r) return true; } return false; };
+    window.addEventListener('pointermove', function (e) { admPX = e.clientX; admPY = e.clientY; }, { passive: true });
+    var admToggle = function () {
       if (admin) { admin = null; window.__adminOn = false; admShow(false); }
       else if (!adm.classList.contains('on')) admShow(true);
       else admShow(false);
+    };
+    window.addEventListener('pointerdown', function (e) {
+      admStop();
+      admPX = e.clientX; admPY = e.clientY;
+      if (!admDotHit(admPX, admPY)) return;
+      admT0 = performance.now();
+      admIv = setInterval(function () {
+        if (!admDotHit(admPX, admPY)) { admStop(); return; }
+        if (performance.now() - admT0 < 5000) return;
+        admStop();
+        admToggle();
+      }, 100);
     });
+    // release fallback: on a janky main thread the 100ms interval can be delayed past the release - a completed 5s hold must still toggle
+    window.addEventListener('pointerup', function (e) {
+      if (!admIv) return;
+      admStop();
+      if (performance.now() - admT0 >= 5000 && admDotHit(e.clientX, e.clientY)) admToggle();
+    });
+    window.addEventListener('pointercancel', admStop);
   })();
   function syncUI(total) {
     placeCircles();
     var now = performance.now(); if (now - lastSync < 300) return; lastSync = now;
-    statsEl.innerHTML = '<span>Cells</span><span class="n">' + total + '</span><span>Universe</span><span class="n">' + Math.round(P.UNIVERSE_SIZE) + '</span><span>Refresh S</span><span class="n">' + Math.round(Math.max(0, refreshInterval - (now - lastRefresh) / 1000)) + '</span><span>FPS</span><span class="n">' + Math.round(fps) + '</span><span>Res</span><span class="n">' + Math.round(res * 100) + '</span>';
-    if (soloSec === perfSec) {
+    statsEl.innerHTML = '<span>Cells</span><span class="n">' + total.toFixed(2) + '</span><span>Universe</span><span class="n">' + P.UNIVERSE_SIZE.toFixed(2) + '</span><span>Refresh S</span><span class="n">' + Math.max(0, refreshInterval - (now - lastRefresh) / 1000).toFixed(2) + '</span><span>FPS</span><span class="n">' + fps.toFixed(2) + '</span><span>Res</span><span class="n">' + (res * 100).toFixed(2) + '</span>';
+    if (perfOn) { // the perf circle appends its rows under the config stats - no solo, nothing above moves (owner 21 Oct)
       var pf1 = function (k) { return PF[k] === undefined ? '...' : PF[k].toFixed(2); };
-      statsEl.innerHTML += '<span>Frame</span><span class="n">' + frameMs.toFixed(1) + '</span><span>Setup</span><span class="n">' + pf1('setup') + '</span><span>Sim UI</span><span class="n">' + pf1('sim+ui draw') + '</span><span>Grain Rest</span><span class="n">' + pf1('grain+rest') + '</span><span>GPU: Draw+Field</span><span class="n">' + pf1('gpu:draw+field') + '</span><span>GPU: Draw Image</span><span class="n">' + pf1('gpu:drawImage') + '</span>';
+      statsEl.innerHTML += '<span>Frame</span><span class="n">' + frameMs.toFixed(2) + '</span><span>Setup</span><span class="n">' + pf1('setup') + '</span><span>Sim UI</span><span class="n">' + pf1('sim+ui draw') + '</span><span>Grain Rest</span><span class="n">' + pf1('grain+rest') + '</span><span>GPU: Draw+Field</span><span class="n">' + pf1('gpu:draw+field') + '</span><span>GPU: Draw Image</span><span class="n">' + pf1('gpu:drawImage') + '</span>';
     }
-    // stats font tracks the config width: the whole block (labels AND the 54px Ca2-Thin values) scales down only when a row would overflow (owner 21 Oct)
-    statsEl.style.fontSize = '';
+    // fixed geometry: the label column and every value field are pinned (probed once per font) and the fit only measures the base rows, so a changing value or the perf toggle never moves a row
+    statsEl.style.fontSize = ''; statsEl.style.gridTemplateColumns = '';
     var ns2 = statsEl.querySelectorAll('.n'), ni2;
-    for (ni2 = 0; ni2 < ns2.length; ni2++) ns2[ni2].style.fontSize = '';
-    var sW = statsEl.scrollWidth, cW = statsEl.clientWidth;
-    if (cW > 0 && sW > cW) {
-      var fit = (cW - 12) / Math.max(1, sW - 12);
-      statsEl.style.fontSize = (Math.max(7, Math.floor(13 * fit * 10) / 10)) + 'px';
-      for (ni2 = 0; ni2 < ns2.length; ni2++) ns2[ni2].style.fontSize = Math.max(12, Math.floor(54 * fit)) + 'px';
-      if (statsEl.scrollWidth > cW) { var fit2 = cW / statsEl.scrollWidth; for (ni2 = 0; ni2 < ns2.length; ni2++) { var cur = parseFloat(ns2[ni2].style.fontSize) || 54; ns2[ni2].style.fontSize = Math.max(12, Math.floor(cur * fit2)) + 'px'; } }
+    for (ni2 = 0; ni2 < ns2.length; ni2++) { ns2[ni2].style.fontSize = ''; ns2[ni2].style.width = ''; }
+    var labFs0 = parseFloat(getComputedStyle(statsEl).fontSize) || 13, valFs0 = ns2.length ? parseFloat(getComputedStyle(ns2[0]).fontSize) || 54 : 54;
+    if (!statGeom || statGeom.key !== labFs0 + '|' + getComputedStyle(statsEl).fontFamily) {
+      statGeom = { key: labFs0 + '|' + getComputedStyle(statsEl).fontFamily, labEm: 0, baseLabEm: 0, valEm: 0, rowW0: 0 };
+      var prb = document.createElement('div'); prb.className = 'stats'; prb.style.cssText = 'position:absolute;visibility:hidden;left:-9999px;top:0'; document.body.appendChild(prb);
+      var lbls = ['Cells', 'Universe', 'Refresh S', 'FPS', 'Res'], plbls = ['Frame', 'Setup', 'Sim UI', 'Grain Rest', 'GPU: Draw+Field', 'GPU: Draw Image'], wMax = 0, wBase = 0;
+      for (var pi2 = 0; pi2 < lbls.length; pi2++) { var ps = document.createElement('span'); ps.textContent = lbls[pi2]; prb.appendChild(ps); wMax = Math.max(wMax, ps.getBoundingClientRect().width); prb.removeChild(ps); }
+      wBase = wMax;
+      for (var pi3 = 0; pi3 < plbls.length; pi3++) { var ps2 = document.createElement('span'); ps2.textContent = plbls[pi3]; prb.appendChild(ps2); wMax = Math.max(wMax, ps2.getBoundingClientRect().width); prb.removeChild(ps2); }
+      var pv = document.createElement('span'); pv.className = 'n'; pv.textContent = '999.99'; prb.appendChild(pv);
+      statGeom.labEm = wBase / labFs0; statGeom.valEm = pv.getBoundingClientRect().width / valFs0;
+      statGeom.rowW0 = wBase + 12 + pv.getBoundingClientRect().width; // base row width at default fonts - the fit ignores the perf rows on purpose
+      document.body.removeChild(prb);
     }
+    var cW = statsEl.clientWidth, fit = 1;
+    if (cW > 0 && statGeom.rowW0 > cW) fit = (cW - 12) / Math.max(1, statGeom.rowW0 - 12);
+    var labPx = Math.max(7, Math.floor(13 * fit * 10) / 10), valPx = Math.max(12, Math.floor(54 * fit));
+    if (fit < 1) { statsEl.style.fontSize = labPx + 'px'; for (ni2 = 0; ni2 < ns2.length; ni2++) ns2[ni2].style.fontSize = valPx + 'px'; }
+    statsEl.style.gridTemplateColumns = (statGeom.labEm * labPx) + 'px 1fr';
+    for (ni2 = 0; ni2 < ns2.length; ni2++) ns2[ni2].style.width = (statGeom.valEm * valPx) + 'px';
+    // perf labels longer than the pinned label column shrink individually; base rows keep their font
+    var ls2 = statsEl.querySelectorAll('span:nth-child(odd)');
+    for (ni2 = 0; ni2 < ls2.length; ni2++) { var lsp = ls2[ni2]; lsp.style.fontSize = ''; var nat = lsp.scrollWidth, box = lsp.clientWidth; if (box > 0 && nat > box + 1) lsp.style.fontSize = Math.max(7, Math.floor(labPx * box / nat * 10) / 10) + 'px'; }
     for (var lk in live) { var lr = rows[lk]; lr.inp.value = P[lk]; lr.val.textContent = fmt(P[lk]); }
     if (panel.matches(':hover')) return;
     GROUPS.forEach(function (g) { g[1].forEach(function (q) { var r = rows[q[0]], v = P[q[0]]; r.inp.value = v; r.val.textContent = fmt(v); }); });
