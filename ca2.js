@@ -2707,12 +2707,13 @@
   boot();
   // ---- honest save button + gesture-context code-box focus (owner 21 Oct: locked save must not fake "saved"; lane agreement: trailing IIFE only) ----
   (function adminEntryFix() {
+    var saveBtn = [].slice.call(document.querySelectorAll('#btns button')).filter(function (x) { return x.textContent === 'save'; })[0];
+    if (saveBtn) saveBtn.dataset.ca2save = '1';
     // (a) locked save: the core handler writes localStorage only but still shows "saved" - block it and say "kilitli"
     document.addEventListener('click', function (e) {
-      var b = e.target && e.target.closest ? e.target.closest('#btns button') : null;
+      var b = e.target && e.target.closest ? e.target.closest('button') : null;
       if (!b || window.__adminOn) return;
-      if (b.dataset.ca2save !== '1' && b.textContent !== 'save') return;
-      b.dataset.ca2save = '1';
+      if (b.dataset.ca2save !== '1') return;
       e.stopPropagation(); e.preventDefault();
       b.textContent = 'kilitli';
       setTimeout(function () { b.textContent = 'save'; }, 1500);
@@ -2727,5 +2728,19 @@
     }
     window.addEventListener('pointerup', function () { setTimeout(focusBox, 0); }); // bubble: registered after adminInit, so the panel is already open when this runs
     document.addEventListener('click', function () { setTimeout(focusBox, 0); }, true);
+    // (d) pinned save on mobile: the real save button sits far below the fold - move the same element (listeners intact) to the viewport corner in mobile mode, park it back in #btns on desktop
+    if (saveBtn) {
+      var home = saveBtn.parentNode, pinned = false, pst = document.createElement('style');
+      pst.textContent = 'button.ca2savepin{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:40;font:inherit;color:var(--fg);background:var(--bg);border:var(--lw) solid var(--fg);padding:6px 10px;cursor:pointer}';
+      document.head.appendChild(pst);
+      var pinSave = function () {
+        var m = (window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm';
+        if (m && !pinned) { pinned = true; saveBtn.classList.add('ca2savepin'); document.body.appendChild(saveBtn); }
+        else if (!m && pinned) { pinned = false; saveBtn.classList.remove('ca2savepin'); home.appendChild(saveBtn); }
+      };
+      window.addEventListener('ca2mode', pinSave);
+      window.addEventListener('resize', pinSave);
+      pinSave();
+    }
   })();
 })();
