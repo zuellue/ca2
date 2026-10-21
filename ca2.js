@@ -38,7 +38,7 @@
   P.focusIdleMs = 4000; P.focusInMs = 4000; P.focusOutMs = 380; P.focusDepth = 14; // idle depth-of-field blur: wait, slow blur-in, swift refocus, depth px
   P.cellShapes = 1; // heritable body plans: round / string / lobed (render expands a cell into metaball sources)
   var DEFAULTS = JSON.parse(JSON.stringify(P));
-  var TYPE_SIZE_MAX = 4; // general font size ceiling (owner 21 Oct): the knob range and the layout clamp below share this one value
+  var TYPE_SIZE_MAX = 4; // the type-size KNOB range end (owner 21 Oct); manual entry is unbounded (the width fit is the only limit)
   var autoRefresh = true, lockParams = false;
   var BGS = [[233,233,233],[22,22,22],[255,0,0],[0,255,0],[0,0,255]];
   // title-circle hover colors: the palette's own black (22,22,22 - not pitch black) and white, plus its R G B (owner 21 Oct)
@@ -347,7 +347,7 @@
     // all typography metrics derive from one font size; margin is equal on every edge
     // type size runs 0.5..2 in the config, but the effective ceiling is the fit: the widest word of the title
     // must always fit the page width inside the margins, so a manual entry can never push ink off the frame (owner 21 Oct)
-    var fs = 210 * Math.min(W / 2560, H / 1600) * Math.min(P.textScale, TYPE_SIZE_MAX), dh = 0.666 * fs;
+    var fs = 210 * Math.min(W / 2560, H / 1600) * P.textScale, dh = 0.666 * fs; // no render cap (owner 21 Oct): typed values apply; the width fit below is the only, physical, limit
     ctx.font = fs + 'px "Ca2-Thin", monospace';
     var M = P.margin, G = P.gap;
     var tm = titleMetrics(fs), ex = tm.trk * (P.titleTrack - 1), inkTLe = tm.inkTL + (TL.length - 1) * ex, inkTRe = tm.inkTR + (TR.length - 1) * ex, trkE = tm.trk + ex;
@@ -1690,8 +1690,10 @@
   ];
   var layoutKeys = { margin: 1, gap: 1, textScale: 1, areaMin: 1, areaMax: 1 };
   // every change takes effect at once, without a respawn
-  function applyKey(k, v) {
-    if (k === 'CELL_RADIUS') { P.CELL_RADIUS = v = clamp(v, P.minRadius, P.maxRadius); cells.forEach(function (c) { c.radius = v; }); }
+  // manual entry is free of slider/sim bounds (owner 21 Oct: no hidden ceilings on typed values - the one open
+  // rule is renderer validity: a radius must be a finite number above 0, or canvas arc throws every frame)
+  function applyKey(k, v, free) {
+    if (k === 'CELL_RADIUS') { if (!free) { P.CELL_RADIUS = v = clamp(v, P.minRadius, P.maxRadius); } cells.forEach(function (c) { c.radius = v; }); }
     else if (k === 'minRadius' || k === 'maxRadius') { P.CELL_RADIUS = clamp(P.CELL_RADIUS, P.minRadius, Math.max(P.minRadius, P.maxRadius)); cells.forEach(function (c) { c.radius = P.CELL_RADIUS; }); }
     else if (k === 'pixelRatio') resizeCanvas();
     else if (k === 'panelWidth' && panel) panel.style.width = v + 'px';
@@ -1744,9 +1746,9 @@
           var t = ed.value.trim().replace(',', '.');
           if (commit && /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t)) {
             var v = parseFloat(t);
-            if (isFinite(v)) {
+            if (isFinite(v) && !(k === 'CELL_RADIUS' && v <= 0)) {
               if (live[k]) liveStop(k);
-              P[k] = v; touched[k] = 1; applyKey(k, v); inp.value = v; val.textContent = fmt(v);
+              P[k] = v; touched[k] = 1; applyKey(k, v, true); inp.value = v; val.textContent = fmt(v);
               if (/UNIVERSE|CELL_RADIUS|Mutation|interaction|Rate/.test(k)) { lockParams = true; if (lockBox) { lockBox.checked = true; lockVal.textContent = 'locked'; } }
               save();
             }
@@ -2288,7 +2290,7 @@
       var c = secc.childNodes[i].firstChild;
       c.style.width = D + 'px'; c.style.height = D + 'px';
       c.style.border = LW() + 'px solid var(--kc, var(--fg))';
-      var lb2 = secc.childNodes[i].querySelector('.sl'); if (lb2) lb2.style.width = D + 'px';
+      // no width pin on the label: the hover split shows full-width (owner 21 Oct)
     }
     for (var j = 0; j < admCircles.length; j++) {
       admCircles[j].style.width = D + 'px'; admCircles[j].style.height = D + 'px';

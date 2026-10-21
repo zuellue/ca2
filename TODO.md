@@ -1,5 +1,9 @@
 # ca2 todo (owner orders pending, 20 Oct 2026; each is a verbatim owner order relayed by main)
 
+Manual-entry rule (owner 21 Oct): typed parameter values are never capped behind the owner's back - slider ranges are slider ranges; manual entry accepts every renderer-valid finite number, and the one open exception (a radius must be > 0 or canvas arc throws) is stated in code. The boundary band ceiling (margin + section button) applies to automatic deals and manual drags only, never to parameter entry.
+
+Feature-removal rule (owner 21 Oct): an unsolved bug never justifies removing or simplifying a feature - the feature stays working and the bug is reported to the owner until fixed (the free colour pickers were once swapped for fixed swatches instead of fixing the invert-preview bug; that was disobedience, not a fix).
+
 Language rule (owner 21 Oct): every user-facing string and every repo comment is English only - no Turkish text anywhere in the UI (buttons, labels, hover/title/aria, error and state messages) or in the code. Guard: `node devtools/lang-scan.js` (exits 1 with file:line on any Turkish character or known Turkish word in the shipped files).
 Done + live (sim side): intro jank deferral (staged first spawn after UI intro, metaball/grain/audio deferred, introStat in __ca2), eating radius fixed px (foodEatR migrated: factor x preset CELL_RADIUS), boundary zone independent of cell radius (boundZoneR/edgeFit knobs removed, keys kept), boundary edge/corner hover cursors.
 Done + live: preset 2 default (STORE_V 6), admin/global preset (Worker https://ca2-presets.middots.workers.dev/, KV ca2-presets, binding PRESETS; code 2222 checked server-side), config left thin line removed.
