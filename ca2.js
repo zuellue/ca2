@@ -2666,11 +2666,10 @@
     // owner 21 Oct: on mobile the plate is dealt from a 1280x800 landscape reference scaled by window WIDTH, so it
     // squats and wastes the vertical band. Mirror the desktop deal rotated 90 degrees: portrait reference 800x1280,
     // axes swapped (the tall reference side deals the height, the short one the width), clamped by the same safe band.
-    var dealW = 0, dealH = 0;
+    var dealW = 0, dealH = 0, dealHist = [];
     // owner 21 Oct: mobile size band - the boundary may narrow at most to a third of the screen width and may widen
-    // until a gap of margin + the section button size remains on each side ('tavan margin + section buton boyutu'; the
-    // buttons are circles, so the size is the diameter, read live from --sd). Both axes, automatic deals AND manual
-    // pulls alike (owner 21 Oct: 'kullanici manuel genisletmesi icin de aynisi, yukseklik icin de gecerli').
+    // until a gap of margin + the section button size remains on each side (the buttons are circles, so the size is the diameter, read live from --sd). Both axes, automatic deals AND manual
+    // pulls alike (owner 21 Oct: manual pulls and height included).
     function bandGap() { var sd = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sd')) || 0; return (P.margin || 0) + sd; }
     function bandW() { var g = bandGap(); return { lo: window.innerWidth / 3, hi: window.innerWidth - 2 * g }; }
     function bandH() { var g = bandGap(); return { hi: window.innerHeight - 2 * g }; }
@@ -2679,13 +2678,19 @@
       // deal against the band itself: probe the height clamp ceiling, then deal the desktop's own ratios of the band.
       // Desktop height deals run 2160/8 .. 5120/7.5 = 270..731 against a ~580 ceiling (0.47..1.26x), so top deals fill
       // the band; a window-ratio scale (VSh) shrinks the deal on phones while the band grows with H - the squatting.
-      var bw = bandW(), bh = bandH();
-      var cWHf = 7 + Math.floor(Math.random() * 2);
-      var a = Math.floor(Math.random() * 2) === 0 ? 5120 : 2160, b = Math.floor(Math.random() * 2) === 0 ? 5120 : 2160;
-      c.rawH = b / cWHf * (bh.hi / 580); // desktop's height-deal-to-ceiling ratio, mirrored tall, against the margin + section-button ceiling
-      c.rawW = a / (cWHf + Math.trunc(Math.random() * 4.5 - 3.5)) * (bw.hi / 1138); // desktop's width ratio (5120/4.5 = 1138 top deal) against the margin + section-button ceiling
-      c.rawW = Math.min(Math.max(c.rawW, bw.lo), bw.hi);
-      c.rawH = Math.min(c.rawH, bh.hi);
+      // owner 21 Oct: deal uniformly from the whole band on both axes - no ceiling-hugging, few repeats, varied
+      // aspect ratios (whole range random, no repeats, varied aspect ratios). Height range mirrors the width
+      // rule: from a third of the screen height to the ceiling (mapping choice, reported).
+      var bw = bandW(), bh = bandH(), loH = window.innerHeight / 3;
+      var w = bw.lo, h = loH, ok = false;
+      for (var t = 0; t < 8 && !ok; t++) {
+        w = bw.lo + Math.random() * (bw.hi - bw.lo);
+        h = loH + Math.random() * (bh.hi - loH);
+        ok = true;
+        for (var hi2 = 0; hi2 < dealHist.length; hi2++) if (Math.abs(dealHist[hi2][0] - w) < 24 && Math.abs(dealHist[hi2][1] - h) < 24) { ok = false; break; } // a near-repeat of a recent deal re-rolls
+      }
+      dealHist.push([w, h]); if (dealHist.length > 6) dealHist.shift();
+      c.rawW = w; c.rawH = h;
       window.__ca2.clampTargets();
       c.tw = c.rawW; c.th = c.rawH; // the band overrides the shared area ceilings on phones
       dealW = c.rawW; dealH = c.rawH;
