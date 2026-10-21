@@ -38,7 +38,7 @@
   P.focusIdleMs = 4000; P.focusInMs = 4000; P.focusOutMs = 380; P.focusDepth = 14; // idle depth-of-field blur: wait, slow blur-in, swift refocus, depth px
   P.cellShapes = 1; // heritable body plans: round / string / lobed (render expands a cell into metaball sources)
   var DEFAULTS = JSON.parse(JSON.stringify(P));
-  var TYPE_SIZE_MAX = 4; // general font size ceiling (owner 21 Oct): the knob range and the layout clamp below share this one value
+  var TYPE_SIZE_MAX = 4; // the type-size KNOB range end (owner 21 Oct); manual entry is unbounded (the width fit is the only limit)
   var autoRefresh = true, lockParams = false;
   var BGS = [[233,233,233],[22,22,22],[255,0,0],[0,255,0],[0,0,255]];
   // title-circle hover colors: the palette's own black (22,22,22 - not pitch black) and white, plus its R G B (owner 21 Oct)
@@ -347,7 +347,7 @@
     // all typography metrics derive from one font size; margin is equal on every edge
     // type size runs 0.5..2 in the config, but the effective ceiling is the fit: the widest word of the title
     // must always fit the page width inside the margins, so a manual entry can never push ink off the frame (owner 21 Oct)
-    var fs = 210 * Math.min(W / 2560, H / 1600) * Math.min(P.textScale, TYPE_SIZE_MAX), dh = 0.666 * fs;
+    var fs = 210 * Math.min(W / 2560, H / 1600) * P.textScale, dh = 0.666 * fs; // no render cap (owner 21 Oct): typed values apply; the width fit below is the only, physical, limit
     ctx.font = fs + 'px "Ca2-Thin", monospace';
     var M = P.margin, G = P.gap;
     var tm = titleMetrics(fs), ex = tm.trk * (P.titleTrack - 1), inkTLe = tm.inkTL + (TL.length - 1) * ex, inkTRe = tm.inkTR + (TR.length - 1) * ex, trkE = tm.trk + ex;
@@ -1690,8 +1690,10 @@
   ];
   var layoutKeys = { margin: 1, gap: 1, textScale: 1, areaMin: 1, areaMax: 1 };
   // every change takes effect at once, without a respawn
-  function applyKey(k, v) {
-    if (k === 'CELL_RADIUS') { P.CELL_RADIUS = v = clamp(v, P.minRadius, P.maxRadius); cells.forEach(function (c) { c.radius = v; }); }
+  // manual entry is free of slider/sim bounds (owner 21 Oct: no hidden ceilings on typed values - the one open
+  // rule is renderer validity: a radius must be a finite number above 0, or canvas arc throws every frame)
+  function applyKey(k, v, free) {
+    if (k === 'CELL_RADIUS') { if (!free) { P.CELL_RADIUS = v = clamp(v, P.minRadius, P.maxRadius); } cells.forEach(function (c) { c.radius = v; }); }
     else if (k === 'minRadius' || k === 'maxRadius') { P.CELL_RADIUS = clamp(P.CELL_RADIUS, P.minRadius, Math.max(P.minRadius, P.maxRadius)); cells.forEach(function (c) { c.radius = P.CELL_RADIUS; }); }
     else if (k === 'pixelRatio') resizeCanvas();
     else if (k === 'panelWidth' && panel) panel.style.width = v + 'px';
@@ -1744,9 +1746,9 @@
           var t = ed.value.trim().replace(',', '.');
           if (commit && /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t)) {
             var v = parseFloat(t);
-            if (isFinite(v)) {
+            if (isFinite(v) && !(k === 'CELL_RADIUS' && v <= 0)) {
               if (live[k]) liveStop(k);
-              P[k] = v; touched[k] = 1; applyKey(k, v); inp.value = v; val.textContent = fmt(v);
+              P[k] = v; touched[k] = 1; applyKey(k, v, true); inp.value = v; val.textContent = fmt(v);
               if (/UNIVERSE|CELL_RADIUS|Mutation|interaction|Rate/.test(k)) { lockParams = true; if (lockBox) { lockBox.checked = true; lockVal.textContent = 'locked'; } }
               save();
             }
@@ -1871,22 +1873,7 @@
   // live timing values, in the same row style (owner 21 Oct). hdr is a zero marker for solo().
   var perfHdr = document.createElement('div'); perfHdr.style.display = 'none'; ctl.appendChild(perfHdr);
   var perfSec = { name: 'perf', hdr: perfHdr, els: [] }; SECS.push(perfSec);
-  // save: write the settings now (independent of the autosave), read them back from storage and compare every key
-  var saveB = btn('save', function (ev) {
-    var bt = ev.currentTarget, ok = false, n = 0, bad = [];
-    try {
-      save();
-      var o = JSON.parse(localStorage.getItem(STORE) || 'null');
-      ok = !!(o && o.v === STORE_V && o.P);
-      if (ok) for (var k in P) { var want = live[k] ? live[k].orig : P[k]; n++; if (o.P[k] !== want) { bad.push(k); } }
-      ok = ok && !bad.length;
-    } catch (er) { ok = false; }
-    window.ca2saveCheck = { ok: ok, keys: n, mismatched: bad, t: Date.now() };
-    bt.textContent = ok ? 'saved' : 'save failed'; setTimeout(function () { bt.textContent = 'save'; }, 1500);
-    if (window.__adminOn && window.__adminPush) { bt.textContent = 'saving'; window.__adminPush().then(function (r) { bt.textContent = r === 'fail' ? 'saved here, server full' : (ok ? 'saved' : 'save failed'); setTimeout(function () { bt.textContent = 'save'; }, r === 'fail' ? 4000 : 1500); }); }
-  });
-  // save is admin-only on desktop (owner 21 Oct): .btns hides it until body.ca2admin; the mobile lane pins the same node outside #btns, where that rule does not reach
-  saveB.classList.add('ca2savebtn');
+  // the save button is created by the server-verified admin module (owner 21 Oct: no admin trace ships publicly)
   function applyTypo() {
     var r = document.documentElement.style;
     if (CFG_STACK[P.cfgFont]) r.setProperty('--cff', CFG_STACK[P.cfgFont]); else r.removeProperty('--cff');
@@ -2193,27 +2180,61 @@
   // not a separate lane). Each is a knob-size circle: hollow while off (param at its default),
   // a click turns it on with a random red/green/blue, another click turns it off and restores the
   // default; hovering fills the circle black; the value beside the name flashes the new state.
+  // true-colour ink: the panel blends (difference) under auto invert, which would lie about colours, so the
+  // visible colour chips are plain fixed elements OUTSIDE the panel, synced over their anchors every layout -
+  // the same pattern as the knob hover circles (owner 21 Oct: the picker and the preview show the real colour).
+  var swInks = [];
+  function swInkSync() {
+    for (var i = 0; i < swInks.length; i++) {
+      var it = swInks[i], r = it.anchor.getBoundingClientRect();
+      it.el.style.left = r.left + 'px'; it.el.style.top = r.top + 'px'; it.el.style.width = r.width + 'px'; it.el.style.height = r.height + 'px';
+      it.el.style.visibility = (r.width && r.bottom > 0 && r.top < window.innerHeight) ? 'visible' : 'hidden';
+    }
+  }
+  panel.addEventListener('scroll', swInkSync); window.addEventListener('resize', swInkSync); setInterval(swInkSync, 500);
+  function mkInk(anchor) { var el = document.createElement('div'); el.className = 'swink'; document.body.appendChild(el); var it = { el: el, anchor: anchor }; swInks.push(it); return it; }
   SW_DEFS.forEach(function (def) {
     var row = document.createElement('div'); row.className = 'row';
     row.innerHTML = '<div class="lab"><span>' + def.label + '</span><b style="font-weight:normal;transition:opacity .3s"></b></div>';
     var c = document.createElement('div'); c.className = 'swc';
     row.appendChild(c);
+    // free choice is back (owner 21 Oct): a hex field in the parameter row plus a native colour picker, both
+    // synced with the circle switch; any custom pick turns the switch on and is saved into the preset.
+    var hex = document.createElement('input'); hex.className = 'swhex'; hex.spellcheck = false; hex.autocomplete = 'off'; hex.maxLength = 7; hex.setAttribute('aria-label', def.label + ' hex');
+    var pick = document.createElement('input'); pick.type = 'color'; pick.className = 'swpick'; pick.setAttribute('aria-label', def.label + ' picker');
+    row.appendChild(hex); row.appendChild(pick);
     var home = SW_HOME[def.label]; ctl.insertBefore(row, home[0]); home[1].els.push(row);
     var bv = row.querySelector('b'), hideT = null;
+    var inkC = mkInk(c), inkP = mkInk(pick);
     function apply(col) { if (def.set) def.set(col); else { P[def.key] = col; touched[def.key] = 1; applyLineColor(); } }
     function cur() { return P[def.on] ? (def.get ? def.get() : P[def.key]) : null; }
-    function paint() { c.style.background = cur() || 'transparent'; }
+    function paint() {
+      var v = cur();
+      inkC.el.style.background = v || 'transparent'; inkP.el.style.background = v || 'transparent';
+      if (v) { hex.value = v; try { pick.value = v; } catch (e) {} }
+    }
     function show(flash) {
       bv.textContent = cur() || 'default';
       if (flash) { bv.style.opacity = '1'; clearTimeout(hideT); hideT = setTimeout(function () { bv.style.opacity = ''; }, 1400); }
     }
-    c.addEventListener('pointerenter', function () { c.style.background = '#000'; });
+    function setFree(v) { // a valid #rrggbb from the hex field or the picker: switch on, apply, save (owner 21 Oct)
+      P[def.on] = 1; touched[def.on] = 1;
+      apply(v); paint(); show(true); save();
+    }
+    c.addEventListener('pointerenter', function () { inkC.el.style.background = '#000'; });
     c.addEventListener('pointerleave', paint);
     c.addEventListener('click', function () {
       P[def.on] = P[def.on] ? 0 : 1; touched[def.on] = 1;
       apply(P[def.on] ? CIRC_COLS[Math.floor(Math.random() * 3)] : (def.dflt === undefined ? null : def.dflt));
       paint(); show(true); save();
     });
+    var hexDone = function () {
+      var t = hex.value.trim(); if (t && t[0] !== '#') t = '#' + t;
+      if (/^#[0-9a-fA-F]{6}$/.test(t)) setFree(t.toLowerCase()); else paint();
+    };
+    hex.addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter') { hexDone(); hex.blur(); } });
+    hex.addEventListener('blur', hexDone);
+    pick.addEventListener('input', function () { setFree(pick.value); });
     paint(); show(false);
   });
 
@@ -2289,7 +2310,7 @@
     }
     requestAnimationFrame(loop);
   })();
-  var admCircles = []; // filled by adminInit: 4 stacked digit circles, same lane and size as the section circles
+  var admCircles = []; // filled by the verified admin module: 4 stacked circles, same lane and size as the section circles
   var circSig = '';
   function placeCircles() {
     var L = lay(), u = L.fs / 1000, R0 = 166.5 * u, D = 2 * R0;
@@ -2303,7 +2324,7 @@
       var c = secc.childNodes[i].firstChild;
       c.style.width = D + 'px'; c.style.height = D + 'px';
       c.style.border = LW() + 'px solid var(--kc, var(--fg))';
-      var lb2 = secc.childNodes[i].querySelector('.sl'); if (lb2) lb2.style.width = D + 'px';
+      // no width pin on the label: the hover split shows full-width (owner 21 Oct)
     }
     for (var j = 0; j < admCircles.length; j++) {
       admCircles[j].style.width = D + 'px'; admCircles[j].style.height = D + 'px';
@@ -2331,10 +2352,11 @@
   window.addEventListener('resize', modePub);
   modePub();
 
-  // ---- admin session + global presets (Cloudflare Worker + KV, free plan) ----
-  (function adminInit() {
-    var WK = 'https://ca2-presets.middots.workers.dev/', admin = null, sent = {}, lastV = 0, GK = 'ca2.global';
-    function post(b) { return fetch(WK, { method: 'POST', keepalive: true, body: JSON.stringify(b) }).then(function (r) { return r.json(); }); }
+  // ---- global presets (Cloudflare Worker + D1): the public read path. Every visitor pulls the shared
+  // preset and re-applies their not-yet-accepted edits on top. Admin writes live in the admin module,
+  // which the Worker serves only after code verification (owner 21 Oct).
+  (function presetSync() {
+    var WK = 'https://ca2-presets.middots.workers.dev/', lastV = 0, GK = 'ca2.global';
     function applyG(g) {
       if (!g || typeof g !== 'object') return false; var n = 0;
       var pnd = {}; try { pnd = JSON.parse(localStorage.getItem('ca2.pending') || '{}'); } catch (e) {}
@@ -2351,7 +2373,7 @@
       fetch(WK + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (g) {
         if (!g || !g._v || g._v === lastV) return; lastV = g._v;
         try { localStorage.setItem(GK, JSON.stringify(g)); } catch (e) {}
-        if (admin) return;
+        if (window.__adminOn) return;
         if (applyG(g)) { lastSync = 0; syncUI(0); }
       }).catch(function () {});
     }
@@ -2359,110 +2381,67 @@
     // edits not yet accepted by the server stay ahead of the (older) global on reload
     try { var pd0 = JSON.parse(localStorage.getItem('ca2.pending') || '{}'); Object.keys(pd0).forEach(function (k) { if (k !== '_live' && k in P && typeof pd0[k] === typeof P[k]) { P[k] = pd0[k]; touched[k] = 1; } }); } catch (e) {}
     pullG(true); setInterval(pullG, 15000);
-    var PK = 'ca2.pending', pushFail = 0, pushNext = 0, pushBusy = false;
-    window.__adminPush = function () {
-      if (!admin) return Promise.resolve('noadmin'); var patch = {}, keys = [];
-      var TRANS = { UNIVERSE_SIZE: 1, CELL_RADIUS: 1, baseMutationRate: 1, mutationRateRange: 1, interactionRadius: 1 };
-      // every key that differs from what the global already holds goes out, not only knob-touched ones (transition-driven keys still need a real touch)
-      for (var pk in P) if (!(pk in TRANS) && !(pk in touched) && pk in sent && P[pk] !== sent[pk] && !live[pk]) touched[pk] = 1;
-      for (var k in touched) { var v = P[k]; if (live[k]) v = live[k].orig; if ((typeof v === 'number' && isFinite(v) || typeof v === 'string') && sent[k] !== v) { patch[k] = v; keys.push(k); } }
-      var lm = JSON.stringify(liveMap()); if (sent._live !== lm) { patch._live = lm; } // the Worker stores primitives only
-      if (!keys.length && patch._live === undefined) return Promise.resolve('nochange');
-      if (pushBusy) return Promise.resolve('busy'); pushBusy = true;
-      try { var pend = JSON.parse(localStorage.getItem(PK) || '{}'); for (var pj in patch) pend[pj] = patch[pj]; localStorage.setItem(PK, JSON.stringify(pend)); } catch (e) {}
-      return post({ code: admin, patch: patch }).then(function (r) {
-        pushBusy = false;
-        if (r && r.ok !== false && !r.error && !r.err) { pushFail = 0; pushNext = 0; keys.forEach(function (k) { sent[k] = patch[k]; delete touched[k]; }); if (patch._live !== undefined) sent._live = patch._live; if (r.v) lastV = r.v; try { var pd = JSON.parse(localStorage.getItem(PK) || '{}'); for (var pj2 in patch) delete pd[pj2]; localStorage.setItem(PK, JSON.stringify(pd)); } catch (e) {} window.__adminSaveErr = ''; return 'ok'; }
-        else { pushFail++; pushNext = Date.now() + Math.min(60000, 2000 * pushFail); window.__adminSaveErr = (r && (r.err || r.error)) || 'rejected'; return 'fail'; }
-      }).catch(function (e) { pushBusy = false; pushFail++; pushNext = Date.now() + Math.min(60000, 2000 * pushFail); window.__adminSaveErr = 'server error (not saved globally)'; return 'fail'; });
-    };
-    // no automatic pushes: the free KV plan allows 1000 writes a day. One batched POST per Save click.
-    // entry widget: 4 hollow circles stacked on the section-circle axis at the bottom right; the code fills them
-    // top to bottom (2 2 2 2); a good code turns them into A D M N. The real input is invisible and only catches keys.
-    var adm = document.createElement('div'); adm.id = 'adm';
-    var aglyphs = [];
-    for (var ai = 0; ai < 4; ai++) {
-      var ac = document.createElement('div'); ac.className = 'ac';
-      var ag = document.createElement('span'); ac.appendChild(ag); adm.appendChild(ac);
-      admCircles.push(ac); aglyphs.push(ag);
-    }
-    document.body.appendChild(adm); hookHov(adm); circSig = ''; placeCircles();
-    // B (mobile) and D (desktop) are buttons once the accepted code turns the glyphs into A B D U:
-    // a click toggles the explicit mode choice (clicking the active one clears it - no selection = width decides).
-    // No extra styling on the selected letter (owner 21 Oct): the mode itself is the feedback.
-    // Hovering B or D also paints the letter fill and its stroke with two independent random rgb colours.
-    function rndCol() { return 'rgb(' + ((Math.random() * 256) | 0) + ',' + ((Math.random() * 256) | 0) + ',' + ((Math.random() * 256) | 0) + ')'; }
-    function bindModeBtn(idx, val) {
-      var el = admCircles[idx]; el.classList.add('mb');
-      el.addEventListener('click', function (e) {
-        if (!window.__adminOn) return;
-        e.stopPropagation();
-        modeSel = (modeSel === val) ? null : val; modePub();
-      });
-      el.addEventListener('pointerenter', function () {
-        if (!window.__adminOn || !window.matchMedia('(hover: hover)').matches) return; // touch taps must not stick colours on the selected letter
-        aglyphs[idx].style.color = rndCol();
-        aglyphs[idx].style.webkitTextStrokeColor = rndCol();
-      });
-      el.addEventListener('pointerleave', function () {
-        aglyphs[idx].style.color = ''; aglyphs[idx].style.webkitTextStrokeColor = '';
-      });
-    }
-    bindModeBtn(1, 'm'); bindModeBtn(2, 'd');
-    var box = document.createElement('input'); box.type = 'text'; box.maxLength = 4; box.setAttribute('inputmode', 'numeric'); box.autocomplete = 'off'; box.spellcheck = false;
+  })();
+  // capability hooks the server-verified admin module builds on (owner 21 Oct): handles only - no admin UI,
+  // strings or logic ships publicly; everything user-visible comes down after the Worker verifies the code.
+  window.__ca2x = {
+    admCircles: admCircles, hookHov: hookHov,
+    rePlace: function () { circSig = ''; placeCircles(); },
+    modeSel: function () { return modeSel; }, modeSet: function (v) { modeSel = v; modePub(); },
+    save: save, STORE: STORE, STORE_V: STORE_V,
+    touched: touched, liveMap: liveMap, btns: btns, panel: panel
+  };
+  // ---- entry gate (owner 21 Oct): zero admin trace ships publicly - no widget, no labels, no strings, no
+  // admin DOM. A 5s hold on the section circles arms a blind 4-key capture; the keys go to the Worker and a
+  // verified answer carries the admin module itself. The offscreen input exists only to summon the phone
+  // keyboard and stays unfocusable until a hold completes.
+  (function gate() {
+    var WK = 'https://ca2-presets.middots.workers.dev/';
+    var box = document.createElement('input'); box.type = 'text'; box.maxLength = 4; box.setAttribute('inputmode', 'numeric'); box.autocomplete = 'off'; box.spellcheck = false; box.tabIndex = -1; box.setAttribute('aria-hidden', 'true');
     box.style.cssText = 'position:fixed;left:-200px;top:0;width:20px;height:20px;opacity:0;border:0;padding:0;outline:none';
     document.body.appendChild(box);
-    function admShow(v) { adm.classList.toggle('on', v); if (v) { box.value = ''; aglyphs.forEach(function (g) { g.textContent = ''; }); setTimeout(function () { box.focus(); }, 0); } }
-    adm.addEventListener('click', function () { box.focus(); });
-    box.addEventListener('input', function () {
-      box.value = box.value.replace(/\D/g, '').slice(0, 4);
-      for (var i = 0; i < 4; i++) aglyphs[i].textContent = box.value[i] || '';
-      if (box.value.length === 4) {
-        var code = box.value;
-        post({ code: code, check: true }).then(function (r) {
-          if (r && r.ok) {
-            admin = code; sent = {}; Object.keys(P).forEach(function (k) { sent[k] = P[k]; });
-            var ABDU = 'ABDU'; for (var i = 0; i < 4; i++) aglyphs[i].textContent = ABDU[i];
-            window.__adminOn = true;
-            document.body.classList.add('ca2admin');
-            adm.classList.add('ok');
-          } else {
-            adm.classList.add('err'); setTimeout(function () { adm.classList.remove('err'); aglyphs.forEach(function (g) { g.textContent = ''; }); }, 600);
-          }
-          box.value = ''; box.blur(); // hand the keys back: 'c' and the rest belong to the sketch again
-        }).catch(function () { box.value = ''; box.blur(); });
-      }
-    });
-    box.addEventListener('keydown', function (e) { e.stopPropagation(); });
-    var admIv = null, admT0 = 0, admPX = 0, admPY = 0;
-    var admStop = function () { if (admIv) { clearInterval(admIv); admIv = null; } };
-    // direct hit test against the live circles: on touch there is no hover frame before the press, so lastCircleHit cannot be trusted at pointerdown
-    var admDotHit = function (x, y) { for (var i = 0; i < circlesNow.length; i++) { var c = circlesNow[i]; if (/^R0_/.test(c.key) && Math.hypot(x - c.x, y - c.y) < c.r) return true; } return false; };
-    window.addEventListener('pointermove', function (e) { admPX = e.clientX; admPY = e.clientY; }, { passive: true });
-    var admToggle = function () {
-      if (admin) { admin = null; window.__adminOn = false; document.body.classList.remove('ca2admin'); adm.classList.remove('ok'); modeSel = null; modePub(); admShow(false); }
-      else if (!adm.classList.contains('on')) admShow(true);
-      else admShow(false);
-    };
+    var armT = 0, holdIv = null, holdT0 = 0, px = 0, py = 0;
+    var dotHit = function (x, y) { for (var i = 0; i < circlesNow.length; i++) { var c = circlesNow[i]; if (/^R0_/.test(c.key) && Math.hypot(x - c.x, y - c.y) < c.r) return true; } return false; };
+    var disarm = function () { armT = 0; box.value = ''; box.blur(); };
+    var arm = function () { if (window.__adminOn) return; armT = Date.now(); box.value = ''; box.focus(); };
+    var holdStop = function () { if (holdIv) { clearInterval(holdIv); holdIv = null; } };
+    window.addEventListener('pointermove', function (e) { px = e.clientX; py = e.clientY; }, { passive: true });
     window.addEventListener('pointerdown', function (e) {
-      admStop();
-      admPX = e.clientX; admPY = e.clientY;
-      if (!admDotHit(admPX, admPY)) return;
-      admT0 = performance.now();
-      admIv = setInterval(function () {
-        if (!admDotHit(admPX, admPY)) { admStop(); return; }
-        if (performance.now() - admT0 < 5000) return;
-        admStop();
-        admToggle();
+      holdStop(); px = e.clientX; py = e.clientY;
+      if (!dotHit(px, py)) return;
+      holdT0 = performance.now();
+      holdIv = setInterval(function () {
+        if (!dotHit(px, py)) { holdStop(); return; }
+        if (performance.now() - holdT0 < 5000) return;
+        holdStop(); arm();
       }, 100);
     });
-    // release fallback: on a janky main thread the 100ms interval can be delayed past the release - a completed 5s hold must still toggle
     window.addEventListener('pointerup', function (e) {
-      if (!admIv) return;
-      admStop();
-      if (performance.now() - admT0 >= 5000 && admDotHit(e.clientX, e.clientY)) admToggle();
+      if (!holdIv) return;
+      holdStop();
+      if (performance.now() - holdT0 >= 5000 && dotHit(e.clientX, e.clientY)) arm();
     });
-    window.addEventListener('pointercancel', admStop);
+    window.addEventListener('pointercancel', holdStop);
+    // an iOS long-press menu would cancel the 5s hold
+    document.addEventListener('contextmenu', function (e) { if ((window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm') e.preventDefault(); }, true);
+    var verify = function (code) {
+      fetch(WK, { method: 'POST', keepalive: true, body: JSON.stringify({ code: code, admin: true }) }).then(function (r) { return r.json(); }).then(function (r) {
+        if (r && r.ok && typeof r.js === 'string') {
+          try { (new Function('code', 'X', r.js))(code, window.__ca2x); } catch (e) {}
+        }
+      }).catch(function () {});
+    };
+    box.addEventListener('input', function () {
+      if (!armT) { box.value = ''; return; }
+      box.value = box.value.replace(/\D/g, '').slice(0, 4);
+      if (box.value.length < 4) { if (Date.now() - armT > 20000) disarm(); return; }
+      var code = box.value; disarm();
+      verify(code);
+    });
+    // programmatic entry for the device.html preview handoff: the frame cannot 5s-hold itself, so the
+    // wrapper page hands an entered code in through this event (no admin surface either way)
+    window.addEventListener('ca2code', function (e) { var c = e && e.detail && String(e.detail.code || ''); if (!/^\d{4}$/.test(c)) return; disarm(); verify(c); });
+    box.addEventListener('keydown', function (e) { e.stopPropagation(); });
   })();
   function syncUI(total) {
     placeCircles();
@@ -2738,69 +2717,15 @@
       if (c.w > bw.hi) c.w = bw.hi;
       if (c.h > bh.hi) c.h = bh.hi;
     })();
-    // admin Save in mobile mode -> touched keys go into _mobile, not the desktop top level
-    var of = window.fetch;
-    window.fetch = function (url, opt) {
-      var rewrote = false, mob = null;
-      try {
-        if (mode === 'm' && opt && opt.method === 'POST' && typeof url === 'string' && url.indexOf('ca2-presets') >= 0 && typeof opt.body === 'string') {
-          var b = JSON.parse(opt.body);
-          if (b && b.patch && !b.check) {
-            var g = storedG() || {};
-            mob = lastMob || mobOf(g);
-            Object.keys(b.patch).forEach(function (k) { if (k === '_live' || k === '_mobile') return; mob[k] = b.patch[k]; delete b.patch[k]; rewrote = true; });
-            // the Worker stores primitives only - an object patch value is dropped silently, so _mobile travels as a JSON string like _live
-            if (rewrote) b.patch._mobile = JSON.stringify(mob);
-            opt = Object.assign({}, opt, { body: JSON.stringify(b) });
-          }
-        }
-      } catch (e) {}
-      return of.call(this, url, opt).then(function (r) { if (rewrote && r && r.ok) { lastMob = mob; } return r; });
-    };
+    // admin saves reroute into _mobile from the admin module's own fetch wrap (owner 21 Oct: no admin code ships publicly)
     refresh();
   }
   boot();
-  // ---- honest save button + gesture-context code-box focus (owner 21 Oct: locked save must not fake "saved"; lane agreement: trailing IIFE only) ----
-  (function adminEntryFix() {
-    var inFrame = window.self !== window.top; // inside the device.html preview: the page's own code widget is the single entry, the in-preview one stays hidden (owner 21 Oct)
-    var saveBtn = [].slice.call(document.querySelectorAll('#btns button')).filter(function (x) { return x.textContent === 'save'; })[0];
-    if (saveBtn) saveBtn.dataset.ca2save = '1';
-    // Visitors get zero admin trace (owner 21 Oct: 'admin bilgisi nasil sizar'): no pinned save, no locked label, no
-    // widget, no B/D until a verified admin session. The only entry is the hidden 5s title-hold (the desktop design).
-    function focusBox() {
-      var adm = document.getElementById('adm');
-      if (!adm || !adm.classList.contains('on') || window.__adminOn) return;
-      var box = document.querySelector('input[inputmode="numeric"]');
-      if (box && document.activeElement !== box) box.focus();
-    }
-    document.addEventListener('contextmenu', function (e) { if ((window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm') e.preventDefault(); }, true); // iOS long-press menu would cancel the 5s hold
-    window.addEventListener('pointerup', focusBox); // bubble: registered after adminInit, so the panel is already open when this runs
-    document.addEventListener('click', focusBox, true);
-    // pinned save on mobile: only for a verified admin - the button stays parked (and hidden) in #btns for visitors
-    if (saveBtn) {
-      var home = saveBtn.parentNode, pinned = false, pst = document.createElement('style');
-      pst.textContent = 'button.ca2savepin{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));z-index:40;font:inherit;color:var(--fg);background:var(--bg);border:var(--lw) solid var(--fg);padding:6px 10px;cursor:pointer}'
-        + 'body[data-camode="m"] #adm.on{opacity:1;pointer-events:auto}' // desktop gates #adm behind the panel hover area; mobile has no hover frame, so an open widget must simply show
-        + '@media (hover:none){#adm.on{opacity:1;pointer-events:auto}}'
-        + (inFrame ? '#adm{display:none!important}' : '')
-        + 'body[data-camode="m"]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}' // keep iOS from interrupting the 5s hold
-        + 'body[data-camode="m"]:not(.ca2admin) button[data-ca2save]{display:none!important}' // no admin trace for visitors (owner 21 Oct)
-        + 'body[data-camode="m"] #secc .sl{margin-top:8px}' // mobile section-button spacing halved
-        + 'body[data-camode="m"] #secc{overflow:visible}'; // the hover division was clipped at the lane edge (owner 21 Oct): overflow-y:auto forced overflow-x to clip the wandering pieces to the button width. All 12 items fit every supported phone, so the lane needs no scroll on mobile (owner 21 Oct: the gap was too wide, cut to half) - the gap lives in the label margin (16px desktop, untouched), the circle size and --sd are unchanged
-      document.head.appendChild(pst);
-      var pinSave = function () {
-        var m = (window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm' && !inFrame && !!window.__adminOn;
-        if (m && !pinned) { pinned = true; saveBtn.classList.add('ca2savepin'); document.body.appendChild(saveBtn); }
-        else if (!m && pinned) { pinned = false; saveBtn.classList.remove('ca2savepin'); home.appendChild(saveBtn); }
-      };
-      window.addEventListener('ca2mode', pinSave);
-      window.addEventListener('resize', pinSave);
-      setInterval(function () {
-        var on = !!window.__adminOn;
-        if (document.body.classList.contains('ca2admin') !== on) { document.body.classList.toggle('ca2admin', on); }
-        pinSave();
-      }, 400);
-      pinSave();
-    }
+  // mobile lane (owner 21 Oct): section-button spacing halved on mobile + hover division unclipped (overflow-y:auto forced x-clipping)
+  (function mobileSecc() {
+    var st = document.createElement('style');
+    st.textContent = 'body[data-camode="m"] #secc .sl{margin-top:8px}body[data-camode="m"] #secc{overflow:visible}';
+    document.head.appendChild(st);
   })();
+
 })();

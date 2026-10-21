@@ -5,7 +5,7 @@ const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..');
 const FILES = ['index.html', 'ca2.js', 'device.html', 'audio.js', 'grain.js', 'favicon.js'];
 const TR_CHARS = /[çğıöşüÇĞİÖŞÜ]/;
-const TR_WORDS = ['kilitli', 'kilit', 'kaydet', 'kayıt', 'tamam', 'iptal', 'şifre', 'parola', 'çıkış', 'dokun', 'dokunma', 'sürükle', 'sıfırla', 'rastgele', 'bekleyin', 'yükleniyor', 'kapat', 'kapalı', 'açık', 'giriş', 'göster', 'gizle', 'buton', 'sayfa', 'ekran', 'ayar', 'seç', 'sil', 'yeni', 'eski', 'üst', 'alt', 'sağ', 'sol', 'orta', 'geri', 'ileri', 'devre', 'etkin', 'pasif', 'çizgi', 'nokta', 'kenar', 'köşe', 'merkez', 'ölçek', 'oran', 'boyut', 'renk', 'ses', 'dil'];
+const TR_WORDS = ['kilitli', 'kilit', 'kaydet', 'kayıt', 'tamam', 'iptal', 'şifre', 'parola', 'çıkış', 'dokun', 'dokunma', 'sürükle', 'sıfırla', 'rastgele', 'bekleyin', 'yükleniyor', 'kapat', 'kapalı', 'açık', 'giriş', 'icin', 'tavan', 'kullanici', 'ayni', 'yukseklik', 'gecerli', 'genisletme', 'boyutu', 'degil', 'gibi', 'yok', 'cok', 'diye', 'simdi', 'nasil', 'hangi', 'hepsi', 'sadece', 'böyle', 'şöyle', 'olarak', 'bölünme', 'ayarlar', 'ayarları', 'göster', 'gizle', 'buton', 'sayfa', 'ekran', 'ayar', 'seç', 'sil', 'yeni', 'eski', 'üst', 'alt', 'sağ', 'sol', 'orta', 'geri', 'ileri', 'devre', 'etkin', 'pasif', 'çizgi', 'nokta', 'kenar', 'köşe', 'merkez', 'ölçek', 'oran', 'boyut', 'renk', 'ses', 'dil'];
 const TR_RE = new RegExp('(^|[^a-zA-Z])(' + TR_WORDS.join('|') + ')([^a-zA-Z]|$)', 'i');
 let hits = 0;
 for (const f of FILES) {

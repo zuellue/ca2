@@ -122,12 +122,11 @@
   cbox.style.cssText = 'position:fixed;left:-200px;top:0;width:20px;height:20px;opacity:0;border:0;padding:0;outline:none';
   document.body.appendChild(cbox);
   function wpost(b) { return fetch(WK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(function (r) { return r.json(); }); }
-  function unlockInner(code) { // hand the accepted code to the page inside the frame through its own entry widget
+  function unlockInner(code) { // hand the accepted code to the page inside the frame through its ca2code gate
     try {
-      var w = fr.contentWindow, d = fr.contentDocument;
-      if (!w || !d || w.__adminOn) return true;
-      var ib = d.querySelector('input[inputmode="numeric"]');
-      if (ib) { ib.value = code; ib.dispatchEvent(new w.Event('input', { bubbles: true })); }
+      var w = fr.contentWindow;
+      if (!w || w.__adminOn) return true;
+      w.dispatchEvent(new w.CustomEvent('ca2code', { detail: { code: code } }));
     } catch (e) {}
     return false;
   }

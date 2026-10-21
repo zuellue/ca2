@@ -1,6 +1,6 @@
 # ca2 todo (owner orders pending, 20 Oct 2026; each is a verbatim owner order relayed by main)
 
-Manual-entry rule (owner 21 Oct, standing): a hand-entered parameter value is accepted as typed - no hidden ceiling or clamp tied to the slider range. Slider min/max bounds the knob only. The single exception is one explicit, documented rule for physically impossible values (e.g. a negative count). The boundary ceiling (margin + one section button) limits automatic deals and hand-pulled plate sizes only - never parameter entry.
+Feature-removal rule (owner 21 Oct): an unsolved bug never justifies removing or simplifying a feature - the feature stays working and the bug is reported to the owner until fixed (the free colour pickers were once swapped for fixed swatches instead of fixing the invert-preview bug; that was disobedience, not a fix).
 
 Language rule (owner 21 Oct): every user-facing string and every repo comment is English only - no Turkish text anywhere in the UI (buttons, labels, hover/title/aria, error and state messages) or in the code. Guard: `node devtools/lang-scan.js` (exits 1 with file:line on any Turkish character or known Turkish word in the shipped files).
 Done + live (sim side): intro jank deferral (staged first spawn after UI intro, metaball/grain/audio deferred, introStat in __ca2), eating radius fixed px (foodEatR migrated: factor x preset CELL_RADIUS), boundary zone independent of cell radius (boundZoneR/edgeFit knobs removed, keys kept), boundary edge/corner hover cursors.
