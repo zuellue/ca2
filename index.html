@@ -52,11 +52,7 @@
 
   @keyframes ca2in { from { opacity: 0 } to { opacity: 1 } }
   #panel h1 { margin: 0 0 6px; font-weight: normal; font-size: 13px; letter-spacing: calc(.3em + 1px); font-family: 'Times New Roman', Times, serif; }
-  #swl { position: fixed; top: 0; right: calc(var(--sd, 23px) + 26px); z-index: 11; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 14px; transform: translateX(200%); transition: transform .2s ease-out; pointer-events: none; }
-  #panel.open ~ #swl, #panel.hov ~ #swl { transform: translateX(0); }
-  @media (hover: hover) { #tab:hover ~ #swl, #panel:hover ~ #swl, #swl:hover { transform: translateX(0); } }
-  .swr { display: flex; align-items: center; justify-content: flex-end; gap: 10px; pointer-events: auto; }
-  .swr span { font-family: var(--cff, 'Times New Roman', Times, serif); font-size: var(--cfs, 13px); color: var(--fg); opacity: 0; transition: opacity .3s; }
+  .row .swc { margin: 2px 0 0 auto; }
   .swc { width: var(--sd, 23px); height: var(--sd, 23px); border-radius: 50%; box-sizing: border-box; border: var(--lw, 1px) solid var(--kc, var(--fg)); cursor: pointer; background: transparent; }
   input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
   input[type=color]::-webkit-color-swatch { border: 0; border-radius: 50%; }
@@ -103,13 +99,6 @@
   .btns button { font: inherit; color: inherit; background: none; border: 0; padding: 4px 0; cursor: pointer; position: relative; }
   .btns button::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; border-bottom: var(--lw) solid transparent; }
   .btns button:hover::after { border-bottom-color: var(--fg); }
-  .keys { position: relative; margin-top: 14px; padding-top: 10px; color: var(--fg-soft); display: grid; grid-template-columns: auto 1fr; column-gap: 12px; white-space: nowrap; }
-  .keys::before { content: ''; position: absolute; left: 0; right: 0; top: 0; border-top: var(--lw) solid var(--kr, var(--kl, #111)); }
-  .keys div { display: contents; }
-  .keys div span:nth-child(odd) { align-self: center; }
-  .keys div span:nth-child(even) { text-align: right; }
-  .perf { grid-column: 1/-1; display: grid; grid-template-columns: auto 1fr; column-gap: 12px; white-space: nowrap; padding: 6px 0 8px; margin: 4px 0 6px; border-top: var(--lw) solid var(--kr, var(--kl, #111)); border-bottom: var(--lw) solid var(--kr, var(--kl, #111)); }
-  .perf b { text-align: right; font-weight: normal; font-family: var(--cff, 'Fragment Mono', ui-monospace, monospace); }
   /* section circles: right lane of the config panel, title-dot size, tangent stacking */
   #secc { position: fixed; top: 0; right: 8px; z-index: 11; display: flex; flex-direction: column; align-items: center; transform: translateX(150%); transition: transform .2s ease-out; }
   #panel.open ~ #secc, #panel.hov ~ #secc { transform: translateX(0); }
@@ -141,14 +130,6 @@
   <div class="stats" id="stats"></div>
   <div id="controls"></div>
   <div class="btns" id="btns"></div>
-  <div class="keys">
-    <div><span>click</span><span class="n">random action</span></div>
-    <div><span>a + click</span><span class="n">add cell</span></div>
-    <div><span>d + click</span><span class="n">kill cells</span></div>
-    <div><span>s + click</span><span class="n">respawn</span></div>
-    <div><span>b + click</span><span class="n">background</span></div>
-    <div><span>c</span><span class="n">this panel</span></div>
-  </div>
 </div>
 <div id="blur"><div class="bf bf1"></div><div class="bf bf2"></div><div class="bf bf3"></div><div class="bf bf4"></div></div>
 <div id="blurl"><div class="bf bf1"></div><div class="bf bf2"></div><div class="bf bf3"></div><div class="bf bf4"></div></div>

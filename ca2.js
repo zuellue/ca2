@@ -1741,9 +1741,10 @@
   });
   // perf section: its whole pool is one live timing block, placed between the copy and save buttons.
   // Soloing the perf circle hides every knob section and leaves just this block; CONFIG brings all back.
-  var perfEl = document.createElement('div'); perfEl.className = 'perf';
-  btns.appendChild(perfEl);
-  SECS.push({ name: 'perf', hdr: perfEl, els: [] });
+  // perf section: no rows of its own - soloing it continues the CONFIG stats block with the
+  // live timing values, in the same row style (owner 21 Oct). hdr is a zero marker for solo().
+  var perfHdr = document.createElement('div'); perfHdr.style.display = 'none'; ctl.appendChild(perfHdr);
+  var perfSec = { name: 'perf', hdr: perfHdr, els: [] }; SECS.push(perfSec);
   // save: write the settings now (independent of the autosave), read them back from storage and compare every key
   btn('save', function (ev) {
     var bt = ev.currentTarget, ok = false, n = 0, bad = [];
@@ -2034,7 +2035,9 @@
     });
   }
   // solo view: a section circle shows only its own section; the CONFIG circle brings everything back
+  var soloSec = null;
   function solo(sec) {
+    soloSec = sec || null;
     SECS.forEach(function (s2) {
       var on = !sec || s2 === sec;
       s2.hdr.style.display = on ? '' : 'none';
@@ -2047,8 +2050,8 @@
   SECS.forEach(addCirc);
   // ---- colour swatches: knob-size circle switches in their own lane, one per colour. OFF is hollow (default colour),
   // ON fills with a random R/G/B and applies it; hover paints the circle black; the name shows briefly on every toggle. (owner 21 Oct)
-  var swl = document.createElement('div'); swl.id = 'swl'; document.body.appendChild(swl); hookHov(swl);
   function hex2rgb(h) { return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)]; }
+  var SW_HOME = { background: [SECS[1].hdr, SECS[0]], 'knob lines': [SECS[2].hdr, SECS[1]], 'section lines': [SECS[2].hdr, SECS[1]], 'button rings': [SECS[2].hdr, SECS[1]], 'axis lines': [SECS[2].hdr, SECS[1]], 'food dots': [gh, SECS[8]] };
   var SW_DEFS = [
     { label: 'background', on: 'swBg', set: function (c) { if (c) { bgTarget = hex2rgb(c); } else { bgIndex = 0; bgTarget = BGS[0]; } }, get: function () { return '#' + bgTarget.map(function (v) { return ('0' + (v | 0).toString(16)).slice(-2); }).join(''); } },
     { label: 'knob lines', on: 'swLineColor', key: 'lineColor', dflt: '#111111' },
@@ -2057,23 +2060,32 @@
     { label: 'axis lines', on: 'swAxisColor', key: 'axisColor', dflt: '' },
     { label: 'food dots', on: 'swFoodColor', key: 'foodColor', dflt: '#000000' }
   ];
+  // the switches live in the panel, in the sections the colour pickers used to sit in (owner 21 Oct:
+  // not a separate lane). Each is a knob-size circle: hollow while off (param at its default),
+  // a click turns it on with a random red/green/blue, another click turns it off and restores the
+  // default; hovering fills the circle black; the value beside the name flashes the new state.
   SW_DEFS.forEach(function (def) {
-    var row = document.createElement('div'); row.className = 'swr';
-    var nm = document.createElement('span'); nm.textContent = def.label;
+    var row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = '<div class="lab"><span>' + def.label + '</span><b style="font-weight:normal;transition:opacity .3s"></b></div>';
     var c = document.createElement('div'); c.className = 'swc';
-    row.appendChild(nm); row.appendChild(c); swl.appendChild(row);
+    row.appendChild(c);
+    var home = SW_HOME[def.label]; ctl.insertBefore(row, home[0]); home[1].els.push(row);
+    var bv = row.querySelector('b'), hideT = null;
     function apply(col) { if (def.set) def.set(col); else { P[def.key] = col; touched[def.key] = 1; applyLineColor(); } }
-    function paint() { c.style.background = P[def.on] ? (def.get ? def.get() : P[def.key]) : 'transparent'; }
-    var hideT = null;
+    function cur() { return P[def.on] ? (def.get ? def.get() : P[def.key]) : null; }
+    function paint() { c.style.background = cur() || 'transparent'; }
+    function show(flash) {
+      bv.textContent = cur() || 'default';
+      if (flash) { bv.style.opacity = '1'; clearTimeout(hideT); hideT = setTimeout(function () { bv.style.opacity = ''; }, 1400); }
+    }
     c.addEventListener('pointerenter', function () { c.style.background = '#000'; });
     c.addEventListener('pointerleave', paint);
     c.addEventListener('click', function () {
       P[def.on] = P[def.on] ? 0 : 1; touched[def.on] = 1;
       apply(P[def.on] ? CIRC_COLS[Math.floor(Math.random() * 3)] : (def.dflt === undefined ? null : def.dflt));
-      paint(); save();
-      nm.style.opacity = '1'; clearTimeout(hideT); hideT = setTimeout(function () { nm.style.opacity = '0'; }, 1400);
+      paint(); show(true); save();
     });
-    paint();
+    paint(); show(false);
   });
 
   // depth of field on both screen edges, one design: opening the config pulls it in like a lens (edge layer first, small
@@ -2224,8 +2236,10 @@
     placeCircles();
     var now = performance.now(); if (now - lastSync < 300) return; lastSync = now;
     statsEl.innerHTML = '<span>Cells</span><span class="n">' + total + '</span><span>Universe</span><span class="n">' + Math.round(P.UNIVERSE_SIZE) + '</span><span>Refresh S</span><span class="n">' + Math.round(Math.max(0, refreshInterval - (now - lastRefresh) / 1000)) + '</span><span>FPS</span><span class="n">' + Math.round(fps) + '</span><span>Res</span><span class="n">' + Math.round(res * 100) + '</span>';
-    var pf1 = function (k) { return PF[k] === undefined ? '...' : PF[k].toFixed(2); };
-    perfEl.innerHTML = '<span>frame</span><b>' + frameMs.toFixed(1) + '</b><span>setup</span><b>' + pf1('setup') + '</b><span>sim+ui draw</span><b>' + pf1('sim+ui draw') + '</b><span>grain+rest</span><b>' + pf1('grain+rest') + '</b><span>gpu:draw+field</span><b>' + pf1('gpu:draw+field') + '</b><span>gpu:drawImage</span><b>' + pf1('gpu:drawImage') + '</b>';
+    if (soloSec === perfSec) {
+      var pf1 = function (k) { return PF[k] === undefined ? '...' : PF[k].toFixed(2); };
+      statsEl.innerHTML += '<span>frame</span><span class="n">' + frameMs.toFixed(1) + '</span><span>setup</span><span class="n">' + pf1('setup') + '</span><span>sim+ui draw</span><span class="n">' + pf1('sim+ui draw') + '</span><span>grain+rest</span><span class="n">' + pf1('grain+rest') + '</span><span>gpu:draw+field</span><span class="n">' + pf1('gpu:draw+field') + '</span><span>gpu:drawImage</span><span class="n">' + pf1('gpu:drawImage') + '</span>';
+    }
     for (var lk in live) { var lr = rows[lk]; lr.inp.value = P[lk]; lr.val.textContent = fmt(P[lk]); }
     if (panel.matches(':hover')) return;
     GROUPS.forEach(function (g) { g[1].forEach(function (q) { var r = rows[q[0]], v = P[q[0]]; r.inp.value = v; r.val.textContent = fmt(v); }); });
