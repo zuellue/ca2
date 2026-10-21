@@ -115,8 +115,12 @@
   #panel.open ~ #adm.on, #panel.hov ~ #adm.on { opacity: 1; pointer-events: auto; }
   @media (hover: hover) { #tab:hover ~ #adm.on, #panel:hover ~ #adm.on { opacity: 1; pointer-events: auto; } }
   #adm .ac { border-radius: 50%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: var(--fg); font-family: 'Fragment Mono', ui-monospace, monospace; }
-  #adm .ac span { line-height: 1; }
+  #adm .ac span { line-height: 1; -webkit-text-stroke-width: 0; transition: color .3s ease, -webkit-text-stroke-width .3s ease, -webkit-text-stroke-color .3s ease; }
   #adm.err .ac { border-color: #ff3c3c !important; color: #ff3c3c; }
+  /* owner 21 Oct: hovering the A/B/D/U letters smooth-bolds them. Fragment Mono ships a single weight, so
+     the bold is an animated stroke, not a font-weight jump; on B/D JS additionally assigns random colours. */
+  @media (hover: hover) { #adm.ok .ac:hover span { -webkit-text-stroke-width: .6px; } }
+  #adm.ok .ac.mb { cursor: pointer; }
   #cur { position: fixed; left: 0; top: 0; display: none; pointer-events: none; z-index: 8; box-sizing: border-box; border: 1px solid #000; border-radius: 50%; will-change: transform; }
   #cur i { position: absolute; left: 50%; top: 50%; width: 2px; height: 2px; border-radius: 50%; transform: translate(-50%, -50%); background: #000; }
   body:not(.rdy) canvas { opacity: 0; }

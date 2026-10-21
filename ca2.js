@@ -2157,6 +2157,21 @@
   panel.addEventListener('click', function (e) { e.stopPropagation(); });
   var lastSync = 0;
 
+  // ---- display mode: 'd' desktop / 'm' mobile. An explicit admin choice (B/D buttons) wins;
+  // otherwise the window width decides - a narrowed desktop window previews the mobile mode and its preset.
+  // The mobile lane consumes this through window.__ca2Mode() / the 'ca2mode' event / body[data-camode].
+  var MODE_BREAK = 820, modeSel = null, modeCur = '';
+  function modeEff() { return modeSel || (window.innerWidth <= MODE_BREAK ? 'm' : 'd'); }
+  function modePub() {
+    var m = modeEff(); if (m === modeCur) return; modeCur = m;
+    document.body.dataset.camode = m;
+    try { window.dispatchEvent(new CustomEvent('ca2mode', { detail: { mode: m, sel: modeSel, width: window.innerWidth } })); } catch (e) {}
+  }
+  window.__ca2Mode = modeEff;
+  window.__ca2ModeSel = function () { return modeSel; };
+  window.addEventListener('resize', modePub);
+  modePub();
+
   // ---- admin session + global presets (Cloudflare Worker + KV, free plan) ----
   (function adminInit() {
     var WK = 'https://ca2-presets.middots.workers.dev/', admin = null, sent = {}, lastV = 0, GK = 'ca2.global';
@@ -2213,6 +2228,28 @@
       admCircles.push(ac); aglyphs.push(ag);
     }
     document.body.appendChild(adm); hookHov(adm); circSig = ''; placeCircles();
+    // B (mobile) and D (desktop) are buttons once the accepted code turns the glyphs into A B D U:
+    // a click toggles the explicit mode choice (clicking the active one clears it - no selection = width decides).
+    // No extra styling on the selected letter (owner 21 Oct): the mode itself is the feedback.
+    // Hovering B or D also paints the letter fill and its stroke with two independent random rgb colours.
+    function rndCol() { return 'rgb(' + ((Math.random() * 256) | 0) + ',' + ((Math.random() * 256) | 0) + ',' + ((Math.random() * 256) | 0) + ')'; }
+    function bindModeBtn(idx, val) {
+      var el = admCircles[idx]; el.classList.add('mb');
+      el.addEventListener('click', function (e) {
+        if (!window.__adminOn) return;
+        e.stopPropagation();
+        modeSel = (modeSel === val) ? null : val; modePub();
+      });
+      el.addEventListener('pointerenter', function () {
+        if (!window.__adminOn || !window.matchMedia('(hover: hover)').matches) return; // touch taps must not stick colours on the selected letter
+        aglyphs[idx].style.color = rndCol();
+        aglyphs[idx].style.webkitTextStrokeColor = rndCol();
+      });
+      el.addEventListener('pointerleave', function () {
+        aglyphs[idx].style.color = ''; aglyphs[idx].style.webkitTextStrokeColor = '';
+      });
+    }
+    bindModeBtn(1, 'm'); bindModeBtn(2, 'd');
     var box = document.createElement('input'); box.type = 'text'; box.maxLength = 4; box.setAttribute('inputmode', 'numeric'); box.autocomplete = 'off'; box.spellcheck = false;
     box.style.cssText = 'position:fixed;left:-200px;top:0;width:20px;height:20px;opacity:0;border:0;padding:0;outline:none';
     document.body.appendChild(box);
@@ -2228,6 +2265,7 @@
             admin = code; sent = {}; Object.keys(P).forEach(function (k) { sent[k] = P[k]; });
             var ABDU = 'ABDU'; for (var i = 0; i < 4; i++) aglyphs[i].textContent = ABDU[i];
             window.__adminOn = true;
+            adm.classList.add('ok');
           } else {
             adm.classList.add('err'); setTimeout(function () { adm.classList.remove('err'); aglyphs.forEach(function (g) { g.textContent = ''; }); }, 600);
           }
@@ -2242,7 +2280,7 @@
     var admDotHit = function (x, y) { for (var i = 0; i < circlesNow.length; i++) { var c = circlesNow[i]; if (/^R0_/.test(c.key) && Math.hypot(x - c.x, y - c.y) < c.r) return true; } return false; };
     window.addEventListener('pointermove', function (e) { admPX = e.clientX; admPY = e.clientY; }, { passive: true });
     var admToggle = function () {
-      if (admin) { admin = null; window.__adminOn = false; admShow(false); }
+      if (admin) { admin = null; window.__adminOn = false; adm.classList.remove('ok'); modeSel = null; modePub(); admShow(false); }
       else if (!adm.classList.contains('on')) admShow(true);
       else admShow(false);
     };
