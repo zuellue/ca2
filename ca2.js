@@ -35,6 +35,11 @@
   Object.assign(P, {"UNIVERSE_SIZE": 55.95868745026389, "baseMutationRate": 9.628232288701716, "mutationRateRange": 2.6268439511457253, "interactionRadius": 12.016352372548786, "CELL_RADIUS": 34.57106164334512, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 50, "maxRadius": 150, "baseMaxSpeed": 2, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 2.5, "THRESHOLD": 0.19, "metaballStrength": 0.024, "foodDensity": 0.023801395385356694, "foodEnergyValue": 20, "minRefreshInterval": 2, "maxRefreshInterval": 9, "slowDownRadius": 9, "speedReductionFactor": 37.5, "grain": 1, "grainAmount": 1.22, "grainStrength": 9.2, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 12, "fps": 12, "containerCorner": 29, "resolution": 1, "margin": 10, "gap": 26, "textScale": 0.8, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.74, "morphEase": 0.7, "pixelRatio": 2, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 1, "axisLayer": 0, "genomeOn": 1, "genomeMut": 0.5, "divideOn": 1, "divideAt": 6, "eatMergeOn": 1, "eatRatio": 3, "eatChance": 1, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.19, "clusterMax": 10, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 8, "foodShrink": 0.1, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 2350, "boundAware": 1, "boundZone": 20, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 2.3, "panelAlpha": 0, "panelWidth": 340, "blurWidth": 340, "cursorSens": 0.75, "cursorSize": 0.31, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 0.53, "audioMode": 1, "audioTone": 2120, "audioMod": 1, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#000000", "foodAlpha": 1, "foodSize": 3.5, "foodShow": 0.51, "audioFadeMs": 5000, "dragMargin": 24, "edgeGrab": 20, "restless": 3, "edgeFit": 0.3, "boundZoneR": 0.1, "blobOutline": 1, "plateOverlap": 0.5, "parasiteHard": 39.5, "parasiteSight": 4000, "parasiteNerv": 1, "parasiteHardMs": 20000, "foodMode": 3, "foodBlobR": 70, "foodBlobDots": 8, "foodLife": 1, "foodLifeMs": 300, "foodLifeCell": 4, "foodEatR": 0.26});
   // eating radius is a fixed px distance, independent of cell radius (owner 20 Oct: no factor); migrate the stored factor with the preset radius
   P.foodEatR = Math.round(P.foodEatR * P.CELL_RADIUS * 100) / 100;
+  // micro habitat (pilot): the nutrient cycle between cells and the food field - death returns biomass and colour to the
+  // dots, and fed dots seed new small cells when the plate empties. Switch-gated, off by default. Every constant is a knob.
+  P.habitatOn = 0; P.habitatFloor = 0; P.habitatFedMin = 20; P.habitatConv = 2; P.habitatSeedR = 0.5; P.habitatMut = 0.12;
+  P.habitatSun = 1; P.habitatDeadFed = 6; P.habitatDeadR = 120; P.habitatDeadCol = 0.35; P.habitatHueK = 0.25;
+  P.cellLife = 0; P.cellLifeVar = 0.3; // lifespan: 0 = no aging (existing behaviour), spread is the per-cell jitter on it
   P.focusIdleMs = 4000; P.focusInMs = 4000; P.focusOutMs = 380; P.focusDepth = 14; // idle depth-of-field blur: wait, slow blur-in, swift refocus, depth px
   P.cellShapes = 1; // heritable body plans: round / string / lobed (render expands a cell into metaball sources)
   var DEFAULTS = JSON.parse(JSON.stringify(P));
@@ -65,6 +70,7 @@
     var k0 = gene > 2 ? 0 : gene < -2 ? 1 : 2, cv = [0.12, 0.12, 0.12]; cv[k0] = 0.76;
     this.g = { spd: 1 + rnd(-0.3, 0.3), app: rnd(0.05, 0.95), bnd: 1 + rnd(-0.4, 0.4), col: normCol([cv[0] + rnd(0, 0.1), cv[1] + rnd(0, 0.1), cv[2] + rnd(0, 0.1)]) };
     this.cl = 0; this.maxSpeed = this.maxSpeed * (P.genomeOn ? this.g.spd : 1); this.shp = newShape(null);
+    this.age = 0; this.life = P.cellLife > 0 ? Math.max(1, P.cellLife * (1 + rnd(-P.cellLifeVar, P.cellLifeVar))) : 0;
   }
   function normCol(v) { var s = v[0] + v[1] + v[2] || 1; return [v[0] / s, v[1] / s, v[2] / s]; }
   function speedOf(c) { return Math.max(0, P.baseMaxSpeed + c.sv * P.maxSpeedVariation) * (P.genomeOn ? c.g.spd : 1); }
@@ -174,7 +180,7 @@
     for (var i = food.length - 1; i >= 0; i--) {
       var fd = Math.hypot(c.x - food[i].x, c.y - food[i].y);
       if (fd >= P.foodEatR && fd < reach && fd < bestD) { bestD = fd; bx = food[i].x; by = food[i].y; }
-      if (fd < P.foodEatR) { c.energy += P.foodEnergyValue; food[i].gone = 1; food.splice(i, 1); ev.ate = (ev.ate || 0) + 1; if (P.foodGrow) c.radius = Math.min(c.radius + P.foodGrowAmt, P.CELL_RADIUS * P.foodGrowMax); }
+      if (fd < P.foodEatR) { c.energy += P.foodEnergyValue; habAte(food[i]); food[i].gone = 1; food.splice(i, 1); ev.ate = (ev.ate || 0) + 1; if (P.foodGrow) c.radius = Math.min(c.radius + P.foodGrowAmt, P.CELL_RADIUS * P.foodGrowMax); }
     }
     if (reach && bestD < 1e9) { c.vx += (bx - c.x) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); c.vy += (by - c.y) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); }
     if (P.divideOn && P.foodGrow && c.radius >= P.CELL_RADIUS * P.divideAt && cells.length < Math.max(60, P.UNIVERSE_SIZE * 4) && c.energy > 1) divide(c);
@@ -550,7 +556,7 @@
   }
   function cycleBg() { bgIndex = (bgIndex + 1) % BGS.length; bgTarget = BGS[bgIndex]; save(); }
   function createCell() { cells.push(new Cell(mouse.x, mouse.y, Math.floor(rnd(P.GENE_MIN, P.GENE_MAX + 1)), P.baseMutationRate + rnd(-P.mutationRateRange, P.mutationRateRange))); }
-  function killNear() { for (var i = cells.length - 1; i >= 0; i--) if (Math.hypot(mouse.x - cells[i].x, mouse.y - cells[i].y) < cells[i].radius + 6) cells.splice(i, 1); } // the click target is the visible body: a fixed 22px missed every click once CELL_RADIUS grew past it (owner 21 Oct: D+click did not kill)
+  function killNear() { for (var i = cells.length - 1; i >= 0; i--) if (Math.hypot(mouse.x - cells[i].x, mouse.y - cells[i].y) < cells[i].radius + 6) { habReap(cells[i]); cells.splice(i, 1); } } // the click target is the visible body: a fixed 22px missed every click once CELL_RADIUS grew past it (owner 21 Oct: D+click did not kill)
   function randomizeOne() {
     var k = Math.floor(rnd(5));
     if (k === 0) P.baseMutationRate = rnd(2, 8); else if (k === 1) P.mutationRateRange = rnd(1, 4);
@@ -738,9 +744,9 @@
       for (i = 0; i < lg.length; i += 4) { var kd = lg[i + 3], k0 = cells[lg[i]], p0 = cells[lg[i + 1]], p1 = lg[i + 2] >= 0 ? cells[lg[i + 2]] : null; if (kd === 1) k0.shp = newShape(p0.shp); else if (kd === 2) k0.shp = mixShape(p0.shp, p1.shp); else k0.shp = mixShape(k0.shp, p0.shp); }
       for (i = 0; i < cells.length; i++) { c = cells[i]; if (c.alive && c.shp && c.shp.t === 1) simSwim(c); }
       tmpRef.hc = o[16] >= 0 ? cells[o[16]] : null;
-      for (i = nf - 1; i >= 0; i--) if (fg[i] !== 0) { food[i].gone = 1; food.splice(i, 1); }
+      for (i = nf - 1; i >= 0; i--) if (fg[i] !== 0) { habAte(food[i]); food[i].gone = 1; food.splice(i, 1); }
       ev.birth += o[0]; ev.divide = (ev.divide || 0) + o[1]; ev.eaten = (ev.eaten || 0) + o[2]; ev.merge = (ev.merge || 0) + o[3]; ev.fuse = (ev.fuse || 0) + o[4]; ev.pair = (ev.pair || 0) + o[5]; ev.hit += o[6]; ev.oob += o[7]; ev.ate = (ev.ate || 0) + o[8]; clusterSeq = o[10];
-      for (i = cells.length - 1; i >= 0; i--) if (!cells[i].alive) { ev.death++; cells.splice(i, 1); }
+      for (i = cells.length - 1; i >= 0; i--) if (!cells[i].alive) { ev.death++; habReap(cells[i]); cells.splice(i, 1); }
       hovering = o[11] !== 0; tmpRef.v = [o[12], o[13], o[14]];
       SIMW.ms = SIMW.ms * 0.9 + (performance.now() - t0) * 0.1; SIMW.on = true; return true;
     } catch (e) { WC.simOff = true; WC.simErr = String(e); SIMW.on = false; return false; }
@@ -1298,6 +1304,64 @@
       if (p.e > 12 && parasites.length < cells.length * 0.8 + 3) { p.e /= 2; parasites.push({ x: p.x, y: p.y, e: p.e, host: p.host, a: Math.random() * 6.2832 }); ev.pbirth = (ev.pbirth || 0) + 1; }
     }
   }
+  // ---- micro habitat: nutrient cycling between cells and the food field.
+  // Death returns biomass to the field: dots near a corpse take up fed value and the corpse's colour. When the plate is
+  // (nearly) empty, dots fed past the threshold seed small cells in their acquired colour plus a small mutation - the
+  // population's dominant colour is the dominant eaten-dot colour, kept as a decayed memory at the eat sites.
+  // Engine-agnostic by construction: the hooks sit at the two splice points (JS loop and wasm unpack) and the two eat
+  // sites, so the JS and wasm sims and every food mode share identical semantics. No forces are ever added to dots, so
+  // swarm isotropy is untouched; mode-owned bodies (worm links, spores, blob rings) are never converted.
+  var habStat = { pulse: 0, seed: 0, ate: 0 };
+  var ateHueV = null; // decayed memory of eaten-dot hues: the dominant eaten-food colour
+  function habReap(c) { // one spliced cell -> one nutrient pulse into the dots around it
+    if (!P.habitatOn || !c) return;
+    var col = c.g && c.g.col ? c.g.col : null, R = P.habitatDeadR, R2 = R * R;
+    for (var i = 0; i < food.length; i++) {
+      var f = food[i], dx = f.x - c.x, dy = f.y - c.y;
+      if (dx * dx + dy * dy > R2) continue;
+      f.fed = (f.fed || 0) + P.habitatDeadFed;
+      if (col) {
+        if (f.hr === undefined) { f.hr = col[0]; f.hg = col[1]; f.hb = col[2]; }
+        else { var k = P.habitatDeadCol; f.hr += (col[0] - f.hr) * k; f.hg += (col[1] - f.hg) * k; f.hb += (col[2] - f.hb) * k; }
+      }
+    }
+    habStat.pulse++;
+  }
+  function habAte(f) { // an eaten dot's hue joins the running dominant-eaten memory
+    if (!P.habitatOn || !f || f.hr === undefined) return;
+    var k = P.habitatHueK;
+    if (!ateHueV) ateHueV = [f.hr, f.hg, f.hb];
+    else { ateHueV[0] += (f.hr - ateHueV[0]) * k; ateHueV[1] += (f.hg - ateHueV[1]) * k; ateHueV[2] += (f.hb - ateHueV[2]) * k; }
+    habStat.ate++;
+  }
+  function habSeed(f) { // a fed dot becomes a small cell: its acquired colour (or the dominant eaten colour) + mutation
+    var hue = f.hr !== undefined ? [f.hr, f.hg, f.hb] : (ateHueV || [1 / 3, 1 / 3, 1 / 3]), a = P.habitatMut;
+    var col = normCol([Math.max(0.001, hue[0] + rnd(-a, a)), Math.max(0.001, hue[1] + rnd(-a, a)), Math.max(0.001, hue[2] + rnd(-a, a))]);
+    var k0 = col[0] >= col[1] && col[0] >= col[2] ? 0 : col[1] >= col[2] ? 1 : 2; // dominant channel picks the gene range, same convention as the ctor
+    var gene = k0 === 0 ? Math.floor(rnd(3, P.GENE_MAX + 1)) : k0 === 1 ? Math.floor(rnd(P.GENE_MIN, -1)) : Math.floor(rnd(-2, 3));
+    var c = new Cell(f.x, f.y, gene, P.baseMutationRate + rnd(-P.mutationRateRange, P.mutationRateRange));
+    c.g.col = col; c.radius = Math.max(1, P.CELL_RADIUS * P.habitatSeedR);
+    cells.push(c); habStat.seed++;
+  }
+  function stepHabitat(dtf) {
+    if (!P.habitatOn) return;
+    var dt = dtf / 1000, i, f;
+    var x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h, inPlate = 0;
+    for (i = 0; i < cells.length; i++) { var c = cells[i]; if (c.alive && c.x > x0 && c.x < x1 && c.y > y0 && c.y < y1) inPlate++; }
+    var seeding = inPlate <= P.habitatFloor, sun = P.habitatSun, conv = P.habitatConv * dt;
+    for (i = food.length - 1; i >= 0; i--) {
+      f = food[i];
+      if (f.worm || f.spore || f.blob) continue; // mode-owned bodies stay their mode's business
+      if (sun > 0 && f.x > x0 && f.x < x1 && f.y > y0 && f.y < y1) f.fed = (f.fed || 0) + sun * dt;
+      if (seeding && (f.fed || 0) >= P.habitatFedMin && Math.random() < conv) { habSeed(f); f.gone = 1; food.splice(i, 1); }
+    }
+  }
+  function stepAging(dtf) { // lifespan, the missing death channel: age ticks, and an aged-out cell dies and recycles like any other
+    if (!(P.cellLife > 0)) return;
+    var dt = dtf / 1000;
+    for (var i = 0; i < cells.length; i++) { var c = cells[i]; if (!c.alive) continue; c.age = (c.age || 0) + dt; if (c.life && c.age >= c.life) c.alive = false; }
+  }
+
   // ---- frame ----
   var res = 1, frameMs = 0;
   var lastFrameT = performance.now();
@@ -1363,11 +1427,12 @@
       for (var k = i - 1; k >= 0; k--) interact(c, cells[k]);
       if (resizeDrag && c.alive) { var ms2 = (c.maxSpeed + 1) * P.restless; c.vx += (Math.random() - 0.5) * ms2 * 2; c.vy += (Math.random() - 0.5) * ms2 * 2; }
       if (P.boundAware && c.alive) keepIn(c);
-      if (!c.alive) { ev.death++; cells.splice(i, 1); }
+      if (!c.alive) { ev.death++; habReap(c); cells.splice(i, 1); }
     }
     if (!simDone) SIMW.js = (SIMW.js || 0) * 0.9 + (performance.now() - tj0) * 0.1;
     hoverCol = hovering ? tmpHover : [255, 255, 255];
     stepParasites(); pfm('sim loop+parasites');
+    stepAging(dtf); stepHabitat(dtf); pfm('habitat');
 
     var Lx = lay(), sT0 = String(cells.length), sX0 = String(Math.round(mouse.x));
     var mv = mouse.over ? invAt(mouse.x, mouse.y) : [bg[0] > 128 ? 0 : 255, bg[0] > 128 ? 0 : 255, bg[0] > 128 ? 0 : 255], k2 = 0.3;
@@ -1532,6 +1597,8 @@
 
      var pairN = 0, compN = 0; for (var pci = 0; pci < cells.length; pci++) { if (cells[pci].sym) pairN++; if (cells[pci].comp > 1) compN++; }
      window.__ca2 = { SIMW: SIMW, cmpWC: function () { if (!WC.ok) return 'nowasm:' + WC.err; var S = curS, sv = ctx.drawImage; ctx.drawImage = function () {}; var o = WC.off; var fdef = WC.field; WC.field = WC.fieldX; WC.off = false; var t0 = performance.now(); drawMetaballsCPU(S); var tw = performance.now() - t0; var a = new Uint8ClampedArray(img.data); WC.off = true; t0 = performance.now(); drawMetaballsCPU(S); var tj = performance.now() - t0; var b = new Uint8ClampedArray(img.data); WC.off = o; var fsv = fdef; WC.field = WC.fieldF; WC.off = false; t0 = performance.now(); drawMetaballsCPU(S); var tf = performance.now() - t0; var c32 = new Uint8ClampedArray(img.data); WC.field = fsv; WC.off = o; var d32 = 0, m32 = 0, ge2 = 0; for (var i = 0; i < b.length; i++) { var dd = Math.abs(c32[i] - b[i]); if (dd) { d32++; if (dd > m32) m32 = dd; if (dd > 2) ge2++; } } ctx.drawImage = sv; var bad = 0, mx = 0; for (var i = 0; i < a.length; i++) { var d = Math.abs(a[i] - b[i]); if (d) { bad++; if (d > mx) mx = d; } } return JSON.stringify({ bytes: a.length, diffBytes: bad, maxDiff: mx, tWasm: +tw.toFixed(1), tJS: +tj.toFixed(1), tF32: +tf.toFixed(1), f32diff: d32, f32max: m32, f32gt2: ge2, cells: cells.length }); }, WC: WC, PF: PF, pairs: pairN / 2, fusions: ev.fuse || 0, pairings: ev.pair || 0, composites: compN, cmp: function () { if (!gOK) return 'nogl'; var S = curS, sv = ctx.drawImage; var saved = ctx.drawImage; ctx.drawImage = function () {}; var t0 = performance.now(); drawMetaballs(S); var tg = performance.now() - t0; t0 = performance.now(); drawMetaballsCPU(S); var tc = performance.now() - t0; ctx.drawImage = saved; var tmp = document.createElement('canvas'); tmp.width = glc.width; tmp.height = glc.height; var tx = tmp.getContext('2d'); tx.drawImage(glc, 0, 0); var gd = tx.getImageData(0, 0, tmp.width, tmp.height).data, cd = img.data, n = tmp.width * tmp.height, bad = 0, mx = 0, sum = 0, lit = 0; for (var p = 0; p < n; p++) { var q = p * 4, ga = gd[q + 3], ca = cd[q + 3]; var d = Math.abs(ga - ca); if (ca > 0 || ga > 0) { lit++; if (ca > 250 && ga > 250) d = Math.max(d, Math.abs(gd[q] - cd[q]), Math.abs(gd[q + 1] - cd[q + 1]), Math.abs(gd[q + 2] - cd[q + 2])); } if (d > 8) bad++; if (d > mx) mx = d; sum += d; } return JSON.stringify({ px: n, lit: lit, bad: bad, maxd: mx, tGPUms: +tg.toFixed(1), tCPUms: +tc.toFixed(1), cells: gSnap && gSnap.n }); }, gpuState: function () { return { ok: gOK, on: gOn, n: gSnap && gSnap.n }; }, setGPU: function (v) { gOK = !!v && !!gl; }, colorAt: colorAt, setKey: function (k, v) { P[k] = v; applyKey(k, v); if (k === 'lineColor' || k === 'ruleColor' || k === 'circColor') applyLineColor(); touched[k] = 1; save(); }, cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var lastF, lastF2, run = 0, maxRun = 0, sumAbs = 0, bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; if (Math.abs(f - (lastF === undefined ? -9 : lastF)) < 0.01) { run++; maxRun = Math.max(maxRun, run); } else run = 0; lastF = f; sumAbs += lastF2 === undefined ? 0 : Math.abs(f - lastF2); lastF2 = f; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins, maxRunGens: maxRun, meanStep: sumAbs / gens }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, worms: worms, wormStat: wormStat, spores: spores, sporeStat: sporeStat, srcStat: function () { return { n: SRC.n, cells: SRC.cells }; }, shapeStat: function () { var t0 = frameT || performance.now(), asps = [], strings = 0, lobed = 0, rounds = 0, srcs = 0, i, a2, b2; for (i = 0; i < cells.length; i++) { var c = cells[i]; if (!c.alive) continue; var o = { x: [], y: [], r: [], n: 0 }; emitCell(c, t0, 99, o); srcs += o.n; var sh = c.shp || { t: 0 }; if (sh.t === 1) strings++; else if (sh.t === 2) lobed++; else rounds++; var mn = 1e9, mx = 0; for (a2 = 0; a2 < o.n; a2++) { mn = Math.min(mn, o.r[a2]); for (b2 = a2; b2 < o.n; b2++) mx = Math.max(mx, Math.hypot(o.x[a2] - o.x[b2], o.y[a2] - o.y[b2]) + o.r[a2] + o.r[b2]); } asps.push(mx / (2 * mn)); } asps.sort(function (x, y) { return x - y; }); var mean = 0; for (i = 0; i < asps.length; i++) mean += asps[i]; mean = asps.length ? mean / asps.length : 1; var sd = 0; for (i = 0; i < asps.length; i++) sd += (asps[i] - mean) * (asps[i] - mean); sd = asps.length ? Math.sqrt(sd / asps.length) : 0; var hist = [0, 0, 0, 0, 0, 0, 0], cuts = [1.05, 1.5, 2, 3, 4.5, 7, 12]; for (i = 0; i < asps.length; i++) { var bi = 0; while (bi < 6 && asps[i] >= cuts[bi]) bi++; hist[bi]++; } return { cells: asps.length, rounds: rounds, strings: strings, lobed: lobed, geneticSources: srcs, aspectMean: +mean.toFixed(3), aspectSd: +sd.toFixed(3), aspectMin: asps.length ? +asps[0].toFixed(2) : 1, aspectMed: asps.length ? +asps[Math.floor(asps.length / 2)].toFixed(2) : 1, aspectMax: asps.length ? +asps[asps.length - 1].toFixed(2) : 1, hist: hist }; }, live: live, P: P, getCells: function () { return cells; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, midBase: midBase, lead: L.lead, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, circles: circlesNow, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
+    __ca2.habStat = habStat;
+    __ca2.habitat = function () { var fedN = 0, fedMax = 0, hueN = 0; for (var i = 0; i < food.length; i++) { var fd = food[i].fed || 0; if (fd >= P.habitatFedMin) fedN++; if (fd > fedMax) fedMax = fd; if (food[i].hr !== undefined) hueN++; } return { on: P.habitatOn, pulse: habStat.pulse, seed: habStat.seed, ateHue: habStat.ate, dominant: ateHueV, fedEligible: fedN, fedMax: +fedMax.toFixed(2), hueDots: hueN, cells: cells.length, food: food.length }; };
 
     if (autoRefresh && performance.now() - lastRefresh > refreshInterval * 1000) {
       // never re-deal the universe mid-configuration: while the config area is in use (panel open, lane/panel hovered,
@@ -1691,6 +1758,11 @@
       ['genomeMut', 'genome mutation', 0, 0.5, 0.01], ['divideAt', 'divide at size (x radius)', 1.2, 6, 0.1], ['eatRatio', 'eat when size ratio >', 1.05, 3, 0.05], ['eatChance', 'eat chance', 0, 1, 0.01],
       ['mergeChance', 'merge chance', 0, 0.3, 0.005], ['mergeGene', 'merge gene distance', 0, 36, 1], ['clusterCohesion', 'cluster cohesion', 0, 1, 0.01], ['clusterMax', 'cluster max size', 2, 30, 1],
       ['parasiteFrac', 'parasite share', 0, 0.5, 0.01], ['parasiteDrain', 'parasite drain', 0, 0.2, 0.005], ['parasiteEff', 'parasite efficiency', 0, 1, 0.01], ['selStrength', 'selection strength', 0, 4, 0.05]]],
+    ['habitat', [
+      ['habitatFedMin', 'seed fed threshold', 0, 200, 1], ['habitatConv', 'seed rate (per dot per s)', 0, 50, 0.1], ['habitatSeedR', 'seed size (x cell r)', 0.05, 2, 0.05], ['habitatMut', 'seed colour mutation', 0, 1, 0.01],
+      ['habitatSun', 'food sunlight (fed per s)', 0, 20, 0.1], ['habitatDeadFed', 'corpse nutrient (fed)', 0, 50, 0.5], ['habitatDeadR', 'corpse nutrient radius px', 0, 600, 5], ['habitatDeadCol', 'corpse colour transfer', 0, 1, 0.01],
+      ['habitatHueK', 'eaten colour memory', 0, 1, 0.01], ['habitatFloor', 'seeding below N cells', 0, 20, 1],
+      ['cellLife', 'lifespan s (0 = none)', 0, 900, 5], ['cellLifeVar', 'lifespan spread', 0, 1, 0.05]]],
     ['life', [
       ['boundGap', 'wall gap px (every cell)', 0, 200, 1], ['boundZone', 'boundary awareness zone', 0, 200, 1], ['dragMargin', 'drag resize viewport margin px', 0, 100, 1], ['edgeGrab', 'border grab width px', 3, 40, 1], ['restless', 'cell restlessness while resizing', 0, 3, 0.05], ['boundForce', 'boundary push', 0, 3, 0.05], ['cellMorphMs', 'metamorphosis time ms', 100, 6000, 50]]],
     ['sound', [
@@ -1722,7 +1794,7 @@
     else if (k === 'UNIVERSE_SIZE') {
       var n = Math.round(v), gx = cont.x, gy = cont.y;
       while (cells.length < n) cells.push(new Cell(gx + rnd(cont.w), gy + rnd(cont.h), Math.floor(rnd(P.GENE_MIN, P.GENE_MAX + 1)), P.baseMutationRate + rnd(-P.mutationRateRange, P.mutationRateRange)));
-      while (cells.length > n) cells.splice(Math.floor(rnd(cells.length)), 1);
+      while (cells.length > n) { var di0 = Math.floor(rnd(cells.length)); habReap(cells[di0]); cells.splice(di0, 1); }
     }
     else if (k === 'foodDensity') {
       var nf = Math.round(cont.w * cont.h * P.foodDensity / 2);
@@ -1852,6 +1924,7 @@
   toggle('growth by eating', !!P.foodGrow, function (v) { P.foodGrow = v ? 1 : 0; });
   toggle('boundary awareness', !!P.boundAware, function (v) { P.boundAware = v ? 1 : 0; });
   toggle('respawn morph', !!P.respawnMorph, function (v) { P.respawnMorph = v ? 1 : 0; });
+  toggle('micro habitat', !!P.habitatOn, function (v) { P.habitatOn = v ? 1 : 0; });
   choice('food life', 'foodMode', ['original', 'game of life', 'amorphous blobs', 'swarm', 'worms', 'spores']);
   toggle('body shapes', !!P.cellShapes, function (v) { P.cellShapes = v ? 1 : 0; });
   toggle('cell metamorphosis', !!P.cellMorph, function (v) { P.cellMorph = v ? 1 : 0; });
