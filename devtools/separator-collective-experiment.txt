@@ -1,3 +1,5 @@
+HISTORICAL REJECTED PROTOTYPE. Superseded by production ca2.js separatorCollectivePass in fc16ed0 and overload compression in 03cc6cb. This file is not loaded. The failure measurements below belong to the older fixed-erosion prototype, not the current solver.
+
 EXPERIMENT ONLY. Not loaded by index.html.
 Wasm sampler improves sparse cases (1.1-9.4ms at61-76cells), but 242-cell constrained stress cost89.7ms and left258 axis samples over threshold.
 Do not enable as production solution. Multi-wall dense/no-space resolution remains open.
