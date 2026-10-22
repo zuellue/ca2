@@ -967,7 +967,8 @@
     ctx.textAlign = 'left'; var lrT = inkLR(sT), lrX = inkLR(sX);
     var hL = M + (lrT[1] - lrT[0]) + G, hR = (W - M) - (lrX[1] - lrX[0]) - G, vTop = M + dh + L.row + G, vBot = H - M - dh - G, g = P.centerGap;
     var X = P.axisLayer === 0 ? ctx : lctx, S = P.axisLayer === 0 ? DPR : DD; // axis behind the cells lives on the plate canvas (cells cover it); on top it uses the exact-resolution layer
-    X.strokeStyle = P.axisColor || css(eased.axis, 1); X.lineWidth = P.separatorOn ? Math.min(LW(), 1 / S) : LW(); X.lineCap = 'butt';
+    X.strokeStyle = P.axisColor || css(eased.axis, 1); X.lineWidth = LW(); // visual stroke follows line width; separator collision remains a hairline
+    X.lineCap = 'butt';
     var segs = [];
     if (g > 0) { segs.push([hL, cym, cxm - g, cym], [cxm + g, cym, hR, cym], [cxm, vTop, cxm, cym - g], [cxm, cym + g, cxm, vBot]); }
     else segs.push([hL, cym, hR, cym], [cxm, vTop, cxm, vBot]);
