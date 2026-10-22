@@ -1546,7 +1546,13 @@
     if (P.axisLayer === 0 && P.showAxis) drawAxis(Lx, sT0, sX0);
     var rc = 0, gc = 0, bc = 0, inN = 0;
     for (i = 0; i < cells.length; i++) { var gn = cells[i].gene; if (gn > 2) rc++; else if (gn < -2) gc++; else bc++; var ci = cells[i]; if (ci.alive && ci.x > cont.x && ci.x < cont.x + cont.w && ci.y > cont.y && ci.y < cont.y + cont.h) inN++; }
-    var plateCol = function () { return inN ? css(dom, 1) : (P.axisColor || css(eased.axis, 1)); }; // empty plate takes the axis line colour (owner 21 Oct), boundary and resize icons alike
+    // owner 22 Oct: when the boundary stroke would be the selected background colour itself it becomes invisible -
+    // then (and only then) it takes the axis line colour. Holds for the outline and the resize icons alike (one plateCol).
+    var plateCol = function () {
+      var c = inN ? dom : null;
+      if (c && c[0] === (bgTarget[0] | 0) && c[1] === (bgTarget[1] | 0) && c[2] === (bgTarget[2] | 0)) c = null;
+      return c ? css(c, 1) : (P.axisColor || css(eased.axis, 1));
+    }; // empty plate takes the axis line colour (owner 21 Oct), boundary and resize icons alike
     var dom = [0, 0, 0];
     if (rc > gc && rc > bc) dom = [255, 0, 0]; else if (gc > rc && gc > bc) dom = [0, 255, 0]; else if (bc > rc && bc > gc) dom = [0, 0, 255];
 
@@ -2229,6 +2235,15 @@
       spans.forEach(function (sp) { sp.style.transition = 'none'; sp.style.lineHeight = ''; sp.style.transform = ''; });
       void lb.offsetWidth;
       lb.style.height = (txt.length * (parseFloat(getComputedStyle(spans[0]).lineHeight) || 17) + 14) + 'px';
+      lb.classList.add('on'); // open title keeps its breathing room; closed labels leave the circles tangent (owner 22 Oct)
+      if (eadmEl && eadmEl.classList.contains('on')) { // the armed code circles slide below the open title, then come back (owner 22 Oct)
+        // everything under the hovered circle rides down by the label height + its margin; the lane's own bottom moves the same
+        var shift = 16 + (parseFloat(lb.style.height) || 0);
+        var lastSc = secc.lastElementChild && secc.lastElementChild.firstChild;
+        var laneBottom = lastSc ? lastSc.getBoundingClientRect().bottom : c.getBoundingClientRect().bottom;
+        var ov = laneBottom + shift - eadmEl.getBoundingClientRect().top + 8;
+        if (ov > 0) eadmEl.style.transform = 'translateY(' + ov.toFixed(1) + 'px)';
+      }
       // opening: letters start slightly tight vertically, line spacing eases open into place (very subtle)
       spans.forEach(function (sp) { sp.style.transition = 'none'; sp.style.opacity = '0'; sp.style.lineHeight = 'calc(var(--cfs, 13px) * 0.98)'; sp.style.transform = 'scaleY(.88)'; });
       void lb.offsetWidth;
@@ -2303,6 +2318,8 @@
       // closing: letters squeeze together vertically a little and fade
       spans.forEach(function (sp) { sp.style.transition = 'opacity .2s ease-in, line-height .2s ease-in, transform .2s ease-in'; sp.style.transitionDelay = '0s'; sp.style.opacity = '0'; sp.style.lineHeight = 'calc(var(--cfs, 13px) * 0.9)'; sp.style.transform = 'scaleY(.8)'; });
       lb.style.height = '0px';
+      lb.classList.remove('on');
+      if (eadmEl) eadmEl.style.transform = '';
       // stop the hover life; the pieces now die one by one at random moments, one random survivor wanders cellular-automaton style,
       // grows back to the full button size, is pierced from its centre and settles as the button's hollow ring
       if (caT) { clearInterval(caT); if (caT._a) clearInterval(caT._a); if (caT._b) clearInterval(caT._b); caT = null; }
@@ -2520,6 +2537,7 @@
     requestAnimationFrame(loop);
   })();
   var admCircles = []; // filled by the verified admin module: 4 stacked circles, same lane and size as the section circles
+  var eadmEl = null; // the armed code-entry widget (set by the gate): an opening section title slides it down instead of overlapping it (owner 22 Oct)
   var circSig = '';
   function placeCircles() {
     var L = lay(), u = L.fs / 1000, R0 = 166.5 * u, D = 2 * R0;
@@ -2607,9 +2625,9 @@
   // input stays invisible (it only catches keys). A verified answer carries the admin module itself.
   (function gate() {
     var WK = 'https://ca2-presets.middots.workers.dev/';
-    var eg = document.createElement('div'); eg.id = 'eadm';
-    var glyphs = [];
-    for (var ai = 0; ai < 4; ai++) { var ac = document.createElement('div'); ac.className = 'ac'; var ag = document.createElement('span'); ac.appendChild(ag); eg.appendChild(ac); admCircles.push(ac); glyphs.push(ag); }
+    var eg = document.createElement('div'); eg.id = 'eadm'; eadmEl = eg;
+    var glyphs = [], acs = [];
+    for (var ai = 0; ai < 4; ai++) { var ac = document.createElement('div'); ac.className = 'ac'; var ag = document.createElement('span'); ac.appendChild(ag); eg.appendChild(ac); admCircles.push(ac); glyphs.push(ag); acs.push(ac); }
     document.body.appendChild(eg);
     var box = document.createElement('input'); box.type = 'text'; box.maxLength = 4; box.setAttribute('inputmode', 'numeric'); box.autocomplete = 'off'; box.spellcheck = false; box.tabIndex = -1; box.setAttribute('aria-hidden', 'true');
     box.style.cssText = 'position:fixed;left:-200px;top:0;width:20px;height:20px;opacity:0;border:0;padding:0;outline:none';
@@ -2618,12 +2636,15 @@
     var armT = 0, holdIv = null, holdT0 = 0, px = 0, py = 0;
     var dotHit = function (x, y) { for (var i = 0; i < circlesNow.length; i++) { var c = circlesNow[i]; if (/^R0_/.test(c.key) && Math.hypot(x - c.x, y - c.y) < c.r) return true; } return false; };
     var clearGlyphs = function () { for (var i = 0; i < 4; i++) glyphs[i].textContent = ''; };
-    var disarm = function () { armT = 0; box.value = ''; clearGlyphs(); eg.classList.remove('on'); eg.classList.remove('err'); box.blur(); };
-    var arm = function () { if (window.__adminOn) return; armT = Date.now(); box.value = ''; clearGlyphs(); eg.classList.remove('err'); eg.classList.add('on'); box.focus(); }; // programmatic focus is not a gesture on phones - a tap on the circles re-focuses
+    // the blinking caret lives on the circle that takes the next digit, only while the hidden input really has focus (owner 22 Oct)
+    var updateCur = function () { var on = armT && document.activeElement === box; for (var i = 0; i < 4; i++) { if (on && i === box.value.length) acs[i].classList.add('cur'); else acs[i].classList.remove('cur'); } };
+    var disarm = function () { armT = 0; box.value = ''; clearGlyphs(); eg.classList.remove('on'); eg.classList.remove('err'); box.blur(); updateCur(); };
+    var arm = function () { if (window.__adminOn) return; armT = Date.now(); box.value = ''; clearGlyphs(); eg.classList.remove('err'); eg.classList.add('on'); box.focus(); updateCur(); }; // programmatic focus is not a gesture on phones - a tap on the circles re-focuses
     var holdStop = function () { if (holdIv) { clearInterval(holdIv); holdIv = null; } };
     window.addEventListener('pointermove', function (e) { px = e.clientX; py = e.clientY; }, { passive: true });
     window.addEventListener('pointerdown', function (e) {
       holdStop(); px = e.clientX; py = e.clientY;
+      if (armT && eg.classList.contains('on')) { var r = eg.getBoundingClientRect(); if (px >= r.left && px <= r.right && py >= r.top && py <= r.bottom) { e.preventDefault(); armT = Date.now(); box.focus(); updateCur(); return; } } // a tap back on the circles is activity: the 20s idle disarm restarts
       if (!dotHit(px, py)) return;
       holdT0 = performance.now();
       holdIv = setInterval(function () {
@@ -2655,6 +2676,7 @@
       if (!armT) { box.value = ''; return; }
       box.value = box.value.replace(/\D/g, '').slice(0, 4);
       for (var i = 0; i < 4; i++) glyphs[i].textContent = box.value[i] || '';
+      updateCur();
       if (box.value.length < 4) { if (Date.now() - armT > 20000) disarm(); return; }
       var code = box.value; armT = Date.now(); verify(code);
     });
@@ -2662,6 +2684,7 @@
     // wrapper page hands an entered code in through this event (no admin surface either way)
     window.addEventListener('ca2code', function (e) { var c = e && e.detail && String(e.detail.code || ''); if (!/^\d{4}$/.test(c)) return; disarm(); verify(c); });
     box.addEventListener('keydown', function (e) { e.stopPropagation(); });
+    box.addEventListener('focus', updateCur); box.addEventListener('blur', updateCur);
   })();
   function syncUI(total) {
     placeCircles();

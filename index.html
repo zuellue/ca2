@@ -103,20 +103,27 @@
   /* save is admin-only on desktop (owner 21 Oct): hidden in the button row until the admin code verifies; the mobile lane pins the same node outside .btns, where this rule does not reach */
   /* code entry: 4 hollow circles stacked at the bottom right, on the section-circle axis (owner 22 Oct: the
      original design - digits fill the circles top to bottom; the verified module takes over the same spot) */
-  #eadm { display: none; position: fixed; right: var(--m); bottom: var(--m); z-index: 11; flex-direction: column; align-items: center; cursor: text; opacity: 0; pointer-events: none; transition: opacity .2s ease-out; }
+  #eadm { display: none; position: fixed; right: var(--m); bottom: var(--m); z-index: 11; flex-direction: column; align-items: center; cursor: text; opacity: 0; pointer-events: none; transition: opacity .2s ease-out, transform .25s ease; }
   /* a completed 5s hold shows the circles even with the config closed (owner 22 Oct: the active code
      entry must be visible) - still zero trace for visitors: no hold, no widget */
   #eadm.on { display: flex; opacity: 1; pointer-events: auto; }
   #eadm .ac { border-radius: 50%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: var(--fg); font-family: 'Fragment Mono', ui-monospace, monospace; }
   #eadm .ac span { line-height: 1; }
   #eadm.err .ac { border-color: #ff3c3c !important; color: #ff3c3c; }
+  /* armed + focused: a blinking caret marks the circle that takes the next digit (owner 22 Oct) */
+  #eadm .ac.cur::after { content: ''; position: absolute; width: var(--lw); height: 34%; background: var(--fg); animation: eadmblink 1.06s steps(1) infinite; }
+  #eadm .ac { position: relative; }
+  @keyframes eadmblink { 50% { opacity: 0; } }
   /* section circles: right lane of the config panel, title-dot size, tangent stacking */
   #secc { position: fixed; top: 0; right: var(--m); bottom: var(--m); z-index: 59; /* the hover split sits just under the grain (owner 21 Oct) */ display: flex; flex-direction: column; align-items: center; transform: translateX(calc(100% + var(--m) + 4px)); transition: transform .2s ease-out; overflow: visible; scrollbar-width: none; } /* overflow:visible - overflow-y:auto force-clips x, and the hover split pieces fly out of the button (owner 21 Oct: no clip; the mobile lane's override becomes redundant) */
   #panel.open ~ #secc, #panel.hov ~ #secc { transform: translateX(0); }
   @media (hover: hover) { #tab:hover ~ #secc, #panel:hover ~ #secc { transform: translateX(0); } }
   #secc .sci { display: flex; flex-direction: column; align-items: center; flex: none; }
   #secc .sc { border-radius: 50%; box-sizing: border-box; cursor: pointer; flex: none; }
-  #secc .sl { text-transform: uppercase; font-size: var(--cfs, 13px); overflow: hidden; height: 0; transition: height .25s ease; pointer-events: none; margin-top: 16px; text-align: center; white-space: nowrap; width: auto; } /* the label is never clipped to the button width (owner 21 Oct) */
+  #secc .sl { text-transform: uppercase; font-size: var(--cfs, 13px); overflow: hidden; height: 0; transition: height .25s ease, margin-top .25s ease; pointer-events: none; margin-top: 0; text-align: center; white-space: nowrap; width: auto; } /* the label is never clipped to the button width (owner 21 Oct) */
+  /* owner 22 Oct: desktop circles touch like the code circles - the gap only exists around an open title */
+  #secc .sl.on { margin-top: 16px; }
+  /* mobile keeps its own spacing: the mobile lane pins body[data-camode="m"] #secc .sl to 8px itself */
   #secc .sl span { display: block; opacity: 0; transform-origin: 50% 0; transition: opacity .06s linear; line-height: calc(var(--cfs, 13px) * 1.3077); }
   /* colour rows: free hex field + native picker (owner 21 Oct); the visible colour lives in .swink chips OUTSIDE the blended panel, so auto invert can never lie about a colour */
   .swhex { font: inherit; color: inherit; background: none; border: 0; border-bottom: var(--lw) solid var(--fg-soft); width: 8ch; padding: 0 0 1px; margin-left: 8px; }
