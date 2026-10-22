@@ -2200,6 +2200,7 @@
   function applyTypo() {
     var r = document.documentElement.style;
     if (CFG_STACK[P.cfgFont]) r.setProperty('--cff', CFG_STACK[P.cfgFont]); else r.removeProperty('--cff');
+    document.getElementById('panel').classList.toggle('fbold', [0, 2, 4, 5].indexOf(P.cfgFont) >= 0); // real bold exists for Times (also the default serif fallback) and the system families; Fragment Mono and Ca2-Thin stay regular (no synthetic bold)
     if (P.cfgFontSize === 13) r.removeProperty('--cfs'); else r.setProperty('--cfs', P.cfgFontSize + 'px');
     var cl = ['', 'cs-u', 'cs-l', 'cs-s'], pn = document.getElementById('panel'), sc = document.getElementById('secc');
     ['cs-u', 'cs-l', 'cs-s'].forEach(function (c) { if (pn) pn.classList.remove(c); if (sc) sc.classList.remove(c); });
