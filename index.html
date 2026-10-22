@@ -95,6 +95,12 @@
   .row.live .lab b { color: inherit !important; }
   .row .lab b { cursor: text; }
   .row .lab .man { font: inherit; color: inherit; background: transparent; border: 0; box-shadow: none; outline: none; width: 72px; text-align: right; padding: 0; margin: 0; -webkit-appearance: none; appearance: none; caret-color: var(--fg); }
+  .range-edit { display: none; margin-left: auto; align-items: center; gap: .5ch; white-space: nowrap; }
+  .range-edit input { font: inherit; color: inherit; width: 7ch; min-width: 0; text-align: right; border: 0; padding: 0; background: transparent; outline: none; }
+  .range-edit[data-invalid] { text-decoration: underline dotted; }
+  .param-row.range-editing .lab > b { display: none !important; }
+  .param-row.range-editing .range-edit { display: inline-flex; }
+  #panel.type-slider .param-row .lab > .range-edit { grid-column: 3; grid-row: 1; }
   .type-knob { display: none; }
   #panel.type-slider .param-row { position: relative; display: grid; grid-template-columns: max-content minmax(16px,1fr) max-content; align-items: center; column-gap: 0; }
   #panel.type-slider .param-row .lab { display: contents; }
@@ -168,9 +174,9 @@ try { var s0 = JSON.parse(localStorage.getItem('ca2.config') || 'null'); if (s0 
 </div>
 <div id="blur"><div class="bf bf1"></div><div class="bf bf2"></div><div class="bf bf3"></div><div class="bf bf4"></div></div>
 <div id="blurl"><div class="bf bf1"></div><div class="bf bf2"></div><div class="bf bf3"></div><div class="bf bf4"></div></div>
-<script src="grain.js?v=202610221649"></script>
-<script src="audio.js?v=202610221649"></script>
-<script src="ca2.js?v=202610221649"></script>
-<script src="favicon.js?v=202610221649"></script>
+<script src="grain.js?v=202610222334"></script>
+<script src="audio.js?v=202610222334"></script>
+<script src="ca2.js?v=202610222334"></script>
+<script src="favicon.js?v=202610222334"></script>
 </body>
 </html>

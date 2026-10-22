@@ -2024,6 +2024,7 @@
   function stepLive(now) {
     for (var k in live) {
       var L = live[k], n = L.bits.length;
+      if(L.row.classList.contains('range-editing'))continue;
       if (now - L.t >= LIVE_MS) {
         L.t = now; L.gen++;
         var nb = new Array(n), sum = 0, same = true, i;
@@ -2059,12 +2060,13 @@
     }
   }
   // ---- persistence: every config key, versioned; unknown/removed keys are ignored, new keys keep defaults ----
-  var STORE = 'ca2.config', STORE_V = 6, savedLive = {};
+  var STORE = 'ca2.config', STORE_V = 6, savedLive = {}, rangeBounds = {};
   (function load() {
     try {
       var sv = JSON.parse(localStorage.getItem(STORE) || 'null');
       if (!sv || typeof sv !== 'object') return;
       if (sv.live && typeof sv.live === 'object') savedLive = sv.live;
+      if (sv.bounds && typeof sv.bounds === 'object') rangeBounds = sv.bounds;
       var p = sv.P || {};
       Object.keys(p).forEach(function (k) { if (k in P && typeof p[k] === 'number' && isFinite(p[k])) P[k] = p[k]; });
       if (typeof p.foodColor === 'string' && /^#[0-9a-f]{6}$/i.test(p.foodColor)) P.foodColor = p.foodColor;
@@ -2080,7 +2082,7 @@
   // old configs stored foodEatR as a factor of the cell radius; the fixed px radius migrates them once
   if (P.foodEatR <= 1) P.foodEatR = Math.round(P.foodEatR * DEFAULTS.CELL_RADIUS * 100) / 100;
   function liveMap() { var m = {}; for (var lk in live) m[lk] = live[lk].orig; return m; }
-  function save() { try { var Pc = Object.assign({}, P); for (var lk in live) Pc[lk] = live[lk].orig; localStorage.setItem(STORE, JSON.stringify({ v: STORE_V, P: Pc, live: liveMap(), autoRefresh: autoRefresh, lockParams: lockParams, bgTarget: bgTarget, bgIndex: bgIndex })); } catch (e) {} }
+  function save() { try { var Pc = Object.assign({}, P); for (var lk in live) Pc[lk] = live[lk].orig; localStorage.setItem(STORE, JSON.stringify({ v: STORE_V, P: Pc, live: liveMap(), bounds: rangeBounds, autoRefresh: autoRefresh, lockParams: lockParams, bgTarget: bgTarget, bgIndex: bgIndex })); } catch (e) {} }
   // ---- config panel: every parameter ----
   var rows = {}, statsEl = document.getElementById('stats'), ctl = document.getElementById('controls'), btns = document.getElementById('btns');
   var GROUPS = [
@@ -2184,7 +2186,10 @@
     var h = document.createElement('div'); h.className = 'grp'; h.textContent = grp[0]; ctl.appendChild(h);
     var sec = { name: grp[0], hdr: h, els: [] }; SECS.push(sec);
     grp[1].forEach(function (q) {
+      var savedBound = rangeBounds[q[0]];
+      if (Array.isArray(savedBound) && savedBound.length === 2 && savedBound.every(function(v){return typeof v === 'number' && isFinite(v);}) && savedBound[0] < savedBound[1]) { q[2] = savedBound[0]; q[3] = savedBound[1]; }
       var d = document.createElement('div'); d.className = 'row';
+      d.dataset.key = q[0];
       d.innerHTML = '<div class="lab"><span>' + q[1] + '</span><b style="font-weight:normal"></b></div><input type="range" min="' + q[2] + '" max="' + q[3] + '" step="' + q[4] + '">';
       var inp = d.querySelector('input'), val = d.querySelector('b');
       d.classList.add('param-row');
@@ -2193,10 +2198,40 @@
       var nameTail = document.createElement('span'); nameTail.className = 'name-tail'; nameTail.textContent = tail; nameEl.appendChild(nameTail);
       var letter = document.createElement('span'); letter.className = 'type-knob'; letter.textContent = tail; letter.setAttribute('aria-hidden', 'true'); d.appendChild(letter);
 
+      var rangeEdit = document.createElement('span'); rangeEdit.className = 'range-edit';
+      var minEdit = document.createElement('input'), maxEdit = document.createElement('input'), hyphen = document.createElement('span');
+      minEdit.className = 'range-min'; maxEdit.className = 'range-max'; hyphen.textContent = '-';
+      [minEdit,maxEdit].forEach(function(ed,i){ed.type='text';ed.inputMode='decimal';ed.spellcheck=false;ed.setAttribute('aria-label',q[1]+(i?' maximum':' minimum'));ed.addEventListener('pointerdown',function(e){e.stopPropagation();});});
+      rangeEdit.appendChild(minEdit);rangeEdit.appendChild(hyphen);rangeEdit.appendChild(maxEdit);val.parentNode.appendChild(rangeEdit);
+      var holdTimer=0,holdPoint=null,holdFired=false,holdOriginal=0;
+      function rangeToggle(){
+        if(!d.classList.contains('range-editing')){
+          if(d.querySelector('.man'))return;
+          minEdit.value=fmt(q[2]);maxEdit.value=fmt(q[3]);d.classList.add('range-editing');rangeEdit.removeAttribute('data-invalid');
+        }else{
+          var lo=Number(minEdit.value.trim().replace(',','.')),hi=Number(maxEdit.value.trim().replace(',','.'));
+          if(!minEdit.value.trim()||!maxEdit.value.trim()||!isFinite(lo)||!isFinite(hi)||lo>=hi){rangeEdit.dataset.invalid='true';minEdit.setAttribute('aria-invalid','true');maxEdit.setAttribute('aria-invalid','true');return;}
+          q[2]=lo;q[3]=hi;inp.min=lo;inp.max=hi;inp.value=P[q[0]];rangeBounds[q[0]]=[lo,hi];
+          if(live[q[0]]){var L=live[q[0]];L.prof=liveProfile(q,L.plate);L.target=clamp(L.target===undefined?L.cur:L.target,lo,hi);L.cur=clamp(L.cur,lo,hi);L.vel=0;}
+          minEdit.removeAttribute('aria-invalid');maxEdit.removeAttribute('aria-invalid');d.classList.remove('range-editing');val.textContent=fmt(P[q[0]]);save();
+        }
+      }
+      function holdCancel(){clearTimeout(holdTimer);holdTimer=0;holdPoint=null;}
+      inp.addEventListener('pointerdown',function(e){
+        try{inp.setPointerCapture(e.pointerId);}catch(ignore){}
+        holdFired=false;holdOriginal=P[q[0]];holdPoint={x:e.clientX,y:e.clientY};
+        if(d.classList.contains('range-editing'))e.preventDefault();
+        holdTimer=setTimeout(function(){holdFired=true;holdPoint=null;P[q[0]]=holdOriginal;applyKey(q[0],holdOriginal,true);inp.value=holdOriginal;val.textContent=fmt(holdOriginal);rangeToggle();save();},650);
+      });
+      inp.addEventListener('pointermove',function(e){if(holdPoint&&Math.hypot(e.clientX-holdPoint.x,e.clientY-holdPoint.y)>6)holdCancel();});
+      ['pointerup','pointercancel','lostpointercapture'].forEach(function(name){inp.addEventListener(name,holdCancel);});
+      inp.addEventListener('click',function(e){if(holdFired){e.preventDefault();e.stopImmediatePropagation();}},true);
+      inp.addEventListener('contextmenu',function(e){e.preventDefault();});
+      rangeEdit.addEventListener('keydown',function(e){e.stopPropagation();if(e.key==='Escape'){d.classList.remove('range-editing');} });
       // double-click the value: type it by hand (may pass the knob's floor/ceiling; the knob itself stays inside them)
       val.addEventListener('click', function (e) {
         e.stopPropagation();
-        if (d.querySelector('.man')) return;
+        if (d.classList.contains('range-editing') || d.querySelector('.man')) return;
         var k = q[0];
         var ed = document.createElement('input'); ed.type = 'text'; ed.className = 'man'; ed.value = fmt(P[k]);
         ed.setAttribute('inputmode', 'decimal'); ed.spellcheck = false; ed.autocomplete = 'off';
@@ -2226,6 +2261,7 @@
       var downVal = null;
       inp.addEventListener('pointerdown', function () { if (!live[q[0]]) downVal = P[q[0]]; });
       inp.addEventListener('dblclick', function () {
+        if(d.classList.contains('range-editing')||holdFired)return;
         var k = q[0];
         if (live[k]) { liveStop(k); inp.value = P[k]; val.textContent = fmt(P[k]); return; }
         var o = downVal === null ? P[k] : downVal; P[k] = o; touched[k] = 1; applyKey(k, o); inp.value = o; val.textContent = fmt(o); liveStart(k, q, o, d); save();
@@ -2253,6 +2289,7 @@
         inp.style.setProperty('--kx', '0px'); inp.style.setProperty('--ks', '1');
       });
       inp.addEventListener('input', function () {
+        if (d.classList.contains('range-editing') || holdFired) { inp.value=P[q[0]]; return; }
         if (live[q[0]]) { inp.value = P[q[0]]; return; }
         var v = parseFloat(inp.value); P[q[0]] = v; touched[q[0]] = 1; val.textContent = fmt(v);
         applyKey(q[0], v);
