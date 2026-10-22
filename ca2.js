@@ -2056,6 +2056,7 @@
     else if (k === 'panelRowGap') document.documentElement.style.setProperty('--rg', v + 'px');
     else if (k === 'resolution') res = v;
     else if (k === 'axisWidth') applyLW();
+    else if (k === 'typeSlider') document.getElementById('panel').classList.toggle('type-slider', !!v);
     else if (k === 'cfgFontSize') applyTypo();
     else if (layoutKeys[k]) clampTargets();
     else if (k === 'baseMaxSpeed' || k === 'maxSpeedVariation') cells.forEach(function (c) { c.maxSpeed = speedOf(c); });
@@ -2095,7 +2096,7 @@
         var k = q[0];
         var ed = document.createElement('input'); ed.type = 'text'; ed.className = 'man'; ed.value = fmt(P[k]);
         ed.setAttribute('inputmode', 'decimal'); ed.spellcheck = false; ed.autocomplete = 'off';
-        var labH = val.parentNode.offsetHeight;
+        var labH = P.typeSlider ? Math.max(val.offsetHeight, parseFloat(getComputedStyle(val).lineHeight) || 17) : val.parentNode.offsetHeight;
         ed.style.height = labH + 'px'; ed.style.lineHeight = labH + 'px';
         ed.style.caretColor = ['#ff0000', '#00ff00', '#0000ff'][Math.floor(Math.random() * 3)];
         val.style.display = 'none'; val.parentNode.appendChild(ed);
