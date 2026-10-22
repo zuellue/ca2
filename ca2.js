@@ -1638,7 +1638,22 @@
     }
     if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 4) drawWorms(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 5) drawSpores(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) { var fd2 = food[i]; if (fd2.r < P.foodShow && introOn(CELL_END + fd2.r * (FOOD_END - CELL_END))) { var fs2 = fd2.fed > 0 && P.habitatFedShow > 0 ? fs * (1 + Math.min(3, fd2.fed * P.habitatFedShow)) : fs, fh2 = fs2 / 2; ctx.fillRect(fd2.x - fh2, fd2.y - fh2, fs2, fs2); } } ctx.globalAlpha = 1; } // food first: it sits under the cells
     pfm('sim+ui draw'); curS = DPR * res; if (cells.length || t0 - fadeT0 > INTRO_MS) { var tmb = performance.now(); drawMetaballs(curS); MB.ms = MB.ms * 0.9 + (performance.now() - tmb) * 0.1; MB.path = gOn ? 'GPU' : (WC.ok && !WC.off ? (WC.simd ? 'wasm-simd' : 'wasm') : 'JS'); } pfm('metaballs total'); // an empty intro plate skips the full-buffer pass
-    if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { if (!fadeA('pa' + i)) continue; ctx.beginPath(); ctx.arc(parasites[i].x, parasites[i].y, 2.2, 0, 6.2832); ctx.fill(); } ctx.globalAlpha = 1; }
+    if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { var pp2 = parasites[i]; if (!fadeA('pa' + i)) continue;
+      // owner 22 Oct: parasites are triangles, not dots - the circle blurred into small cells. Same ink area as the r2.2
+      // dot (no size growth): apex 3.43 / base half 2.965 / rear 1.71 = area 15.2. The apex tracks the cell the parasite
+      // rides or burns (smoothed pursuit, organic); the base edge breathes +/-12% at ~9 Hz like a fly's wing.
+      var ta2 = pp2.h || 0;
+      if (pp2.host && pp2.host.alive) ta2 = Math.atan2(pp2.host.y - pp2.y, pp2.host.x - pp2.x);
+      else if (pp2.px !== undefined && (pp2.x !== pp2.px || pp2.y !== pp2.py)) ta2 = Math.atan2(pp2.y - pp2.py, pp2.x - pp2.px);
+      if (pp2.h === undefined) pp2.h = ta2;
+      var dh2 = ta2 - pp2.h; while (dh2 > 3.1416) dh2 -= 6.2832; while (dh2 < -3.1416) dh2 += 6.2832;
+      pp2.h += dh2 * (1 - Math.exp(-dtf * 0.012)); pp2.px = pp2.x; pp2.py = pp2.y;
+      var ux2 = Math.cos(pp2.h), uy2 = Math.sin(pp2.h), vx2 = -uy2, vy2 = ux2, bw2 = 2.965 * (1 + 0.12 * Math.sin(t0 * 0.0565 + (pp2.ph || 0)));
+      ctx.beginPath();
+      ctx.moveTo(pp2.x + ux2 * 3.43, pp2.y + uy2 * 3.43);
+      ctx.lineTo(pp2.x - ux2 * 1.71 + vx2 * bw2, pp2.y - uy2 * 1.71 + vy2 * bw2);
+      ctx.lineTo(pp2.x - ux2 * 1.71 - vx2 * bw2, pp2.y - uy2 * 1.71 - vy2 * bw2);
+      ctx.fill(); } ctx.globalAlpha = 1; }
 
     // area outline: no rounded corners. Each side stops `corner` px short of both ends, so the corner lines never meet.
     var cr = Math.min(P.containerCorner, cont.w / 2, cont.h / 2);
