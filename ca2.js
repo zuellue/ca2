@@ -2525,7 +2525,8 @@
     for (var i = 0; i < swInks.length; i++) {
       var it = swInks[i], r = it.anchor.getBoundingClientRect();
       it.el.style.left = r.left + 'px'; it.el.style.top = r.top + 'px'; it.el.style.width = r.width + 'px'; it.el.style.height = r.height + 'px';
-      it.el.style.visibility = (r.width && r.bottom > 0 && r.top < window.innerHeight) ? 'visible' : 'hidden';
+      var panelOpen = panel.classList.contains('open') || panel.classList.contains('hov') || panel.matches(':hover');
+      it.el.style.visibility = (panelOpen && r.width && r.right > 0 && r.left < window.innerWidth && r.bottom > 0 && r.top < window.innerHeight) ? 'visible' : 'hidden'; // closed panel: nothing config stays on screen, ever (owner 22 Oct)
     }
   }
   panel.addEventListener('scroll', swInkSync); window.addEventListener('resize', swInkSync); setInterval(swInkSync, 500);
@@ -2542,13 +2543,12 @@
     row.insertBefore(hex, c); row.appendChild(pick); // code flush-left on the circle's line (owner 22 Oct)
     var home = SW_HOME[def.label]; ctl.insertBefore(row, home[0]); home[1].els.push(row);
     var bv = row.querySelector('b'), hideT = null;
-    var inkC = mkInk(c), inkP = mkInk(pick);
-    swInks.splice(swInks.indexOf(inkP), 1); // the sample chip is long-press-only (owner 22 Oct): the layout sync never touches it
+    var inkC = mkInk(c);
     function apply(col) { if (def.set) def.set(col); else { P[def.key] = col; touched[def.key] = 1; applyLineColor(); } }
     function cur() { return P[def.on] ? (def.get ? def.get() : P[def.key]) : null; }
     function paint() {
       var v = cur();
-      inkC.el.style.background = v || 'transparent'; inkP.el.style.background = v || 'transparent';
+      inkC.el.style.background = v || 'transparent';
       if (v) { hex.value = v.slice(1); try { pick.value = v; } catch (e) {} } // the field shows the bare code, no # (owner 22 Oct)
       else hex.value = 'default'; // off: the field carries the state word, flush-left, so the circle never floats alone
     }
@@ -2561,29 +2561,15 @@
       P[def.on] = 1; touched[def.on] = 1;
       apply(v); paint(); show(true); save();
     }
-    var pressT = 0, sampleOn = false, sampleAte = false;
-    function sample(show2) { // the little sample circle lives only under a long press (owner 22 Oct)
-      sampleOn = show2;
-      if (show2) { var r = c.getBoundingClientRect(); inkP.el.style.left = (r.left - 30) + 'px'; inkP.el.style.top = (r.top + r.height / 2 - 10) + 'px'; inkP.el.style.width = '20px'; inkP.el.style.height = '20px'; inkP.el.style.visibility = 'visible'; inkP.el.style.pointerEvents = 'auto'; }
-      else { inkP.el.style.visibility = 'hidden'; inkP.el.style.pointerEvents = 'none'; }
-    }
-    sample(false);
-    inkP.el.style.pointerEvents = 'auto'; inkP.el.addEventListener('click', function () { if (sampleOn) pick.click(); });
-    c.addEventListener('pointerdown', function () { pressT = setTimeout(function () { sample(true); sampleAte = true; }, 550); });
-    c.addEventListener('pointerup', function () { clearTimeout(pressT); });
-    c.addEventListener('pointercancel', function () { clearTimeout(pressT); sample(false); });
     c.addEventListener('pointerenter', function () { inkC.el.style.background = '#000'; });
-    c.addEventListener('pointerleave', function () { paint(); if (!sampleOn) sample(false); });
-    c.addEventListener('click', function () {
-      if (sampleAte) { sampleAte = false; return; } // a long-press that raised the sample is not a toggle
-      P[def.on] = P[def.on] ? 0 : 1; touched[def.on] = 1;
-      apply(P[def.on] ? CIRC_COLS[Math.floor(Math.random() * 3)] : (def.dflt === undefined ? null : def.dflt));
-      paint(); show(true); save();
-    });
+    c.addEventListener('pointerleave', function () { paint(); });
+    c.addEventListener('click', function (e) { e.stopPropagation(); pick.click(); }); // the swatch opens the native picker, nothing else (owner 22 Oct)
     var hexDone = function () {
       var t = hex.value.trim(); if (t && t[0] !== '#') t = '#' + t;
       if (/^#[0-9a-fA-F]{3}$/.test(t)) t = '#' + t[1] + t[1] + t[2] + t[2] + t[3] + t[3]; // 3-char hex accepted (owner 22 Oct)
-      if (/^#[0-9a-fA-F]{6}$/.test(t)) setFree(t.toLowerCase()); else paint();
+      if (/^#[0-9a-fA-F]{6}$/.test(t)) { setFree(t.toLowerCase()); return; }
+      if (!t) { P[def.on] = 0; touched[def.on] = 1; apply(def.dflt === undefined ? null : def.dflt); paint(); show(true); save(); return; } // an emptied field = default colour (owner 22 Oct)
+      paint();
     };
     hex.addEventListener('focus', function () { if (!P[def.on]) hex.value = ''; }); // typing starts clean over 'default'
     hex.addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter') { hexDone(); hex.blur(); } });
