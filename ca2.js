@@ -1948,62 +1948,62 @@
   var rows = {}, statsEl = document.getElementById('stats'), ctl = document.getElementById('controls'), btns = document.getElementById('btns');
   var GROUPS = [
     ['picture', [
-      ['resolution', 'resolution', 0.25, 1, 0.01], ['pixelRatio', 'pixel ratio (0 = auto)', 0, 3, 0.25], ['fps', 'fps', 5, 120, 1],
-      ['margin', 'margin (all edges)', 0, 120, 1], ['gap', 'line gap to numbers', 0, 60, 1],
-      ['textScale', 'type size', 0.5, TYPE_SIZE_MAX, 0.005], ['titleLead', 'line space (title)', 0.5, 3, 0.05], ['titleTrack', 'letter space (title)', 0.5, 2, 0.01], ['containerCorner', 'corner gap', 0, 80, 1],
-      ['centerGap', 'center gap (axis crossing)', 0, 120, 1], ['diagLen', 'diagonal length', 0.2, 1.3, 0.01], ['axisWidth', 'line width (all lines)', 0, 6, 0.1],
+      ['resolution', 'resolution', 0.25, 1, 0.01], ['pixelRatio', 'pixel ratio', 0, 3, 0.25], ['fps', 'fps', 5, 120, 1],
+      ['margin', 'margin', 0, 120, 1], ['gap', 'line gap', 0, 60, 1],
+      ['textScale', 'type size', 0.5, TYPE_SIZE_MAX, 0.005], ['titleLead', 'line space', 0.5, 3, 0.05], ['titleTrack', 'letter space', 0.5, 2, 0.01], ['containerCorner', 'corner gap', 0, 80, 1],
+      ['centerGap', 'center gap', 0, 120, 1], ['diagLen', 'diagonals', 0.2, 1.3, 0.01], ['axisWidth', 'line width', 0, 6, 0.1],
       ['areaMin', 'area floor', 0.1, 1, 0.01], ['areaMax', 'area ceiling', 0.1, 1, 0.01],
-      ['morphEase', 'area morph speed', 0.02, 1, 0.01], ['colorSpeed', 'color speed', 0.02, 1, 0.01]]],
+      ['morphEase', 'morph speed', 0.02, 1, 0.01], ['colorSpeed', 'color speed', 0.02, 1, 0.01]]],
     ['panel', [
-      ['panelAlpha', 'config opacity', 0, 1, 0.01], ['cfgFontSize', 'config font size px', 8, 28, 1], ['panelWidth', 'config width px', 200, 600, 5], ['blurWidth', 'backdrop blur width px', 0, 600, 5], ['blurStrength', 'backdrop blur strength px', 0, 64, 1],
-      ['panelRowGap', 'row gap px', 0, 30, 1], ['focusIdleMs', 'idle focus wait ms', 500, 20000, 100], ['focusInMs', 'idle blur-in ms', 500, 12000, 100], ['focusOutMs', 'refocus snap ms', 60, 3000, 10], ['focusDepth', 'idle blur depth px', 0, 64, 1]]],
+      ['panelAlpha', 'panel opacity', 0, 1, 0.01], ['cfgFontSize', 'font size', 8, 28, 1], ['panelWidth', 'panel width', 200, 600, 5], ['blurWidth', 'blur width', 0, 600, 5], ['blurStrength', 'blur strength', 0, 64, 1],
+      ['panelRowGap', 'row gap', 0, 30, 1], ['focusIdleMs', 'focus wait', 500, 20000, 100], ['focusInMs', 'blur in', 500, 12000, 100], ['focusOutMs', 'refocus snap', 60, 3000, 10], ['focusDepth', 'blur depth', 0, 64, 1]]],
     ['cursor', [
-      ['cursorSens', 'cursor sensitivity', 0.05, 1, 0.01], ['cursorSize', 'cursor size (x largest cell)', 0.2, 2, 0.01], ['cursorLockMs', 'cursor lock ms', 0, 3000, 50], ['sprayMs', 'spray interval (ms)', 40, 1000, 10], ['sprayGapPx', 'spray spacing (px)', 4, 200, 1], ['sprayBurst', 'spray cells per wave', 1, 20, 1], ['sprayRadius', 'spray spread radius (px)', 0, 300, 5]]],
+      ['cursorSens', 'sensitivity', 0.05, 1, 0.01], ['cursorSize', 'size', 0.2, 2, 0.01], ['cursorLockMs', 'lock ms', 0, 3000, 50], ['sprayMs', 'interval', 40, 1000, 10], ['sprayGapPx', 'spacing', 4, 200, 1], ['sprayBurst', 'burst', 1, 20, 1], ['sprayRadius', 'spread', 0, 300, 5]]],
     ['grain', [
-      ['grainAmount', 'amount', 0, 2, 0.01], ['grainStrength', 'strength', 0, 10, 0.1], ['grainSize', 'size px', 0.3, 6, 0.1],
-      ['grainSoft', 'softness', 0, 1, 0.01], ['grainChroma', 'chroma split', 0, 1, 0.01], ['grainDev', 'development', 0.1, 1.5, 0.01],
-      ['grainFine', 'fine weight', 0, 1, 0.01], ['grainCrystal', 'crystal weight', 0, 1, 0.01], ['grainCloud', 'cloud weight', 0, 1, 0.01],
-      ['grainStock', 'stock 0-5', 0, 5, 1], ['grainMono', 'mono grain', 0, 1, 1], ['grainSkew', 'skew', 0, 1, 0.01],
-      ['grainResAdapt', 'resolution adapt', 0, 1, 1], ['grainShadow', 'shadow sensitivity', 0, 4, 0.05],
-      ['grainMid', 'midtone sensitivity', 0, 4, 0.05], ['grainHigh', 'highlight sensitivity', 0, 4, 0.05],
-      ['grainFineRatio', 'fine size ratio', 0.1, 2, 0.05], ['grainCloudRatio', 'cloud size ratio', 1, 5, 0.05],
-      ['grainDebug', 'debug visualize', 0, 1, 1],
-      ['grainFps', 'grain fps (0 = still)', 0, 60, 1]]],
+      ['grainAmount', 'amount', 0, 2, 0.01], ['grainStrength', 'strength', 0, 10, 0.1], ['grainSize', 'size', 0.3, 6, 0.1],
+      ['grainSoft', 'softness', 0, 1, 0.01], ['grainChroma', 'chroma', 0, 1, 0.01], ['grainDev', 'development', 0.1, 1.5, 0.01],
+      ['grainFine', 'fine', 0, 1, 0.01], ['grainCrystal', 'crystal', 0, 1, 0.01], ['grainCloud', 'cloud', 0, 1, 0.01],
+      ['grainStock', 'stock', 0, 5, 1], ['grainMono', 'mono', 0, 1, 1], ['grainSkew', 'skew', 0, 1, 0.01],
+      ['grainResAdapt', 'adapt', 0, 1, 1], ['grainShadow', 'shadow', 0, 4, 0.05],
+      ['grainMid', 'midtone', 0, 4, 0.05], ['grainHigh', 'highlight', 0, 4, 0.05],
+      ['grainFineRatio', 'fine ratio', 0.1, 2, 0.05], ['grainCloudRatio', 'cloud ratio', 1, 5, 0.05],
+      ['grainDebug', 'debug', 0, 1, 1],
+      ['grainFps', 'fps', 0, 60, 1]]],
     ['cells', [
-      ['UNIVERSE_SIZE', 'universe', 1, 400, 1], ['CELL_RADIUS', 'cell r', 2, 100, 1], ['minRadius', 'cell r min', 1, 50, 1], ['maxRadius', 'cell r max', 5, 150, 1],
-      ['baseMaxSpeed', 'speed', 0.5, 25, 0.5], ['maxSpeedVariation', 'speed variation', 0, 30, 0.5],
-      ['interactionRadius', 'interaction r', 5, 100, 1], ['baseMutationRate', 'mutation', 0.5, 20, 0.5], ['mutationRateRange', 'mutation range', 0.5, 8, 0.5],
-      ['energyConsumptionRate', 'energy use', 0, 0.5, 0.002], ['energyGainFromInteraction', 'energy gain', 0, 0.05, 0.001], ['minEnergyForReproduction', 'repro energy', 0.05, 10, 0.05], ['reproMinAgeMs', 'repro min age (ms)', 0, 30000, 250], ['reproChance', 'repro chance', 0, 1, 0.005],
-      ['slowDownRadius', 'mouse slow r', 0, 100, 1], ['speedReductionFactor', 'mouse slow x', 1, 100, 0.5]]],
+      ['UNIVERSE_SIZE', 'universe', 1, 400, 1], ['CELL_RADIUS', 'radius', 2, 100, 1], ['minRadius', 'min radius', 1, 50, 1], ['maxRadius', 'max radius', 5, 150, 1],
+      ['baseMaxSpeed', 'speed', 0.5, 25, 0.5], ['maxSpeedVariation', 'variation', 0, 30, 0.5],
+      ['interactionRadius', 'interaction', 5, 100, 1], ['baseMutationRate', 'mutation', 0.5, 20, 0.5], ['mutationRateRange', 'range', 0.5, 8, 0.5],
+      ['energyConsumptionRate', 'energy use', 0, 0.5, 0.002], ['energyGainFromInteraction', 'energy gain', 0, 0.05, 0.001], ['minEnergyForReproduction', 'repro energy', 0.05, 10, 0.05], ['reproMinAgeMs', 'repro age', 0, 30000, 250], ['reproChance', 'chance', 0, 1, 0.005],
+      ['slowDownRadius', 'mouse slow', 0, 100, 1], ['speedReductionFactor', 'slow factor', 1, 100, 0.5]]],
     ['evolution', [
-      ['genomeMut', 'genome mutation', 0, 0.5, 0.01], ['divideAt', 'divide at size (x radius)', 1.2, 6, 0.1], ['divideMode', 'divide gate: 0 size, 1 age+mass', 0, 1, 1], ['divideAgeMs', 'divide min age (ms)', 1000, 120000, 1000], ['divideEnergy', 'divide min energy', 5, 500, 5], ['eatRatio', 'eat when size ratio >', 1.05, 3, 0.05], ['eatChance', 'eat chance', 0, 1, 0.01],
-      ['mergeChance', 'merge chance', 0, 0.3, 0.005], ['mergeGene', 'merge gene distance', 0, 36, 1], ['clusterCohesion', 'cluster cohesion', 0, 1, 0.01], ['clusterMax', 'cluster max size', 2, 30, 1],
-      ['parasiteFrac', 'parasite share', 0, 0.5, 0.01], ['parasiteDrain', 'parasite drain', 0, 0.2, 0.005], ['parasiteEff', 'parasite efficiency', 0, 1, 0.01], ['selStrength', 'selection strength', 0, 4, 0.05]]],
+      ['genomeMut', 'genome mutation', 0, 0.5, 0.01], ['divideAt', 'divide at', 1.2, 6, 0.1], ['divideMode', 'divide gate', 0, 1, 1], ['divideAgeMs', 'divide age', 1000, 120000, 1000], ['divideEnergy', 'divide energy', 5, 500, 5], ['eatRatio', 'eat ratio', 1.05, 3, 0.05], ['eatChance', 'eat chance', 0, 1, 0.01],
+      ['mergeChance', 'merge chance', 0, 0.3, 0.005], ['mergeGene', 'gene distance', 0, 36, 1], ['clusterCohesion', 'cohesion', 0, 1, 0.01], ['clusterMax', 'cluster max', 2, 30, 1],
+      ['parasiteFrac', 'parasite share', 0, 0.5, 0.01], ['parasiteDrain', 'parasite drain', 0, 0.2, 0.005], ['parasiteEff', 'efficiency', 0, 1, 0.01], ['selStrength', 'selection', 0, 4, 0.05]]],
     ['habitat', [
-      ['habitatFedMin', 'seed fed threshold', 0, 200, 1], ['habitatConv', 'seed rate (dot s, full-screen dish)', 0, 50, 0.1], ['habitatSeedR', 'seed size (x cell r)', 0.05, 2, 0.05], ['habitatMut', 'seed colour mutation', 0, 1, 0.01],
-      ['habitatSun', 'food sunlight (fed per s)', 0, 20, 0.1], ['habitatDeadFed', 'corpse nutrient (fed)', 0, 50, 0.5], ['habitatDeadR', 'corpse radius (x dish w)', 0, 1, 0.01], ['habitatDeadCol', 'corpse colour transfer', 0, 1, 0.01],
-      ['habitatHueK', 'eaten colour memory', 0, 1, 0.01], ['habitatFloor', 'seeding below N cells', 0, 20, 1],
-      ['habitatFedDecay', 'fed decay (per s)', 0, 10, 0.05], ['habitatBirthCap', 'birth cap (x universe)', 0, 10, 0.1],
-      ['habitatNiches', 'niche grid (per axis)', 0, 8, 1], ['habitatNicheSun', 'niche sun spread', 0, 1, 0.05], ['habitatNicheMix', 'niche edge smoothing', 0, 1, 0.05],
-      ['habitatDrift', 'env drift (cycles per s)', 0, 1, 0.005], ['habitatDriftAmp', 'env drift amplitude', 0, 1, 0.05], ['habitatDriftFloor', 'drift sun floor', 0, 1, 0.05],
-      ['habitatReapOn', 'corpse recycling (0/1)', 0, 1, 1], ['habitatReapK', 'recycle intensity (habitat off)', 0, 1, 0.05], ['habitatFedShow', 'fed dot size show', 0, 1, 0.02],
-      ['cellLife', 'lifespan s (0 = none)', 0, 900, 5], ['cellLifeVar', 'lifespan spread', 0, 1, 0.05]]],
+      ['habitatFedMin', 'fed threshold', 0, 200, 1], ['habitatConv', 'seed rate', 0, 50, 0.1], ['habitatSeedR', 'seed size', 0.05, 2, 0.05], ['habitatMut', 'seed mutation', 0, 1, 0.01],
+      ['habitatSun', 'sunlight', 0, 20, 0.1], ['habitatDeadFed', 'corpse nutrient', 0, 50, 0.5], ['habitatDeadR', 'corpse radius', 0, 1, 0.01], ['habitatDeadCol', 'corpse colour', 0, 1, 0.01],
+      ['habitatHueK', 'colour memory', 0, 1, 0.01], ['habitatFloor', 'seed floor', 0, 20, 1],
+      ['habitatFedDecay', 'fed decay', 0, 10, 0.05], ['habitatBirthCap', 'birth cap', 0, 10, 0.1],
+      ['habitatNiches', 'niche grid', 0, 8, 1], ['habitatNicheSun', 'niche sun', 0, 1, 0.05], ['habitatNicheMix', 'niche smoothing', 0, 1, 0.05],
+      ['habitatDrift', 'env drift', 0, 1, 0.005], ['habitatDriftAmp', 'drift amplitude', 0, 1, 0.05], ['habitatDriftFloor', 'drift floor', 0, 1, 0.05],
+      ['habitatReapOn', 'recycling', 0, 1, 1], ['habitatReapK', 'recycle intensity', 0, 1, 0.05], ['habitatFedShow', 'fed size', 0, 1, 0.02],
+      ['cellLife', 'lifespan', 0, 900, 5], ['cellLifeVar', 'spread', 0, 1, 0.05]]],
     ['biology', [
-      ['crowdTol', 'crowding tolerance', 0, 5, 0.05], ['orgLifeDie', 'organic death pull', -0.1, 0, 0.001], ['orgLifeGrow', 'organic life push', 0, 2, 0.0025], ['orgBirth', 'organic birth push', 0, 2, 0.005],
-      ['orgDead', 'organic dead decay', -0.1, 0, 0.0005], ['orgBrain', 'pair brain push', 0, 0.1, 0.001], ['orgR90', 'flanked push', 0, 0.05, 0.0005],
-      ['symEnergy', 'symbiosis feed', 0, 0.01, 0.00025], ['symBreak', 'symbiosis whim break', 0, 0.01, 0.0001], ['symBreakDist', 'symbiosis distance break (x span)', 1, 10, 0.1],
-      ['eatDistF', 'eat contact (x radii)', 0.1, 2, 0.05], ['fuseDistF', 'fusion contact (x radii)', 0.1, 2, 0.05], ['symDistF', 'pair contact (x radii)', 0.1, 3, 0.05]]],
+      ['crowdTol', 'crowding', 0, 5, 0.05], ['orgLifeDie', 'death pull', -0.1, 0, 0.001], ['orgLifeGrow', 'life push', 0, 2, 0.0025], ['orgBirth', 'birth push', 0, 2, 0.005],
+      ['orgDead', 'dead decay', -0.1, 0, 0.0005], ['orgBrain', 'brain push', 0, 0.1, 0.001], ['orgR90', 'flanked push', 0, 0.05, 0.0005],
+      ['symEnergy', 'symbiosis feed', 0, 0.01, 0.00025], ['symBreak', 'whim break', 0, 0.01, 0.0001], ['symBreakDist', 'distance break', 1, 10, 0.1],
+      ['eatDistF', 'eat contact', 0.1, 2, 0.05], ['fuseDistF', 'fusion contact', 0.1, 2, 0.05], ['symDistF', 'pair contact', 0.1, 3, 0.05]]],
     ['life', [
-      ['spawnProtect', 'added cells survive refresh', 0, 1, 1], ['boundGap', 'wall gap px (every cell)', 0, 200, 1], ['boundZone', 'boundary awareness zone', 0, 200, 1], ['dragMargin', 'drag resize viewport margin px', 0, 100, 1], ['edgeGrab', 'border grab width px', 3, 40, 1], ['restless', 'cell restlessness while resizing', 0, 3, 0.05], ['boundForce', 'boundary push', 0, 3, 0.05], ['cellMorphMs', 'metamorphosis time ms', 100, 6000, 50]]],
+      ['spawnProtect', 'spawn protect', 0, 1, 1], ['boundGap', 'wall gap', 0, 200, 1], ['boundZone', 'awareness zone', 0, 200, 1], ['dragMargin', 'drag margin', 0, 100, 1], ['edgeGrab', 'border grab', 3, 40, 1], ['restless', 'restlessness', 0, 3, 0.05], ['boundForce', 'push', 0, 3, 0.05], ['cellMorphMs', 'morph time', 100, 6000, 50]]],
     ['sound', [
-      ['audioVol', 'volume', 0, 1, 0.01], ['audioTone', 'tone (cutoff Hz)', 200, 8000, 10], ['audioMod', 'CA modulation', 0, 1, 0.01],
-      ['audioCrackle', 'micro events', 0, 1, 0.01], ['audioMicroPitch', 'micro pitch Hz', 200, 4000, 10], ['audioMicroDecay', 'micro decay ms', 10, 400, 1], ['audioMicroRand', 'micro randomness', 0, 1, 0.01], ['audioWidth', 'stereo width', 0, 1, 0.01]]],
+      ['audioVol', 'volume', 0, 1, 0.01], ['audioTone', 'tone', 200, 8000, 10], ['audioMod', 'modulation', 0, 1, 0.01],
+      ['audioCrackle', 'micro events', 0, 1, 0.01], ['audioMicroPitch', 'micro pitch', 200, 4000, 10], ['audioMicroDecay', 'micro decay', 10, 400, 1], ['audioMicroRand', 'randomness', 0, 1, 0.01], ['audioWidth', 'stereo width', 0, 1, 0.01]]],
     ['field', [
       ['THRESHOLD', 'metaball threshold', 0.05, 0.6, 0.01], ['metaballStrength', 'metaball strength', 0.005, 0.1, 0.001],
-      ['foodDensity', 'food density', 0, 0.1, 0.005], ['foodEnergyValue', 'food energy', 0, 20, 0.5], ['foodGrowAmt', 'growth per food (px)', 0, 5, 0.05], ['plateOverlap', 'plate over text (x text size)', 0, 0.5, 0.01], ['parasiteSize', 'parasite size', 0.2, 4, 0.05], ['parasiteHard', 'parasite resilience', 0, 40, 0.5], ['parasiteNerv', 'parasite nervousness', 0, 1, 0.01], ['parasiteHardMs', 'parasite starve delay ms', 0, 60000, 500], ['foodEatR', 'eating radius px', 2, 100, 0.5], ['foodEatRate', 'eating rate dots/s', 0, 20, 0.1], ['foodLifeMs', 'food life step ms', 50, 2000, 10], ['foodLifeCell', 'food life lattice px', 1, 20, 0.5], ['foodGrowMax', 'max growth (x radius)', 1, 8, 0.1], ['foodShrink', 'shrink back (px/frame)', 0, 0.5, 0.005],
-      ['foodAlpha', 'food dot opacity', 0, 1, 0.01], ['foodSize', 'food dot size px', 0.5, 12, 0.5], ['foodShow', 'food dot frequency', 0, 1, 0.01],
-      ['foodReseed', 'food reseed', 0, 1, 1], ['foodReseedFloor', 'reseed floor (x target)', 0, 1, 0.05], ['foodReseedMin', 'reseed min dots', 0, 500, 10], ['foodReseedMax', 'reseed rate dots/s', 0, 5000, 50], ['foodReseedTries', 'reseed gap search tries', 1, 20, 1],
-      ['minRefreshInterval', 'refresh min s', 2, 60, 1], ['maxRefreshInterval', 'refresh max s', 3, 90, 1], ['refreshResetEnergy', 'refresh resets energy', 0, 1, 1]]]
+      ['foodDensity', 'food density', 0, 0.1, 0.005], ['foodEnergyValue', 'food energy', 0, 20, 0.5], ['foodGrowAmt', 'growth step', 0, 5, 0.05], ['plateOverlap', 'plate overlap', 0, 0.5, 0.01], ['parasiteSize', 'parasite size', 0.2, 4, 0.05], ['parasiteHard', 'parasite resilience', 0, 40, 0.5], ['parasiteNerv', 'parasite nervousness', 0, 1, 0.01], ['parasiteHardMs', 'starve delay', 0, 60000, 500], ['foodEatR', 'eating radius', 2, 100, 0.5], ['foodEatRate', 'eating rate', 0, 20, 0.1], ['foodLifeMs', 'life step', 50, 2000, 10], ['foodLifeCell', 'life lattice', 1, 20, 0.5], ['foodGrowMax', 'max growth', 1, 8, 0.1], ['foodShrink', 'shrink back', 0, 0.5, 0.005],
+      ['foodAlpha', 'dot opacity', 0, 1, 0.01], ['foodSize', 'dot size', 0.5, 12, 0.5], ['foodShow', 'dot frequency', 0, 1, 0.01],
+      ['foodReseed', 'food reseed', 0, 1, 1], ['foodReseedFloor', 'reseed floor', 0, 1, 0.05], ['foodReseedMin', 'reseed min', 0, 500, 10], ['foodReseedMax', 'reseed rate', 0, 5000, 50], ['foodReseedTries', 'reseed tries', 1, 20, 1],
+      ['minRefreshInterval', 'refresh min', 2, 60, 1], ['maxRefreshInterval', 'refresh max', 3, 90, 1], ['refreshResetEnergy', 'energy reset', 0, 1, 1]]]
   ];
   var layoutKeys = { margin: 1, gap: 1, textScale: 1, areaMin: 1, areaMax: 1 };
   // every change takes effect at once, without a respawn
@@ -2145,18 +2145,18 @@
   toggle = function () { var r = _toggle.apply(null, arguments); swSec.els.push(r.el); return r; };
   choice = function () { var r = _choice.apply(null, arguments); swSec.els.push(r.el); return r; };
   choice('axis layering', 'axisLayer', ['above', 'behind']);
-  choice('micro event sound', 'audioMicro', ['click', 'tick', 'drop', 'bubble', 'wood', 'bloom']);
+  choice('micro sound', 'audioMicro', ['click', 'tick', 'drop', 'bubble', 'wood', 'bloom']);
   choice('sound mode', 'audioMode', ['soft white', 'pink', 'brown', 'micro crackle', 'membrane']);
   toggle('sound', !!P.audioOn, function (v) { P.audioOn = v ? 1 : 0; if (window.CA2Audio) CA2Audio.enable(v); });
   toggle('genome', !!P.genomeOn, function (v) { P.genomeOn = v ? 1 : 0; cells.forEach(function (c) { c.maxSpeed = speedOf(c); }); });
   toggle('amorphous outline', !!P.blobOutline, function (v) { P.blobOutline = v ? 1 : 0; });
-  toggle('divide at size', !!P.divideOn, function (v) { P.divideOn = v ? 1 : 0; });
-  toggle('eat or merge', !!P.eatMergeOn, function (v) { P.eatMergeOn = v ? 1 : 0; });
+  toggle('dividing', !!P.divideOn, function (v) { P.divideOn = v ? 1 : 0; });
+  toggle('eat merge', !!P.eatMergeOn, function (v) { P.eatMergeOn = v ? 1 : 0; });
   toggle('symbiosis', !!P.symbiosisOn, function (v) { P.symbiosisOn = v ? 1 : 0; });
   toggle('symbiogenesis', !!P.symbiogenesisOn, function (v) { P.symbiogenesisOn = v ? 1 : 0; });
   toggle('parasites', !!P.parasiteOn, function (v) { P.parasiteOn = v ? 1 : 0; });
   toggle('selection', !!P.selectOn, function (v) { P.selectOn = v ? 1 : 0; });
-  toggle('growth by eating', !!P.foodGrow, function (v) { P.foodGrow = v ? 1 : 0; });
+  toggle('food growth', !!P.foodGrow, function (v) { P.foodGrow = v ? 1 : 0; });
   toggle('boundary awareness', !!P.boundAware, function (v) { P.boundAware = v ? 1 : 0; });
   toggle('respawn morph', !!P.respawnMorph, function (v) { P.respawnMorph = v ? 1 : 0; });
   toggle('micro habitat', !!P.habitatOn, function (v) { P.habitatOn = v ? 1 : 0; });
@@ -2166,8 +2166,8 @@
   toggle('auto invert', !!P.autoInvert, function (v) { P.autoInvert = v ? 1 : 0; invertTick(); });
   toggle('title circles', !!P.titleCircles, function (v) { P.titleCircles = v ? 1 : 0; });
   toggle('axis separator', !!P.separatorOn, function (v) { P.separatorOn = v ? 1 : 0; }); // owner 22 Oct: separator inside the moving boundary + awareness of all page typography
-  toggle('circle color hold', !!P.circleHold, function (v) { P.circleHold = v ? 1 : 0; });
-  var lockT = toggle('lock on refresh', lockParams, function (v) { lockParams = v; });
+  toggle('circle hold', !!P.circleHold, function (v) { P.circleHold = v ? 1 : 0; });
+  var lockT = toggle('refresh lock', lockParams, function (v) { lockParams = v; });
   lockBox = lockT.box; lockVal = lockT.val;
   toggle('auto refresh', autoRefresh, function (v) { autoRefresh = v; lastRefresh = performance.now(); });
   toggle('auto quality', !!P.autoQuality, function (v) { P.autoQuality = v ? 1 : 0; });

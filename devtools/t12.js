@@ -9,7 +9,7 @@ const R={};
 R.marginBefore=await val('margin'); R.gapBefore=await val('gap');
 // put knob thumb position exactly at current value so click doesn't move it: margin max 120 -> fx=value/120
 await dbl('margin (all edges)', R.marginBefore/120);
-await dbl('line gap to numbers', R.gapBefore/60);
+await dbl('line gap', R.gapBefore/60);
 R.live=await b.ev("JSON.stringify(Object.keys(window.__ca2.live).map(function(k){return [k,window.__ca2.live[k].col,window.__ca2.live[k].orig]}))");
 const m=[],g=[];
 for(let i=0;i<40;i++){m.push(+(await val('margin')));g.push(+(await val('gap')));await b.sleep(250);}
@@ -20,6 +20,6 @@ R.cssLive=await b.ev("(function(){var r=document.querySelector('#controls .row.l
 await dbl('margin (all edges)', 0.5);
 R.afterStopMargin=await val('margin'); R.gapStillLive=!!(await b.ev("!!window.__ca2.live.gap"));
 await b.sleep(600); R.afterStopMarginLater=await val('margin');
-await dbl('line gap to numbers', 0.5); R.afterStopGap=await val('gap');
+await dbl('line gap', 0.5); R.afterStopGap=await val('gap');
 R.liveLeft=await b.ev("Object.keys(window.__ca2.live).length");
 console.log(JSON.stringify(R));console.log('errs',b.errs);b.close();process.exit(0)})();
