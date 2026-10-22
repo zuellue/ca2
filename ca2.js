@@ -1716,7 +1716,7 @@
       put(String(bc), eased.b, 'right', W - M, botBase);
       put(String(rc), eased.r, 'left', M, botBase);
       put(String(gc), eased.g, 'center', cxm, botBase);
-      if (SEP.mc) { SEP.img = SEP.mc.getImageData(0, 0, SEP.c.width, SEP.c.height).data; SEP.mw = SEP.c.width; SEP.mh = SEP.c.height; }
+      if (SEP.mc) { SEP.img = SEP.mc.getImageData(0, 0, SEP.c.width, SEP.c.height).data; SEP.mw = SEP.c.width; SEP.mh = SEP.c.height; separatorPass(); } // re-resolve against this frame's actual glyphs before bodies are drawn
     }
 
     pfm('hud text');
