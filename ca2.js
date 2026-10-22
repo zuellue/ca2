@@ -24,7 +24,7 @@
     THRESHOLD: 0.2, metaballStrength: 0.02, foodDensity: 0.025, foodEnergyValue: 5,
     minRefreshInterval: 10, maxRefreshInterval: 20, slowDownRadius: 20, speedReductionFactor: 50.3,
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
-    grainStock: 0, grainMono: 0, grainSkew: 0, grainResAdapt: 0, grainShadow: 1.8, grainMid: 1.5, grainHigh: 2.7, grainFineRatio: 0.5, grainCloudRatio: 2.2, grainDebug: 0, parasiteSize: 1,
+    bgColor: '', grainStock: 0, grainMono: 0, grainSkew: 0, grainResAdapt: 0, grainShadow: 1.8, grainMid: 1.5, grainHigh: 2.7, grainFineRatio: 0.5, grainCloudRatio: 2.2, grainDebug: 0, parasiteSize: 1,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
     colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, divideMode: 0, divideAgeMs: 20000, divideEnergy: 40, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, panelRowGap: 11, spawnProtect: 1, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, sprayMs: 120, sprayGapPx: 26, sprayBurst: 3, sprayRadius: 90, titleCircles: 1, circleHold: 1, titleLead: 1.3, titleTrack: 1,
     audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, audioMicro: 0, audioMicroPitch: 1200, audioMicroDecay: 70, audioMicroRand: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1, foodReseed: 1, foodReseedFloor: 0.2, foodReseedMin: 40, foodReseedMax: 900, foodReseedTries: 8, foodEatRate: 1.5, refreshResetEnergy: 1
@@ -2418,9 +2418,12 @@
   // ---- colour swatches: knob-size circle switches in their own lane, one per colour. OFF is hollow (default colour),
   // ON fills with a random R/G/B and applies it; hover paints the circle black; the name shows briefly on every toggle. (owner 21 Oct)
   function hex2rgb(h) { return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)]; }
+  function syncBgFromP() { // owner 22 Oct: the saved/synced background colour wins over the local cycle
+    if (P.swBg && P.bgColor && /^#[0-9a-fA-F]{6}$/.test(P.bgColor)) bgTarget = hex2rgb(P.bgColor);
+  }
   var SW_HOME = { background: [SECS[1].hdr, SECS[0]], 'knob lines': [SECS[2].hdr, SECS[1]], 'section lines': [SECS[2].hdr, SECS[1]], 'button rings': [SECS[2].hdr, SECS[1]], 'axis lines': [SECS[2].hdr, SECS[1]], 'food dots': [gh, SECS[8]] };
   var SW_DEFS = [
-    { label: 'background', on: 'swBg', set: function (c) { if (c) { bgTarget = hex2rgb(c); } else { bgIndex = 0; bgTarget = BGS[0]; } }, get: function () { return '#' + bgTarget.map(function (v) { return ('0' + (v | 0).toString(16)).slice(-2); }).join(''); } },
+    { label: 'background', on: 'swBg', set: function (c) { if (c) { bgTarget = hex2rgb(c); P.bgColor = c; touched.bgColor = 1; } else { bgIndex = 0; bgTarget = BGS[0]; P.bgColor = ''; touched.bgColor = 1; } }, get: function () { return '#' + bgTarget.map(function (v) { return ('0' + (v | 0).toString(16)).slice(-2); }).join(''); } },
     { label: 'knob lines', on: 'swLineColor', key: 'lineColor', dflt: '#111111' },
     { label: 'section lines', on: 'swRuleColor', key: 'ruleColor', dflt: '' },
     { label: 'button rings', on: 'swCircColor', key: 'circColor', dflt: '' },
@@ -2620,6 +2623,7 @@
         Object.keys(live).forEach(function (k) { if (!(k in gl)) { liveStop(k); n++; } });
       }
       if (n && P.foodEatR <= 1) P.foodEatR = Math.round(P.foodEatR * DEFAULTS.CELL_RADIUS * 100) / 100;
+      if (n) { syncBgFromP(); applyLineColor(); } // pulled colours must reach the CSS vars and the background, not only P
       return n;
     }
     function pullG(first) {
@@ -2632,7 +2636,7 @@
     }
     try { var cg = JSON.parse(localStorage.getItem(GK) || 'null'); if (cg) { applyG(cg); lastV = cg._v || 0; } } catch (e) {}
     // edits not yet accepted by the server stay ahead of the (older) global on reload
-    try { var pd0 = JSON.parse(localStorage.getItem('ca2.pending') || '{}'); Object.keys(pd0).forEach(function (k) { if (k !== '_live' && k in P && typeof pd0[k] === typeof P[k]) { P[k] = pd0[k]; touched[k] = 1; } }); } catch (e) {}
+    try { var pd0 = JSON.parse(localStorage.getItem('ca2.pending') || '{}'); Object.keys(pd0).forEach(function (k) { if (k !== '_live' && k in P && typeof pd0[k] === typeof P[k]) { P[k] = pd0[k]; touched[k] = 1; } }); syncBgFromP(); } catch (e) {}
     pullG(true); setInterval(pullG, 15000);
   })();
   // capability hooks the server-verified admin module builds on (owner 21 Oct): handles only - no admin UI,
