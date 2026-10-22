@@ -78,6 +78,8 @@ impl Bs {
                 if m >= c12 { return -1; }
                 self.out[m] = bx as f32; self.out[c12 + m] = by as f32; self.out[2 * c12 + m] = cr as f32; m += 1;
             }
+            // per-source squeeze (owner 22 Oct), 1:1 with ca2.js emitCell pushSrc: tails/satellites narrow by their own gap-line distance
+            for k in start..m { let sx = self.out[k] as f64; let sy = self.out[c12 + k] as f64; let d = (sx - gap2).min(cw - gap2 - sx).min(sy - gap2).min(ch - gap2 - sy); let rr = self.out[2 * c12 + k] as f64; self.out[2 * c12 + k] = rr.min(0.4f64.max(d)) as f32; }
             for k in start..m { self.out[3 * c12 + k] = wr as f32; self.out[4 * c12 + k] = wg as f32; self.out[5 * c12 + k] = wb as f32; }
         }
         self.stat[0] = m as f64; self.stat[1] = alive as f64; self.stat[2] = self.cap12 as f64;

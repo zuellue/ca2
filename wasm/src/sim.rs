@@ -173,9 +173,8 @@ impl Sim {
     }
     fn keep_in(&mut self, c: usize) {
         let (cx, cy, cw, ch) = (self.p[P_CX], self.p[P_CY], self.p[P_CW], self.p[P_CH]);
-        let rad = self.g(c, RAD);
-        let gap = 0f64.max(self.p[P_BGAP]); let rfit = 8f64.max(cw.min(ch) / 2.0 - gap);
-        let r = rad.min(rfit);
+        let gap = 0f64.max(self.p[P_BGAP]); let r = 0.0; // centre-wall (owner 22 Oct), 1:1 with ca2.js keepIn
+        let rfit = 8f64.max(cw.min(ch) / 2.0 - gap); let _ = rfit;
         let bnd = if self.p[P_GENOME] != 0.0 { self.g(c, GBND) } else { 1.0 };
         let z = 0f64.max((self.p[P_BZONE] * bnd).min(cw / 2.5).min(ch / 2.5));
         let f = self.p[P_BFORCE]; let ms = self.g(c, MAXS) + 1.0;

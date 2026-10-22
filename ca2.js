@@ -204,7 +204,7 @@
   // boundary awareness: a soft push inside the zone turns cells before the wall; the wall itself reflects (flat world, no death at the edge)
   function keepIn(c) {
     // the wall acts on the cell's edge, not its centre: the radius inset is automatic. The zone is the boundary distance knob only, independent of cell radius (owner 20 Oct)
-    var gap = Math.max(0, P.boundGap || 0), rFit = Math.max(8, Math.min(cont.w, cont.h) / 2 - gap), r = Math.min(c.radius, rFit);
+    var gap = Math.max(0, P.boundGap || 0), r = 0; // centre-wall (owner 22 Oct): no radius inset - pressed bodies squeeze at the wall (draw-side rFree), growth cannot pin cells to the middle
     var z = Math.max(0, Math.min(P.boundZone * (P.genomeOn ? c.g.bnd : 1), cont.w / 2.5, cont.h / 2.5)), F = P.boundForce, ms = c.maxSpeed + 1;
     var x0 = cont.x + r + gap, x1 = cont.x + cont.w - r - gap, y0 = cont.y + r + gap, y1 = cont.y + cont.h - r - gap, d, t, press = 0;
     d = c.x - x0; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vx += F * t * t * ms * 0.25; if (c.vx < 0) c.vx *= 1 - 0.25 * t; if (t > press) press = t; }
@@ -693,6 +693,9 @@
   function srcGrow(n) { if (n <= SRC.x.length) return; var m = SRC.x.length * 2; while (m < n) m *= 2; ['x', 'y', 'r', 'wr', 'wg', 'wb'].forEach(function (k) { var a2 = new Float32Array(m); a2.set(SRC[k]); SRC[k] = a2; }); }
   function emitCell(c, t0, allowance, o) { // appends the cell's sources (plate-relative) to o = { x, y, r, n }
     var bx = c.x - cont.x, by = c.y - cont.y, sh = c.shp;
+    // per-source squeeze (owner 22 Oct): string tails and lobed satellites narrow by their OWN distance to the gap
+    // line too, so no body part ever inks past the wall (the centre-based cr below only covers the main disc)
+    var pushSrc = function (sx, sy, sr) { var d = Math.min(sx - (P.boundGap > 0 ? P.boundGap : 0), cont.w - (P.boundGap > 0 ? P.boundGap : 0) - sx, sy - (P.boundGap > 0 ? P.boundGap : 0), cont.h - (P.boundGap > 0 ? P.boundGap : 0) - sy); o.x.push(sx); o.y.push(sy); o.r.push(Math.min(sr, Math.max(0.4, d))); o.n++; };
     // wall squeeze: the drawn body never crosses the gap line; a cell pressed at the wall compresses a little so the squeeze is felt (owner 21 Oct)
     var gap2 = Math.max(0, P.boundGap || 0), rFree = Math.max(1, Math.min(bx - gap2, cont.w - gap2 - bx, by - gap2, cont.h - gap2 - by));
     var cr = Math.min(c.radius, Math.max(1, rFree)) * (1 - 0.18 * clamp(1 - Math.max(0, rFree - c.radius) / 8, 0, 1));
@@ -700,19 +703,19 @@
       var rs = cr * sh.th, span = 2 * cr * sh.th * (sh.asp - 1), want = Math.min(9, Math.max(2, Math.round(span / (1.15 * rs)) + 1)), nn = Math.min(want, allowance);
       if (nn >= 2) {
         var ux = Math.cos(sh.dir), uy = Math.sin(sh.dir), px = -uy, py = ux, ds = span / (nn - 1), tq = t0 / 850 * (1 + sh.wsp) + sh.ph;
-        for (var k = 0; k < nn; k++) { var d0 = -span / 2 + ds * k, off2 = sh.wig * rs * Math.sin(tq + k * 0.85); o.x.push(bx + ux * d0 + px * off2); o.y.push(by + uy * d0 + py * off2); o.r.push(rs); o.n++; }
+        for (var k = 0; k < nn; k++) { var d0 = -span / 2 + ds * k, off2 = sh.wig * rs * Math.sin(tq + k * 0.85); pushSrc(bx + ux * d0 + px * off2, by + uy * d0 + py * off2, rs); }
         return;
       }
     } else if (P.cellShapes && sh && sh.t === 2 && allowance > 2) { // lobed: amorf even standing alone
       var r0 = cr * 0.78, rot = t0 / 4200 * sh.wsp + sh.ph;
-      o.x.push(bx); o.y.push(by); o.r.push(r0); o.n++;
+      pushSrc(bx, by, r0);
       for (var q2 = 0; q2 < sh.sat; q2++) {
         var aa = rot + q2 * 2.4 + sh.ph2, dd = cr * (0.42 + 0.24 * ((q2 * 0.731 + sh.ph) % 1)), rr2 = cr * (0.3 + 0.22 * ((q2 * 0.377 + sh.ph2) % 1));
-        o.x.push(bx + Math.cos(aa) * dd); o.y.push(by + Math.sin(aa) * dd); o.r.push(rr2); o.n++;
+        pushSrc(bx + Math.cos(aa) * dd, by + Math.sin(aa) * dd, rr2);
       }
       return;
     }
-    o.x.push(bx); o.y.push(by); o.r.push(cr); o.n++;
+    pushSrc(bx, by, cr);
   }
   function buildSourcesW(t0) { // Rust/wasm buildSources+emitCell (bs.rs); returns false so the JS body below runs (?nowasm=1, ?nosim=1)
     var E = WC.e; if (!E || !E.bs_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
