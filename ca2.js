@@ -2469,36 +2469,50 @@
     row.appendChild(c);
     // free choice is back (owner 21 Oct): a hex field in the parameter row plus a native colour picker, both
     // synced with the circle switch; any custom pick turns the switch on and is saved into the preset.
-    var hex = document.createElement('input'); hex.className = 'swhex'; hex.spellcheck = false; hex.autocomplete = 'off'; hex.maxLength = 7; hex.setAttribute('aria-label', def.label + ' hex');
+    var hex = document.createElement('input'); hex.className = 'swhex'; hex.spellcheck = false; hex.autocomplete = 'off'; hex.maxLength = 6; hex.setAttribute('aria-label', def.label + ' hex');
     var pick = document.createElement('input'); pick.type = 'color'; pick.className = 'swpick'; pick.setAttribute('aria-label', def.label + ' picker');
-    row.appendChild(hex); row.appendChild(pick);
+    row.insertBefore(hex, c); row.appendChild(pick); // code flush-left on the circle's line (owner 22 Oct)
     var home = SW_HOME[def.label]; ctl.insertBefore(row, home[0]); home[1].els.push(row);
     var bv = row.querySelector('b'), hideT = null;
     var inkC = mkInk(c), inkP = mkInk(pick);
+    swInks.splice(swInks.indexOf(inkP), 1); // the sample chip is long-press-only (owner 22 Oct): the layout sync never touches it
     function apply(col) { if (def.set) def.set(col); else { P[def.key] = col; touched[def.key] = 1; applyLineColor(); } }
     function cur() { return P[def.on] ? (def.get ? def.get() : P[def.key]) : null; }
     function paint() {
       var v = cur();
       inkC.el.style.background = v || 'transparent'; inkP.el.style.background = v || 'transparent';
-      if (v) { hex.value = v; try { pick.value = v; } catch (e) {} }
+      if (v) { hex.value = v.slice(1); try { pick.value = v; } catch (e) {} } // the field shows the bare code, no # (owner 22 Oct)
     }
     function show(flash) {
-      bv.textContent = cur() || 'default';
+      bv.textContent = P[def.on] ? '' : 'default'; // no code text above the button (owner 22 Oct)
       if (flash) { bv.style.opacity = '1'; clearTimeout(hideT); hideT = setTimeout(function () { bv.style.opacity = ''; }, 1400); }
     }
     function setFree(v) { // a valid #rrggbb from the hex field or the picker: switch on, apply, save (owner 21 Oct)
       P[def.on] = 1; touched[def.on] = 1;
       apply(v); paint(); show(true); save();
     }
+    var pressT = 0, sampleOn = false, sampleAte = false;
+    function sample(show2) { // the little sample circle lives only under a long press (owner 22 Oct)
+      sampleOn = show2;
+      if (show2) { var r = c.getBoundingClientRect(); inkP.el.style.left = (r.left - 30) + 'px'; inkP.el.style.top = (r.top + r.height / 2 - 10) + 'px'; inkP.el.style.width = '20px'; inkP.el.style.height = '20px'; inkP.el.style.visibility = 'visible'; inkP.el.style.pointerEvents = 'auto'; }
+      else { inkP.el.style.visibility = 'hidden'; inkP.el.style.pointerEvents = 'none'; }
+    }
+    sample(false);
+    inkP.el.style.pointerEvents = 'auto'; inkP.el.addEventListener('click', function () { if (sampleOn) pick.click(); });
+    c.addEventListener('pointerdown', function () { pressT = setTimeout(function () { sample(true); sampleAte = true; }, 550); });
+    c.addEventListener('pointerup', function () { clearTimeout(pressT); });
+    c.addEventListener('pointercancel', function () { clearTimeout(pressT); sample(false); });
     c.addEventListener('pointerenter', function () { inkC.el.style.background = '#000'; });
-    c.addEventListener('pointerleave', paint);
+    c.addEventListener('pointerleave', function () { paint(); if (!sampleOn) sample(false); });
     c.addEventListener('click', function () {
+      if (sampleAte) { sampleAte = false; return; } // a long-press that raised the sample is not a toggle
       P[def.on] = P[def.on] ? 0 : 1; touched[def.on] = 1;
       apply(P[def.on] ? CIRC_COLS[Math.floor(Math.random() * 3)] : (def.dflt === undefined ? null : def.dflt));
       paint(); show(true); save();
     });
     var hexDone = function () {
       var t = hex.value.trim(); if (t && t[0] !== '#') t = '#' + t;
+      if (/^#[0-9a-fA-F]{3}$/.test(t)) t = '#' + t[1] + t[1] + t[2] + t[2] + t[3] + t[3]; // 3-char hex accepted (owner 22 Oct)
       if (/^#[0-9a-fA-F]{6}$/.test(t)) setFree(t.toLowerCase()); else paint();
     };
     hex.addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter') { hexDone(); hex.blur(); } });

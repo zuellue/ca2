@@ -52,6 +52,8 @@
 
   @keyframes ca2in { from { opacity: 0 } to { opacity: 1 } }
   #panel h1 { margin: 0 0 6px; font-weight: normal; font-size: 13px; letter-spacing: calc(.3em + 1px); font-family: 'Times New Roman', Times, serif; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; }
+  .row .lab { flex: 0 0 100%; }
   .row .swc { margin: 2px 0 0 auto; }
   .swc { width: var(--sd, 23px); height: var(--sd, 23px); border-radius: 50%; box-sizing: border-box; border: var(--lw, 1px) solid var(--kc, var(--fg)); cursor: pointer; background: transparent; }
   input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
@@ -126,8 +128,8 @@
   /* mobile keeps its own spacing: the mobile lane pins body[data-camode="m"] #secc .sl to 8px itself */
   #secc .sl span { display: block; opacity: 0; transform-origin: 50% 0; transition: opacity .06s linear; line-height: calc(var(--cfs, 13px) * 1.3077); }
   /* colour rows: free hex field + native picker (owner 21 Oct); the visible colour lives in .swink chips OUTSIDE the blended panel, so auto invert can never lie about a colour */
-  .swhex { font: inherit; color: inherit; background: none; border: 0; border-bottom: var(--lw) solid var(--fg-soft); width: 8ch; padding: 0 0 1px; margin-left: 8px; }
-  .swpick { width: 20px; height: 20px; padding: 0; border: 0; background: none; margin-left: 8px; cursor: pointer; opacity: 0; } /* click target only - the true colour shows through its .swink chip */
+  .swhex { font: inherit; color: inherit; background: none; border: 0; width: 6ch; padding: 0; margin-left: 0; } /* no underline, no #, flush left (owner 22 Oct) */
+  .swpick { width: 20px; height: 20px; padding: 0; border: 0; background: none; margin-left: 8px; cursor: pointer; opacity: 0; position: absolute; pointer-events: none; } /* hidden until the swatch long-press sample (owner 22 Oct) */
   .swink { position: fixed; z-index: 59; border-radius: 50%; pointer-events: none; box-sizing: border-box; }
   #cur { position: fixed; left: 0; top: 0; display: none; pointer-events: none; z-index: 8; box-sizing: border-box; border: 1px solid #000; border-radius: 50%; will-change: transform; }
   #cur i { position: absolute; left: 50%; top: 50%; width: 2px; height: 2px; border-radius: 50%; transform: translate(-50%, -50%); background: #000; }
