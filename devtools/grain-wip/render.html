@@ -1,0 +1,55 @@
+<!doctype html><meta charset="utf-8"><body><script>
+// standalone grain renderer for measurement: fetches fs + blue-noise, renders on flat gray input,
+// returns raw pixels via window.__done(stats)
+async function go() {
+  const fs = await (await fetch('/' + (location.search.slice(1) || 'fs-current') + '.glsl')).text();
+  const hex = await (await fetch('/bn.hex')).text();
+  const W = 512, H = 512;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const gl = cv.getContext('webgl2', { alpha: true, antialias: false, preserveDrawingBuffer: true });
+  if (!gl) { window.__done = { error: 'nogl' }; return; }
+  function sh(t, s) { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) { window.__shaderErr = gl.getShaderInfoLog(o); return null; } return o; }
+  const vs = sh(gl.VERTEX_SHADER, '#version 300 es\nin vec2 p; out vec2 uv; void main(){ uv = p*0.5+0.5; gl_Position = vec4(p,0.,1.); }');
+  const f = sh(gl.FRAGMENT_SHADER, fs);
+  if (!vs || !f) { window.__done = { error: 'shader', log: window.__shaderErr }; return; }
+  const pr = gl.createProgram(); gl.attachShader(pr, vs); gl.attachShader(pr, f); gl.linkProgram(pr);
+  gl.useProgram(pr);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  const bn = new Uint8Array(4096); for (let i = 0; i < 4096; i++) bn[i] = parseInt(hex.substr(i*2, 2), 16);
+  const tBN = gl.createTexture(); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, tBN);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 64, 64, 0, gl.RED, gl.UNSIGNED_BYTE, bn);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+  // flat mid-gray source
+  const src = new Uint8Array(W*H*4); for (let i = 0; i < W*H; i++) { src[i*4] = src[i*4+1] = src[i*4+2] = 128; src[i*4+3] = 255; }
+  const tSrc = gl.createTexture(); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tSrc);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, src);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.uniform1i(gl.getUniformLocation(pr, 'HOOKED'), 0); gl.uniform1i(gl.getUniformLocation(pr, 'TEX_BLUENOISE'), 1);
+  const UN = ['HOOKED_size','BASE_STRENGTH','GR_AMOUNT','GRAIN_SIZE','GRAIN_SOFTNESS','CHROMA_SPLIT','DEVELOPMENT','FINE_WEIGHT','CRYSTAL_WEIGHT','CLOUD_WEIGHT','GR_ANIM_BUCKET','OVERLAY','GR_MONO','SKEW_STRENGTH','RES_ADAPT','GR_SHADOW_SENSITIVITY','GR_MIDTONE_SENSITIVITY','GR_HIGHLIGHT_SENSITIVITY','FINE_SIZE_RATIO','CLOUD_SIZE_RATIO','GRAIN_DEBUG']; const U = {}; UN.forEach(n => U[n] = gl.getUniformLocation(pr, n)); const US = gl.getUniformLocation(pr, 'STOCK_PROPS');
+  window.__render = function(g) {
+    gl.viewport(0, 0, W, H);
+    gl.uniform2f(U.HOOKED_size, W, H);
+    gl.uniform1f(U.BASE_STRENGTH, g.strength); gl.uniform1f(U.GR_AMOUNT, g.amount);
+    gl.uniform1f(U.GRAIN_SIZE, Math.max(0.3, g.size * (g.dpr || 1)));
+    gl.uniform1f(U.GRAIN_SOFTNESS, g.softness); gl.uniform1f(U.CHROMA_SPLIT, g.chroma);
+    gl.uniform1f(U.DEVELOPMENT, g.development); gl.uniform1f(U.OVERLAY, g.overlay ? 1 : 0);
+    gl.uniform1f(U.FINE_WEIGHT, g.fine); gl.uniform1f(U.CRYSTAL_WEIGHT, g.crystal); gl.uniform1f(U.CLOUD_WEIGHT, g.cloud);
+    gl.uniform1f(U.GR_ANIM_BUCKET, g.bucket || 0);
+    if (U.GR_MONO) { gl.uniform1f(U.GR_MONO, g.mono||0); gl.uniform1f(U.SKEW_STRENGTH, g.skew||0); gl.uniform1f(U.RES_ADAPT, g.resadapt||0);
+      gl.uniform1f(U.GR_SHADOW_SENSITIVITY, g.shadow!==undefined?g.shadow:1.8); gl.uniform1f(U.GR_MIDTONE_SENSITIVITY, g.mid!==undefined?g.mid:1.5); gl.uniform1f(U.GR_HIGHLIGHT_SENSITIVITY, g.high!==undefined?g.high:2.7);
+      gl.uniform1f(U.FINE_SIZE_RATIO, g.fineratio||0.5); gl.uniform1f(U.CLOUD_SIZE_RATIO, g.cloudratio||2.2); gl.uniform1f(U.GRAIN_DEBUG, g.debug||0);
+      const sp = g.stock || [0.95, 0.92, 1.05]; gl.uniform3f(US, sp[0], sp[1], sp[2]); }
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    const px = new Uint8Array(W*H*4); gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    return { r: Array.from(px.filter((_, i) => i % 4 === 0)), a: Array.from(px.filter((_, i) => i % 4 === 3)) };
+  };
+  window.__done = { ok: true };
+}
+go().catch(function (e) { window.__done = { error: String((e && e.message) || e) }; });
+</script>
