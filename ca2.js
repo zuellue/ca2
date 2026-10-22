@@ -1164,7 +1164,9 @@
         c._sepX=c.x;c._sepY=c.y;c.x+=(tx-c.x)*fraction;c.y+=(ty-c.y)*fraction;
         if(pass>=3&&(m[0]||m[1])){
           var pressure=Math.min(1,Math.hypot(m[0],m[1])/Math.max(1,bodies[k].bound));
-          var oldRadius=c.radius;c.radius=Math.max(.4,c.radius-Math.max(0,P.boundForce)*pressure);radiusLoss+=oldRadius-c.radius;
+          // Field is proportional to radius squared: overload-derived compression,
+          // after positional relaxation fails. This is physical source compression, not a mask.
+          var oldRadius=c.radius;c.radius=Math.max(.4,c.radius/(1+pressure));radiusLoss+=oldRadius-c.radius;
         }
       }
       separatorPass();
