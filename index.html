@@ -104,12 +104,9 @@
   /* code entry: 4 hollow circles stacked at the bottom right, on the section-circle axis (owner 22 Oct: the
      original design - digits fill the circles top to bottom; the verified module takes over the same spot) */
   #eadm { display: none; position: fixed; right: var(--m); bottom: var(--m); z-index: 11; flex-direction: column; align-items: center; cursor: text; opacity: 0; pointer-events: none; transition: opacity .2s ease-out; }
-  #eadm.on { display: flex; }
-  /* the code entry lives and dies with the config area */
-  #panel.open ~ #eadm.on, #panel.hov ~ #eadm.on { opacity: 1; pointer-events: auto; }
-  @media (hover: hover) { #tab:hover ~ #eadm.on, #panel:hover ~ #eadm.on { opacity: 1; pointer-events: auto; } }
-  body[data-camode="m"] #eadm.on { opacity: 1; pointer-events: auto; }
-  @media (hover: none) { #eadm.on { opacity: 1; pointer-events: auto; } }
+  /* a completed 5s hold shows the circles even with the config closed (owner 22 Oct: the active code
+     entry must be visible) - still zero trace for visitors: no hold, no widget */
+  #eadm.on { display: flex; opacity: 1; pointer-events: auto; }
   #eadm .ac { border-radius: 50%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: var(--fg); font-family: 'Fragment Mono', ui-monospace, monospace; }
   #eadm .ac span { line-height: 1; }
   #eadm.err .ac { border-color: #ff3c3c !important; color: #ff3c3c; }
