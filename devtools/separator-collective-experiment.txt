@@ -1,0 +1,32 @@
+EXPERIMENT ONLY. Not loaded by index.html. Measured 6.6-44 ms/frame at 69-99 cells.
+Not approved as production solution: verify multi-wall side retention, source allowance, giant/no-space cases, then accelerate math with matching fallback.
+
+  function separatorCollectivePass() {
+    if (!P.separatorOn) return;
+    var tCollect=performance.now(), segs=P.showAxis&&axisInfo.segs?axisInfo.segs:[], threshold=P.THRESHOLD*.90;
+    // Sum the same sources that will be rendered, then move contributors, never erase pixels.
+    for(var pass=0;pass<6;pass++){
+      var bodies=[],active=[], moves=[], hit=0,flat=[],parts=[];
+      for(var ci=0;ci<cells.length;ci++)if(cells[ci].alive&&introOn(cells[ci].popD)) {active.push(cells[ci]);bodies.push(sepBody(cells[ci]));moves.push([0,0]);}
+      for(var k=0;k<active.length;k++){var b=bodies[k],c=active[k];for(var q=0;q<b.n;q++)flat.push([c.x+b.x[q],c.y+b.y[q],P.metaballStrength*b.r[q]*b.r[q],b.r[q]*Math.max(3,Math.sqrt(P.metaballStrength/(P.THRESHOLD*.03))),k]);}
+      function sample(x,y,nx,ny){
+        if(x<cont.x||x>cont.x+cont.w||y<cont.y||y>cont.y+cont.h)return;
+        var total=0;
+        for(var k=0;k<active.length;k++)parts[k]=0;
+        for(var q=0;q<flat.length;q++){var fs=flat[q],dx=x-fs[0],dy=y-fs[1];if(Math.abs(dx)>fs[3]||Math.abs(dy)>fs[3])continue;var f=fs[2]/(dx*dx+dy*dy+.0001);parts[fs[4]]+=f;total+=f;}
+        if(total<=threshold)return;hit++;
+        for(var k=0;k<active.length;k++)if(parts[k]>threshold*.002){var c=active[k],dx=c.x-x,dy=c.y-y,mx,my;
+          if(nx!==null){var side=dx*nx+dy*ny>=0?1:-1;mx=nx*side;my=ny*side;}else{var dl=Math.hypot(dx,dy)||1;mx=dx/dl;my=dy/dl;}
+          var step=Math.min(bodies[k].bound+2,Math.max(1,bodies[k].bound*(Math.sqrt(total/threshold)-1))), m=moves[k];
+          if(Math.abs(mx*step)>Math.abs(m[0]))m[0]=mx*step;if(Math.abs(my*step)>Math.abs(m[1]))m[1]=my*step;
+        }
+      }
+      for(var j=0;j<segs.length;j++){var s=segs[j],dx=s[2]-s[0],dy=s[3]-s[1],len=Math.hypot(dx,dy),n=Math.ceil(len);if(!len)continue;
+        for(var q=0;q<=n;q++)sample(s[0]+dx*q/n,s[1]+dy*q/n,-dy/len,dx/len);}
+      if(P.showHud&&SEP.img)for(var yy=0;yy<SEP.mh;yy++)for(var xx=0;xx<SEP.mw;xx++)if(SEP.img[(yy*SEP.mw+xx)*4+3]>40)sample(xx*2+1,yy*2+1,null,null);
+      if(!hit)break;
+      for(var k=0;k<active.length;k++){var c=active[k],m=moves[k],bg=Math.max(0,P.boundGap||0);c.x=clamp(c.x+m[0],cont.x+bg,cont.x+cont.w-bg);c.y=clamp(c.y+m[1],cont.y+bg,cont.y+cont.h-bg);}
+      separatorPass();
+    }
+    SRC.built=-1; SEP.collectMs=performance.now()-tCollect;
+  }
