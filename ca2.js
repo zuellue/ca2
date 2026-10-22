@@ -2813,14 +2813,14 @@
     clampTargets(); cont.ew = cont.tw; cont.eh = cont.th;
   });
   window.addEventListener('mouseup', function () { targetCursorScale = 1; resizeDrag = null; });  // A + drag spray: continuous spawns along the held-drag trail, paced by preset knobs (owner 21 Oct). spawnAt stays the single spawn path (click / spray / mobile touch)
-  var sprayOn = false, sprayMoved = false, sprayT = 0, sprayX = 0, sprayY = 0, spraySrc = '';
-  window.addEventListener('mousedown', function (e) { if (e.target === cv && !edgeHit(e.clientX, e.clientY)) { sprayOn = true; sprayMoved = false; sprayT = performance.now(); spraySrc = 'm'; sprayX = e.clientX; sprayY = e.clientY; } });
+  var sprayOn = false, sprayMoved = false, sprayT = 0, sprayX = 0, sprayY = 0, spraySrc = '', sprayLX = 0, sprayLY = 0; // sprayLX/LY: last SPAWN point - the gap measures distance since the last birth, not since the last event
+  window.addEventListener('mousedown', function (e) { if (e.target === cv && !edgeHit(e.clientX, e.clientY)) { sprayOn = true; sprayMoved = false; sprayT = performance.now(); spraySrc = 'm'; sprayX = sprayLX = e.clientX; sprayY = sprayLY = e.clientY; } });
   window.addEventListener('mousemove', function (e) {
     if (!sprayOn) return;
     sprayX = e.clientX; sprayY = e.clientY; // the waves chase the pointer
     if (keyHeld !== 'a') return;
     var t = performance.now();
-    if (t - sprayT >= P.sprayMs && Math.hypot(e.clientX - sprayX, e.clientY - sprayY) >= P.sprayGapPx) { sprayT = t; sprayMoved = true; spawnAt(sprayX, sprayY); } // extra density along a fast drag
+    if (t - sprayT >= P.sprayMs && Math.hypot(e.clientX - sprayLX, e.clientY - sprayLY) >= P.sprayGapPx) { sprayT = t; sprayMoved = true; sprayLX = e.clientX; sprayLY = e.clientY; spawnAt(sprayX, sprayY); } // extra density along a fast drag
   });
   var sprayWaveN = 0;
   function sprayWave() { // the gush: waves of births while the press is held, even standing still (owner 21 Oct); runs on the frame loop so a throttled timer can never starve it
@@ -2845,7 +2845,7 @@
     if (hit) { hit.rx = t.clientX >= W / 2; hit.dy = t.clientY >= H / 2; resizeDrag = hit; e.preventDefault(); return; }
     // no edge drag: arm the touch counterpart of the A+drag spray - hold + drag sprays through the same spawnAt,
     // paced by the same sprayMs/sprayGapPx knobs (lane agreement 21 Oct); a tap stays a tap until a spray lands
-    sprayOn = true; sprayMoved = false; sprayT = performance.now(); spraySrc = 't'; sprayX = t.clientX; sprayY = t.clientY;
+    sprayOn = true; sprayMoved = false; sprayT = performance.now(); spraySrc = 't'; sprayX = sprayLX = t.clientX; sprayY = sprayLY = t.clientY;
     targetCursorScale = 3.5; cursorScale = 3.5;
   }, { passive: false });
   window.addEventListener('touchmove', function (e) {
@@ -2853,7 +2853,7 @@
     if (!resizeDrag && sprayOn) {
       sprayX = t.clientX; sprayY = t.clientY; // the waves chase the finger
       var st = performance.now();
-      if (st - sprayT >= P.sprayMs) { sprayT = st; sprayMoved = true; spawnAt(sprayX, sprayY); } // extra density along a fast drag
+      if (st - sprayT >= P.sprayMs && Math.hypot(t.clientX - sprayLX, t.clientY - sprayLY) >= P.sprayGapPx) { sprayT = st; sprayMoved = true; sprayLX = t.clientX; sprayLY = t.clientY; spawnAt(sprayX, sprayY); } // same gap pacing as the mouse arm (parity, 22 Oct)
     }
     if (!resizeDrag) return;
     cont.user = true;
