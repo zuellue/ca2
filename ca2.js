@@ -24,7 +24,7 @@
     THRESHOLD: 0.2, metaballStrength: 0.02, foodDensity: 0.025, foodEnergyValue: 5,
     minRefreshInterval: 10, maxRefreshInterval: 20, slowDownRadius: 20, speedReductionFactor: 50.3,
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
-    grainStock: 0, grainMono: 0, grainSkew: 0, grainResAdapt: 0, grainShadow: 1.8, grainMid: 1.5, grainHigh: 2.7, grainFineRatio: 0.5, grainCloudRatio: 2.2, grainDebug: 0,
+    grainStock: 0, grainMono: 0, grainSkew: 0, grainResAdapt: 0, grainShadow: 1.8, grainMid: 1.5, grainHigh: 2.7, grainFineRatio: 0.5, grainCloudRatio: 2.2, grainDebug: 0, parasiteSize: 1,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
     colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, divideMode: 0, divideAgeMs: 20000, divideEnergy: 40, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, panelRowGap: 11, spawnProtect: 1, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, sprayMs: 120, sprayGapPx: 26, sprayBurst: 3, sprayRadius: 90, titleCircles: 1, circleHold: 1, titleLead: 1.3, titleTrack: 1,
     audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, audioMicro: 0, audioMicroPitch: 1200, audioMicroDecay: 70, audioMicroRand: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1, foodReseed: 1, foodReseedFloor: 0.2, foodReseedMin: 40, foodReseedMax: 900, foodReseedTries: 8, foodEatRate: 1.5, refreshResetEnergy: 1
@@ -1648,11 +1648,12 @@
       if (pp2.h === undefined) pp2.h = ta2;
       var dh2 = ta2 - pp2.h; while (dh2 > 3.1416) dh2 -= 6.2832; while (dh2 < -3.1416) dh2 += 6.2832;
       pp2.h += dh2 * (1 - Math.exp(-dtf * 0.012)); pp2.px = pp2.x; pp2.py = pp2.y;
-      var ux2 = Math.cos(pp2.h), uy2 = Math.sin(pp2.h), vx2 = -uy2, vy2 = ux2, bw2 = 2.965 * (1 + 0.12 * Math.sin(t0 * 0.0565 + (pp2.ph || 0)));
+      var psz = P.parasiteSize > 0 ? P.parasiteSize : 1; // owner 22 Oct: size knob, 1 = the shipped size; manual entry is never clamped
+      var ux2 = Math.cos(pp2.h), uy2 = Math.sin(pp2.h), vx2 = -uy2, vy2 = ux2, bw2 = 2.965 * psz * (1 + 0.12 * Math.sin(t0 * 0.0565 + (pp2.ph || 0)));
       ctx.beginPath();
-      ctx.moveTo(pp2.x + ux2 * 3.43, pp2.y + uy2 * 3.43);
-      ctx.lineTo(pp2.x - ux2 * 1.71 + vx2 * bw2, pp2.y - uy2 * 1.71 + vy2 * bw2);
-      ctx.lineTo(pp2.x - ux2 * 1.71 - vx2 * bw2, pp2.y - uy2 * 1.71 - vy2 * bw2);
+      ctx.moveTo(pp2.x + ux2 * 3.43 * psz, pp2.y + uy2 * 3.43 * psz);
+      ctx.lineTo(pp2.x - ux2 * 1.71 * psz + vx2 * bw2, pp2.y - uy2 * 1.71 * psz + vy2 * bw2);
+      ctx.lineTo(pp2.x - ux2 * 1.71 * psz - vx2 * bw2, pp2.y - uy2 * 1.71 * psz - vy2 * bw2);
       ctx.fill(); } ctx.globalAlpha = 1; }
 
     // area outline: no rounded corners. Each side stops `corner` px short of both ends, so the corner lines never meet.
@@ -1917,7 +1918,7 @@
       ['audioCrackle', 'micro events', 0, 1, 0.01], ['audioMicroPitch', 'micro pitch Hz', 200, 4000, 10], ['audioMicroDecay', 'micro decay ms', 10, 400, 1], ['audioMicroRand', 'micro randomness', 0, 1, 0.01], ['audioWidth', 'stereo width', 0, 1, 0.01]]],
     ['field', [
       ['THRESHOLD', 'metaball threshold', 0.05, 0.6, 0.01], ['metaballStrength', 'metaball strength', 0.005, 0.1, 0.001],
-      ['foodDensity', 'food density', 0, 0.1, 0.005], ['foodEnergyValue', 'food energy', 0, 20, 0.5], ['foodGrowAmt', 'growth per food (px)', 0, 5, 0.05], ['plateOverlap', 'plate over text (x text size)', 0, 0.5, 0.01], ['parasiteHard', 'parasite resilience', 0, 40, 0.5], ['parasiteNerv', 'parasite nervousness', 0, 1, 0.01], ['parasiteHardMs', 'parasite starve delay ms', 0, 60000, 500], ['foodEatR', 'eating radius px', 2, 100, 0.5], ['foodEatRate', 'eating rate dots/s', 0, 20, 0.1], ['foodLifeMs', 'food life step ms', 50, 2000, 10], ['foodLifeCell', 'food life lattice px', 1, 20, 0.5], ['foodGrowMax', 'max growth (x radius)', 1, 8, 0.1], ['foodShrink', 'shrink back (px/frame)', 0, 0.5, 0.005],
+      ['foodDensity', 'food density', 0, 0.1, 0.005], ['foodEnergyValue', 'food energy', 0, 20, 0.5], ['foodGrowAmt', 'growth per food (px)', 0, 5, 0.05], ['plateOverlap', 'plate over text (x text size)', 0, 0.5, 0.01], ['parasiteSize', 'parasite size', 0.2, 4, 0.05], ['parasiteHard', 'parasite resilience', 0, 40, 0.5], ['parasiteNerv', 'parasite nervousness', 0, 1, 0.01], ['parasiteHardMs', 'parasite starve delay ms', 0, 60000, 500], ['foodEatR', 'eating radius px', 2, 100, 0.5], ['foodEatRate', 'eating rate dots/s', 0, 20, 0.1], ['foodLifeMs', 'food life step ms', 50, 2000, 10], ['foodLifeCell', 'food life lattice px', 1, 20, 0.5], ['foodGrowMax', 'max growth (x radius)', 1, 8, 0.1], ['foodShrink', 'shrink back (px/frame)', 0, 0.5, 0.005],
       ['foodAlpha', 'food dot opacity', 0, 1, 0.01], ['foodSize', 'food dot size px', 0.5, 12, 0.5], ['foodShow', 'food dot frequency', 0, 1, 0.01],
       ['foodReseed', 'food reseed', 0, 1, 1], ['foodReseedFloor', 'reseed floor (x target)', 0, 1, 0.05], ['foodReseedMin', 'reseed min dots', 0, 500, 10], ['foodReseedMax', 'reseed rate dots/s', 0, 5000, 50], ['foodReseedTries', 'reseed gap search tries', 1, 20, 1],
       ['minRefreshInterval', 'refresh min s', 2, 60, 1], ['maxRefreshInterval', 'refresh max s', 3, 90, 1], ['refreshResetEnergy', 'refresh resets energy', 0, 1, 1]]]
