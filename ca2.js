@@ -24,6 +24,7 @@
     THRESHOLD: 0.2, metaballStrength: 0.02, foodDensity: 0.025, foodEnergyValue: 5,
     minRefreshInterval: 10, maxRefreshInterval: 20, slowDownRadius: 20, speedReductionFactor: 50.3,
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
+    grainStock: 0, grainMono: 0, grainSkew: 0, grainResAdapt: 0, grainShadow: 1.8, grainMid: 1.5, grainHigh: 2.7, grainFineRatio: 0.5, grainCloudRatio: 2.2, grainDebug: 0,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
     colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, divideMode: 0, divideAgeMs: 20000, divideEnergy: 40, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, panelRowGap: 11, spawnProtect: 1, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, sprayMs: 120, sprayGapPx: 26, sprayBurst: 3, sprayRadius: 90, titleCircles: 1, circleHold: 1, titleLead: 1.3, titleTrack: 1,
     audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, audioMicro: 0, audioMicroPitch: 1200, audioMicroDecay: 70, audioMicroRand: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1, foodReseed: 1, foodReseedFloor: 0.2, foodReseedMin: 40, foodReseedMax: 900, foodReseedTries: 8, foodEatRate: 1.5, refreshResetEnergy: 1
@@ -1732,9 +1733,10 @@
       aev.b = ev.birth; aev.d = ev.death; aev.h = ev.hit;
     }
     applyDof(); // depth of field lives in the scene canvas now, so the grain pass lands on top of it (owner 21 Oct)
-    if (window.CA2Grain && CA2Grain.ok && P.grain && t0 - fadeT0 >= INTRO_MS + 400) { // grain is the last layer to join, clear of the intro
+    if (window.CA2Grain && CA2Grain.ok && P.grain) { // owner 22 Oct: grain is in from the first frame - the intro+400ms hold went
       cvg.style.display = 'block';
-      CA2Grain.render(cv, { amount: P.grainAmount, strength: P.grainStrength, size: P.grainSize, softness: P.grainSoft, chroma: P.grainChroma, development: P.grainDev, fine: P.grainFine, crystal: P.grainCrystal, cloud: P.grainCloud }, P.grainFps > 0 ? Math.floor(performance.now() / 1000 * P.grainFps) : 0, DPR, 1); // overlay pass: #g is a transparent layer above all UI (owner 21 Oct)
+      var GR_STOCKS = [[0.95, 0.92, 1.05], [1.00, 0.88, 1.10], [0.90, 0.90, 0.95], [1.05, 0.85, 1.15], [1.10, 0.80, 1.20], [1.00, 0.95, 1.00]]; // HP5, Portra, Ektar, Vision3, Kodachrome, Tri-X (photon)
+      CA2Grain.render(cv, { amount: P.grainAmount, strength: P.grainStrength, size: P.grainSize, softness: P.grainSoft * (P.grainMono ? 0.5 : 1), chroma: P.grainChroma, development: P.grainDev, fine: P.grainFine, crystal: P.grainCrystal, cloud: P.grainCloud, mono: P.grainMono, skew: P.grainSkew, resAdapt: P.grainResAdapt, shadow: P.grainShadow, mid: P.grainMid, high: P.grainHigh, fineRatio: P.grainFineRatio, cloudRatio: P.grainCloudRatio, debug: P.grainDebug, stock: GR_STOCKS[clamp(Math.round(P.grainStock), 0, 5)] }, P.grainFps > 0 ? Math.floor(performance.now() / 1000 * P.grainFps) : 0, DPR, 1); // overlay pass: #g is a transparent layer above all UI (owner 21 Oct)
     } else cvg.style.display = 'none';
     pfm('grain+rest');
     // quality governor: keeps the frame rate by lowering resolution, raises it back when there is room
@@ -1863,6 +1865,11 @@
       ['grainAmount', 'amount', 0, 2, 0.01], ['grainStrength', 'strength', 0, 10, 0.1], ['grainSize', 'size px', 0.3, 6, 0.1],
       ['grainSoft', 'softness', 0, 1, 0.01], ['grainChroma', 'chroma split', 0, 1, 0.01], ['grainDev', 'development', 0.1, 1.5, 0.01],
       ['grainFine', 'fine weight', 0, 1, 0.01], ['grainCrystal', 'crystal weight', 0, 1, 0.01], ['grainCloud', 'cloud weight', 0, 1, 0.01],
+      ['grainStock', 'stock 0-5', 0, 5, 1], ['grainMono', 'mono grain', 0, 1, 1], ['grainSkew', 'skew', 0, 1, 0.01],
+      ['grainResAdapt', 'resolution adapt', 0, 1, 1], ['grainShadow', 'shadow sensitivity', 0, 4, 0.05],
+      ['grainMid', 'midtone sensitivity', 0, 4, 0.05], ['grainHigh', 'highlight sensitivity', 0, 4, 0.05],
+      ['grainFineRatio', 'fine size ratio', 0.1, 2, 0.05], ['grainCloudRatio', 'cloud size ratio', 1, 5, 0.05],
+      ['grainDebug', 'debug visualize', 0, 1, 1],
       ['grainFps', 'grain fps (0 = still)', 0, 60, 1]]],
     ['cells', [
       ['UNIVERSE_SIZE', 'universe', 1, 400, 1], ['CELL_RADIUS', 'cell r', 2, 100, 1], ['minRadius', 'cell r min', 1, 50, 1], ['maxRadius', 'cell r max', 5, 150, 1],
