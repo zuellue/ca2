@@ -2482,9 +2482,11 @@
       var v = cur();
       inkC.el.style.background = v || 'transparent'; inkP.el.style.background = v || 'transparent';
       if (v) { hex.value = v.slice(1); try { pick.value = v; } catch (e) {} } // the field shows the bare code, no # (owner 22 Oct)
+      else hex.value = 'default'; // off: the field carries the state word, flush-left, so the circle never floats alone
     }
     function show(flash) {
-      bv.textContent = P[def.on] ? '' : 'default'; // no code text above the button (owner 22 Oct)
+      bv.textContent = ''; // nothing beside the name (owner 22 Oct: no code text above the button); the state word lives in the code field
+      hex.classList.toggle('off', !P[def.on]);
       if (flash) { bv.style.opacity = '1'; clearTimeout(hideT); hideT = setTimeout(function () { bv.style.opacity = ''; }, 1400); }
     }
     function setFree(v) { // a valid #rrggbb from the hex field or the picker: switch on, apply, save (owner 21 Oct)
@@ -2515,6 +2517,7 @@
       if (/^#[0-9a-fA-F]{3}$/.test(t)) t = '#' + t[1] + t[1] + t[2] + t[2] + t[3] + t[3]; // 3-char hex accepted (owner 22 Oct)
       if (/^#[0-9a-fA-F]{6}$/.test(t)) setFree(t.toLowerCase()); else paint();
     };
+    hex.addEventListener('focus', function () { if (!P[def.on]) hex.value = ''; }); // typing starts clean over 'default'
     hex.addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter') { hexDone(); hex.blur(); } });
     hex.addEventListener('blur', hexDone);
     pick.addEventListener('input', function () { setFree(pick.value); });

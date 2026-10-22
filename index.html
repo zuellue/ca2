@@ -128,7 +128,8 @@
   /* mobile keeps its own spacing: the mobile lane pins body[data-camode="m"] #secc .sl to 8px itself */
   #secc .sl span { display: block; opacity: 0; transform-origin: 50% 0; transition: opacity .06s linear; line-height: calc(var(--cfs, 13px) * 1.3077); }
   /* colour rows: free hex field + native picker (owner 21 Oct); the visible colour lives in .swink chips OUTSIDE the blended panel, so auto invert can never lie about a colour */
-  .swhex { font: inherit; color: inherit; background: none; border: 0; width: 6ch; padding: 0; margin-left: 0; } /* no underline, no #, flush left (owner 22 Oct) */
+  .swhex { font: inherit; color: inherit; background: none; border: 0; width: 7ch; padding: 0; margin-left: 0; } /* no underline, no #, flush left (owner 22 Oct) */
+  .swhex.off { color: var(--fg-soft); }
   .swpick { width: 20px; height: 20px; padding: 0; border: 0; background: none; margin-left: 8px; cursor: pointer; opacity: 0; position: absolute; pointer-events: none; } /* hidden until the swatch long-press sample (owner 22 Oct) */
   .swink { position: fixed; z-index: 59; border-radius: 50%; pointer-events: none; box-sizing: border-box; }
   #cur { position: fixed; left: 0; top: 0; display: none; pointer-events: none; z-index: 8; box-sizing: border-box; border: 1px solid #000; border-radius: 50%; will-change: transform; }
