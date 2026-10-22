@@ -2601,19 +2601,25 @@
     save: save, STORE: STORE, STORE_V: STORE_V,
     touched: touched, liveMap: liveMap, btns: btns, panel: panel
   };
-  // ---- entry gate (owner 21 Oct): zero admin trace ships publicly - no widget, no labels, no strings, no
-  // admin DOM. A 5s hold on the section circles arms a blind 4-key capture; the keys go to the Worker and a
-  // verified answer carries the admin module itself. The offscreen input exists only to summon the phone
-  // keyboard and stays unfocusable until a hold completes.
+  // ---- entry gate (owner 22 Oct: restore the original design - the code entry is the 4-circle column
+  // widget, never a bottom field). Zero admin trace ships publicly: a 5s hold on the title dots reveals 4
+  // hollow circles stacked on the section-circle axis, typed digits fill them top to bottom, and the real
+  // input stays invisible (it only catches keys). A verified answer carries the admin module itself.
   (function gate() {
     var WK = 'https://ca2-presets.middots.workers.dev/';
+    var eg = document.createElement('div'); eg.id = 'eadm';
+    var glyphs = [];
+    for (var ai = 0; ai < 4; ai++) { var ac = document.createElement('div'); ac.className = 'ac'; var ag = document.createElement('span'); ac.appendChild(ag); eg.appendChild(ac); admCircles.push(ac); glyphs.push(ag); }
+    document.body.appendChild(eg);
     var box = document.createElement('input'); box.type = 'text'; box.maxLength = 4; box.setAttribute('inputmode', 'numeric'); box.autocomplete = 'off'; box.spellcheck = false; box.tabIndex = -1; box.setAttribute('aria-hidden', 'true');
-    box.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);width:96px;height:36px;font-size:18px;text-align:center;letter-spacing:8px;padding:0 0 0 8px;border:var(--lw,1px) solid var(--fg,#111);background:var(--bg,#fff);color:var(--fg,#111);outline:none;border-radius:0;display:none;z-index:60';
+    box.style.cssText = 'position:fixed;left:-200px;top:0;width:20px;height:20px;opacity:0;border:0;padding:0;outline:none';
     document.body.appendChild(box);
+    circSig = ''; placeCircles(); // the 4 entry circles size with the section circles
     var armT = 0, holdIv = null, holdT0 = 0, px = 0, py = 0;
     var dotHit = function (x, y) { for (var i = 0; i < circlesNow.length; i++) { var c = circlesNow[i]; if (/^R0_/.test(c.key) && Math.hypot(x - c.x, y - c.y) < c.r) return true; } return false; };
-    var disarm = function () { armT = 0; box.value = ''; box.style.display = 'none'; box.blur(); };
-    var arm = function () { if (window.__adminOn) return; armT = Date.now(); box.value = ''; box.style.display = 'block'; box.focus(); box.setSelectionRange(0, 0); }; // visible after the hold: programmatic focus is not a gesture on phones, the field takes a tap too
+    var clearGlyphs = function () { for (var i = 0; i < 4; i++) glyphs[i].textContent = ''; };
+    var disarm = function () { armT = 0; box.value = ''; clearGlyphs(); eg.classList.remove('on'); eg.classList.remove('err'); box.blur(); };
+    var arm = function () { if (window.__adminOn) return; armT = Date.now(); box.value = ''; clearGlyphs(); eg.classList.remove('err'); eg.classList.add('on'); box.focus(); }; // programmatic focus is not a gesture on phones - a tap on the circles re-focuses
     var holdStop = function () { if (holdIv) { clearInterval(holdIv); holdIv = null; } };
     window.addEventListener('pointermove', function (e) { px = e.clientX; py = e.clientY; }, { passive: true });
     window.addEventListener('pointerdown', function (e) {
@@ -2632,21 +2638,25 @@
       if (performance.now() - holdT0 >= 5000 && dotHit(e.clientX, e.clientY)) arm();
     });
     window.addEventListener('pointercancel', holdStop);
+    eg.addEventListener('click', function () { box.focus(); });
     // an iOS long-press menu would cancel the 5s hold
     document.addEventListener('contextmenu', function (e) { if ((window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm') e.preventDefault(); }, true);
     var verify = function (code) {
       fetch(WK, { method: 'POST', keepalive: true, body: JSON.stringify({ code: code, admin: true }) }).then(function (r) { return r.json(); }).then(function (r) {
         if (r && r.ok && typeof r.js === 'string') {
+          disarm(); // the Worker-served module takes over the column with its own A B D U
           try { (new Function('code', 'X', r.js))(code, window.__ca2x); } catch (e) {}
+        } else {
+          eg.classList.add('err'); box.value = ''; setTimeout(function () { eg.classList.remove('err'); clearGlyphs(); }, 600);
         }
-      }).catch(function () {});
+      }).catch(function () { box.value = ''; clearGlyphs(); });
     };
     box.addEventListener('input', function () {
       if (!armT) { box.value = ''; return; }
       box.value = box.value.replace(/\D/g, '').slice(0, 4);
+      for (var i = 0; i < 4; i++) glyphs[i].textContent = box.value[i] || '';
       if (box.value.length < 4) { if (Date.now() - armT > 20000) disarm(); return; }
-      var code = box.value; disarm();
-      verify(code);
+      var code = box.value; armT = Date.now(); verify(code);
     });
     // programmatic entry for the device.html preview handoff: the frame cannot 5s-hold itself, so the
     // wrapper page hands an entered code in through this event (no admin surface either way)

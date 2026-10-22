@@ -101,6 +101,18 @@
   .btns button::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; border-bottom: var(--lw) solid transparent; }
   .btns button:hover::after { border-bottom-color: var(--fg); }
   /* save is admin-only on desktop (owner 21 Oct): hidden in the button row until the admin code verifies; the mobile lane pins the same node outside .btns, where this rule does not reach */
+  /* code entry: 4 hollow circles stacked at the bottom right, on the section-circle axis (owner 22 Oct: the
+     original design - digits fill the circles top to bottom; the verified module takes over the same spot) */
+  #eadm { display: none; position: fixed; right: var(--m); bottom: var(--m); z-index: 11; flex-direction: column; align-items: center; cursor: text; opacity: 0; pointer-events: none; transition: opacity .2s ease-out; }
+  #eadm.on { display: flex; }
+  /* the code entry lives and dies with the config area */
+  #panel.open ~ #eadm.on, #panel.hov ~ #eadm.on { opacity: 1; pointer-events: auto; }
+  @media (hover: hover) { #tab:hover ~ #eadm.on, #panel:hover ~ #eadm.on { opacity: 1; pointer-events: auto; } }
+  body[data-camode="m"] #eadm.on { opacity: 1; pointer-events: auto; }
+  @media (hover: none) { #eadm.on { opacity: 1; pointer-events: auto; } }
+  #eadm .ac { border-radius: 50%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: var(--fg); font-family: 'Fragment Mono', ui-monospace, monospace; }
+  #eadm .ac span { line-height: 1; }
+  #eadm.err .ac { border-color: #ff3c3c !important; color: #ff3c3c; }
   /* section circles: right lane of the config panel, title-dot size, tangent stacking */
   #secc { position: fixed; top: 0; right: var(--m); bottom: var(--m); z-index: 59; /* the hover split sits just under the grain (owner 21 Oct) */ display: flex; flex-direction: column; align-items: center; transform: translateX(calc(100% + var(--m) + 4px)); transition: transform .2s ease-out; overflow: visible; scrollbar-width: none; } /* overflow:visible - overflow-y:auto force-clips x, and the hover split pieces fly out of the button (owner 21 Oct: no clip; the mobile lane's override becomes redundant) */
   #panel.open ~ #secc, #panel.hov ~ #secc { transform: translateX(0); }
