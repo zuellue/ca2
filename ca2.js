@@ -3013,7 +3013,7 @@
   function partIn(el, base) { el.style.animation = 'ca2in ' + (0.16 + Math.random() * 0.2).toFixed(2) + 's ease-out both'; el.style.animationDelay = (base + Math.random() * 0.14).toFixed(3) + 's'; }
   [].forEach.call(panel.children, function (el) { if (el.id !== 'controls') partIn(el, Math.random() * 0.25); });
   [].forEach.call(document.querySelectorAll('#controls .row'), function (el, ri) {
-    var base = Math.min(ri, 14) * 0.02, ps = el.querySelectorAll('.lab > span, .lab > b, input, button, select');
+    var base = Math.min(ri, 14) * 0.02, ps = el.querySelectorAll('.lab > span, .lab > b, input:not(.swpick), button, select');
     if (!ps.length) { partIn(el, base); return; }
     [].forEach.call(ps, function (p) { partIn(p, base); });
   });
