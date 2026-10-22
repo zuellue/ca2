@@ -216,17 +216,23 @@
   // the boundary-morph rule for ANY body: a wall that moved past it pulls it back gradually (no teleport);
   // a plain wall hit reflects. Shared by cells (keepIn) and every food kind (owner 21 Oct: one mechanism, no copies)
   function wallPull(p, r, vel) {
+    // absolute wall (owner 22 Oct): nothing is ever outside, in any state - a wall that moved past a body
+    // carries it (that carry IS the sweep), a plain hit reflects. Supersedes the 21 Oct gradual no-teleport pull.
     var gap = Math.max(0, P.boundGap || 0), rFit = Math.max(8, Math.min(cont.w, cont.h) / 2 - gap), rr = Math.min(r, rFit);
-    var x0 = cont.x + rr + gap, x1 = cont.x + cont.w - rr - gap, y0 = cont.y + rr + gap, y1 = cont.y + cont.h - rr - gap, ex;
-    if (p.x < x0) { ex = x0 - p.x; if (ex > 40) { p.x = Math.min(x1, p.x + ex * 0.3); if (vel) p.vx = Math.abs(p.vx); } else { p.x = Math.min(x1, x0 + ex); if (vel) p.vx = Math.abs(p.vx) * 0.7; } }
-    else if (p.x > x1) { ex = p.x - x1; if (ex > 40) { p.x = Math.max(x0, p.x - ex * 0.3); if (vel) p.vx = -Math.abs(p.vx); } else { p.x = Math.max(x0, x1 - ex); if (vel) p.vx = -Math.abs(p.vx) * 0.7; } }
-    if (p.y < y0) { ex = y0 - p.y; if (ex > 40) { p.y = Math.min(y1, p.y + ex * 0.3); if (vel) p.vy = Math.abs(p.vy); } else { p.y = Math.min(y1, y0 + ex); if (vel) p.vy = Math.abs(p.vy) * 0.7; } }
-    else if (p.y > y1) { ex = p.y - y1; if (ex > 40) { p.y = Math.max(y0, p.y - ex * 0.3); if (vel) p.vy = -Math.abs(p.vy); } else { p.y = Math.max(y0, y1 - ex); if (vel) p.vy = -Math.abs(p.vy) * 0.7; } }
+    var x0 = cont.x + rr + gap, x1 = cont.x + cont.w - rr - gap, y0 = cont.y + rr + gap, y1 = cont.y + cont.h - rr - gap;
+    if (x1 < x0) { x0 = x1 = (x0 + x1) / 2; }
+    if (y1 < y0) { y0 = y1 = (y0 + y1) / 2; }
+    if (p.x < x0) { p.x = x0; if (vel) p.vx = Math.abs(p.vx) * 0.7; }
+    else if (p.x > x1) { p.x = x1; if (vel) p.vx = -Math.abs(p.vx) * 0.7; }
+    if (p.y < y0) { p.y = y0; if (vel) p.vy = Math.abs(p.vy) * 0.7; }
+    else if (p.y > y1) { p.y = y1; if (vel) p.vy = -Math.abs(p.vy) * 0.7; }
   }
   function divide(c) {
     var ang = Math.random() * 6.2832, nr = Math.max(P.CELL_RADIUS, c.radius * 0.62);
     c.radius = nr; c.energy /= 2;
-    var ch = new Cell(c.x + Math.cos(ang) * nr, c.y + Math.sin(ang) * nr, rnd(100) < c.mutationRate ? mutateGene(c.gene) : c.gene, c.mutationRate);
+    var bx0 = cont.x + nr, bx1 = cont.x + cont.w - nr, by0 = cont.y + nr, by1 = cont.y + cont.h - nr;
+    var kx = bx1 >= bx0 ? clamp(c.x + Math.cos(ang) * nr, bx0, bx1) : (bx0 + bx1) / 2, ky = by1 >= by0 ? clamp(c.y + Math.sin(ang) * nr, by0, by1) : (by0 + by1) / 2;
+    var ch = new Cell(kx, ky, rnd(100) < c.mutationRate ? mutateGene(c.gene) : c.gene, c.mutationRate);
     ch.radius = nr; ch.energy = c.energy; ch.g = mutGenome(c.g, P.genomeMut); ch.shp = newShape(c.shp); ch.maxSpeed = speedOf(ch); ch.cl = c.cl; ev.birth++; ev.divide = (ev.divide || 0) + 1; cells.push(ch);
   }
   function clusterSize(id) { var n = 0; for (var i = 0; i < cells.length; i++) if (cells[i].cl === id) n++; return n; }
@@ -596,6 +602,9 @@
   // displacement wave reads as a burst of contact births (owner 21 Oct: one click must be one cell)
   function spawnAt(x, y) {
     var r = P.CELL_RADIUS, px = x, py = y, ok = false, i, k;
+    // the wall owns placement, not the cursor (owner 22 Oct): births land inside the plate, radius inset
+    var bx0 = cont.x + r, bx1 = cont.x + cont.w - r, by0 = cont.y + r, by1 = cont.y + cont.h - r;
+    x = bx1 >= bx0 ? clamp(x, bx0, bx1) : (bx0 + bx1) / 2; y = by1 >= by0 ? clamp(y, by0, by1) : (by0 + by1) / 2;
     for (var ring = 0; ring <= 4 && !ok; ring++) {
       var n = ring ? ring * 6 : 1;
       for (k = 0; k < n && !ok; k++) {

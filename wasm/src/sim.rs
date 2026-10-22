@@ -158,7 +158,11 @@ impl Sim {
         self.set(c, RAD, nr); let en = self.g(c, EN) / 2.0; self.set(c, EN, en);
         let mr = self.g(c, MUT);
         let gene = if self.rnd(0.0, 100.0) < mr { let g = self.g(c, GENE); self.mutate_gene(g) } else { self.g(c, GENE) };
-        let (cx, cy) = (self.g(c, X) + ang.cos() * nr, self.g(c, Y) + ang.sin() * nr);
+        // the kid is born inside the plate (owner 22 Oct): the wall owns placement
+        let (px, py, pw, ph) = (self.p[P_CX], self.p[P_CY], self.p[P_CW], self.p[P_CH]);
+        let (bx0, bx1) = (px + nr, px + pw - nr); let (by0, by1) = (py + nr, py + ph - nr);
+        let cx = if bx1 >= bx0 { (self.g(c, X) + ang.cos() * nr).max(bx0).min(bx1) } else { (bx0 + bx1) / 2.0 };
+        let cy = if by1 >= by0 { (self.g(c, Y) + ang.sin() * nr).max(by0).min(by1) } else { (by0 + by1) / 2.0 };
         let k = self.new_kid(cx, cy, gene, mr);
         if k == usize::MAX { return; }
         self.set(k, RAD, nr); self.set(k, EN, en);
@@ -182,11 +186,13 @@ impl Sim {
         d = x1 - x; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vx -= f * t * t * ms * 0.25; if vx > 0.0 { vx *= 1.0 - 0.25 * t; } }
         d = y - y0; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vy += f * t * t * ms * 0.25; if vy < 0.0 { vy *= 1.0 - 0.25 * t; } }
         d = y1 - y; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vy -= f * t * t * ms * 0.25; if vy > 0.0 { vy *= 1.0 - 0.25 * t; } }
-        let mut ex;
-        if x < x0 { ex = x0 - x; if ex > 40.0 { x = x1.min(x + ex * 0.3); vx = vx.abs(); } else { x = x1.min(x0 + ex); vx = vx.abs() * 0.7; } }
-        else if x > x1 { ex = x - x1; if ex > 40.0 { x = x0.max(x - ex * 0.3); vx = -vx.abs(); } else { x = x0.max(x1 - ex); vx = -vx.abs() * 0.7; } }
-        if y < y0 { ex = y0 - y; if ex > 40.0 { y = y1.min(y + ex * 0.3); vy = vy.abs(); } else { y = y1.min(y0 + ex); vy = vy.abs() * 0.7; } }
-        else if y > y1 { ex = y - y1; if ex > 40.0 { y = y0.max(y - ex * 0.3); vy = -vy.abs(); } else { y = y0.max(y1 - ex); vy = -vy.abs() * 0.7; } }
+        // absolute wall (owner 22 Oct): nothing is ever outside; a moved wall carries the body, a hit reflects.
+        let (x0, x1) = if x1 < x0 { let m = (x0 + x1) / 2.0; (m, m) } else { (x0, x1) };
+        let (y0, y1) = if y1 < y0 { let m = (y0 + y1) / 2.0; (m, m) } else { (y0, y1) };
+        if x < x0 { x = x0; vx = vx.abs() * 0.7; }
+        else if x > x1 { x = x1; vx = -vx.abs() * 0.7; }
+        if y < y0 { y = y0; vy = vy.abs() * 0.7; }
+        else if y > y1 { y = y1; vy = -vy.abs() * 0.7; }
         self.set(c, X, x); self.set(c, Y, y); self.set(c, VX, vx); self.set(c, VY, vy);
     }
     fn update(&mut self, c: usize) {
