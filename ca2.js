@@ -26,7 +26,7 @@
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
     bgColor: '', grainStock: 0, grainMono: 0, grainSkew: 0, grainResAdapt: 0, grainShadow: 1.8, grainMid: 1.5, grainHigh: 2.7, grainFineRatio: 0.5, grainCloudRatio: 2.2, grainDebug: 0, parasiteSize: 1,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
-    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, divideMode: 0, divideAgeMs: 20000, divideEnergy: 40, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, panelRowGap: 11, spawnProtect: 1, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, sprayMs: 120, sprayGapPx: 26, sprayBurst: 3, sprayRadius: 90, titleCircles: 1, circleHold: 1, titleLead: 1.3, titleTrack: 1,
+    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, divideMode: 0, divideAgeMs: 20000, divideEnergy: 40, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, separatorOn: 0, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, panelRowGap: 11, spawnProtect: 1, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, sprayMs: 120, sprayGapPx: 26, sprayBurst: 3, sprayRadius: 90, titleCircles: 1, circleHold: 1, titleLead: 1.3, titleTrack: 1,
     audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, audioMicro: 0, audioMicroPitch: 1200, audioMicroDecay: 70, audioMicroRand: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1, foodReseed: 1, foodReseedFloor: 0.2, foodReseedMin: 40, foodReseedMax: 900, foodReseedTries: 8, foodEatRate: 1.5, refreshResetEnergy: 1
   };
   // owner's chosen defaults (23:04)
@@ -976,10 +976,69 @@
       if (len > g) segs.push([cxm + dx / len * g, cym + dy / len * g, ex, ey]);
     });
     for (var si = 0; si < segs.length; si++) if (P.axisWidth > 0 && fadeA('ax' + si)) { var sg = segs[si].slice(); if (sg[0] === sg[2] || sg[1] === sg[3]) for (var q = 0; q < 4; q++) sg[q] = snapC(sg[q], S); X.beginPath(); X.moveTo(sg[0], sg[1]); X.lineTo(sg[2], sg[3]); X.stroke(); }
-    axisInfo = { hL: hL, hR: hR, vTop: vTop, vBot: vBot };
+    axisInfo = { hL: hL, hR: hR, vTop: vTop, vBot: vBot, segs: segs };
   }
   var axisInfo = {};
 
+  // ---- axis separator (owner 22 Oct, switch, default off): the axis line behind the boundary works as a
+  // separator inside the moving boundary; cells are aware of every typographic element on the page. Letter
+  // ink is a soft obstacle - cells may enter the counters and may overlap ("uydudan gordugumuz yapilar gibi");
+  // the axis segments are hard walls with the same carry rule as the plate boundary, so a moving boundary
+  // sweeps the cells through the separators as a natural result of the interaction (no separate sweep effect).
+  var SEP = { c: null, mc: null, img: null, mw: 0, mh: 0 };
+  var COS8 = [1, 0.7071, 0, -0.7071, -1, -0.7071, 0, 0.7071], SIN8 = [0, 0.7071, 1, 0.7071, 0, -0.7071, -1, -0.7071];
+  function sepInk(x, y) {
+    var d = SEP.img; if (!d) return 0;
+    var ix = (x * 0.5) | 0, iy = (y * 0.5) | 0;
+    if (ix < 0 || iy < 0 || ix >= SEP.mw || iy >= SEP.mh) return 0;
+    return d[(iy * SEP.mw + ix) * 4 + 3] > 40 ? 1 : 0;
+  }
+  function separatorPass() {
+    var segs = P.showAxis && axisInfo.segs ? axisInfo.segs : null, mask = P.showHud && SEP.img ? 1 : 0;
+    if (!segs && !mask) return;
+    for (var i = 0; i < cells.length; i++) {
+      var c = cells[i]; if (!c.alive) continue;
+      var r = c.radius + 1 + (P.axisWidth || 1) * 0.5, j, dx, dy, d, nx, ny;
+      var pr = 0;
+      if (segs) for (var it2 = 0; it2 < 3; it2++) { // combined normals: a body pinched in a wedge between two
+        // segments (arm end + diagonal start) is pushed along the sum, which drifts it out of the wedge -
+        // per-segment resolution ping-pongs there forever (measured: 2 stuck cells, 35 px violation, 80 iterations)
+        var acx = 0, acy = 0, worst = 0, anyV = false;
+        for (j = 0; j < segs.length; j++) {
+          var sg = segs[j], ax = sg[2] - sg[0], ay = sg[3] - sg[1], L2 = ax * ax + ay * ay, t = L2 ? clamp(((c.x - sg[0]) * ax + (c.y - sg[1]) * ay) / L2, 0, 1) : 0;
+          var px = sg[0] + ax * t, py = sg[1] + ay * t; dx = c.x - px; dy = c.y - py; d = Math.hypot(dx, dy);
+          if (d < r) { // body on the line: carry off, reflect the normal velocity like wallPull
+            if (d < 0.001) { nx = -ay; ny = ax; var nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl; if (c.vx * nx + c.vy * ny < 0) { nx = -nx; ny = -ny; } }
+            else { nx = dx / d; ny = dy / d; }
+            var need = r - d; acx += nx * need; acy += ny * need; if (need > worst) worst = need; anyV = true;
+            var pr2 = need / r; if (pr2 > pr) pr = pr2; // pressure measured DURING resolution: the plate clamp can re-press a body the resolver just freed
+            var vn = c.vx * nx + c.vy * ny; if (vn < 0) { c.vx -= vn * 1.7 * nx; c.vy -= vn * 1.7 * ny; }
+          }
+        }
+        if (!anyV) break;
+        var al = Math.hypot(acx, acy);
+        if (al < 0.001) break; // perfectly opposed normals: hold position, velocity already reflected
+        var st = Math.min(al, worst + 1); c.x += acx / al * st; c.y += acy / al * st;
+      }
+      // the separator narrows what presses it (same rule as the plate wall, owner 22 Oct): a giant whose body
+      // cannot fit between the lines is worn down toward the base radius until it fits
+      if (pr > 0 && c.radius > P.CELL_RADIUS) c.radius = Math.max(P.CELL_RADIUS, c.radius - (P.boundForce || 0.8) * pr * 2);
+      if (mask) {
+        var k, sx, sy, hits = 0, hx = 0, hy = 0;
+        for (k = 0; k < 8; k++) { sx = c.x + COS8[k] * r; sy = c.y + SIN8[k] * r; if (sepInk(sx, sy)) { hits++; hx += c.x - sx; hy += c.y - sy; } }
+        if (hits) { var hl = Math.hypot(hx, hy) || 1; c.x += hx / hl * 1.5; c.y += hy / hl * 1.5; c.vx += hx / hl * 0.2; c.vy += hy / hl * 0.2; }
+        if (sepInk(c.x, c.y)) { // centre on ink: step toward the freest ring direction (counters stay reachable)
+          var best = 0, bx = 0, by = 0;
+          for (k = 0; k < 8; k++) { var sc = 0; if (!sepInk(c.x + COS8[k] * r, c.y + SIN8[k] * r)) sc = 1 + (sepInk(c.x + COS8[k] * r * 1.8, c.y + SIN8[k] * r * 1.8) ? 0 : 1); if (sc > best) { best = sc; bx = COS8[k]; by = SIN8[k]; } }
+          if (best) { c.x += bx * 2; c.y += by * 2; c.vx += bx * 0.3; c.vy += by * 0.3; }
+        }
+      }
+      // the plate wall stays absolute (owner 22 Oct): a separator or ink push may slide a body along the wall but never past it
+      var bg0 = Math.max(0, P.boundGap || 0), bx0 = cont.x + bg0, bx1 = cont.x + cont.w - bg0, by0 = cont.y + bg0, by1 = cont.y + cont.h - bg0;
+      if (c.x < bx0) { c.x = bx0; if (c.vx < 0) c.vx = -c.vx * 0.7; } else if (c.x > bx1) { c.x = bx1; if (c.vx > 0) c.vx = -c.vx * 0.7; }
+      if (c.y < by0) { c.y = by0; if (c.vy < 0) c.vy = -c.vy * 0.7; } else if (c.y > by1) { c.y = by1; if (c.vy > 0) c.vy = -c.vy * 0.7; }
+    }
+  }
   // ---- parasites: attach to a cluster/cell, drain its energy, balance themselves (no host = starvation, drained host = death) ----
   // ---- food life: the dots follow the plate like cells do, and live a Conway life (B3/S23) on a lattice anchored to the plate
   var foodT = 0, foodStat = { born: 0, died: 0, steps: 0, inflow: 0 };
@@ -1547,6 +1606,7 @@
       if (!c.alive) { ev.death++; habReap(c); cells.splice(i, 1); }
     }
     if (!simDone) SIMW.js = (SIMW.js || 0) * 0.9 + (performance.now() - tj0) * 0.1;
+    if (P.separatorOn) { separatorPass(); pfm('separator'); } // one mechanism after both engines: identical enforcement for wasm and JS (1:1 by construction)
     hoverCol = hovering ? tmpHover : [255, 255, 255];
     stepParasites(); pfm('sim loop+parasites');
     stepAging(dtf); stepHabitat(dtf); pfm('habitat');
@@ -1577,12 +1637,18 @@
     var vTop = M + dh + L.row + G, vBot = H - M - dh - G, cxm = W / 2, cym = H / 2, topBase0 = M + dh;
     if (P.showHud) {
       ctx.font = fs + 'px "Ca2-Thin", monospace'; ctx.textBaseline = 'alphabetic';
+      if (P.separatorOn) { // half-resolution ink mask of every HUD string: the cells' typography awareness
+        var mw2 = Math.max(1, W >> 1), mh2 = Math.max(1, H >> 1);
+        if (!SEP.c || SEP.c.width !== mw2 || SEP.c.height !== mh2) { SEP.c = document.createElement('canvas'); SEP.c.width = mw2; SEP.c.height = mh2; SEP.mc = SEP.c.getContext('2d', { willReadFrequently: true }); }
+        SEP.mc.setTransform(0.5, 0, 0, 0.5, 0, 0); SEP.mc.clearRect(0, 0, W, H);
+        SEP.mc.font = ctx.font; SEP.mc.textAlign = 'left'; SEP.mc.textBaseline = 'alphabetic'; SEP.mc.fillStyle = '#fff';
+      } else if (SEP.mc) { SEP.mc = null; SEP.c = null; SEP.img = null; }
       var hi = 0, put = function (txt, col, align, x, y, ex) {
         ex = ex || 0;
         var hk = hi++;
         ctx.fillStyle = css(col); ctx.textAlign = 'left';
         var lr = inkLR(txt), wEx = (txt.length - 1) * ex, x0 = align === 'right' ? x - lr[1] - wEx : align === 'center' ? x - (lr[0] + lr[1]) / 2 - wEx / 2 : x - lr[0];
-        for (var ci = 0; ci < txt.length; ci++) if (fadeA('c' + hk + ':' + ci)) ctx.fillText(txt[ci], x0 + ctx.measureText(txt.slice(0, ci)).width + ci * ex, y);
+        for (var ci = 0; ci < txt.length; ci++) if (fadeA('c' + hk + ':' + ci)) { var gx = x0 + ctx.measureText(txt.slice(0, ci)).width + ci * ex; ctx.fillText(txt[ci], gx, y); if (SEP.mc) SEP.mc.fillText(txt[ci], gx, y); }
       };
       // ink-aligned margins: every edge has the same margin M
       // right-edge compensation (owner 21 Oct, font file untouched): on some platforms the final glyph's rsb leaves the
@@ -1617,6 +1683,7 @@
       put(String(bc), eased.b, 'right', W - M, botBase);
       put(String(rc), eased.r, 'left', M, botBase);
       put(String(gc), eased.g, 'center', cxm, botBase);
+      if (SEP.mc) { SEP.img = SEP.mc.getImageData(0, 0, SEP.c.width, SEP.c.height).data; SEP.mw = SEP.c.width; SEP.mh = SEP.c.height; }
     }
 
     pfm('hud text');
@@ -1743,7 +1810,7 @@
     }
 
      var pairN = 0, compN = 0; for (var pci = 0; pci < cells.length; pci++) { if (cells[pci].sym) pairN++; if (cells[pci].comp > 1) compN++; }
-     window.__ca2 = { SIMW: SIMW, cmpWC: function () { if (!WC.ok) return 'nowasm:' + WC.err; var S = curS, sv = ctx.drawImage; ctx.drawImage = function () {}; var o = WC.off; var fdef = WC.field; WC.field = WC.fieldX; WC.off = false; var t0 = performance.now(); drawMetaballsCPU(S); var tw = performance.now() - t0; var a = new Uint8ClampedArray(img.data); WC.off = true; t0 = performance.now(); drawMetaballsCPU(S); var tj = performance.now() - t0; var b = new Uint8ClampedArray(img.data); WC.off = o; var fsv = fdef; WC.field = WC.fieldF; WC.off = false; t0 = performance.now(); drawMetaballsCPU(S); var tf = performance.now() - t0; var c32 = new Uint8ClampedArray(img.data); WC.field = fsv; WC.off = o; var d32 = 0, m32 = 0, ge2 = 0; for (var i = 0; i < b.length; i++) { var dd = Math.abs(c32[i] - b[i]); if (dd) { d32++; if (dd > m32) m32 = dd; if (dd > 2) ge2++; } } ctx.drawImage = sv; var bad = 0, mx = 0; for (var i = 0; i < a.length; i++) { var d = Math.abs(a[i] - b[i]); if (d) { bad++; if (d > mx) mx = d; } } return JSON.stringify({ bytes: a.length, diffBytes: bad, maxDiff: mx, tWasm: +tw.toFixed(1), tJS: +tj.toFixed(1), tF32: +tf.toFixed(1), f32diff: d32, f32max: m32, f32gt2: ge2, cells: cells.length }); }, WC: WC, PF: PF, pairs: pairN / 2, fusions: ev.fuse || 0, pairings: ev.pair || 0, composites: compN, cmp: function () { if (!gOK) return 'nogl'; var S = curS, sv = ctx.drawImage; var saved = ctx.drawImage; ctx.drawImage = function () {}; var t0 = performance.now(); drawMetaballs(S); var tg = performance.now() - t0; t0 = performance.now(); drawMetaballsCPU(S); var tc = performance.now() - t0; ctx.drawImage = saved; var tmp = document.createElement('canvas'); tmp.width = glc.width; tmp.height = glc.height; var tx = tmp.getContext('2d'); tx.drawImage(glc, 0, 0); var gd = tx.getImageData(0, 0, tmp.width, tmp.height).data, cd = img.data, n = tmp.width * tmp.height, bad = 0, mx = 0, sum = 0, lit = 0; for (var p = 0; p < n; p++) { var q = p * 4, ga = gd[q + 3], ca = cd[q + 3]; var d = Math.abs(ga - ca); if (ca > 0 || ga > 0) { lit++; if (ca > 250 && ga > 250) d = Math.max(d, Math.abs(gd[q] - cd[q]), Math.abs(gd[q + 1] - cd[q + 1]), Math.abs(gd[q + 2] - cd[q + 2])); } if (d > 8) bad++; if (d > mx) mx = d; sum += d; } return JSON.stringify({ px: n, lit: lit, bad: bad, maxd: mx, tGPUms: +tg.toFixed(1), tCPUms: +tc.toFixed(1), cells: gSnap && gSnap.n }); }, gpuState: function () { return { ok: gOK, on: gOn, n: gSnap && gSnap.n }; }, setGPU: function (v) { gOK = !!v && !!gl; }, colorAt: colorAt, seedKey: function (k, v) { P[k] = v; applyKey(k, v); }, /* seedKey = setKey without the touched pin: device-profile defaults (mobile seed) must not read as user edits */ setKey: function (k, v) { P[k] = v; applyKey(k, v); if (k === 'lineColor' || k === 'ruleColor' || k === 'circColor') applyLineColor(); touched[k] = 1; save(); }, cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var lastF, lastF2, run = 0, maxRun = 0, sumAbs = 0, bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; if (Math.abs(f - (lastF === undefined ? -9 : lastF)) < 0.01) { run++; maxRun = Math.max(maxRun, run); } else run = 0; lastF = f; sumAbs += lastF2 === undefined ? 0 : Math.abs(f - lastF2); lastF2 = f; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins, maxRunGens: maxRun, meanStep: sumAbs / gens }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, worms: worms, wormStat: wormStat, spores: spores, sporeStat: sporeStat, srcStat: function () { return { n: SRC.n, cells: SRC.cells }; }, shapeStat: function () { var t0 = frameT || performance.now(), asps = [], strings = 0, lobed = 0, rounds = 0, srcs = 0, i, a2, b2; for (i = 0; i < cells.length; i++) { var c = cells[i]; if (!c.alive) continue; var o = { x: [], y: [], r: [], n: 0 }; emitCell(c, t0, 99, o); srcs += o.n; var sh = c.shp || { t: 0 }; if (sh.t === 1) strings++; else if (sh.t === 2) lobed++; else rounds++; var mn = 1e9, mx = 0; for (a2 = 0; a2 < o.n; a2++) { mn = Math.min(mn, o.r[a2]); for (b2 = a2; b2 < o.n; b2++) mx = Math.max(mx, Math.hypot(o.x[a2] - o.x[b2], o.y[a2] - o.y[b2]) + o.r[a2] + o.r[b2]); } asps.push(mx / (2 * mn)); } asps.sort(function (x, y) { return x - y; }); var mean = 0; for (i = 0; i < asps.length; i++) mean += asps[i]; mean = asps.length ? mean / asps.length : 1; var sd = 0; for (i = 0; i < asps.length; i++) sd += (asps[i] - mean) * (asps[i] - mean); sd = asps.length ? Math.sqrt(sd / asps.length) : 0; var hist = [0, 0, 0, 0, 0, 0, 0], cuts = [1.05, 1.5, 2, 3, 4.5, 7, 12]; for (i = 0; i < asps.length; i++) { var bi = 0; while (bi < 6 && asps[i] >= cuts[bi]) bi++; hist[bi]++; } return { cells: asps.length, rounds: rounds, strings: strings, lobed: lobed, geneticSources: srcs, aspectMean: +mean.toFixed(3), aspectSd: +sd.toFixed(3), aspectMin: asps.length ? +asps[0].toFixed(2) : 1, aspectMed: asps.length ? +asps[Math.floor(asps.length / 2)].toFixed(2) : 1, aspectMax: asps.length ? +asps[asps.length - 1].toFixed(2) : 1, hist: hist }; }, live: live, P: P, getCells: function () { return cells; }, get sprayWaves() { return sprayWaveN; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, midBase: midBase, lead: L.lead, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, get circles() { return circlesNow; }, get transTg() { return trans && trans.tg; }, get touchedKeys() { return Object.keys(touched); }, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
+     window.__ca2 = { SIMW: SIMW, get axisInfo() { return axisInfo; }, sepInk: sepInk, sepStep: separatorPass, get sepMask() { return { on: !!SEP.img, mw: SEP.mw, mh: SEP.mh }; }, cmpWC: function () { if (!WC.ok) return 'nowasm:' + WC.err; var S = curS, sv = ctx.drawImage; ctx.drawImage = function () {}; var o = WC.off; var fdef = WC.field; WC.field = WC.fieldX; WC.off = false; var t0 = performance.now(); drawMetaballsCPU(S); var tw = performance.now() - t0; var a = new Uint8ClampedArray(img.data); WC.off = true; t0 = performance.now(); drawMetaballsCPU(S); var tj = performance.now() - t0; var b = new Uint8ClampedArray(img.data); WC.off = o; var fsv = fdef; WC.field = WC.fieldF; WC.off = false; t0 = performance.now(); drawMetaballsCPU(S); var tf = performance.now() - t0; var c32 = new Uint8ClampedArray(img.data); WC.field = fsv; WC.off = o; var d32 = 0, m32 = 0, ge2 = 0; for (var i = 0; i < b.length; i++) { var dd = Math.abs(c32[i] - b[i]); if (dd) { d32++; if (dd > m32) m32 = dd; if (dd > 2) ge2++; } } ctx.drawImage = sv; var bad = 0, mx = 0; for (var i = 0; i < a.length; i++) { var d = Math.abs(a[i] - b[i]); if (d) { bad++; if (d > mx) mx = d; } } return JSON.stringify({ bytes: a.length, diffBytes: bad, maxDiff: mx, tWasm: +tw.toFixed(1), tJS: +tj.toFixed(1), tF32: +tf.toFixed(1), f32diff: d32, f32max: m32, f32gt2: ge2, cells: cells.length }); }, WC: WC, PF: PF, pairs: pairN / 2, fusions: ev.fuse || 0, pairings: ev.pair || 0, composites: compN, cmp: function () { if (!gOK) return 'nogl'; var S = curS, sv = ctx.drawImage; var saved = ctx.drawImage; ctx.drawImage = function () {}; var t0 = performance.now(); drawMetaballs(S); var tg = performance.now() - t0; t0 = performance.now(); drawMetaballsCPU(S); var tc = performance.now() - t0; ctx.drawImage = saved; var tmp = document.createElement('canvas'); tmp.width = glc.width; tmp.height = glc.height; var tx = tmp.getContext('2d'); tx.drawImage(glc, 0, 0); var gd = tx.getImageData(0, 0, tmp.width, tmp.height).data, cd = img.data, n = tmp.width * tmp.height, bad = 0, mx = 0, sum = 0, lit = 0; for (var p = 0; p < n; p++) { var q = p * 4, ga = gd[q + 3], ca = cd[q + 3]; var d = Math.abs(ga - ca); if (ca > 0 || ga > 0) { lit++; if (ca > 250 && ga > 250) d = Math.max(d, Math.abs(gd[q] - cd[q]), Math.abs(gd[q + 1] - cd[q + 1]), Math.abs(gd[q + 2] - cd[q + 2])); } if (d > 8) bad++; if (d > mx) mx = d; sum += d; } return JSON.stringify({ px: n, lit: lit, bad: bad, maxd: mx, tGPUms: +tg.toFixed(1), tCPUms: +tc.toFixed(1), cells: gSnap && gSnap.n }); }, gpuState: function () { return { ok: gOK, on: gOn, n: gSnap && gSnap.n }; }, setGPU: function (v) { gOK = !!v && !!gl; }, colorAt: colorAt, seedKey: function (k, v) { P[k] = v; applyKey(k, v); }, /* seedKey = setKey without the touched pin: device-profile defaults (mobile seed) must not read as user edits */ setKey: function (k, v) { P[k] = v; applyKey(k, v); if (k === 'lineColor' || k === 'ruleColor' || k === 'circColor') applyLineColor(); touched[k] = 1; save(); }, cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var lastF, lastF2, run = 0, maxRun = 0, sumAbs = 0, bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; if (Math.abs(f - (lastF === undefined ? -9 : lastF)) < 0.01) { run++; maxRun = Math.max(maxRun, run); } else run = 0; lastF = f; sumAbs += lastF2 === undefined ? 0 : Math.abs(f - lastF2); lastF2 = f; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins, maxRunGens: maxRun, meanStep: sumAbs / gens }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, worms: worms, wormStat: wormStat, spores: spores, sporeStat: sporeStat, srcStat: function () { return { n: SRC.n, cells: SRC.cells }; }, shapeStat: function () { var t0 = frameT || performance.now(), asps = [], strings = 0, lobed = 0, rounds = 0, srcs = 0, i, a2, b2; for (i = 0; i < cells.length; i++) { var c = cells[i]; if (!c.alive) continue; var o = { x: [], y: [], r: [], n: 0 }; emitCell(c, t0, 99, o); srcs += o.n; var sh = c.shp || { t: 0 }; if (sh.t === 1) strings++; else if (sh.t === 2) lobed++; else rounds++; var mn = 1e9, mx = 0; for (a2 = 0; a2 < o.n; a2++) { mn = Math.min(mn, o.r[a2]); for (b2 = a2; b2 < o.n; b2++) mx = Math.max(mx, Math.hypot(o.x[a2] - o.x[b2], o.y[a2] - o.y[b2]) + o.r[a2] + o.r[b2]); } asps.push(mx / (2 * mn)); } asps.sort(function (x, y) { return x - y; }); var mean = 0; for (i = 0; i < asps.length; i++) mean += asps[i]; mean = asps.length ? mean / asps.length : 1; var sd = 0; for (i = 0; i < asps.length; i++) sd += (asps[i] - mean) * (asps[i] - mean); sd = asps.length ? Math.sqrt(sd / asps.length) : 0; var hist = [0, 0, 0, 0, 0, 0, 0], cuts = [1.05, 1.5, 2, 3, 4.5, 7, 12]; for (i = 0; i < asps.length; i++) { var bi = 0; while (bi < 6 && asps[i] >= cuts[bi]) bi++; hist[bi]++; } return { cells: asps.length, rounds: rounds, strings: strings, lobed: lobed, geneticSources: srcs, aspectMean: +mean.toFixed(3), aspectSd: +sd.toFixed(3), aspectMin: asps.length ? +asps[0].toFixed(2) : 1, aspectMed: asps.length ? +asps[Math.floor(asps.length / 2)].toFixed(2) : 1, aspectMax: asps.length ? +asps[asps.length - 1].toFixed(2) : 1, hist: hist }; }, live: live, P: P, getCells: function () { return cells; }, get sprayWaves() { return sprayWaveN; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, midBase: midBase, lead: L.lead, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, get circles() { return circlesNow; }, get transTg() { return trans && trans.tg; }, get touchedKeys() { return Object.keys(touched); }, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
     __ca2.habStat = habStat;
     __ca2.habitat = function () { var fedN = 0, fedMax = 0, hueN = 0; for (var i = 0; i < food.length; i++) { var fd = food[i].fed || 0; if (fd >= P.habitatFedMin) fedN++; if (fd > fedMax) fedMax = fd; if (food[i].hr !== undefined) hueN++; } return { on: P.habitatOn, pulse: habStat.pulse, seed: habStat.seed, ateHue: habStat.ate, dominant: ateHueV, fedEligible: fedN, fedMax: +fedMax.toFixed(2), hueDots: hueN, cells: cells.length, food: food.length }; };
 
@@ -2098,6 +2165,7 @@
   toggle('cell metamorphosis', !!P.cellMorph, function (v) { P.cellMorph = v ? 1 : 0; });
   toggle('auto invert', !!P.autoInvert, function (v) { P.autoInvert = v ? 1 : 0; invertTick(); });
   toggle('title circles', !!P.titleCircles, function (v) { P.titleCircles = v ? 1 : 0; });
+  toggle('axis separator', !!P.separatorOn, function (v) { P.separatorOn = v ? 1 : 0; }); // owner 22 Oct: separator inside the moving boundary + awareness of all page typography
   toggle('circle color hold', !!P.circleHold, function (v) { P.circleHold = v ? 1 : 0; });
   var lockT = toggle('lock on refresh', lockParams, function (v) { lockParams = v; });
   lockBox = lockT.box; lockVal = lockT.val;
