@@ -95,6 +95,19 @@
   .row.live .lab b { color: inherit !important; }
   .row .lab b { cursor: text; }
   .row .lab .man { font: inherit; color: inherit; background: transparent; border: 0; box-shadow: none; outline: none; width: 72px; text-align: right; padding: 0; margin: 0; -webkit-appearance: none; appearance: none; caret-color: var(--fg); }
+  .type-knob { display: none; }
+  #panel.type-slider .param-row { position: relative; display: grid; grid-template-columns: max-content minmax(16px,1fr) max-content; align-items: center; column-gap: 0; }
+  #panel.type-slider .param-row .lab { display: contents; }
+  #panel.type-slider .param-row .lab > span { grid-column: 1; grid-row: 1; }
+  #panel.type-slider .param-row .lab > b { grid-column: 3; grid-row: 1; min-width: 3ch; text-align: right; padding-left: 14px; }
+  #panel.type-slider .param-row .name-tail { display: none; }
+  #panel.type-slider .param-row input[type=range] { grid-column: 2; grid-row: 1; margin: 0; height: 1.3em; min-width: 0; }
+  #panel.type-slider .param-row input[type=range]::-webkit-slider-runnable-track { background: transparent !important; }
+  #panel.type-slider .param-row input[type=range]::-moz-range-track { background: transparent !important; }
+  #panel.type-slider .param-row input[type=range]::-webkit-slider-thumb { border: 0 !important; background: transparent !important; }
+  #panel.type-slider .param-row input[type=range]::-moz-range-thumb { border: 0 !important; background: transparent !important; }
+  #panel.type-slider .type-knob { display: block; position: absolute; pointer-events: none; line-height: 1.3; transition: transform .1s linear; }
+  #panel.type-slider .param-row .lab .man { grid-column: 3; grid-row: 1; }
   .chk { display: flex; justify-content: space-between; padding: 7px 0; cursor: pointer; user-select: none; }
   .chk b { font-weight: normal; }
   @media (hover: hover) { .chk:hover b { opacity: .4; } }
@@ -155,9 +168,9 @@ try { var s0 = JSON.parse(localStorage.getItem('ca2.config') || 'null'); if (s0 
 </div>
 <div id="blur"><div class="bf bf1"></div><div class="bf bf2"></div><div class="bf bf3"></div><div class="bf bf4"></div></div>
 <div id="blurl"><div class="bf bf1"></div><div class="bf bf2"></div><div class="bf bf3"></div><div class="bf bf4"></div></div>
-<script src="grain.js?v=202610221540"></script>
-<script src="audio.js?v=202610221540"></script>
-<script src="ca2.js?v=202610221540"></script>
-<script src="favicon.js?v=202610221540"></script>
+<script src="grain.js?v=202610221545"></script>
+<script src="audio.js?v=202610221545"></script>
+<script src="ca2.js?v=202610221545"></script>
+<script src="favicon.js?v=202610221545"></script>
 </body>
 </html>

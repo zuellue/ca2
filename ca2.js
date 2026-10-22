@@ -31,7 +31,7 @@
   };
   // owner's chosen defaults (23:04)
   P.audioFadeMs = 5000;
-  P.cfgFont = 0; P.cfgFontSize = 13; P.cfgCase = 0; P.lineColor = '#111111'; P.autoInvert = 1; P.axisColor = ''; P.circColor = ''; P.ruleColor = ''; P.dragMargin = 8; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000;
+  P.typeSlider = 1; P.cfgFont = 0; P.cfgFontSize = 13; P.cfgCase = 0; P.lineColor = '#111111'; P.autoInvert = 1; P.axisColor = ''; P.circColor = ''; P.ruleColor = ''; P.dragMargin = 8; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000;
   P.foodMode = 2; P.foodBlobR = 70; P.foodBlobDots = 8; P.foodLife = 1; P.foodLifeMs = 300; P.foodLifeCell = 4; P.foodEatR = 0.4;
   Object.assign(P, {"UNIVERSE_SIZE": 55.95868745026389, "baseMutationRate": 9.628232288701716, "mutationRateRange": 2.6268439511457253, "interactionRadius": 12.016352372548786, "CELL_RADIUS": 34.57106164334512, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 50, "maxRadius": 150, "baseMaxSpeed": 2, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 2.5, "THRESHOLD": 0.19, "metaballStrength": 0.024, "foodDensity": 0.023801395385356694, "foodEnergyValue": 20, "minRefreshInterval": 2, "maxRefreshInterval": 9, "slowDownRadius": 9, "speedReductionFactor": 37.5, "grain": 1, "grainAmount": 1.22, "grainStrength": 9.2, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 12, "fps": 12, "containerCorner": 29, "resolution": 1, "margin": 10, "gap": 26, "textScale": 0.8, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.74, "morphEase": 0.7, "pixelRatio": 2, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 1, "axisLayer": 0, "genomeOn": 1, "genomeMut": 0.5, "divideOn": 1, "divideAt": 3, "eatMergeOn": 1, "eatRatio": 3, "eatChance": 1, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.35, "clusterMax": 10, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 8, "foodShrink": 0.1, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 2350, "boundAware": 1, "boundZone": 20, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 2.3, "panelAlpha": 0, "panelWidth": 340, "blurWidth": 340, "cursorSens": 0.75, "cursorSize": 0.31, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 0.53, "audioMode": 1, "audioTone": 2120, "audioMod": 1, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#000000", "foodAlpha": 1, "foodSize": 3.5, "foodShow": 0.51, "audioFadeMs": 5000, "dragMargin": 24, "edgeGrab": 20, "restless": 3, "edgeFit": 0.3, "boundZoneR": 0.1, "blobOutline": 1, "plateOverlap": 0.5, "parasiteHard": 39.5, "parasiteSight": 4000, "parasiteNerv": 1, "parasiteHardMs": 20000, "foodMode": 3, "foodBlobR": 70, "foodBlobDots": 8, "foodLife": 1, "foodLifeMs": 300, "foodLifeCell": 4, "foodEatR": 0.26});
   // eating radius is a fixed px distance, independent of cell radius (owner 20 Oct: no factor); migrate the stored factor with the preset radius
@@ -2049,6 +2049,12 @@
       var d = document.createElement('div'); d.className = 'row';
       d.innerHTML = '<div class="lab"><span>' + q[1] + '</span><b style="font-weight:normal"></b></div><input type="range" min="' + q[2] + '" max="' + q[3] + '" step="' + q[4] + '">';
       var inp = d.querySelector('input'), val = d.querySelector('b');
+      d.classList.add('param-row');
+      var nameEl = d.querySelector('.lab > span'), fullName = q[1], tail = fullName.slice(-1);
+      nameEl.textContent = fullName.slice(0, -1);
+      var nameTail = document.createElement('span'); nameTail.className = 'name-tail'; nameTail.textContent = tail; nameEl.appendChild(nameTail);
+      var letter = document.createElement('span'); letter.className = 'type-knob'; letter.textContent = tail; letter.setAttribute('aria-hidden', 'true'); d.appendChild(letter);
+
       // double-click the value: type it by hand (may pass the knob's floor/ceiling; the knob itself stays inside them)
       val.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -2116,9 +2122,10 @@
         save();
       });
       inp.value = P[q[0]]; val.textContent = fmt(P[q[0]]);
-      ctl.appendChild(d); rows[q[0]] = { inp: inp, val: val, row: d }; sec.els.push(d);
+      ctl.appendChild(d); rows[q[0]] = { inp: inp, val: val, row: d, letter: letter }; sec.els.push(d);
     });
   });
+  document.getElementById('panel').classList.toggle('type-slider', !!P.typeSlider);
   var keyToQ = {}; GROUPS.forEach(function (g) { g[1].forEach(function (q) { keyToQ[q[0]] = q; }); });
   Object.keys(savedLive).forEach(function (k) {
     if (keyToQ[k] && rows[k] && typeof savedLive[k] === 'number' && isFinite(savedLive[k])) liveStart(k, keyToQ[k], savedLive[k], rows[k].row);
@@ -2138,6 +2145,8 @@
     l.addEventListener('click', function () { P[key] = (P[key] + 1) % opts.length; touched[key] = 1; b.textContent = opts[P[key]]; if (fn) fn(P[key]); save(); });
     ctl.appendChild(l); return { el: l };
   }
+  var typeToggle = toggle('type slider', !!P.typeSlider, function (v) { P.typeSlider = v ? 1 : 0; document.getElementById('panel').classList.toggle('type-slider', !!v); });
+  ctl.insertBefore(typeToggle.el, SECS[2].hdr); SECS[1].els.push(typeToggle.el);
   var CFG_FONTS = ['default', 'Fragment Mono', 'Times New Roman', 'Ca2-Thin', 'system sans', 'system mono'], CFG_STACK = [null, "'Fragment Mono', ui-monospace, monospace", "'Times New Roman', Times, serif", "'Ca2-Thin', monospace", "system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif", "ui-monospace, 'SF Mono', Menlo, monospace"], CFG_CASES = ['default', 'UPPER', 'lower', 'Sentence'];
   var gh = document.createElement('div'); gh.className = 'grp'; gh.textContent = 'switches'; ctl.appendChild(gh);
   var swSec = { name: 'switches', hdr: gh, els: [] }; SECS.push(swSec);
@@ -2221,6 +2230,18 @@
     for (var k in rows) {
       var R = rows[k], inp = R.inp, col = null, track = false;
       if (vis) { if (live[k]) { col = live[k].col; track = true; } else if (inp.matches(':hover')) col = inp.style.getPropertyValue('--hc') || null; }
+      if (P.typeSlider && R.letter) {
+        if (R.ov) R.ov.t.style.display = R.ov.l.style.display = 'none';
+        inp.classList.remove('ovl');
+        var rr = inp.getBoundingClientRect(), dr = R.row.getBoundingClientRect();
+        var minT = +inp.min, maxT = +inp.max, fT = maxT > minT ? clamp((+inp.value - minT) / (maxT - minT), 0, 1) : 0;
+        var lwT = R.letter.offsetWidth, dxT = parseFloat(inp.style.getPropertyValue('--kx')) || 0;
+        R.letter.style.left = (rr.left - dr.left + fT * Math.max(0, rr.width - lwT)) + 'px';
+        R.letter.style.top = (rr.top - dr.top + (rr.height - R.letter.offsetHeight) / 2) + 'px';
+        R.letter.style.color = col || ''; R.letter.style.fontWeight = col ? '700' : '400';
+        R.letter.style.transform = 'translateX(' + dxT + 'px) scale(' + (parseFloat(inp.style.getPropertyValue('--ks')) || 1) + ')';
+        continue;
+      }
       var on = !!col; inp.classList.toggle('ovl', on);
       if (!on) { if (R.ov) R.ov.t.style.display = R.ov.l.style.display = 'none'; continue; }
       var r = inp.getBoundingClientRect(); if (r.top < pr.top || r.bottom > pr.bottom) { if (R.ov) R.ov.t.style.display = R.ov.l.style.display = 'none'; continue; }
