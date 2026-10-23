@@ -1144,6 +1144,11 @@
     var st = foodMaskPx(), bk = -1, bl = 1e9;
     for (var k = 0; k < 8; k++) { var ln = 1, rx = f.x + COS8[k] * st, ry = f.y + SIN8[k] * st; while (ln < bl && rx > 0 && ry > 0 && rx < W && ry < H && foodOnInk(rx, ry)) { ln++; rx += COS8[k] * st; ry += SIN8[k] * st; } if (ln < bl && rx > 0 && ry > 0 && rx < W && ry < H) { bl = ln; bk = k; } }
     if (bk >= 0) { f.x += COS8[bk] * st * bl; f.y += SIN8[bk] * st * bl; } // carried to the first free mask pixel, as a wall carries a cell
+    else { // no straight way out (a large inked mass): the nearest free mask pixel, scanned over the cached free list (bounded by the mask)
+      var idx = foodFreeIdx(), mw = SEP.mw, bd = 1e18, bx = f.x, by = f.y, q, cx, cy, qx, qy, d2;
+      for (q = 0; q < idx.length; q++) { cx = idx[q] % mw; cy = (idx[q] - cx) / mw; qx = (cx + 0.5) * st; qy = (cy + 0.5) * st; d2 = (qx - f.x) * (qx - f.x) + (qy - f.y) * (qy - f.y); if (d2 < bd && !foodOnInk(qx, qy)) { bd = d2; bx = qx; by = qy; } }
+      f.x = bx; f.y = by;
+    }
   }
   function foodInkGuard() {
     if (!foodInkOn()) { for (var j = 0; j < food.length; j++) food[j]._pk = 0; return; }
