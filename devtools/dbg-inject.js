@@ -9,6 +9,6 @@ const GH='    food.length = w;\n    if (window.__gh) window.__gh(food, foodOnInk
 exports.serve=port=>new Promise(res=>{const s=http.createServer((req,rsp)=>{
   let p=path.join(ROOT,decodeURIComponent(req.url.split('?')[0].split('#')[0])); if(p.endsWith('/'))p+='index.html';
   fs.readFile(p,(e,d)=>{if(e){rsp.writeHead(404);rsp.end('nf');return;}
-    if(path.basename(p)==='ca2.js'){let t=d.toString();if(t.split(ANCHOR).length!==2)throw new Error('debug anchor not unique');t=t.replace(ANCHOR,ANCHOR+EXTRA);if(process.env.GUARDHOOK&&t.split(GA).length===2)t=t.replace(GA,GH);d=Buffer.from(t);}
+    if(path.basename(p)==='ca2.js'){let t=d.toString();if(t.split(ANCHOR).length!==2)throw new Error('debug anchor not unique');t=t.replace(ANCHOR,ANCHOR+EXTRA);if(process.env.GUARDHOOK&&t.split(GA).length===2)t=t.replace(GA,GH);const DA='frameDtf = dtf; fleeT += dtf;';if(process.env.DTLOG){if(t.split(DA).length!==2)throw new Error('dtlog anchor not unique');t=t.replace(DA,DA+' (window.__dtl=window.__dtl||[]).push(dtf);');}d=Buffer.from(t);}
     rsp.writeHead(200,{'content-type':M[path.extname(p)]||'application/octet-stream','cache-control':'no-store'});rsp.end(d);});
 }).listen(port,()=>res(s));});

@@ -1,3 +1,8 @@
 seed12345 20s fixed 16.667ms: JS frames1201 sdt20000 n_end21 merge33 fuse20 pair14 eaten73 birth153 death179 divide33 | wasm n_end46 merge81 fuse22 pair29 eaten138 birth260 death241 divide27 (hash -1442756886)
 NOTE: seed7/seed21/seed99 runs errored (aborted) and were stopped/removed (detached background script killed 01:28).
 NOTE ENGINE DT: the original 20 s pair had no engine-side readback. A later 5 s wasm run with __ca2.fleeT/frameDtf getters (dbg-inject.js, read-only) showed: engFleeT_delta 5000.1 ms (engine consumer accumulation fleeT += dtf) for 300 clock steps (5000 ms); engFrameDtfLast 83.335; rAF callback counts (cbCounts) swLoop 450, loop 900, wBand 420, l(mine) 300 over 480 steps. engine loop() gates frame() on now-last >= 1000/P.fps-1, so engine frames are fewer than rAF steps and each engine dt = k*16.667 (83.335 here). So the 'frames' column in t140/t140b/t143 is my rAF counter, NOT engine frames.
+wasm n=24 hash=-1442756886 {"cbCounts":{"swLoop":1350,"loop":2700,"wBand":1320,"l":1200},"engFleeT_delta":20000.4,"engFrameDtfLast":83.3350000000064,"steps":1350,"frames":1201,"sdt":20000,"n":29,"merge":55,"fuse":22,"pair":26,"eaten":176,"birth":314,"death":325,"divide":35,"sim":true,"simOff":false,"simErr":null,"liveOff":false} []
+DTLOG pair (seed 12345 start, 10 s fake clock, DTLOG=1 patched-at-serve push of dtf at the consumer; same start hash -1442756886):
+JS   engFrames 120 engSumDt 10000.2 dt min=max=83.335 | merge16 fuse2 pair5 eaten36 birth136 death118 divide7 n_end62
+wasm engFrames 120 engSumDt 10000.2 dt min=max=83.335 | merge54 fuse11 pair25 eaten113 birth190 death168 divide16 n_end46
+(P.fps gate => 12 engine frames/s at 16.667 ms clock steps; startup offsets: counters zeroed at state swap, dtl reset there.)
