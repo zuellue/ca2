@@ -182,7 +182,7 @@ pub extern "C" fn mb_field_f32(n: usize, bw: usize, bh: usize, s: f64, ms: f64, 
 }
 
 // ---- sim exports ----
-#[no_mangle] pub extern "C" fn sim_cells(cap: usize) -> *mut f64 { let s = sim::sim(); s.cap = cap; s.cells.resize(cap * sim::ST, 0.0); s.cells.as_mut_ptr() }
+#[no_mangle] pub extern "C" fn sim_cells(cap: usize) -> *mut f64 { let s = sim::sim(); s.cap = cap; s.cells.resize(cap * sim::ST, 0.0); s.shp.resize(cap * sim::SHS, 0.0); s.cells.as_mut_ptr() }
 #[no_mangle] pub extern "C" fn sim_set_n(n: usize) { sim::sim().n = n; }
 #[no_mangle] pub extern "C" fn sim_food(cap: usize) -> *mut f64 { let s = sim::sim(); s.fx.resize(cap, 0.0); s.fy.resize(cap, 0.0); s.fgone.resize(cap, 0.0); s.fx.as_mut_ptr() }
 #[no_mangle] pub extern "C" fn sim_food_y() -> *mut f64 { sim::sim().fy.as_mut_ptr() }
@@ -243,3 +243,16 @@ pub extern "C" fn mb_field_f32(n: usize, bw: usize, bh: usize, s: f64, ms: f64, 
 #[no_mangle] pub extern "C" fn sw_run(n: usize, x0: f64, x1: f64, y0: f64, y1: f64, life: f64, can_birth: f64, low_cap: f64, s0: f64, s1: f64) -> f64 { swarm::sw().step(n, x0, x1, y0, y1, life != 0.0, can_birth != 0.0, low_cap, s0, s1) as f64 }
 #[no_mangle] pub extern "C" fn sw_out() -> *const f64 { swarm::sw().out.as_ptr() }
 #[no_mangle] pub extern "C" fn sw_stat() -> *const f64 { swarm::sw().stat.as_ptr() }
+#[no_mangle] pub extern "C" fn sim_shp_ptr() -> *mut f64 { sim::sim().shp.as_mut_ptr() }
+// test hook (devtools/t130): in[0..9]=a, in[9..18]=b, out[18..27]; kind 0 new(None) 1 new(a) 2 mix(a,b); p[36]=genomeMut must be set via sim_params
+static mut SHT: [f64; 28] = [0.0; 28];
+#[no_mangle] pub extern "C" fn sh_buf() -> *mut f64 { unsafe { (*std::ptr::addr_of_mut!(SHT)).as_mut_ptr() } }
+#[no_mangle] pub extern "C" fn sh_run(kind: i32, seed: f64) {
+    unsafe {
+        let t = &mut *std::ptr::addr_of_mut!(SHT);
+        let s = sim::sim(); s.seed_for_test(seed);
+        let mut a = [0.0; 9]; let mut b = [0.0; 9]; a.copy_from_slice(&t[0..9]); b.copy_from_slice(&t[9..18]);
+        let r = match kind { 0 => s.new_shape_pub(None), 1 => s.new_shape_pub(Some(a)), _ => s.mix_shape_pub(Some(a), Some(b)) };
+        t[18..27].copy_from_slice(&r);
+    }
+}

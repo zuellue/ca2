@@ -12,13 +12,13 @@ pub struct Sim {
     pub fx: Vec<f64>, pub fy: Vec<f64>, pub fgone: Vec<f64>, pub nf: usize,
     pub cm_id: Vec<f64>, pub cm: Vec<f64>, // per cluster: vx,vy,x,y,e (stride 5)
     pub p: Vec<f64>, pub out: Vec<f64>,
-    s0: u64, s1: u64, live: usize, pub log: Vec<f64>,
+    s0: u64, s1: u64, live: usize, pub log: Vec<f64>, pub shp: Vec<f64>,
 }
 pub static mut SIM: Option<Sim> = None;
 pub fn sim() -> &'static mut Sim {
     unsafe {
         let s = &mut *std::ptr::addr_of_mut!(SIM);
-        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 80], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new() }); }
+        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 80], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new(), shp: Vec::new() }); }
         s.as_mut().unwrap()
     }
 }
@@ -44,6 +44,55 @@ const P_HABON: usize = 73; const P_HABCAP: usize = 74;
 const P_DIVMODE: usize = 75; const P_DIVAGE: usize = 76; const P_DIVEN: usize = 77; // 75: 0 = legacy radius gate, 1 = age+mass; 76: min age ms; 77: min energy // habitat soft birth cap (habitat-gated): over habitatBirthCap x UNIVERSE_SIZE the birth chance scales cap/n, never a hard wall
 // out indices
 // 0 birth 1 divide 2 eaten 3 merge 4 fuse 5 pair 6 hit 7 oob 8 ate 9 death 10 clusterSeq 11 hovering 12-14 hoverCol 15 n_final
+
+pub const SHS: usize = 12; // shape slots per cell: t, asp, th, wig, wsp, sat, ph, ph2, dir, svx, svy, has
+type Shp = [f64; 9];
+impl Sim {
+    fn get_shape(&self, i: usize) -> Option<Shp> {
+        let b = i * SHS; if self.shp[b + 11] == 0.0 { return None; }
+        let mut s = [0.0; 9]; s.copy_from_slice(&self.shp[b..b + 9]); Some(s)
+    }
+    fn put_shape(&mut self, i: usize, s: Shp) { let b = i * SHS; self.shp[b..b + 9].copy_from_slice(&s); self.shp[b + 11] = 1.0; }
+    // port of ca2.js newShape(par): body plans round (0) / lobed (2); legacy string (1) converts to lobed
+    fn new_shape(&mut self, par: Option<Shp>) -> Shp {
+        let mut par = par;
+        if let Some(p) = par { if p[0] == 1.0 { par = Some([2.0, 1.0, 1.0, 0.0, p[4], p[5].max(2.0), p[6], p[7], p[8]]); } }
+        match par {
+            None => {
+                let u = self.rnd01();
+                if u < 0.35 { let (a, b, c) = (self.rnd(0.0, 6.2832), self.rnd(0.0, 6.2832), self.rnd(0.0, 6.2832)); [0.0, 1.0, 1.0, 0.0, 1.0, 0.0, a, b, c] }
+                else { let wsp = self.rnd(0.3, 1.4); let sat = 2.0 + if self.rnd01() < 0.4 { 1.0 } else { 0.0 }; let (a, b, c) = (self.rnd(0.0, 6.2832), self.rnd(0.0, 6.2832), self.rnd(0.0, 6.2832)); [2.0, 1.0, 1.0, 0.0, wsp, sat, a, b, c] }
+            }
+            Some(p) => {
+                let a = self.p[P_GMUT];
+                let (ph, ph2) = (self.rnd(0.0, 6.2832), self.rnd(0.0, 6.2832));
+                let mut s = [p[0], p[1], p[2], p[3], p[4], p[5], ph, ph2, p[8]];
+                if self.rnd01() < a * 0.4 { s[0] = if self.rnd01() < 0.5 { 0.0 } else { 2.0 }; }
+                s[1] = clamp(s[1] * (1.0 + self.rnd(-a, a)), 1.15, 7.0); s[2] = clamp(s[2] * (1.0 + self.rnd(-a, a) * 0.6), 0.25, 1.1);
+                s[3] = clamp(s[3] + self.rnd(-a, a) * 0.8, 0.0, 1.4); s[4] = clamp(s[4] * (1.0 + self.rnd(-a, a) * 0.5), 0.2, 2.5);
+                if s[0] == 0.0 { s[1] = 1.0; s[2] = 1.0; s[3] = 0.0; }
+                if s[0] == 1.0 && s[1] < 1.25 { s[1] = 1.3; }
+                if s[0] == 2.0 && s[5] == 0.0 { s[5] = 2.0 + if self.rnd01() < 0.4 { 1.0 } else { 0.0 }; }
+                s
+            }
+        }
+    }
+    fn mix_shape(&mut self, a2: Option<Shp>, b2: Option<Shp>) -> Shp {
+        match (a2, b2) {
+            (None, Some(b)) => self.new_shape(Some(b)),
+            (None, None) => self.new_shape(None),
+            (Some(a), None) => self.new_shape(Some(a)),
+            (Some(a), Some(b)) => {
+                let mut s = self.new_shape(Some(a));
+                s[0] = if self.rnd01() < 0.5 { a[0] } else { b[0] }; if s[0] == 1.0 { s[0] = 2.0; }
+                s[1] = (a[1] + b[1]) / 2.0; s[2] = (a[2] + b[2]) / 2.0; s[3] = (a[3] + b[3]) / 2.0; s[4] = (a[4] + b[4]) / 2.0; s[5] = a[5].max(b[5]);
+                if s[0] == 1.0 && s[1] < 1.25 { s[1] = 1.3; }
+                if s[0] == 2.0 && s[5] == 0.0 { s[5] = 2.0; }
+                s
+            }
+        }
+    }
+}
 
 impl Sim {
     fn rnd01(&mut self) -> f64 {
@@ -116,10 +165,11 @@ impl Sim {
             // one-step birth burst overflowed the JS-sized buffer: grow instead of dropping the kid
             // (JS re-reads sim_cap/sim_cells_ptr after every step)
             let ncap = (self.cap * 2).max(self.n + 256);
-            self.cap = ncap; self.cells.resize(ncap * ST, 0.0);
+            self.cap = ncap; self.cells.resize(ncap * ST, 0.0); self.shp.resize(ncap * SHS, 0.0);
             if self.n * ST >= self.cells.len() { return usize::MAX; }
         }
         let i = self.n; self.n += 1; self.live += 1;
+        { let s = self.new_shape(None); self.put_shape(i, s); }
         let (vdx, vdy) = self.rand2d();
         let sv = self.rnd(-1.0, 1.0);
         let ms = (self.p[P_BASEMS] + sv * self.p[P_MSVAR]).max(0.0);
@@ -169,6 +219,7 @@ impl Sim {
         let g = self.genome(c); let ng = self.mut_genome(g); self.set_genome(k, ng);
         let ms = self.speed_of(k); self.set(k, MAXS, ms);
         let cl = self.g(c, CL); self.set(k, CL, cl);
+        { let ps = self.get_shape(c); let ns = self.new_shape(ps); self.put_shape(k, ns); }
         self.out[0] += 1.0; self.out[1] += 1.0; self.log.extend_from_slice(&[k as f64, c as f64, -1.0, 1.0]);
     }
     fn keep_in(&mut self, c: usize) {
@@ -319,6 +370,7 @@ impl Sim {
         let bs = self.g(big, SYM); if bs >= 0.0 && bs as usize != sm { self.set(bs as usize, SYM, -1.0); }
         let ss = self.g(sm, SYM); if ss >= 0.0 && ss as usize != big { self.set(ss as usize, SYM, -1.0); }
         self.set(big, SYM, -1.0); self.set(sm, SYM, -1.0); self.set(sm, ALIVE, 0.0); self.set(sm, AGE, -1.0); // AGE=-1: absorbed
+        { let (sa, sb) = (self.get_shape(big), self.get_shape(sm)); let ns = self.mix_shape(sa, sb); self.put_shape(big, ns); }
         self.out[4] += 1.0; self.log.extend_from_slice(&[big as f64, sm as f64, -1.0, 3.0]);
     }
     fn reproduce(&mut self, a: usize, b: usize) {
@@ -341,6 +393,7 @@ impl Sim {
             let mixg = [(ga[0] + gb[0]) / 2.0, (ga[1] + gb[1]) / 2.0, (ga[2] + gb[2]) / 2.0, mixc[0], mixc[1], mixc[2]];
             let ng2 = self.mut_genome(mixg); self.set_genome(k, ng2);
             let ms = self.speed_of(k); self.set(k, MAXS, ms);
+            { let (sa, sb) = (self.get_shape(a), self.get_shape(b)); let ns = self.mix_shape(sa, sb); self.put_shape(k, ns); }
             self.log.extend_from_slice(&[k as f64, a as f64, b as f64, 2.0]);
         }
     }
@@ -428,4 +481,10 @@ impl Sim {
         self.out[12] = hc[0]; self.out[13] = hc[1]; self.out[14] = hc[2]; self.out[15] = self.n as f64; self.out[16] = hov_i; self.out[17] = self.log.len() as f64;
         let _ = PI;
     }
+}
+
+impl Sim {
+    pub fn seed_for_test(&mut self, seed: f64) { self.s0 = (seed as u64).wrapping_mul(0x9E3779B97F4A7C15) | 1; self.s1 = (seed as u64) ^ 0xD1B54A32D192ED03; for _ in 0..4 { self.rnd01(); } }
+    pub fn new_shape_pub(&mut self, p: Option<Shp>) -> Shp { self.new_shape(p) }
+    pub fn mix_shape_pub(&mut self, a: Option<Shp>, b: Option<Shp>) -> Shp { self.mix_shape(a, b) }
 }
