@@ -799,6 +799,8 @@
         cf[b] = c.x; cf[b + 1] = c.y; cf[b + 2] = c.vx; cf[b + 3] = c.vy; cf[b + 4] = c.radius; cf[b + 5] = c.energy; cf[b + 6] = c.gene; cf[b + 7] = c.alive ? 1 : 0; cf[b + 8] = c.maxSpeed; cf[b + 9] = c.speedModifier; cf[b + 10] = c.hostility; cf[b + 11] = c.mutationRate; cf[b + 12] = c.sv; cf[b + 13] = c.cl || 0;
         cf[b + 14] = (c.sym && c.sym._f === simStamp) ? c.sym._i : -1; cf[b + 15] = g.spd; cf[b + 16] = g.app; cf[b + 17] = g.bnd; cf[b + 18] = g.col[0]; cf[b + 19] = g.col[1]; cf[b + 20] = g.col[2]; cf[b + 21] = c.comp || 0; cf[b + 22] = 0; cf[b + 23] = frameT - (c.bornAt || 0); // slot 23: age ms in, -1 = absorbed out (eaten/fused: no nutrient pulse); 22 is the wasm REM flag
       }
+      var sp0 = new Float64Array(WC.mem.buffer, E.sim_shp_ptr(), cap * 12); // body plans live in wasm for the step (newShape/mixShape ported to sim.rs)
+      for (i = 0; i < n; i++) { var sh0 = cells[i].shp, sb = i * 12; if (sh0) { sp0[sb] = sh0.t; sp0[sb + 1] = sh0.asp; sp0[sb + 2] = sh0.th; sp0[sb + 3] = sh0.wig; sp0[sb + 4] = sh0.wsp; sp0[sb + 5] = sh0.sat; sp0[sb + 6] = sh0.ph; sp0[sb + 7] = sh0.ph2; sp0[sb + 8] = sh0.dir; sp0[sb + 11] = 1; } else sp0[sb + 11] = 0; }
       E.sim_set_n(n); E.sim_set_nf(nf);
       for (i = 0; i < nf; i++) { fx[i] = food[i].x; fy[i] = food[i].y; }
       for (i = 0; i < ncm; i++) { var m = cmean[cl[i]]; cid[i] = +cl[i]; cmf[i * 5] = m.vx; cmf[i * 5 + 1] = m.vy; cmf[i * 5 + 2] = m.x; cmf[i * 5 + 3] = m.y; cmf[i * 5 + 4] = m.e; }
@@ -826,9 +828,10 @@
         var gg = c.g; gg.spd = cf[b + 15]; gg.app = cf[b + 16]; gg.bnd = cf[b + 17]; gg.col = [cf[b + 18], cf[b + 19], cf[b + 20]]; if (cf[b + 21] > 0) c.comp = cf[b + 21]; c.absorbed = cf[b + 23] < 0 ? 1 : 0;
       }
       for (i = 0; i < nf2; i++) { var sy = cf[i * 24 + 14]; cells[i].sym = sy >= 0 ? cells[sy] : null; }
+      var sp1 = new Float64Array(WC.mem.buffer, E.sim_shp_ptr(), cap * 12);
+      for (i = 0; i < nf2; i++) { var sb1 = i * 12; if (sp1[sb1 + 11] === 0) continue; var sh1 = cells[i].shp; if (!sh1) sh1 = cells[i].shp = {}; sh1.t = sp1[sb1]; sh1.asp = sp1[sb1 + 1]; sh1.th = sp1[sb1 + 2]; sh1.wig = sp1[sb1 + 3]; sh1.wsp = sp1[sb1 + 4]; sh1.sat = sp1[sb1 + 5]; sh1.ph = sp1[sb1 + 6]; sh1.ph2 = sp1[sb1 + 7]; sh1.dir = sp1[sb1 + 8]; }
       var fg = new Float64Array(WC.mem.buffer, fgp, nf + 1);
-      var lg = new Float64Array(WC.mem.buffer, E.sim_log(), o[17]); // births / fusions: body plans stay in JS (newShape/mixShape), the wasm core only reports who came from whom
-      for (i = 0; i < lg.length; i += 4) { var kd = lg[i + 3], k0 = cells[lg[i]], p0 = cells[lg[i + 1]], p1 = lg[i + 2] >= 0 ? cells[lg[i + 2]] : null; if (kd === 1) k0.shp = newShape(p0.shp); else if (kd === 2) k0.shp = mixShape(p0.shp, p1.shp); else k0.shp = mixShape(k0.shp, p0.shp); }
+      // body-plan assignment on births/fusions now happens inside sim.rs (new_shape/mix_shape); E.sim_log() is still emitted for diagnostics
       for (i = 0; i < cells.length; i++) { c = cells[i]; if (c.alive && c.shp && c.shp.t === 1) simSwim(c); }
       tmpRef.hc = o[16] >= 0 ? cells[o[16]] : null;
       for (i = nf - 1; i >= 0; i--) if (fg[i] !== 0) { habAte(food[i]); food[i].gone = 1; food.splice(i, 1); }
