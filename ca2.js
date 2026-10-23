@@ -2005,7 +2005,7 @@
     }
 
      var pairN = 0, compN = 0; for (var pci = 0; pci < cells.length; pci++) { if (cells[pci].sym) pairN++; if (cells[pci].comp > 1) compN++; }
-     window.__ca2 = { SIMW: SIMW, PF: PF, liveN: function () { return Object.keys(live).length; }, cmpGmax384: function () { // bit-identity gate for adaptive GMAX: same frozen source array (n<=384) through the 384-reference program and the device program; harness requires diffBytes=0
+     window.__ca2 = { SIMW: SIMW, PF: PF, LIVEW: LIVEW, liveN: function () { return Object.keys(live).length; }, cmpGmax384: function () { // bit-identity gate for adaptive GMAX: same frozen source array (n<=384) through the 384-reference program and the device program; harness requires diffBytes=0
       if (!gOK) return 'nogl'; if (!gProg384) return 'noreference';
       var S = curS, src = buildSources(), ms = P.metaballStrength, TH = P.THRESHOLD, n = Math.min(src.n, 384), i;
       var C = new Float32Array(n * 4), W = new Float32Array(n * 4);
@@ -2189,35 +2189,60 @@
     var L = live[k]; if (!L) return; L.row.classList.remove('live'); L.row.style.removeProperty('--kc');
     delete live[k]; P[k] = L.orig; if (typeof touched === 'object') touched[k] = 1; applyKey(k, L.orig); save();
   }
+  var liveSlotN = 0;
+  // resident wasm port of the generation (live.rs, bit-exact vs the JS block below; devtools/t136). A knob only goes to wasm if it was initialised at its first generation; on any error it falls back to JS for good.
+  function liveGenW(L, k) {
+    var E = WC.e; if (!E || !E.live_gen || !WC.ok || WC.off || WC.liveOff || L.bits.length !== 28 || /[?&]nolivewasm=1/.test(location.search)) return false;
+    try {
+      var buf, i, t0 = performance.now();
+      if (L.slot === undefined) {
+        if (L.gen !== 1) return false;
+        L.slot = liveSlotN++; E.live_init(L.slot, L.st.s); buf = new Float64Array(WC.mem.buffer, E.live_buf(), 64);
+        for (i = 0; i < 28; i++) buf[i] = L.bits[i]; E.live_init(L.slot, L.st.s);
+      }
+      if (L.slot === -1) return false;
+      buf = new Float64Array(WC.mem.buffer, E.live_buf(), 64);
+      if (L.plate) { var occ = plateOcc(28); for (i = 0; i < 28; i++) buf[28 + i] = occ[i]; }
+      var tg = E.live_gen(L.slot, L.rule, L.plate ? 1 : 0, L.shift, L.q[2], L.q[3], LIVE_CAP[k] || 1);
+      buf = new Float64Array(WC.mem.buffer, E.live_buf(), 64);
+      var nb = new Array(28); for (i = 0; i < 28; i++) nb[i] = buf[i];
+      L.bits = nb; L.st.s = buf[56]; L.walk = buf[57]; L.hist = undefined; L.target = tg;
+      LIVEW.ms = (LIVEW.ms || 0) * 0.9 + (performance.now() - t0) * 0.1; LIVEW.n++;
+      return true;
+    } catch (e) { WC.liveOff = true; WC.liveErr = String(e); return false; }
+  }
+  var LIVEW = { n: 0, ms: 0 };
   function stepLive(now) {
     for (var k in live) {
       var L = live[k], n = L.bits.length;
       if(L.row.classList.contains('range-editing'))continue;
       if (now - L.t >= LIVE_MS) {
         L.t = now; L.gen++;
-        var nb = new Array(n), sum = 0, same = true, i;
-        for (i = 0; i < n; i++) { nb[i] = (L.rule >> (L.bits[(i + n - 1) % n] * 4 + L.bits[i] * 2 + L.bits[(i + 1) % n])) & 1; sum += nb[i]; if (nb[i] !== L.bits[i]) same = false; }
-        if (L.plate) { var occ = plateOcc(n); sum = 0; for (i = 0; i < n; i++) { nb[i] ^= occ[(i + L.shift) % n]; sum += nb[i]; } same = false; }
-        if (sum === 0 || sum === n || same) { for (i = 0; i < 3; i++) nb[Math.floor(lcg(L.st) * n)] ^= 1; if (sum === 0) nb[Math.floor(lcg(L.st) * n)] = 1; } // keep it alive, deterministically
-        L.bits = nb;
-        var a = clamp((nb.reduce(function (x, y) { return x + y; }, 0) / n - 0.2) / 0.6, 0, 1);
-        if (L.plate) a = clamp(a * 0.45 + 0.55 * clamp(cells.length / 250, 0, 1), 0, 1);
-        // the value follows the CA: a window of the row is read as a binary fraction (so the whole range is reachable and
-        // every part is equally likely), one random cell is flipped every generation so the row never settles into a cycle,
-        // and the value chases that reading with a soft step - never stuck, never a ceiling-floor sweep
-        nb[Math.floor(lcg(L.st) * n)] ^= 1; L.bits = nb;
-        var r0 = (L.gen * 7 + L.shift) % n, rd = 0, wt = 0.5;
-        for (i = 0; i < 12; i++) { rd += nb[(r0 + i) % n] * wt; wt *= 0.5; }
-        rd = clamp(rd * 4096 / 4095, 0, 1);
-        // the reading is mapped through its own running distribution (rank), so the whole range is used evenly
-        if (!L.hist) L.hist = [];
-        var lo = 0; for (i = 0; i < L.hist.length; i++) if (L.hist[i] < rd) lo++;
-        var rk = L.hist.length > 8 ? (lo + lcg(L.st)) / (L.hist.length + 1) : rd;
-        L.hist.push(rd); if (L.hist.length > 300) L.hist.shift();
-        if (L.walk === undefined) L.walk = rk;
-        L.walk += (rk - L.walk) * 0.7;
-        a = clamp(0.5 + (L.walk - 0.5) * 1.3, 0, 1); // a little stretch so both ends are actually touched
-        L.target = L.q[2] + (L.q[3] - L.q[2]) * a * (LIVE_CAP[k] || 1);
+        if (!liveGenW(L, k)) {
+          var nb = new Array(n), sum = 0, same = true, i;
+          for (i = 0; i < n; i++) { nb[i] = (L.rule >> (L.bits[(i + n - 1) % n] * 4 + L.bits[i] * 2 + L.bits[(i + 1) % n])) & 1; sum += nb[i]; if (nb[i] !== L.bits[i]) same = false; }
+          if (L.plate) { var occ = plateOcc(n); sum = 0; for (i = 0; i < n; i++) { nb[i] ^= occ[(i + L.shift) % n]; sum += nb[i]; } same = false; }
+          if (sum === 0 || sum === n || same) { for (i = 0; i < 3; i++) nb[Math.floor(lcg(L.st) * n)] ^= 1; if (sum === 0) nb[Math.floor(lcg(L.st) * n)] = 1; } // keep it alive, deterministically
+          L.bits = nb;
+          var a = clamp((nb.reduce(function (x, y) { return x + y; }, 0) / n - 0.2) / 0.6, 0, 1);
+          if (L.plate) a = clamp(a * 0.45 + 0.55 * clamp(cells.length / 250, 0, 1), 0, 1);
+          // the value follows the CA: a window of the row is read as a binary fraction (so the whole range is reachable and
+          // every part is equally likely), one random cell is flipped every generation so the row never settles into a cycle,
+          // and the value chases that reading with a soft step - never stuck, never a ceiling-floor sweep
+          nb[Math.floor(lcg(L.st) * n)] ^= 1; L.bits = nb;
+          var r0 = (L.gen * 7 + L.shift) % n, rd = 0, wt = 0.5;
+          for (i = 0; i < 12; i++) { rd += nb[(r0 + i) % n] * wt; wt *= 0.5; }
+          rd = clamp(rd * 4096 / 4095, 0, 1);
+          // the reading is mapped through its own running distribution (rank), so the whole range is used evenly
+          if (!L.hist) L.hist = [];
+          var lo = 0; for (i = 0; i < L.hist.length; i++) if (L.hist[i] < rd) lo++;
+          var rk = L.hist.length > 8 ? (lo + lcg(L.st)) / (L.hist.length + 1) : rd;
+          L.hist.push(rd); if (L.hist.length > 300) L.hist.shift();
+          if (L.walk === undefined) L.walk = rk;
+          L.walk += (rk - L.walk) * 0.7;
+          a = clamp(0.5 + (L.walk - 0.5) * 1.3, 0, 1); // a little stretch so both ends are actually touched
+          L.target = L.q[2] + (L.q[3] - L.q[2]) * a * (LIVE_CAP[k] || 1);
+        }
       }
       if (L.target === undefined) continue;
       var pr = L.prof, dT = L.target - L.cur;
