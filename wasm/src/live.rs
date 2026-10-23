@@ -45,3 +45,9 @@ pub fn gen(slot: usize, rule: f64, plate: bool, shift: f64, q2: f64, q3: f64, ca
         q2 + (q3 - q2) * a * cap
     }
 }
+
+pub static mut HB: [f64; 304] = [0.0; 304]; // rank history out (for a wasm->JS transition)
+#[allow(static_mut_refs)]
+pub fn hist_out(slot: usize) -> usize { unsafe { let l = &LIVES[slot]; for (i, h) in l.hist.iter().enumerate() { HB[i] = *h; } l.hist.len() } }
+#[allow(static_mut_refs)]
+pub fn state_out(slot: usize) { unsafe { let l = &LIVES[slot]; for i in 0..N { BUF[i] = l.bits[i] as f64; } BUF[56] = l.st as f64; BUF[57] = if l.has_walk { l.walk } else { f64::NAN }; BUF[58] = l.gen as f64; } }

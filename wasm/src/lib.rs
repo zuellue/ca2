@@ -263,3 +263,6 @@ static mut SHT: [f64; 28] = [0.0; 28];
 #[no_mangle] pub extern "C" fn live_buf() -> *mut f64 { unsafe { live::BUF.as_mut_ptr() } }
 #[no_mangle] pub extern "C" fn live_init(slot: usize, st: f64) { live::init(slot, st); }
 #[no_mangle] pub extern "C" fn live_gen(slot: usize, rule: f64, plate: f64, shift: f64, q2: f64, q3: f64, cap: f64) -> f64 { live::gen(slot, rule, plate != 0.0, shift, q2, q3, cap) }
+#[no_mangle] pub extern "C" fn live_hist_buf() -> *const f64 { unsafe { live::HB.as_ptr() } }
+#[no_mangle] pub extern "C" fn live_hist(slot: usize) -> usize { live::hist_out(slot) }
+#[no_mangle] pub extern "C" fn live_state(slot: usize) { live::state_out(slot) }
