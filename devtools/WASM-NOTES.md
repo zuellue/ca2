@@ -122,3 +122,14 @@ Tools: devtools/t70 (interact iso), t71 (CDP profiler, node devtools/t71-prof.js
 - Measured (swiftshader, gl.readPixels, n=GMAX=2040 clustered): ov=272 leaves clamped, gpuOn=true, candidate vs full-pass reference diff=0/6.19M bytes (bit-identical); candidate vs clamped-tiled ALSO 0 diff — at m=GMAX=n exactly the cull break never fires (all sources packed), so the clamp is a counted no-op and the tiled path cannot drop sources for any n<=GMAX. Regression: t119synth cap64 diff=0.
 - Boundary proof (source): pack bail `if (n >= GMAX) { n=-1; break; }` -> CPU iff src.n>GMAX; tile cull `if (m >= GMAX) break;` -> m capped at GMAX; subdivide `m>=GMAX && depth<4`; clamp+gOv at depth 4 `if (m >= GMAX)`. Since m<=n, gOv fires IFF n=GMAX exactly AND all sources in one 16px leaf's reach. Source-dropping would need n>GMAX, which is CPU-bailed upstream on both main and candidate.
 - Consequence: with current >= boundaries tiling is raster-lossless for every frame the GPU renders; the gOv fallback is zero-visual-cost armor (stays GPU, bit-exact) replacing the old CPU fall (measured 31-34% px diff). Main unchanged: c20cb7e, tiling OFF.
+
+## Round 6 — final gate suite on 0cc5add (devtools/t120-final-gate.js)
+All results stamped commit 0cc5add, one page session, swiftshader, gl.readPixels gates, same-input rules:
+- cmp250: n=289, 1692x506, diff=0/3.42M bytes, ov=0, subdiv=0, leaves=14, maxM=104, clamps=0.
+- cmp1000: n=970, 1680x506, diff=0/3.40M, ov=0, subdiv=0, leaves=14, maxM=269, clamps=0.
+- Scissor partial-tile: bh=506 -> bh%256=250, partial row exercised, diff grid empty in every 256-tile band.
+- synth64/synth32 (forced caps, no-clamp subdivision): diff=0 both; synth32 subdiv=8, leaves=38, maxM=30.
+- cluster (real gOv): n=GMAX=2040 phyllotaxis disc, ov=77 leaves, gpuOn=true, cand vs full-pass ref 0 diff, cand vs clamped 0 diff (clamp is counted no-op at n=GMAX; source-drop would need n>GMAX which pack-bails to CPU).
+- n>GMAX regression: setGmaxTest(32), live n=947 -> gpuState on=false (pack bail -> CPU), candidate vs baseline CPU render bad=0 maxd=0 same input.
+- Perf (frozen same scene n=970, 1680x506, 1px readPixels forced completion, interleaved 40s passes t/f/f/t): tiled 17 frames p50 5136/5029ms, full 8 frames p50 11408/11068ms -> ~2.2x swiftshader wall direction ONLY; no Mac/general claim.
+- Visual: /tmp shots t120-tiled.png (wip default tiled live) and t120-full.png (forced full) both show the normal field, no seams/banding; HUD "metaball field: GPU" confirms GPU path live.
