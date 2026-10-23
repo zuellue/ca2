@@ -2888,6 +2888,7 @@
       // no width pin on the label: the hover split shows full-width (owner 21 Oct)
     }
     for (var j = 0; j < admCircles.length; j++) {
+      if (admCircles[j].ownerDocument !== document) continue; // preview host owns adopted widget geometry
       admCircles[j].style.width = D + 'px'; admCircles[j].style.height = D + 'px';
       admCircles[j].style.border = LW() + 'px solid var(--kc, var(--fg))';
       admCircles[j].style.fontSize = '13px';
