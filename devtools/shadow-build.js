@@ -59,6 +59,7 @@ ${loopSrc}
 `;
 rep1(afterA,afterA+block);
 if(process.env.JSRND){
+  rep1('var __dd = __shCmp(__wSn, __jSn);','var __dd = __shCmp(__wSn, __jSn).filter(function (d) { return !(d.k === \'absorbed\') && !(d.ulp !== undefined && d.ulp <= (window.__ULPTOL || 64) && d.abs < 1e-9); });');
   rep1('var ts = performance.now(); SIMW.pack','window.__SH.s5 = [window.__SH.rdf()]; var ts = performance.now(); SIMW.pack');
   rep1('var kids = [];','var kids = []; window.__SH.c2 = [0,1,2,3].map(function (q) { return new Float64Array(WC.mem.buffer, cp, 24 * 8)[q * 24 + 5]; });');
   rep1('      cf = new Float64Array(WC.mem.buffer, cp, cap * 24);','      cf = new Float64Array(WC.mem.buffer, cp, cap * 24); window.__SH.c3 = [0,1,2,3].map(function (q) { return cf[q * 24 + 5]; });');
