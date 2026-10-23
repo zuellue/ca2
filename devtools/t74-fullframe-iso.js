@@ -38,6 +38,7 @@ function pack(cs,nf,cmObj,SEQ,cont){
  const buf=E.memory.buffer,cf=new Float64Array(buf,cp,cap*24),fx=new Float64Array(buf,fxp,nf+1),fy=new Float64Array(buf,fyp,nf+1),cmf=new Float64Array(buf,cmp,(Object.keys(cmObj).length+1)*5),cid=new Float64Array(buf,cip,Object.keys(cmObj).length+1),p=new Float64Array(buf,pp,96);
  pack.stamp=(pack.stamp||0)+1;cs.forEach((c,i)=>{c._i=i;c._f=pack.stamp;});
  cs.forEach((c,i)=>{const b=i*24,g=c.g;cf.set([c.x,c.y,c.vx,c.vy,c.radius,c.energy,c.gene,c.alive?1:0,c.maxSpeed,c.speedModifier,c.hostility,c.mutationRate,c.sv,c.cl||0,(c.sym&&c.sym._f===pack.stamp)?c.sym._i:-1,g.spd,g.app,g.bnd,g.col[0],g.col[1],g.col[2],c.comp||0,0,0],b);});
+ {const sp=new Float64Array(E.memory.buffer,E.sim_shp_ptr(),cap*12);cs.forEach((c,i)=>{const s=c.shp,b=i*12;if(s){sp[b]=s.t;sp[b+1]=s.asp;sp[b+2]=s.th;sp[b+3]=s.wig;sp[b+4]=s.wsp;sp[b+5]=s.sat;sp[b+6]=s.ph;sp[b+7]=s.ph2;sp[b+8]=s.dir;sp[b+11]=1;}else sp[b+11]=0;});} // body plans live in wasm since 1ee8a5c: without this the wasm side fuses default shapes and draws a different number of randoms
  E.sim_set_n(n);E.sim_set_nf(nf);
  for(let i=0;i<nf;i++){fx[i]=J.food[i].x;fy[i]=J.food[i].y;}
  const cl=(P.cl80&&!P.prefill)?[]:Object.keys(cmObj);cl.forEach((k,i)=>{const m=cmObj[k];cid[i]=+k;cmf[i*5]=m.vx;cmf[i*5+1]=m.vy;cmf[i*5+2]=m.x;cmf[i*5+3]=m.y;cmf[i*5+4]=m.e;});
