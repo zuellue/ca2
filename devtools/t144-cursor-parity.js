@@ -105,6 +105,9 @@ let bad=0;const out={};
    const am=a.a<=-1e9,bm=b.a<=-1e9;
    if(am!==bm||(am&&!Object.is(a.a,b.a)))return 'marker '+i+' '+a.a+'/'+b.a;
    if(!am&&Math.abs(a.a-b.a)>1e-6)return 'a '+i+' '+a.a+'/'+b.a;
+   var nrmL=v=>(v==null||!(v>-1e17))?0:v;
+   if(!Object.is(nrmL(a.clx),nrmL(b.clx)))return 'clx '+i+' '+a.clx+'/'+b.clx;
+   if(!Object.is(nrmL(a.cly),nrmL(b.cly)))return 'cly '+i+' '+a.cly+'/'+b.cly;
    if(!Object.is(a.ph||0,b.ph||0))return 'ph '+i+' '+a.ph+'/'+b.ph;
    if(!Object.is(a.lost||0,b.lost||0))return 'lost '+i+' '+a.lost+'/'+b.lost;
    const ha=a.host?J.env.cells.indexOf(a.host):-1,hb=b.host?W.env.cells.indexOf(b.host):-1;
@@ -137,15 +140,16 @@ let bad=0;const out={};
  }
  out.B1={frames,mismatches:posMis};if(posMis)bad++;
  // B2: several drawers per frame incl. births, deaths and spawns - exact full-state match expected
- let mis2=0,frames2=0,births0=0,deaths0=0,maxLen=0;
+ let mis2=0,frames2=0,births0=0,deaths0=0,maxLen=0,latchW=0,latchJ=0;
  for(let t=0;t<120;t++){
   const S0=(7777+t*7919)>>>0,S1=(3333+t*104729)>>>0;
   const sc=scenario(t);
   sc.P.parasiteFrac=t%3===0?100:0.3; // huge frac on every third scenario: the spawn roll fires every frame
+  if(t%5===2)sc.P.parasiteCursorMs=30; // belief long-expired at frame 0: give-up -> cooldown + motion latch this scenario
   const par2=sc.par.map(q=>Object.assign({},q));
   if(t%4===1)par2[0].e=12.5; // birth this frame (halves, appends, not iterated)
   if(t%4===3)par2[0].e=-13;  // death this frame (spliced in place)
-  par2.push({x:100+((t*211)%500),y:100+((t*151)%300),e:5,host:null,a:0.9,ph:1.1,lost:0}); // second drawer
+  par2.push({x:100+((t*211)%500),y:100+((t*151)%300),e:5,host:null,a:t%5===2?-(sc.now0-50)-1e9:0.9,ph:1.1,lost:0}); // second drawer (in expired belief for latch scenarios)
   const cloneCells=a=>a.map(c=>Object.assign({},c,{pc:0}));
   const cj=cloneCells(sc.cells),cw=cloneCells(sc.cells);
   const pj=par2.map(q=>Object.assign({},q)),pw=par2.map(q=>Object.assign({},q));
@@ -157,13 +161,14 @@ let bad=0;const out={};
    xr.seed(S0+fr,S1+fr);xr.warm(8);mJ._n=0;J.f();
    mW._n=0;mW._seeds=[S0+fr,S1+fr];W.f();
    frames2++;maxLen=Math.max(maxLen,J.env.parasites.length);
+   latchJ+=J.env.parasites.filter(q=>q.clx>-1e17).length;latchW+=W.env.parasites.filter(q=>q.clx>-1e17).length;
    const err=cmp('B2',t,fr);
    if(err){mis2++;if(mis2<5)console.log('B2 MISMATCH',t,fr,err);}
   }
  }
  births0=J.env.ev.pbirth||0;deaths0=J.env.ev.pdeath||0;
- out.B2={frames:frames2,mismatches:mis2,birthsSeen:births0,deathsSeen:deaths0,maxLen};
- if(mis2||!births0||!deaths0)bad++; // zero mismatches AND the birth/death paths provably exercised
+ out.B2={frames:frames2,mismatches:mis2,birthsSeen:births0,deathsSeen:deaths0,maxLen,latchFrames:latchJ+'/'+latchW};
+ if(mis2||!births0||!deaths0||!latchJ||latchJ!==latchW)bad++; // zero mismatches AND the birth/death/latch paths provably exercised
 }
 
 // ---------- Part C: switched-off == pre-change base (Object.is) ----------
@@ -215,37 +220,49 @@ let bad=0;const out={};
  const xr2=XR(),m2=mkMath(xr2);
  const env2={P:null,cells:[],parasites:null,ev:{},parStat:{rehost:0},mouse:{x:60,y:60,over:true},cont:{x:100,y:100,w:600,h:400},WC:{},location:{search:''},performance:{now:()=>env2._now},Math:m2,clamp:(v,l,h)=>v<l?l:v>h?h:v,lerp:(a,b,t2)=>a+(b-a)*t2,_now:0};
  const step=new Function('env',`with(env){var Math=env.Math,performance=env.performance,clamp=env.clamp,lerp=env.lerp,location=env.location,WC=env.WC,mouse=env.mouse,cont=env.cont;${paCode};return stepParasitesCore;}`)(env2);
- env2.P={parasiteOn:1,parasiteFrac:0,parasiteSight:4000,parasiteNerv:0.6,parasiteDrain:0.02,parasiteEff:0.8,parasiteHard:12,parasiteHardMs:20000,CELL_RADIUS:34.5,parasiteCursorOn:1,parasiteCursorMs:500,parasiteCursorR:250,parasiteCursorRetK:1.2,parasiteCursorCooldown:2000};
+ env2.P={parasiteOn:1,parasiteFrac:0,parasiteSight:4000,parasiteNerv:0.6,parasiteDrain:0.02,parasiteEff:0.8,parasiteHard:12,parasiteHardMs:20000,CELL_RADIUS:34.5,parasiteCursorOn:1,parasiteCursorMs:500,parasiteCursorR:250,parasiteCursorRetK:1.2,parasiteCursorCooldown:2000,parasiteCursorRearm:50};
  env2.cells=[{x:600,y:450,radius:20,cl:0,alive:true,energy:30,pc:0}]; // real cell far from the cursor
- env2.parasites=[{x:80,y:70,e:5,host:null,a:1.0,ph:0.5,lost:0}];
- const q=env2.parasites[0];let believed=false,returned=false,cleared=false,coolSeen=false,earlyRe=false,clearAt=null;
- const dCur=()=>Math.hypot(q.x-60,q.y-60),dPlate=()=>{const tx=Math.max(100,Math.min(700,q.x)),ty=Math.max(100,Math.min(500,q.y));return Math.hypot(tx-q.x,ty-q.y);};
+ env2.mouse={x:90,y:300,over:true}; // parked just outside the left edge: the return destination stays inside belief radius
+ env2.parasites=[{x:30,y:300,e:5,host:null,a:1.0,ph:0.5,lost:0}];
+ const q=env2.parasites[0];let believed=false,returned=false,cleared=false,coolSeen=false,reSeen=false,clearAt=null,latchedAt=null;
+ const dCur=()=>Math.hypot(q.x-90,q.y-300),dPlate=()=>{const tx=Math.max(100,Math.min(700,q.x)),ty=Math.max(100,Math.min(500,q.y));return Math.hypot(tx-q.x,ty-q.y);};
  const inBel=()=>q.a<=-1e9&&q.a>-2e9,inCool=()=>q.a<=-2e9;
  let d0=dCur(),dMin=1e9,dRetStart=null,dRetMin=1e9;
  for(let fr=0;fr<400;fr++){env2._now=1000+fr*16;xr2.seed(9+fr,10+fr);step();
-  if(inBel()){if(clearAt!==null&&env2._now-clearAt<2000)earlyRe=true;believed=true;
+  if(inBel()){if(clearAt!==null)reSeen=true;believed=true;
    if(env2._now-(-q.a-1e9)<500)dMin=Math.min(dMin,dCur()); // belief window: closing on the cursor
    else {if(dRetStart===null)dRetStart=dPlate();dRetMin=Math.min(dRetMin,dPlate());} // gave up: heading back
   }else{
    if(inCool())coolSeen=true;
-   if(believed&&clearAt===null)clearAt=env2._now;
+   if(believed&&clearAt===null){clearAt=env2._now;latchedAt=(q.clx===90&&q.cly===300);}
    if(believed&&dRetStart!==null){if(dRetMin<dRetStart-5)returned=true;dRetStart=null;dRetMin=1e9;if(q.x>100&&q.x<700&&q.y>100&&q.y<500)cleared=true;}
   }
  }
- out.D2={believed,chaseCloser:dMin<d0,returned,cooldownSeen:coolSeen,noEarlyRebelief:!earlyRe,clearedInside:cleared,a:q.a,x:+q.x.toFixed(1),y:+q.y.toFixed(1)};
- if(!(believed&&dMin<d0&&returned&&coolSeen&&!earlyRe))bad++;
+ // the cursor is parked ~15 px from the return destination, well inside belief radius: only the motion latch
+ // prevents re-belief, and the run spans ~3 cooldown cycles after the return
+ out.D2={believed,chaseCloser:dMin<d0,returned,cooldownSeen:coolSeen,latchedAtGiveup:latchedAt,noRebeliefParked:!reSeen,clearedInside:cleared,a:q.a,x:+q.x.toFixed(1),y:+q.y.toFixed(1)};
+ if(!(believed&&dMin<d0&&returned&&coolSeen&&latchedAt&&!reSeen))bad++;
+ // D4 motion rearm: a latched parasite ignores the parked cursor but believes again once the cursor actually moves
+ env2.parasites=[{x:100,y:80,e:5,host:null,a:0,ph:0.5,lost:0,clx:60,cly:60}]; // latched at (60,60)
+ env2.cells=[{x:600,y:450,radius:20,cl:0,alive:true,energy:30,pc:0}];
+ env2.mouse={x:80,y:70,over:true}; // 22 px from the latch, 22 px from the parasite: parked case
+ let d4park=false,d4move=false;
+ for(let fr=0;fr<50;fr++){env2._now=20000+fr*16;xr2.seed(31+fr,32+fr);step();const q4=env2.parasites[0];if(q4.a<=-1e9&&q4.a>-2e9)d4park=true;}
+ env2.mouse={x:200,y:200,over:true}; // ~198 px from the latch: real movement
+ for(let fr=0;fr<50;fr++){env2._now=21000+fr*16;xr2.seed(41+fr,42+fr);step();const q4=env2.parasites[0];if(q4.a<=-1e9&&q4.a>-2e9)d4move=true;}
+ out.D4={parkedStaysIgnored:!d4park,movedRebelieves:d4move};if(d4park||!d4move)bad++;
  // D3 illusion break: real cell nearer than the cursor (but outside attach range) ends the belief -> cooldown
  env2.parasites=[{x:300,y:250,e:5,host:null,a:-1e9-1000,ph:0.5,lost:0}];
  env2.cells=[{x:360,y:280,radius:20,cl:0,alive:true,energy:30,pc:0}];env2.mouse={x:600,y:60,over:true};env2._now=5000;
  xr2.seed(1,2);step();
- const a3=env2.parasites[0].a;out.D3={beliefCleared:!(a3<=-1e9&&a3>-2e9),cooldownSet:a3<=-2e9};if(!out.D3.beliefCleared||!out.D3.cooldownSet)bad++;
+ const p3=env2.parasites[0],a3=p3.a;out.D3={beliefCleared:!(a3<=-1e9&&a3>-2e9),cooldownSet:a3<=-2e9,latched:p3.clx===600&&p3.cly===60};if(!out.D3.beliefCleared||!out.D3.cooldownSet||!out.D3.latched)bad++;
 }
 // ---------- Part E: glyph-circle overlay x cursor belief (production order: core then overlay) ----------
 {
  const paCode=fn('stepParasitesW')+'\n'+fn('stepParasitesCore');
  const circCode=src.slice(src.indexOf('  function circleInPlate'),src.indexOf('  function stepParasites() {'));
  const buildE=()=>{const xr3=XR(),m3=mkMath(xr3);
-  const env={P:{parasiteOn:1,showHud:1,titleCircles:1,parasiteSight:4000,parasiteNerv:0.6,CELL_RADIUS:34.5,parasiteFrac:0,parasiteDrain:0.02,parasiteEff:0.8,parasiteHard:12,parasiteHardMs:20000,parasiteCursorOn:1,parasiteCursorMs:300,parasiteCursorR:250,parasiteCursorRetK:1.2,parasiteCursorCooldown:2000},
+  const env={P:{parasiteOn:1,showHud:1,titleCircles:1,parasiteSight:4000,parasiteNerv:0.6,CELL_RADIUS:34.5,parasiteFrac:0,parasiteDrain:0.02,parasiteEff:0.8,parasiteHard:12,parasiteHardMs:20000,parasiteCursorOn:1,parasiteCursorMs:300,parasiteCursorR:250,parasiteCursorRetK:1.2,parasiteCursorCooldown:2000,parasiteCursorRearm:50},
    cells:[{x:500,y:400,radius:20,cl:0,alive:true,energy:30,pc:0}],parasites:[{x:180,y:160,e:5,host:null,a:-1e9-1000,ph:0.5,lost:0}],
    circlesNow:[{key:'g',x:120,y:150,r:30}],ev:{},parStat:{rehost:0},mouse:{x:150,y:140,over:true},cont:{x:100,y:100,w:600,h:400},WC:{},location:{search:''},performance:{now:()=>env._now},Math:m3,clamp:(v,l,h)=>v<l?l:v>h?h:v,lerp:(a,b,t2)=>a+(b-a)*t2,_now:1000};
   const f=new Function('env',`with(env){var Math=env.Math,performance=env.performance,clamp=env.clamp,lerp=env.lerp,location=env.location,WC=env.WC,mouse=env.mouse,cont=env.cont;${paCode};${circCode};return {stepParasitesCore,parasiteCircles};}`)(env);
@@ -276,7 +293,7 @@ let bad=0;const out={};
  const li=src.indexOf('(function load() {');let lj=src.indexOf('{',li),d=0,lk=lj;for(;lk<src.length;lk++){if(src[lk]=='{')d++;else if(src[lk]=='}'){d--;if(!d)break;}}
  const loadCode=src.slice(li,lk+1)+')();';
  const store={};const ls={getItem:k=>(k in store)?store[k]:null,setItem:(k,v)=>{store[k]=String(v)},removeItem:k=>{delete store[k]}};
- const CURKEYS=['cursorFleeOn','cursorFleeR','cursorFleePush','cursorFleeWob','cursorFleeJit','cursorFleeDamp','parasiteCursorOn','parasiteCursorMs','parasiteCursorR','parasiteCursorRetK','parasiteCursorCooldown'];
+ const CURKEYS=['cursorFleeOn','cursorFleeR','cursorFleePush','cursorFleeWob','cursorFleeJit','cursorFleeDamp','parasiteCursorOn','parasiteCursorMs','parasiteCursorR','parasiteCursorRetK','parasiteCursorCooldown','parasiteCursorRearm'];
  const env={localStorage:ls,STORE:'ca2.test',STORE_V:6,P:{foodEatR:9},live:{},savedLive:{},rangeBounds:{},autoRefresh:true,lockParams:false,bgTarget:[0,0,0],bg:[0,0,0],bgIndex:0};
  CURKEYS.forEach((k,i)=>env.P[k]=1000+i);
  const mk=code=>new Function('env',`with(env){var localStorage=env.localStorage,STORE=env.STORE,STORE_V=env.STORE_V,P=env.P,live=env.live,savedLive=env.savedLive,rangeBounds=env.rangeBounds,autoRefresh=env.autoRefresh,lockParams=env.lockParams,bgTarget=env.bgTarget,bg=env.bg,bgIndex=env.bgIndex;${code}}`);
