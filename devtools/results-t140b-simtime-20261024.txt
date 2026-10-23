@@ -1,0 +1,5 @@
+pair1 (25s) nowasm: frames949 sdt24989 merge68 fuse18 pair26 eaten123 birth323 death362 divide84 n41; wasm: frames1430 sdt24997 merge82 fuse31 pair39 eaten226 birth424 death388 divide109 n79; same start hash -1442756886
+nowasm=1 n=24 hash=-1442756886 {"frames":1008,"sdt":25000,"n":76,"merge":82,"fuse":18,"pair":28,"eaten":198,"birth":407,"death":365,"divide":95,"sim":false,"simOff":false,"simErr":null,"liveOff":false} []
+wasm n=24 hash=-1442756886 {"frames":1403,"sdt":25017,"n":82,"merge":92,"fuse":30,"pair":36,"eaten":160,"birth":400,"death":375,"divide":77,"sim":true,"simOff":false,"simErr":null,"liveOff":false} []
+nowasm=1 n=24 hash=-1442756886 {"frames":30,"sdt":2864,"n":66,"merge":13,"fuse":2,"pair":5,"eaten":64,"birth":161,"death":125,"divide":45,"sim":false,"simOff":false,"simErr":null,"liveOff":false} []
+NOTE: pair2 above = lines 2,3 (valid). Line 4 (nowasm, frames30 sdt2864) = stalled exposure, INVALID, excluded. Pair3 wasm not run (tool kill at 118s).
