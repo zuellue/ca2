@@ -455,7 +455,7 @@
       cells.push(new Cell(rnd(cont.tw) + gx, rnd(cont.th) + gy, Math.floor(rnd(P.GENE_MIN, P.GENE_MAX + 1)), P.baseMutationRate + rnd(-P.mutationRateRange, P.mutationRateRange)));
     }
     var nf = cont.tw * cont.th * P.foodDensity / 2;
-    for (var j = 0; j < nf; j++) food.push({ x: rnd(cont.tw) + gx, y: rnd(cont.th) + gy, r: Math.random() });
+    for (var j = 0; j < nf; j++) { var fp0 = foodSpot(gx, gy, cont.tw, cont.th); if (fp0) food.push({ x: fp0.x, y: fp0.y, r: Math.random() }); }
     newRefresh();
   }
   // ---- symbiotic metamorphosis: no tween. A refresh sets a new plate and new target traits; the cells keep living by their own rules
@@ -509,7 +509,7 @@
     trans.pending = free; trans.plan = { points: pts.length, dying: order.filter(function (c) { return c.dying; }).length, birthsDue: free.length, from: cells.length };
     // fresh food for the new cycle
     var nf = cont.tw * cont.th * P.foodDensity / 2; if (!P.foodLife) food = [];
-    for (var f = 0; !P.foodLife && f < nf; f++) food.push({ x: gx + rnd(cont.tw), y: gy + rnd(cont.th), r: Math.random() });
+    for (var f = 0; !P.foodLife && f < nf; f++) { var fp1 = foodSpot(gx, gy, cont.tw, cont.th); if (fp1) food.push({ x: fp1.x, y: fp1.y, r: Math.random() }); }
   }
   function stepComposition(now, dt) {
     var i, open = 0, late = now - trans.t0 > trans.dur * 1.5;
@@ -1090,6 +1090,46 @@
     }
     return false;
   }
+  // ---- food and typography (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02): food obeys the cells' letter exclusion. Same mask (SEP.img via sepDiskHit), same
+  // switch (separatorOn + HUD). Spawns resample on the real mask; motion that would enter ink is stopped like a wall (slide
+  // along the free axis, else hold, velocity reflected); no teleport search. Parasites fly and are exempt.
+  function foodInkOn() { return !!(P.separatorOn && P.showHud && SEP.img); }
+  function foodOnInk(x, y) { return foodInkOn() && sepDiskHit(x, y, Math.max(0.5, P.foodSize / 2)); }
+  var inkFrac = { img: null, p: 0 };
+  function foodInkFrac() { // fraction of mask pixels that are ink; recounted once per rebuilt mask
+    if (inkFrac.img === SEP.img) return inkFrac.p;
+    var d = SEP.img, n = SEP.mw * SEP.mh, c = 0; for (var i = 3; i < d.length; i += 4) if (d[i] > 40) c++;
+    inkFrac.img = d; inkFrac.p = n ? c / n : 0; return inkFrac.p;
+  }
+  function foodSpot(x, y, w, h) { // random point in the rect that is not on ink. Draws: enough that a spawn fails only ~1 in 1000 for the current ink share
+    var ink = foodInkOn(), p = ink ? foodInkFrac() : 0, tries = p <= 0 ? 1 : p >= 1 ? 0 : Math.max(1, Math.ceil(Math.log(0.001) / Math.log(p)));
+    for (var t = 0; t < tries; t++) { var px = x + Math.random() * w, py = y + Math.random() * h; if (!ink || !foodOnInk(px, py)) return { x: px, y: py }; }
+    return null; // no free space left (or bad luck): the spawn is skipped, nothing is forced onto ink
+  }
+  function foodMaskPx() { return SEP.mw ? W / SEP.mw : 2; } // one mask pixel in page px: the exact resolution of the ink geometry
+  function foodPushOut(f) { // carried along the shortest way out (first free mask pixel on each of 8 rays, bounded by the page)
+    var st = foodMaskPx(), bk = -1, bl = 1e9;
+    for (var k = 0; k < 8; k++) { var ln = 1, rx = f.x + COS8[k] * st, ry = f.y + SIN8[k] * st; while (ln < bl && rx > 0 && ry > 0 && rx < W && ry < H && foodOnInk(rx, ry)) { ln++; rx += COS8[k] * st; ry += SIN8[k] * st; } if (ln < bl && rx > 0 && ry > 0 && rx < W && ry < H) { bl = ln; bk = k; } }
+    if (bk >= 0) { f.x += COS8[bk] * st * bl; f.y += SIN8[bk] * st * bl; } // carried to the first free mask pixel, as a wall carries a cell
+  }
+  function foodInkGuard() {
+    if (!foodInkOn()) { for (var j = 0; j < food.length; j++) food[j]._pk = 0; return; }
+    var i, f, on, owned, w = 0;
+    for (i = 0; i < food.length; i++) {
+      f = food[i]; owned = f.blob || f.worm || f.spore; on = foodOnInk(f.x, f.y);
+      if (on) {
+        if (f._pk === 1) { // had a free position last frame: do not enter ink
+          if (!foodOnInk(f.x, f._py)) { f.y = f._py; if (f.vy !== undefined) f.vy = -f.vy * 0.5; }
+          else if (!foodOnInk(f._px, f.y)) { f.x = f._px; if (f.vx !== undefined) f.vx = -f.vx * 0.5; }
+          else { f.x = f._px; f.y = f._py; if (f.vx !== undefined) { f.vx = -f.vx * 0.5; f.vy = -f.vy * 0.5; } if (foodOnInk(f.x, f.y)) foodPushOut(f); }
+        } else if (f._pk === 2 || f._pk === 0) { // ink arrived under a resting dot (changing HUD digits, moving title): carried off the ink like a cell off a wall
+          foodPushOut(f);
+        } else if (f._pk === undefined) { if (owned) foodPushOut(f); else { f.gone = 1; continue; } } // newborn dot on ink (a mode's own birth/spawn): refused, density reseed refills elsewhere
+      }
+      f._pk = foodOnInk(f.x, f.y) ? 2 : 1; f._px = f.x; f._py = f.y; food[w++] = f;
+    }
+    food.length = w;
+  }
   function separatorPass() {
     var segs = P.showAxis && axisInfo.segs ? axisInfo.segs : null, mask = P.showHud && SEP.img ? 1 : 0;
     if (!segs && !mask) return;
@@ -1262,7 +1302,7 @@
         for (var ci = 0; ci < cells.length; ci++) { var cc = cells[ci], rr = cc.radius + P.foodEatR + 2 * gs; if (Math.abs(cc.x - cx) < rr && Math.abs(cc.y - cy) < rr && (cc.x - cx) * (cc.x - cx) + (cc.y - cy) * (cc.y - cy) < rr * rr) { ok = false; break; } }
       }
       if (!ok) continue;
-      for (var dx = 0; dx < 3; dx++) for (var dy = 0; dy < 3; dy++) if (Math.random() < 0.55) { food.push({ x: (bx + dx + 0.5) * gs, y: (by + dy + 0.5) * gs, r: Math.random() }); spawned++; }
+      for (var dx = 0; dx < 3; dx++) for (var dy = 0; dy < 3; dy++) if (Math.random() < 0.55 && !foodOnInk((bx + dx + 0.5) * gs, (by + dy + 0.5) * gs)) { food.push({ x: (bx + dx + 0.5) * gs, y: (by + dy + 0.5) * gs, r: Math.random() }); spawned++; }
     }
     reseedBudget -= spawned; foodStat.born += spawned;
   }
@@ -1612,7 +1652,37 @@
       parasites = out; WC.fwPa = (WC.fwPa || 0) + 1; return true;
     } catch (e) { WC.fwPaErr = String(e && e.stack || e); return false; }
   }
-  function stepParasites() {
+  // ---- parasites and letter circles (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02): when the plate grows over the title, a circle of a glyph (its real
+  // font-outline circle from circlesNow) that lies inside the plate looks like a cell to a hostless parasite. A hostless
+  // parasite whose nearest candidate is such a circle (with the same distance rule as cells) takes it for a host and rides it
+  // like a cell body; a real cell closer than the circle, or the circle leaving the plate, ends the mistake. It feeds nothing, so
+  // the ordinary starvation rule (parasiteHardMs / parasiteHard) decides how long a parasite can keep believing.
+  function circleInPlate(c) { var nx = clamp(c.x, cont.x, cont.x + cont.w), ny = clamp(c.y, cont.y, cont.y + cont.h); return Math.hypot(c.x - nx, c.y - ny) < c.r; }
+  function parasiteCircles() {
+    if (!P.parasiteOn || !P.showHud || !P.titleCircles || !circlesNow.length || !parasites.length) { for (var z = 0; z < parasites.length; z++) parasites[z].circ = null; return; }
+    var cand = [], i, j, p, c;
+    for (i = 0; i < circlesNow.length; i++) if (circleInPlate(circlesNow[i])) cand.push(circlesNow[i]);
+    var tt = performance.now() / 1000, nv = P.parasiteNerv, sight2 = P.parasiteSight * P.parasiteSight;
+    for (i = 0; i < parasites.length; i++) {
+      p = parasites[i];
+      if (p.host) { p.circ = null; continue; }
+      if (p.circ) { var cur = null; for (j = 0; j < cand.length; j++) if (cand[j].key === p.circ.key) { cur = cand[j]; break; } p.circ = cur; } // follows the live circle (it moves with the layout) or loses it
+      var bd = sight2, best = null, bc = null;
+      for (j = 0; j < cells.length; j++) { c = cells[j]; if (!c.alive) continue; var d = (c.x - p.x) * (c.x - p.x) + (c.y - p.y) * (c.y - p.y); if (c.cl) d *= 0.5; if (d < bd) { bd = d; best = c; } }
+      var bcd = sight2;
+      for (j = 0; j < cand.length; j++) { var dd = (cand[j].x - p.x) * (cand[j].x - p.x) + (cand[j].y - p.y) * (cand[j].y - p.y); if (dd < bcd) { bcd = dd; bc = cand[j]; } }
+      if (!p.circ && bc && bcd < bd) p.circ = bc; // closest candidate is a circle: believed
+      else if (p.circ && best && bd < (p.circ.x - p.x) * (p.circ.x - p.x) + (p.circ.y - p.y) * (p.circ.y - p.y)) p.circ = null; // a real cell is nearer: the illusion breaks
+      if (!p.circ) continue;
+      if (p._ox !== undefined) { p.x = p._ox; p.y = p._oy; } // the core step also nudged it toward a real cell: the believed circle owns its motion
+      var ph = p.ph || (p.ph = Math.random() * 6.28), osc = Math.sin(tt * (2 + 2 * nv) + ph), dd2 = Math.hypot(p.circ.x - p.x, p.circ.y - p.y) || 1;
+      var want = p.circ.r * (1.1 + 0.5 * nv * (1 + osc)), dir = dd2 > want ? 1 : -0.6 * nv, sp = Math.min(6, Math.max(1.2, dd2 * 0.08)) * (1 + 0.5 * nv * osc); // the cell-chase law of the hostless branch
+      p.x += (p.circ.x - p.x) / dd2 * sp * dir + (Math.random() - 0.5) * 2 * nv; p.y += (p.circ.y - p.y) / dd2 * sp * dir + (Math.random() - 0.5) * 2 * nv;
+      p._ox = p.x; p._oy = p.y;
+    }
+  }
+  function stepParasites() { stepParasitesCore(); parasiteCircles(); }
+  function stepParasitesCore() {
     if (stepParasitesW()) return;
     if (!P.parasiteOn || !cells.length) { parasites.length = 0; return; }
     var target = Math.round(cells.length * P.parasiteFrac), i, c;
@@ -1741,7 +1811,7 @@
       if (el0 >= UI_END) { // time-boxed batches: the spawn never blocks a frame longer than ~6 ms
         var sp = pendingSpawn, bt0 = performance.now();
         while (sp.cells > 0 && performance.now() - bt0 < 6) { cells.push(new Cell(rnd(cont.tw) + sp.gx, rnd(cont.th) + sp.gy, Math.floor(rnd(P.GENE_MIN, P.GENE_MAX + 1)), P.baseMutationRate + rnd(-P.mutationRateRange, P.mutationRateRange))); sp.cells--; }
-        if (el0 >= CELL_END) { var bt1 = performance.now(); while (sp.food > 0 && performance.now() - bt1 < 6) { food.push({ x: rnd(cont.tw) + sp.gx, y: rnd(cont.th) + sp.gy, r: Math.random() }); sp.food--; } }
+        if (el0 >= CELL_END) { var bt1 = performance.now(); while (sp.food > 0 && performance.now() - bt1 < 6) { var fp2 = foodSpot(sp.gx, sp.gy, cont.tw, cont.th); if (fp2) food.push({ x: fp2.x, y: fp2.y, r: Math.random() }); sp.food--; } }
         if (sp.cells <= 0 && sp.food <= 0) pendingSpawn = null;
       }
     }
@@ -1751,14 +1821,14 @@
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     ctx.fillStyle = css(bg, 1); ctx.fillRect(0, 0, W, H);
 
-    if (Math.random() < P.foodDensity && food.length < cont.w * cont.h * P.foodDensity * 2) food.push({ x: rnd(cont.w) + cont.x, y: rnd(cont.h) + cont.y, r: Math.random() });
+    if (Math.random() < P.foodDensity && food.length < cont.w * cont.h * P.foodDensity * 2) { var fp3 = foodSpot(cont.x, cont.y, cont.w, cont.h); if (fp3) food.push({ x: fp3.x, y: fp3.y, r: Math.random() }); }
     if (Math.random() < 0.001 && food.length) food.splice(Math.floor(rnd(food.length)), 1);
     pfm('setup');
     if (P.foodMode === 1 || (P.foodMode === undefined && P.foodLife)) stepFood(); else if (P.foodMode === 2) stepBlobs(); else if (P.foodMode === 3) stepSwarm(); else if (P.foodMode === 4) stepWorms(); else if (P.foodMode === 5) stepSpores();
     if (P.foodMode !== 2 && P.foodMode !== 4 && P.foodMode !== 5) reseedFood(dtf); // structured modes keep their own populations
     pfm('food step');
     if (P.foodMode !== 4 && worms.length) wipeWorms(); if (P.foodMode !== 5 && spores.length) wipeSpores();
-    foodKeepIn(); pfm('foodKeepIn');
+    foodKeepIn(); foodInkGuard(); pfm('foodKeepIn');
 
     if (trans) stepTrans(t0, dtf);
     pfm('stepTrans');
@@ -1868,7 +1938,7 @@
       put(String(bc), eased.b, 'right', W - M, botBase);
       put(String(rc), eased.r, 'left', M, botBase);
       put(String(gc), eased.g, 'center', cxm, botBase);
-      if (SEP.mc) { SEP.img = SEP.mc.getImageData(0, 0, SEP.c.width, SEP.c.height).data; SEP.mw = SEP.c.width; SEP.mh = SEP.c.height; separatorPass(); separatorCollectivePass(); } // re-resolve against this frame's actual glyphs before bodies are drawn
+      if (SEP.mc) { SEP.img = SEP.mc.getImageData(0, 0, SEP.c.width, SEP.c.height).data; SEP.mw = SEP.c.width; SEP.mh = SEP.c.height; separatorPass(); separatorCollectivePass(); foodInkGuard(); } // re-resolve against this frame's actual glyphs before bodies are drawn
     }
 
     if(P.separatorOn&&!P.showHud)separatorCollectivePass();
@@ -1904,6 +1974,7 @@
       for (i = 0; i < worms.length; i++) wallPull(worms[i], P.foodSize / 2, false);
       for (i = 0; i < food.length; i++) { var ff = food[i]; if (!ff.blob && !ff.worm) wallPull(ff, P.foodSize / 2, false); }
     }
+    foodInkGuard(); // the boundary carry above can move dots onto ink: re-resolve before the dots are drawn
     if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 4) drawWorms(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 5) drawSpores(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) { var fd2 = food[i]; if (fd2.r < P.foodShow && introOn(CELL_END + fd2.r * (FOOD_END - CELL_END))) { var fs2 = fd2.fed > 0 && P.habitatFedShow > 0 ? fs * (1 + Math.min(3, fd2.fed * P.habitatFedShow)) : fs, fh2 = fs2 / 2; ctx.fillRect(fd2.x - fh2, fd2.y - fh2, fs2, fs2); } } ctx.globalAlpha = 1; } // food first: it sits under the cells
     pfm('sim+ui draw'); curS = DPR * res; if (cells.length || t0 - fadeT0 > INTRO_MS) { var tmb = performance.now(); drawMetaballs(curS); MB.ms = MB.ms * 0.9 + (performance.now() - tmb) * 0.1; MB.path = gOn ? 'GPU' : (WC.ok && !WC.off ? (WC.simd ? 'wasm-simd' : 'wasm') : 'JS'); } pfm('metaballs total'); // an empty intro plate skips the full-buffer pass
     if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { var pp2 = parasites[i]; if (!fadeA('pa' + i)) continue;
@@ -1917,11 +1988,19 @@
       var dh2 = ta2 - pp2.h; while (dh2 > 3.1416) dh2 -= 6.2832; while (dh2 < -3.1416) dh2 += 6.2832;
       pp2.h += dh2 * (1 - Math.exp(-dtf * 0.012)); pp2.px = pp2.x; pp2.py = pp2.y;
       var psz = P.parasiteSize > 0 ? P.parasiteSize : 1; // owner 22 Oct: size knob, 1 = the shipped size; manual entry is never clamped
-      var ux2 = Math.cos(pp2.h), uy2 = Math.sin(pp2.h), vx2 = -uy2, vy2 = ux2, bw2 = 2.965 * psz * (1 + 0.12 * Math.sin(t0 * 0.0565 + (pp2.ph || 0)));
-      ctx.beginPath();
-      ctx.moveTo(pp2.x + ux2 * 3.43 * psz, pp2.y + uy2 * 3.43 * psz);
-      ctx.lineTo(pp2.x - ux2 * 1.71 * psz + vx2 * bw2, pp2.y - uy2 * 1.71 * psz + vy2 * bw2);
-      ctx.lineTo(pp2.x - ux2 * 1.71 * psz - vx2 * bw2, pp2.y - uy2 * 1.71 * psz - vy2 * bw2);
+      // user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02: wing tips slightly rounded, flap more apparent and coordinated with the motion.
+      // Speed (smoothed px/frame) scales both beat rate and depth; at rest the beat is the shipped ~9 Hz, only a bit deeper (12% -> 22%).
+      var spd2 = pp2.fx === undefined ? 0 : Math.hypot(pp2.x - pp2.fx, pp2.y - pp2.fy); pp2.fx = pp2.x; pp2.fy = pp2.y;
+      pp2.sp = (pp2.sp || 0) + (Math.min(spd2, 6) - (pp2.sp || 0)) * 0.15;
+      pp2.fp = (pp2.fp === undefined ? (pp2.ph || 0) : pp2.fp) + dtf * 0.0565 * (1 + 0.12 * pp2.sp);
+      var fl2 = Math.sin(pp2.fp), amp2 = 0.22 + 0.025 * pp2.sp;
+      var ux2 = Math.cos(pp2.h), uy2 = Math.sin(pp2.h), vx2 = -uy2, vy2 = ux2, bw2 = 2.965 * psz * (1 + amp2 * fl2), rr2 = (1.71 - 0.35 * fl2) * psz, rad2 = 0.5 * psz;
+      var ax2 = pp2.x + ux2 * 3.43 * psz, ay2 = pp2.y + uy2 * 3.43 * psz, lx2 = pp2.x - ux2 * rr2 + vx2 * bw2, ly2 = pp2.y - uy2 * rr2 + vy2 * bw2, mx2 = pp2.x - ux2 * rr2 - vx2 * bw2, my2 = pp2.y - uy2 * rr2 - vy2 * bw2;
+      ctx.beginPath(); // the two base corners (wing tips) rounded with arcTo
+      ctx.moveTo((ax2 + lx2) / 2, (ay2 + ly2) / 2);
+      ctx.arcTo(lx2, ly2, mx2, my2, rad2);
+      ctx.arcTo(mx2, my2, ax2, ay2, rad2);
+      ctx.lineTo(ax2, ay2);
       ctx.fill(); } ctx.globalAlpha = 1; }
 
     // area outline: no rounded corners. Each side stops `corner` px short of both ends, so the corner lines never meet.
@@ -3397,7 +3476,7 @@
         var v;
         if (mob) v = (mb2[k] !== undefined) ? mb2[k] : MOBILE_SEED[k];
         else v = (g[k] !== undefined) ? g[k] : MOBILE_SEED[k]; // no desktop source offline: keep the seed value
-        if (mob && profActive() === 'L') { var lmz = landMap(); if (lmz[k] !== undefined) v = lmz[k]; } // the LANDSCAPE mirror wins over the portrait layer (owner 23 Oct)
+        if (mob && profActive() === 'L') { var lmz = landMap(); if (lmz[k] !== undefined) v = lmz[k]; } // the LANDSCAPE mirror wins over the portrait layer (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02)
         if (v === undefined) return;
         // device-profile default, NOT a user edit: seedKey. setKey would mark the key touched and pin it against
         // the bounded morph deal forever (CR never moved on mobile / small viewports - measured tg.cr frozen at the seed).
@@ -3478,7 +3557,7 @@
       if (c.w > bw.hi) c.w = bw.hi;
       if (c.h > bh.hi) c.h = bh.hi;
     })();
-    // ---- orientation profiles (owner 23 Oct): PORTRAIT is the existing mobile layer, unchanged. LANDSCAPE is a
+    // ---- orientation profiles (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02): PORTRAIT is the existing mobile layer, unchanged. LANDSCAPE is a
     // mirror profile: only the parameters changed while in LANDSCAPE are overridden; everything else follows
     // PORTRAIT live. Overrides travel inside the global's _mobile._land (the Worker merges _mobile whole) with the
     // device-local mirror on top, so a phone keeps its unsaved landscape edits across reloads.
@@ -3529,7 +3608,7 @@
       if (curProf === 'L') diffBase = readCfgP(); // my own save above must not read back as edits
       lpPaint();
     }
-    // edits made while LANDSCAPE is active are the mirror's content (owner 23 Oct). Capture = keys the core marked
+    // edits made while LANDSCAPE is active are the mirror's content (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02). Capture = keys the core marked
     // touched whose persisted (save()-written, morph-target) value changed: user edits only. Layer seeds, global
     // pulls, boot deals and in-flight morphs neither mark touched nor call save, so they can never pollute the mirror.
     function captureLand() { // returns true when the mirror changed; safe to call any time, cheap
@@ -3544,7 +3623,7 @@
     }
     setInterval(function () { captureLand(); }, 400); // the cadence for unsaved edits; saves sweep synchronously below
     window.addEventListener('resize', function () { if (mode === 'm' && !prof.active) applyProf(); }); // unpinned: follow the window aspect
-    // ---- L / P circles (owner 23 Oct): top-left corner, same family as the login circles - hover (or the touch
+    // ---- L / P circles (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02): top-left corner, same family as the login circles - hover (or the touch
     // press) paints a random RGB and grows the circle into a pill spelling the full word; a tap switches profile
     var lpw = null, lpEls = {};
     window.__ca2ProfFollow = function () { prof.active = null; profSave(); applyProf(); }; // device.html: the frame's viewport aspect decides the profile
@@ -3576,7 +3655,7 @@
         function rgb() { return 'rgb(' + Math.floor(Math.random() * 256) + ',' + Math.floor(Math.random() * 256) + ',' + Math.floor(Math.random() * 256) + ')'; }
         function grow() { if (b.classList.contains('x')) return; b.classList.add('x'); b.style.width = (Math.max(28, b.querySelector('s').getBoundingClientRect().width + 24)) + 'px'; var c = rgb(); b.style.background = c; b.style.borderColor = c; var m = /rgb\((\d+),(\d+),(\d+)\)/.exec(c); var lum = m ? (0.299 * m[1] + 0.587 * m[2] + 0.114 * m[3]) : 0; b.style.color = lum > 150 ? '#111' : '#fff'; }
         function shrink() { b.classList.remove('x'); b.style.width = ''; b.style.background = ''; b.style.borderColor = ''; b.style.color = ''; }
-        b.addEventListener('pointerenter', grow); // the login-circle hover language: random colour + the full word (owner 23 Oct)
+        b.addEventListener('pointerenter', grow); // the login-circle hover language: random colour + the full word (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02)
         b.addEventListener('pointerleave', shrink);
         b.addEventListener('click', function () {
           var k = pair[0];
@@ -3586,7 +3665,7 @@
           setTimeout(function () { if (!b.matches(':hover')) shrink(); }, 900);
         });
       });
-      // the profile switcher is an admin instrument (owner 23 Oct): it mounts with admin and leaves with ca2logout
+      // the profile switcher is an admin instrument (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02): it mounts with admin and leaves with ca2logout
       var lpOn = false;
       var inFrame = MODE_Q && window.parent !== window; // the device.html host owns the P/L circles (top-left of its black screen); nothing inside the preview
       function lpMount() { if (lpOn || inFrame) return; lpOn = true; document.body.appendChild(lpw); lpPaint(); }
@@ -3595,19 +3674,19 @@
       setInterval(function () { if (window.__adminOn) lpMount(); else lpDrop(); }, 500);
     })();
     // admin saves reroute into _mobile (owner 21 Oct): the desktop lane's Worker module calls this hook right
-    // before POSTing an admin save (owner 23 Oct contract). Sync, never mutates its argument, never throws:
+    // before POSTing an admin save (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02 contract). Sync, never mutates its argument, never throws:
     // null = post the original body, an object = post it as the full replacement body (a Promise of either is
     // accepted by the caller). PORTRAIT keeps the 21 Oct shape: the whole effective mobile config into _mobile,
     // sent whole because the Worker merges shallowly. LANDSCAPE writes the same whole portrait config PLUS
-    // _mobile._land = only the keys actually changed while in LANDSCAPE - the mirror (owner 23 Oct).
+    // _mobile._land = only the keys actually changed while in LANDSCAPE - the mirror (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02).
     // admin saves reroute into _mobile (owner 21 Oct): the desktop lane's Worker module calls this hook right
-    // before POSTing an admin save (owner 23 Oct contract). body = the full POST object {code, patch:{...}};
+    // before POSTing an admin save (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02 contract). body = the full POST object {code, patch:{...}};
     // returns null (= post the original) or a full replacement body - never mutates, never throws, sync (a
     // returned Promise is also accepted by the caller). Mobile shape: the patch's config keys collapse into
     // patch._mobile as a JSON STRING (the Worker merges patches shallowly, so _mobile travels whole, like
     // _live). PORTRAIT keeps the 21 Oct whole-config shape; LANDSCAPE writes the whole PORTRAIT-effective
     // config with the mirror backed out PLUS _mobile._land = only the keys actually changed in LANDSCAPE
-    // (owner 23 Oct). A PORTRAIT save preserves the stored mirror. Desktop saves pass through (null).
+    // (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02). A PORTRAIT save preserves the stored mirror. Desktop saves pass through (null).
     window.__ca2RewriteAdminPatch = function (body, ctx) {
       try {
         if (!body || typeof body !== 'object' || !body.patch || typeof body.patch !== 'object') return null;
