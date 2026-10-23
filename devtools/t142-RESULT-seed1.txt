@@ -1,5 +1,5 @@
 # t142 controlled-step A/B, seed 1 only (n=1), 18:01 on 23 Oct
-# Candidate: wasm-cluster rebased on main a07c677 (ca2.js sha256 39523f7479a8f320...). Instrumented harness copy ca2.js sha256 c2cf8b1d25b8bb2b05d66031eaec1854ed4c3dc9868613f71fc1a5873b3651a7 PLUS a frame() exposure hook (window.__frameFn, no behavior change); built with sed from the candidate, see t142 header.
+# Candidate: wasm-cluster rebased on main a07c677 (ca2.js sha256 39523f7479a8f320...). Instrumented harness copy ca2.js sha256 bc6202dcc896cf46177aefc95c63063203f7bc2546bd5e42010b03c2ce426c18 (counter window.__sf plus frame() exposure hook window.__frameFn, no behavior change; the earlier c2cf8b1d hash was before the hook); built with sed from the candidate, see t142 header.
 # Setup: 60 cells in 300x200 box at (230,130), food cleared, start hash 1088739379 in both modes, Math.random seeded (seed 1), performance.now = fake clock +16.667 ms per frame, rAF disabled, frame() driven synchronously 600 times. 760x460 window, visuals trimmed.
 # NOT lockstep: wasm reseeds per frame from Math.random, JS draws directly, so RNG streams are unmirrored and trajectories diverge. Not a parity claim.
 # Harness note: first attempt printed nothing and hit the 100 s timeout. Cause: harness ReferenceError (window_traj referenced inside the in-page eval). Fixed; not a CPU failure.
