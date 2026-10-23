@@ -1,0 +1,57 @@
+mode 1 n 302,137,76,36,18,16,16,16,29,56,28,22,9,4,5,4,6,15,18,23 
+onInk 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 mask true errs 0
+mode 2 n 922,209,21,1,0,1,1,4,6,8,12,6,10,8,11,15,11,16,9,9 
+onInk 4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 mask true errs 0
+mode 3 n 430,240,172,114,94,73,54,37,21,16,17,9,9,15,22,21,22,23,37,26 
+onInk 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 mask true errs 0
+mode 4 n 226,89,30,13,10,14,13,13,12,13,24,24,31,34,22,24,14,13,10,8 
+onInk 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 mask true errs 0
+mode 5 n 3,0,0,6,8,12,17,28,32,33,35,32,29,29,25,30,42,55,26,4 
+onInk 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 mask true errs 0
+n 0,10,8,6,7,8,6,7,8,4,4,3 
+onInk 0,0,0,0,0,0,0,0,0,0,0,0 errs 0
+before {"cont":[194,100,371,259,370.93370424562056,259.73082057325877],"inPlate":11,"circles":22}
+after grow {"cont":[120,73,519,313],"inPlate":13}
+setup {"key":"R5_2","r":15,"nearestCell":96,"sight":60}
+0 {"alive":true,"circ":"R5_0","d":24,"host":false,"e":8,"sp":0.4,"fp":16.8}
+1 {"alive":true,"circ":"R5_0","d":22,"host":false,"e":8,"sp":0.6,"fp":36.8}
+2 {"alive":true,"circ":"R5_0","d":22,"host":false,"e":8,"sp":0.7,"fp":53.3}
+3 {"alive":true,"circ":"R5_0","d":28,"host":false,"e":8,"sp":1.23,"fp":70.1}
+4 {"alive":true,"circ":"R5_0","d":29,"host":false,"e":8,"sp":1.87,"fp":86.8}
+5 {"alive":true,"circ":"R5_0","d":25,"host":false,"e":8,"sp":1.98,"fp":110.5}
+6 {"alive":true,"circ":"R5_0","d":21,"host":false,"e":8,"sp":1.83,"fp":127.5}
+7 {"alive":true,"circ":null,"d":null,"host":false,"e":8,"sp":2.06,"fp":156.2}
+8 {"alive":true,"circ":null,"d":null,"host":true,"e":8,"sp":2.49,"fp":173.7}
+9 {"alive":true,"circ":null,"d":null,"host":true,"e":8.03,"sp":3.07,"fp":193.3}
+10 {"alive":true,"circ":null,"d":null,"host":true,"e":8.05,"sp":2.48,"fp":213}
+11 {"alive":true,"circ":null,"d":null,"host":true,"e":8.07,"sp":2.99,"fp":233.4}
+12 {"alive":true,"circ":null,"d":null,"host":true,"e":8.1,"sp":3.55,"fp":253.8}
+13 {"alive":true,"circ":null,"d":null,"host":true,"e":8.13,"sp":3.48,"fp":280.5}
+14 {"alive":true,"circ":null,"d":null,"host":true,"e":8.15,"sp":2.94,"fp":299.9}
+15 {"alive":true,"circ":null,"d":null,"host":true,"e":8.16,"sp":3.37,"fp":319.3}
+16 {"alive":true,"circ":null,"d":null,"host":true,"e":8.17,"sp":4.38,"fp":340.6}
+17 {"alive":true,"circ":null,"d":null,"host":true,"e":8.18,"sp":5.01,"fp":362.5}
+18 {"alive":true,"circ":null,"d":null,"host":true,"e":8.21,"sp":4.98,"fp":393}
+19 {"alive":true,"circ":null,"d":null,"host":true,"e":8.24,"sp":5.01,"fp":415.8}
+20 {"alive":true,"circ":null,"d":null,"host":true,"e":8.26,"sp":5.06,"fp":438.4}
+21 {"alive":true,"circ":null,"d":null,"host":true,"e":8.28,"sp":5.12,"fp":461}
+22 {"alive":true,"circ":null,"d":null,"host":true,"e":8.31,"sp":4.14,"fp":483.1}
+23 {"alive":true,"circ":null,"d":null,"host":true,"e":8.34,"sp":3.94,"fp":510.9}
+24 {"alive":true,"circ":null,"d":null,"host":true,"e":8.36,"sp":3.65,"fp":531.6}
+25 {"alive":true,"circ":null,"d":null,"host":true,"e":8.38,"sp":3.01,"fp":551.2}
+26 {"alive":true,"circ":null,"d":null,"host":true,"e":8.39,"sp":3.52,"fp":571.7}
+27 {"alive":true,"circ":null,"d":null,"host":true,"e":8.4,"sp":3.73,"fp":590.9}
+28 {"alive":true,"circ":null,"d":null,"host":true,"e":8.42,"sp":3.97,"fp":611.8}
+29 {"alive":true,"circ":null,"d":null,"host":true,"e":8.45,"sp":4.03,"fp":632.9}
+30 {"alive":true,"circ":null,"d":null,"host":true,"e":8.47,"sp":4.03,"fp":653.7}
+31 {"alive":true,"circ":null,"d":null,"host":true,"e":8.49,"sp":4.71,"fp":675.4}
+32 {"alive":true,"circ":null,"d":null,"host":true,"e":8.52,"sp":4.12,"fp":697.2}
+33 {"alive":true,"circ":null,"d":null,"host":true,"e":8.54,"sp":3.48,"fp":717.5}
+34 {"alive":true,"circ":null,"d":null,"host":true,"e":8.57,"sp":4.29,"fp":745.6}
+35 {"alive":true,"circ":null,"d":null,"host":true,"e":8.6,"sp":4.52,"fp":766.9}
+36 {"alive":true,"circ":null,"d":null,"host":true,"e":8.62,"sp":5.09,"fp":789.4}
+37 {"alive":true,"circ":null,"d":null,"host":true,"e":8.63,"sp":4.49,"fp":811.5}
+38 {"alive":true,"circ":null,"d":null,"host":true,"e":8.64,"sp":5.08,"fp":833.9}
+39 {"alive":true,"circ":null,"d":null,"host":true,"e":8.64,"sp":5.43,"fp":857.7}
+errs 0
+DONE
