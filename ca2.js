@@ -320,11 +320,18 @@
   // the average inter-letter whitespace of the title words, measured from advance widths and ink boxes, never hardcoded
   // (owner 21 Oct: the three-line title's line gap equals the letter spacing)
   var tmCache = { fs: 0, trk: 0, inkTL: 0, inkTR: 0 };
+  // letter gap (advance minus ink, per letter) is only ~2% of the type size, so a browser that pads or rounds the
+  // ink box (older WebKit suspicion) can collapse it to ~0 and the three-line spacing (trk * titleLead) vanishes while the
+  // layout still works. Ca2-Thin is a bundled font, so its gap is a known constant (measured 0.017-0.025 of the size in
+  // Chrome, mean 0.0205): a measured gap below half of that is a metric artefact and is replaced. Sane measurements keep
+  // their own value unchanged.
+  var TRK_FONT = 0.0205;
   function titleMetrics(fs) {
     if (tmCache.fs === fs) return tmCache;
     var w1 = ctx.measureText(TL).width, i1 = inkLR(TL), w2 = ctx.measureText(TR).width, i2 = inkLR(TR);
-    tmCache = { fs: fs, inkTL: i1[1] - i1[0], inkTR: i2[1] - i2[0],
-      trk: ((w1 - (i1[1] - i1[0])) / (TL.length - 1) + (w2 - (i2[1] - i2[0])) / (TR.length - 1)) / 2 };
+    var trk = ((w1 - (i1[1] - i1[0])) / (TL.length - 1) + (w2 - (i2[1] - i2[0])) / (TR.length - 1)) / 2, ref = TRK_FONT * fs;
+    if (!(trk >= ref * 0.5)) trk = ref; // also catches NaN
+    tmCache = { fs: fs, inkTL: i1[1] - i1[0], inkTR: i2[1] - i2[0], trk: trk };
     return tmCache;
   }
   var rsbCache = { key: '', dx: 0, done: false };
