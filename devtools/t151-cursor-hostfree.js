@@ -30,8 +30,8 @@ const fx=await b.ev(`(function(){var cn=__ca2.getCont(),fz={x:cn.x,y:cn.y,w:cn.w
 log('fixture',fx);
 await b.sleep(1500);await b.shot('/tmp/t149-0.png');
 await b.sleep(10000);await b.shot('/tmp/t149-1.png');
-await b.sleep(10000);await b.shot('/tmp/t149-2.png');await b.sleep(12000);await b.ev(`(function(){window.__moveAt=performance.now();document.querySelector('canvas').dispatchEvent(new MouseEvent('mousemove',{bubbles:true,clientX:49+75,clientY:159}));return 1})()`);await b.sleep(9000);
-const tr=JSON.parse(await b.ev('JSON.stringify(window.__tr)'));const mvAt=+(await b.ev('window.__moveAt'));log('cursor moved 75px (TEST-ONLY synthetic mousemove) at series t',((mvAt-tr[0].t)/1000).toFixed(1));
+await b.sleep(10000);await b.shot('/tmp/t149-2.png');await b.sleep(12000);await b.ev(`(function(){window.__moveAt=performance.now();var k=0,cvv=document.querySelector('canvas');var iv=setInterval(function(){k++;cvv.dispatchEvent(new MouseEvent('mousemove',{bubbles:true,clientX:49+k*12,clientY:159}));if(k>=10)clearInterval(iv)},250);return 1})()`);await b.sleep(9000);
+const tr=JSON.parse(await b.ev('JSON.stringify(window.__tr)'));const mvAt=+(await b.ev('window.__moveAt'));log('cursor moved 120px in 10 steps of 12px/250ms (TEST-ONLY synthetic mousemove) at series t',((mvAt-tr[0].t)/1000).toFixed(1));
 const st=a=>a===null?'-':a<=-2e9?'cool':a<=-1e9?'bel':'0';
 const inside=r=>r.x>r.cx&&r.x<r.cx+r.cw&&r.y>r.cy&&r.y<r.cy+r.ch;
 log('series t:x,y,state,host,inside', tr.map(r=>((r.t-tr[0].t)/1000).toFixed(1)+':'+r.x+','+r.y+','+st(r.a)+(r.h?'H':'')+(inside(r)?'IN':'out')).join(' '));
