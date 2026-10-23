@@ -1,0 +1,13 @@
+wasm {"n":45,"round":35,"lobed":10,"births":46,"sim":true} []
+nosim=1 {"n":21,"round":4,"lobed":17,"births":44,"sim":false} []
+wasm {"n":39,"round":34,"lobed":5,"births":40,"sim":true} []
+nosim=1 {"n":49,"round":26,"lobed":23,"births":55,"sim":false} []
+wasm {"n":40,"round":3,"lobed":37,"births":41,"sim":true} []
+nosim=1 {"n":55,"round":13,"lobed":42,"births":61,"sim":false} []
+wasm {"n":100,"round":27,"lobed":73,"births":57,"sim":true} []
+nosim=1 {"n":34,"round":14,"lobed":20,"births":38,"sim":false} []
+wasm {"n":54,"round":12,"lobed":42,"births":61,"sim":true} []
+nosim=1 {"n":99,"round":29,"lobed":70,"births":77,"sim":false} []
+wasm {"n":40,"round":39,"lobed":1,"births":40,"sim":true} []
+nosim=1 {"n":38,"round":10,"lobed":28,"births":40,"sim":false} []
+DONE
