@@ -904,6 +904,7 @@
     } catch (e) { gOK = false; gl = null; if (window.console) console.warn('ca2: WebGL field off, CPU path', e && e.message); }
   })();
   var gT0 = 0, gN = 0, gC = new Float32Array(GMAX * 4), gW = new Float32Array(GMAX * 4);
+  var gTC = new Float32Array(GMAX * 4), gTW = new Float32Array(GMAX * 4), GTILE = 256; // tiled draw: per-tile culled source lists (buffer px)
   function drawMetaballs(S) {
     gOn = false;
     if (gOK && !gl.isContextLost()) {
@@ -917,8 +918,29 @@
         var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
         if (glc.width !== bw || glc.height !== bh) { glc.width = bw; glc.height = bh; }
         gl.viewport(0, 0, bw, bh); gl.useProgram(gProg);
-        gl.uniform4fv(gU.uC, gC); gl.uniform4fv(gU.uW, gW); gl.uniform1i(gU.uN, n); gl.uniform1f(gU.uS, S); gl.uniform1f(gU.uH, bh); gl.uniform1f(gU.uTH, TH); gl.uniform1f(gU.uBand, TH * 0.08);
-        gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        gl.uniform1f(gU.uS, S); gl.uniform1f(gU.uH, bh); gl.uniform1f(gU.uTH, TH); gl.uniform1f(gU.uBand, TH * 0.08);
+        gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+        var txN = Math.ceil(bw / GTILE), tyN = Math.ceil(bh / GTILE);
+        if (txN * tyN <= 1 || n <= 64) { // one tile or few sources: the full pass is already cheap
+          gl.uniform4fv(gU.uC, gC); gl.uniform4fv(gU.uW, gW); gl.uniform1i(gU.uN, n);
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        } else { // tiled: each pixel loops only the sources whose influence square reaches its tile (same per-pixel formula, pixel-identical)
+          gl.enable(gl.SCISSOR_TEST);
+          for (var ty = 0; ty < tyN; ty++) for (var tx = 0; tx < txN; tx++) {
+            var x0 = tx * GTILE / S, y0 = ty * GTILE / S, x1 = Math.min(bw, (tx + 1) * GTILE) / S, y1 = Math.min(bh, (ty + 1) * GTILE) / S, m = 0;
+            for (i = 0; i < n; i++) {
+              var sx = gC[i * 4], sy = gC[i * 4 + 1], sr = gC[i * 4 + 3];
+              if (sx + sr < x0 || sx - sr > x1 || sy + sr < y0 || sy - sr > y1) continue;
+              gTC[m * 4] = sx; gTC[m * 4 + 1] = sy; gTC[m * 4 + 2] = gC[i * 4 + 2]; gTC[m * 4 + 3] = sr;
+              gTW[m * 4] = gW[i * 4]; gTW[m * 4 + 1] = gW[i * 4 + 1]; gTW[m * 4 + 2] = gW[i * 4 + 2]; m++;
+            }
+            if (!m) continue;
+            gl.uniform4fv(gU.uC, gTC.subarray(0, m * 4)); gl.uniform4fv(gU.uW, gTW.subarray(0, m * 4)); gl.uniform1i(gU.uN, m);
+            gl.scissor(tx * GTILE, bh - Math.min(bh, (ty + 1) * GTILE), Math.min(GTILE, bw - tx * GTILE), Math.min(GTILE, bh - ty * GTILE));
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+          }
+          gl.disable(gl.SCISSOR_TEST);
+        }
         pfm('gpu:draw+field'); gT0 = performance.now();
         ctx.imageSmoothingEnabled = false; ctx.drawImage(glc, 0, 0, bw, bh, cont.x, cont.y, cont.w, cont.h); ctx.globalAlpha = 1; pfm('gpu:drawImage'); if (++gN > 40 && PF['gpu:drawImage'] + PF['gpu:draw+field'] > 90 && !/[?&]gpu=1/.test(location.search)) gOK = false; // too slow on this machine: back to the CPU path
         gSnap = { n: n, S: S, bw: bw, bh: bh, TH: TH }; gOn = true; return;
