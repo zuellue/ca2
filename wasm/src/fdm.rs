@@ -131,7 +131,7 @@ fn rem_pio2_large(x: f64) -> (i32, f64, f64) {
 const MAXA: f64 = 8.2e5;
 // Out-of-domain flag: set when an argument is beyond the verified medium-range reduction (|x| > 8.2e5). The result is then libm's (NOT V8-equal); callers must check take_ood() and return an error so JS computes that call.
 static mut OOD: bool = false;
-static mut LARGE: bool = false; // full-range Payne-Hanek reduction for |x| > 8.2e5 (off by default until verified; test flips via fdm_set_large)
+static mut LARGE: bool = true; // full-range Payne-Hanek reduction for |x| > 8.2e5 (off by default until verified; test flips via fdm_set_large)
 #[no_mangle] pub extern "C" fn fdm_set_large(v: i32) { unsafe { LARGE = v != 0; } }
 pub fn in_domain(x: f64) -> bool { (hi(x) & 0x7fffffff) <= 0x413921fb || x.abs() <= MAXA || !x.is_finite() || unsafe { LARGE } }
 pub fn take_ood() -> bool { unsafe { let v = OOD; OOD = false; v } }

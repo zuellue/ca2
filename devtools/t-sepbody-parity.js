@@ -13,7 +13,7 @@ let s=4242;const rnd=()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};
 let tot=0,nMis=0,maxAbs=0,maxUlp=0,bndAbs=0,byT=[0,0,0],over=0;
 for(let t=0;t<20000;t++){
  const P=J.P,cont=J.cont;cont.x=rnd()*200;cont.y=rnd()*100;cont.w=200+rnd()*1200;cont.h=100+rnd()*700;P.boundGap=rnd()<0.5?0:rnd()*60;P.metaballStrength=0.5+rnd()*2;P.THRESHOLD=0.3+rnd()*1.5;P.cellShapes=rnd()<0.9?1:0;
- const T=rnd()*100000;J.setT(T);
+ const T=rnd()*(+process.env.TMAX||100000);J.setT(T);
  const ty=Math.floor(rnd()*3),sh=rnd()<0.1?undefined:{t:ty,asp:1+rnd()*4,th:0.4+rnd()*0.8,dir:rnd()*6.28-3.14,wsp:rnd()*2,ph:rnd()*6.28,wig:rnd(),sat:1+Math.floor(rnd()*4),ph2:rnd()*6.28};
  const c={x:cont.x+(rnd()*1.2-0.1)*cont.w,y:cont.y+(rnd()*1.2-0.1)*cont.h,radius:2+rnd()*40,shp:sh};
  const ref=J.sepBody(c);
