@@ -3,7 +3,7 @@
 const http=require('http'),fs=require('fs'),path=require('path');
 const ROOT=path.join(__dirname,'..'),M={'.html':'text/html','.js':'text/javascript','.ttf':'font/ttf','.png':'image/png','.svg':'image/svg+xml'};
 const ANCHOR='get axisInfo() { return axisInfo; },';
-const EXTRA=' get foodList() { return food; }, get cellList() { return cells; }, get parasiteList() { return parasites; }, get circleList() { return circlesNow; }, get contBox() { return cont; }, get sepState() { return SEP; },';
+const EXTRA=' get foodList() { return food; }, get cellList() { return cells; }, get parasiteList() { return parasites; }, get circleList() { return circlesNow; }, get contBox() { return cont; }, get sepState() { return SEP; }, get fleeT() { return fleeT; }, get frameDtf() { return frameDtf; },';
 const GA='    food.length = w;\n  }\n  function separatorPass()';
 const GH='    food.length = w;\n    if (window.__gh) window.__gh(food, foodOnInk);\n  }\n  function separatorPass()';
 exports.serve=port=>new Promise(res=>{const s=http.createServer((req,rsp)=>{
