@@ -133,3 +133,13 @@ All results stamped commit 0cc5add, one page session, swiftshader, gl.readPixels
 - n>GMAX regression: setGmaxTest(32), live n=947 -> gpuState on=false (pack bail -> CPU), candidate vs baseline CPU render bad=0 maxd=0 same input.
 - Perf (frozen same scene n=970, 1680x506, 1px readPixels forced completion, interleaved 40s passes t/f/f/t): tiled 17 frames p50 5136/5029ms, full 8 frames p50 11408/11068ms -> ~2.2x swiftshader wall direction ONLY; no Mac/general claim.
 - Visual: /tmp shots t120-tiled.png (wip default tiled live) and t120-full.png (forced full) both show the normal field, no seams/banding; HUD "metaball field: GPU" confirms GPU path live.
+
+## Round 8 (2026-10-23) — live artifact sorusu kapandı (kanıt: capture yöntemi + sayfa UI'ı)
+- Soru: t123 live screenshot'ta (800×357, rAF-freeze) siyah kare bloklar / büyük siyah diskler / kesik field bölgeleri → parent temiz kanıt saymadı.
+- Bulgular:
+  - Siyah disk/kareler sayfanın kendi config-lane UI'ı: aynı deployed byte'larla (3cac619) localhost res=1, 800×357, autoQuality off capture'da (t125) birebir aynı düzen.
+  - Canlı doğal-frame capture (t124, dondurma yok): tiled vs full yapısal aynı, dark-pixel %6.8 / %6.8, field her iki modda düzgün.
+  - t123'teki kareli/noktalı doku yalnız freeze shot'ta → capture yöntemi artifact'ı (mid-composite frame).
+  - Live readback 0-diff korunuyor: cmpGpuPaths 0/4.17M, cmpGmax384 0/5.07M, t119cluster candVsFullDiff=0.
+  - Kaba görünüm nedeni (çıkarım, HUD destekli): autoQuality swiftshader'da res'i 0.35–0.40'a düşürüyor; res=1 local capture temiz.
+- Sonuç: gerçek defect yok, rollback yok. origin/main = 3cac619. Toggle dry-run hazır (drawMetaballs default false, 1 satır).
