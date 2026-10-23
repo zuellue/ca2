@@ -3399,10 +3399,10 @@
       var st = document.createElement('style');
       st.textContent = '#lpl{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:calc(8px + env(safe-area-inset-left,0px));z-index:70;display:none;gap:8px;font-family:inherit}' +
         'body[data-camode="m"] #lpl{display:flex}' +
-        '.lpc{position:relative;height:calc(var(--sd,26px)*1.2);min-width:calc(var(--sd,26px)*1.2);width:calc(var(--sd,26px)*1.2);box-sizing:border-box;border-radius:999px;border:1.5px solid var(--fg,#111);background:transparent;color:var(--fg,#111);padding:0 10px;cursor:pointer;overflow:hidden;white-space:nowrap;transition:width .38s cubic-bezier(.4,0,.2,1),background .38s,color .38s,border-color .38s;font-size:12px;letter-spacing:.14em;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;touch-action:manipulation}' +
+        '.lpc{position:relative;height:var(--lpd,28px);min-width:var(--lpd,28px);width:var(--lpd,28px);box-sizing:border-box;border-radius:999px;border:1.5px solid var(--fg,#111);background:transparent;color:var(--fg,#111);padding:0 10px;cursor:pointer;overflow:hidden;white-space:nowrap;transition:width .38s cubic-bezier(.4,0,.2,1),background .38s,color .38s,border-color .38s;font-size:12px;letter-spacing:.14em;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;touch-action:manipulation}' +
         '.lpc i{font-style:normal}' +
         '.lpc s{display:none;text-decoration:none;font-weight:600}' +
-        '.lpc.x{width:auto}.lpc.x i{display:none}.lpc.x s{display:inline}' +
+        '.lpc.x i{display:none}.lpc.x s{display:inline}' +
         '.lpc.on{border-width:2.5px}' +
         '.lpc.pin:after{content:"";position:absolute;right:4px;top:4px;width:5px;height:5px;border-radius:50%;background:currentColor}';
       document.head.appendChild(st);
@@ -3412,8 +3412,8 @@
         var i = document.createElement('i'); i.textContent = pair[0]; var s = document.createElement('s'); s.textContent = pair[1];
         b.appendChild(i); b.appendChild(s); lpw.appendChild(b); lpEls[pair[0]] = b;
         function rgb() { return 'rgb(' + Math.floor(Math.random() * 256) + ',' + Math.floor(Math.random() * 256) + ',' + Math.floor(Math.random() * 256) + ')'; }
-        function grow() { if (b.classList.contains('x')) return; b.classList.add('x'); var c = rgb(); b.style.background = c; b.style.borderColor = c; var m = /rgb\((\d+),(\d+),(\d+)\)/.exec(c); var lum = m ? (0.299 * m[1] + 0.587 * m[2] + 0.114 * m[3]) : 0; b.style.color = lum > 150 ? '#111' : '#fff'; }
-        function shrink() { b.classList.remove('x'); b.style.background = ''; b.style.borderColor = ''; b.style.color = ''; }
+        function grow() { if (b.classList.contains('x')) return; b.classList.add('x'); b.style.width = (Math.max(28, b.querySelector('s').getBoundingClientRect().width + 24)) + 'px'; var c = rgb(); b.style.background = c; b.style.borderColor = c; var m = /rgb\((\d+),(\d+),(\d+)\)/.exec(c); var lum = m ? (0.299 * m[1] + 0.587 * m[2] + 0.114 * m[3]) : 0; b.style.color = lum > 150 ? '#111' : '#fff'; }
+        function shrink() { b.classList.remove('x'); b.style.width = ''; b.style.background = ''; b.style.borderColor = ''; b.style.color = ''; }
         b.addEventListener('pointerenter', grow); // the login-circle hover language: random colour + the full word (owner 23 Oct)
         b.addEventListener('pointerleave', shrink);
         b.addEventListener('click', function () {
