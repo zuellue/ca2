@@ -17,6 +17,7 @@ console.log('t119',tag,'synth16',await b.ev('window.__ca2.t119synth(32,1000)'));
 await b.ev('window.__ca2.setGmaxTest(32)'); // force overflow in the LIVE path
 await b.sleep(1500);
 console.log('t119',tag,'liveOverflowGpuOn',await b.ev('JSON.stringify(window.__ca2.gpuState())'));
-console.log('t119',tag,'liveOverflowCmp',await b.ev('window.__ca2.cmp()')); // under forced overflow BOTH cmp arms render via CPU fallback: bad=0 proves the visible frame is the exact CPU field, not the clamped GPU render
+console.log('t119',tag,'overflowCost',await b.ev('window.__ca2.cmpOverflowCost()')); // same frozen input: baseline GPU full pass vs candidate overflow CPU fallback raster delta
+console.log('t119',tag,'overflowBaseline',await b.ev('window.__ca2.cmpOverflowBaseline()')); // same frozen input: candidate overflow frame vs live-baseline renderer at that frame
 await b.ev('window.__ca2.setGmaxTest(0)');
 b.close();s.close();process.exit(0)})().catch(e=>{console.error(e);process.exit(1)});

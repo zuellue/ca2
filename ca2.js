@@ -2023,6 +2023,26 @@
           }
         })();
       });
+    }, cmpOverflowCost: function () { // the overflow-frame raster cost, measured: SAME frozen source array through (a) the GPU full pass (= live baseline c20cb7e behavior at real GMAX) and (b) drawMetaballsCPU (= candidate overflow fallback); diff rule identical to cmp()
+      if (!gOK) return 'nogl';
+      var S = curS, src = buildSources(), ms = P.metaballStrength, TH = P.THRESHOLD, n = Math.min(src.n, gShaderMax || GMAX), i;
+      var C = new Float32Array(n * 4), W = new Float32Array(n * 4);
+      for (i = 0; i < n; i++) { C[i * 4] = src.x[i]; C[i * 4 + 1] = src.y[i]; C[i * 4 + 2] = ms * src.r[i] * src.r[i]; C[i * 4 + 3] = src.r[i] * Math.max(3, Math.sqrt(ms / (TH * 0.03))); W[i * 4] = src.wr[i]; W[i * 4 + 1] = src.wg[i]; W[i * 4 + 2] = src.wb[i]; }
+      var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
+      if (glc.width !== bw || glc.height !== bh) { glc.width = bw; glc.height = bh; }
+      gpuDraw(C, W, n, bw, bh, S, false); gl.finish(); var a = new Uint8Array(bw * bh * 4); gl.readPixels(0, 0, bw, bh, gl.RGBA, gl.UNSIGNED_BYTE, a);
+      var sv = ctx.drawImage; ctx.drawImage = function () {}; drawMetaballsCPU(S); ctx.drawImage = sv;
+      var cd = img.data, bad = 0, mx = 0, lit = 0;
+      for (var p = 0; p < bw * bh; p++) { var q = p * 4, ga = a[q + 3], ca = cd[q + 3]; var d = Math.abs(ga - ca); if (ca > 0 || ga > 0) { lit++; if (ca > 250 && ga > 250) d = Math.max(d, Math.abs(a[q] - cd[q]), Math.abs(a[q + 1] - cd[q + 1]), Math.abs(a[q + 2] - cd[q + 2])); } if (d > 8) bad++; if (d > mx) mx = d; }
+      return JSON.stringify({ px: bw * bh, lit: lit, bad: bad, maxd: mx, n: n, note: 'a=GPU full (baseline), b=CPU field (overflow fallback); same frozen sources' });
+    }, cmpOverflowBaseline: function () { // the literal parent gate: candidate overflow-trigger frame vs live-baseline behavior at the SAME input. With overflow forced (setGmaxTest), (a) drawMetaballs = candidate (GPU attempt, gOv>0 -> CPU fallback), (b) drawMetaballsCPU direct = main c20cb7e behavior at n>GMAX. Same synchronous task => buildSources frozen between calls.
+      if (!gOK) return 'nogl';
+      var S = curS, sv = ctx.drawImage; ctx.drawImage = function () {};
+      drawMetaballs(S); var gpuOnAfter = gOn, ov = gOv, a = new Uint8ClampedArray(img.data);
+      drawMetaballsCPU(S); var b = img.data, bad = 0, mx = 0;
+      ctx.drawImage = sv;
+      for (var i = 0; i < a.length; i++) { var d = Math.abs(a[i] - b[i]); if (d > 8) bad++; if (d > mx) mx = d; }
+      return JSON.stringify({ bytes: a.length, bad: bad, maxd: mx, ov: ov, gpuOn: gpuOnAfter, note: 'a=candidate drawMetaballs (overflow->CPU), b=baseline drawMetaballsCPU; same frozen sources' });
     }, t119synth: function (cap, count) { // deterministic subdivision gate: a fixed grid of small-reach sources so subdivision fires WITHOUT leaf clamping; full vs tiled must be bit-identical
       if (!gOK) return 'nogl';
       var oldG = GMAX; GMAX = cap | 0 || 64;
