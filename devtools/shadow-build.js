@@ -9,7 +9,7 @@ cp.execSync('rm -rf '+out+' && mkdir -p '+out+' && cd '+root+' && tar --exclude=
 let s=fs.readFileSync(path.join(root,'ca2.js'),'utf8');
 function rep1(a,b){const i=s.indexOf(a);if(i<0||s.indexOf(a,i+1)>=0)throw new Error('anchor not unique/found: '+a.slice(0,60));s=s.slice(0,i)+b+s.slice(i+a.length);}
 // 1 seeds capture
-rep1('E.sim_step(Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));','E.sim_step(__SH.s0 = Math.floor(Math.random() * 4294967296), __SH.s1 = Math.floor(Math.random() * 4294967296));');
+rep1('E.sim_step(Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));','__SH.rn0 = E.sim_rng_n ? E.sim_rng_n() : -1; E.sim_step(__SH.s0 = Math.floor(Math.random() * 4294967296), __SH.s1 = Math.floor(Math.random() * 4294967296)); __SH.rn1 = E.sim_rng_n ? E.sim_rng_n() : -1; __SH.rl = E.sim_rnlog_len ? Array.from(new Float64Array(WC.mem.buffer, E.sim_rnlog_ptr(), E.sim_rnlog_len())) : [];');
 // 2 helpers before simW
 const helpers=`
   var __M64 = (1n << 64n) - 1n;
@@ -37,17 +37,17 @@ rep1('  function simW(tmpRef, wcl) {',helpers+'  function simW(tmpRef, wcl) {');
 const loopStart='    if (!simDone) for (var i = cells.length - 1; i >= 0; i--) {';
 const li=s.indexOf(loopStart),le=s.indexOf('    if (!simDone) SIMW.js =',li);
 if(li<0||le<0)throw new Error('loop slice not found');
-const loopSrc=s.slice(li,le).replace('if (!simDone) for','for');
+const loopSrc=s.slice(li,le).replace('if (!simDone) for','for').replace('var c = cells[i]; update(c);','var c = cells[i]; __SH.jl.push(__rg.n); update(c);');
 const callA='var tmpR = { v: null }, tj0 = performance.now(), simDone = simW(tmpR, wcl);';
 const callB='var tmpR = { v: null }, tj0 = performance.now(), __shPre = (__SH.on && wcl && simCanRun() && !P.habitatOn) ? __shSnap() : null, simDone = simW(tmpR, wcl);';
 rep1(callA,callB);
 const afterA='if (simDone) { tmpHover = tmpR.v; hoverCell = tmpR.hc; }';
 const block=`
-    if (simDone && __shPre) { __SH.frames++; var __wHov = hovering, __wTmp = tmpHover, __wHC = hoverCell, __wSn = __shSnap(); __shRestore(__shPre); var __oldR = Math.random, __rg = __xorSeed(__SH.s0, __SH.s1); Math.random = __rg;
+    if (simDone && __shPre) { __SH.frames++; var __wHov = hovering, __wTmp = tmpHover, __wHC = hoverCell, __wSn = __shSnap(); __shRestore(__shPre); var __oldR = Math.random, __rg = __xorSeed(__SH.s0, __SH.s1); Math.random = __rg; __SH.jl = []; __SH.tags = []; if (!__SH.first) { var __inner = __rg; Math.random = function () { var st = (new Error().stack || '').split(String.fromCharCode(10)); __SH.tags.push(String(st[2] || '').slice(0, 70)); return __inner(); }; }
       try { cmean = {}; jsCluster(); hovering = false; tmpHover = [255, 255, 255]; hoverCell = null;
 ${loopSrc}
       } finally { Math.random = __oldR; }
-      var __jSn = __shSnap();
+      var __jSn = __shSnap(); __SH.jl0 = __SH.jl.slice();
       if (__SH.self) { __shRestore(__shPre); Math.random = __rg = __xorSeed(__SH.s0, __SH.s1); try { cmean = {}; jsCluster(); hovering = false; tmpHover = [255, 255, 255]; hoverCell = null;
 ${loopSrc}
       } finally { Math.random = __oldR; } var __j2 = __shSnap(), __sd = __shCmp(__jSn, __j2); __SH.selfFrames = (__SH.selfFrames || 0) + 1; if (__sd.length) { __SH.selfBad = (__SH.selfBad || 0) + 1; if (!__SH.selfFirst) __SH.selfFirst = __sd; } }
@@ -55,7 +55,7 @@ ${loopSrc}
       var __jHov = [hovering, JSON.stringify(tmpHover), hoverCell ? cells.indexOf(hoverCell) : -1], __wH = [__wHov, JSON.stringify(__wTmp), __wHC ? __wSn.cells.indexOf(__wHC) : -1];
       if (JSON.stringify(__jHov) !== JSON.stringify(__wH)) __dd.push({ w1: 'hover', wasm: __wH, js: __jHov });
       __shRestore(__wSn); hovering = __wHov; tmpHover = __wTmp; hoverCell = __wHC;
-      if (__dd.length && !__SH.first) { __SH.first = { strIdx: __wSn.f.map(function (c, i) { return c.shp && c.shp.t === 1 ? i : -1; }).filter(function (i) { return i >= 0; }), badIdx: __SH.badIdx.slice(), frame: __SH.frames, nCells: __wSn.f.length, diffs: __dd, drawsMirror: __rg.n, seeds: [__SH.s0, __SH.s1], preCell0: __shPre.f.slice(0, 2), wasmCell0: __wSn.f.slice(0, 2), jsCell0: __jSn.f.slice(0, 2) }; __SH.on = false; } }
+      if (__dd.length && !__SH.first) { __SH.first = { tags: __SH.tags, rl: __SH.rl && __SH.rl.map(function (v) { return v - __SH.rl[0]; }), jl: __SH.jl0, rustDraws: __SH.rn1 - __SH.rn0, feat: __shPre.f.map(function (c, i) { return [i, c.cl || 0, c.sym, c.shp ? c.shp.t : -1, c.hostility, c.comp || 0, c.alive ? 1 : 0, +(c.radius).toFixed(1), c.age != null ? 1 : 0, c.rem || 0]; }), strIdx: __wSn.f.map(function (c, i) { return c.shp && c.shp.t === 1 ? i : -1; }).filter(function (i) { return i >= 0; }), badIdx: __SH.badIdx.slice(), frame: __SH.frames, nCells: __wSn.f.length, diffs: __dd, drawsMirror: __rg.n, seeds: [__SH.s0, __SH.s1], preCell0: __shPre.f.slice(0, 2), wasmCell0: __wSn.f.slice(0, 2), jsCell0: __jSn.f.slice(0, 2) }; __SH.on = false; } }
 `;
 rep1(afterA,afterA+block);
 fs.writeFileSync(path.join(out,'ca2.js'),s);
