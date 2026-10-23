@@ -273,3 +273,4 @@ static mut SHT: [f64; 28] = [0.0; 28];
 
 #[no_mangle] pub extern "C" fn sim_jsrnd() -> u32 { sim::JSRND as u32 }
 #[no_mangle] pub extern "C" fn sim_birth_ptr() -> *mut f64 { sim::sim().birth.as_mut_ptr() }
+#[no_mangle] pub extern "C" fn sim_dbg_ptr() -> *mut f64 { sim::sim().dbg.as_mut_ptr() }

@@ -15,13 +15,13 @@ pub struct Sim {
     pub fx: Vec<f64>, pub fy: Vec<f64>, pub fgone: Vec<f64>, pub nf: usize,
     pub cm_id: Vec<f64>, pub cm: Vec<f64>, // per cluster: vx,vy,x,y,e (stride 5)
     pub p: Vec<f64>, pub out: Vec<f64>,
-    s0: u64, s1: u64, live: usize, pub log: Vec<f64>, pub shp: Vec<f64>, pub birth: Vec<f64>, t_ms: f64,
+    s0: u64, s1: u64, live: usize, pub log: Vec<f64>, pub shp: Vec<f64>, pub birth: Vec<f64>, pub dbg: Vec<f64>, t_ms: f64,
 }
 pub static mut SIM: Option<Sim> = None;
 pub fn sim() -> &'static mut Sim {
     unsafe {
         let s = &mut *std::ptr::addr_of_mut!(SIM);
-        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 100], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new(), shp: Vec::new(), birth: Vec::new(), t_ms: 0.0 }); }
+        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 100], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new(), shp: Vec::new(), birth: Vec::new(), dbg: Vec::new(), t_ms: 0.0 }); }
         s.as_mut().unwrap()
     }
 }
@@ -501,7 +501,10 @@ impl Sim {
         for i in (0..n0).rev() {
             self.out[30] = i as f64;
             let oi = self.p[P_ONLYINT] != 0.0;
+            if self.dbg.len() < n0 * 4 { self.dbg.resize(n0 * 4, 0.0); }
+            self.dbg[i * 4] = self.g(i, EN);
             if !oi { self.update(i); self.check_survival(i); }
+            self.dbg[i * 4 + 1] = self.g(i, EN);
             let (x, y, rad) = (self.g(i, X), self.g(i, Y), self.g(i, RAD));
             if over && hyp(mx - x, my - y) < rad && x > cx && x < cx + cw && y > cy && y < cy + ch {
                 hovering = true; hov_i = i as f64;
@@ -523,7 +526,9 @@ impl Sim {
                 let (a1, a2) = (self.rnd01(), self.rnd01());
                 self.set(i, VX, self.g(i, VX) + (a1 - 0.5) * ms2 * 2.0); self.set(i, VY, self.g(i, VY) + (a2 - 0.5) * ms2 * 2.0);
             }
+            self.dbg[i * 4 + 2] = self.g(i, EN);
             if self.p[P_BOUND] != 0.0 && self.p[P_ONLYINT] != 1.0 && self.alive(i) { self.keep_in(i); }
+            self.dbg[i * 4 + 3] = self.g(i, EN);
             if !self.alive(i) { self.out[9] += 1.0; self.set(i, REM, 1.0); self.live -= 1; }
         }
         self.out[10] = self.p[P_CLSEQ]; self.out[11] = if hovering { 1.0 } else { 0.0 };

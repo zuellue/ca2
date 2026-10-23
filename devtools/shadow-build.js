@@ -51,7 +51,7 @@ ${loopSrc}
       if (__SH.self) { __shRestore(__shPre); Math.random = __rg = __xorSeed(__SH.s0, __SH.s1); try { cmean = {}; jsCluster(); hovering = false; tmpHover = [255, 255, 255]; hoverCell = null;
 ${loopSrc}
       } finally { Math.random = __oldR; } var __j2 = __shSnap(), __sd = __shCmp(__jSn, __j2); __SH.selfFrames = (__SH.selfFrames || 0) + 1; if (__sd.length) { __SH.selfBad = (__SH.selfBad || 0) + 1; if (!__SH.selfFirst) __SH.selfFirst = __sd; } }
-      var __dd = __shCmp(__wSn, __jSn); __SH.compared++; if (!__SH.first) { __SH.rtag1 = __SH.recdt.slice(); __SH.oc1 = __SH.oc; } __SH.drawsMirror += __rg.n; __SH.cellsSeen += __wSn.f.length;
+      var __dd = __shCmp(__wSn, __jSn); __SH.compared++; if (!__SH.first) { __SH.rtag1 = __SH.recdt.slice(); __SH.oc1 = __SH.oc; __SH.dbg1 = __SH.dbg; } __SH.drawsMirror += __rg.n; __SH.cellsSeen += __wSn.f.length;
       var __jHov = [hovering, JSON.stringify(tmpHover), hoverCell ? cells.indexOf(hoverCell) : -1], __wH = [__wHov, JSON.stringify(__wTmp), __wHC ? __wSn.cells.indexOf(__wHC) : -1];
       if (JSON.stringify(__jHov) !== JSON.stringify(__wH)) __dd.push({ w1: 'hover', wasm: __wH, js: __jHov });
       __shRestore(__wSn); hovering = __wHov; tmpHover = __wTmp; hoverCell = __wHC;
@@ -59,11 +59,11 @@ ${loopSrc}
 `;
 rep1(afterA,afterA+block);
 if(process.env.JSRND){ // jsrnd variant: Rust draws through env.js_rnd from the real stream; record them and REPLAY the same values into the JS fallback (exact, covers births)
-  rep1('E.sim_step(0, 0);','window.__SH.rec = []; window.__SH.rtag = []; E.sim_step(0, 0); window.__SH.recd = window.__SH.rec; window.__SH.recdt = window.__SH.rtag; window.__SH.oc = Array.from(new Float64Array(WC.mem.buffer, E.sim_out(), 32)); window.__SH.rec = null;');
+  rep1('E.sim_step(0, 0);','window.__SH.rec = []; window.__SH.rtag = []; E.sim_step(0, 0); window.__SH.recd = window.__SH.rec; window.__SH.recdt = window.__SH.rtag; window.__SH.oc = Array.from(new Float64Array(WC.mem.buffer, E.sim_out(), 32)); window.__SH.dbg = E.sim_dbg_ptr ? Array.from(new Float64Array(WC.mem.buffer, E.sim_dbg_ptr(), 4 * Math.min(8, E.sim_out ? 8 : 0))) : null; window.__SH.rec = null;');
   rep1('js_rnd: function (ln) { return Math.random(); }','js_rnd: function (ln) { var v = '+(process.env.JSRND_PRNG?"(window.__pr = window.__pr || (function(){var a=123456789;return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296+((a>>>0)/4294967296)/4294967296;};})())()":"Math.random()")+'; if (window.__SH && window.__SH.rec) { window.__SH.rec.push(v); (window.__SH.rtag = window.__SH.rtag || []).push([new Float64Array(WC.mem.buffer, WC.e.sim_out(), 32)[30], ln]); } return v; }');
   const i0=s.indexOf('function __xorSeed'),i1=s.indexOf('var __SH = window.__SH');
   s=s.slice(0,i0)+'function __xorSeed() { var L = __SH.recd || [], k = 0; var f = function () { f.n++; return L[k++]; }; f.n = 0; f.len = L.length; return f; }\n  '+s.slice(i1);
-  s=s.replace("__SH.compared++; if (!__SH.first) { __SH.rtag1 = __SH.recdt.slice(); __SH.oc1 = __SH.oc; } __SH.drawsMirror += __rg.n;","__SH.compared++; if (!__SH.first) { __SH.rtag1 = __SH.recdt.slice(); __SH.oc1 = __SH.oc; } __SH.drawsMirror += __rg.n; __SH.recTotal = (__SH.recTotal||0) + __SH.recd.length; if (__rg.n !== __SH.recd.length) { __SH.drawMis = (__SH.drawMis||0)+1; if(!__SH.drawMisFirst) __SH.drawMisFirst = [__rg.n, __SH.recd.length]; }");
+  s=s.replace("__SH.compared++; if (!__SH.first) { __SH.rtag1 = __SH.recdt.slice(); __SH.oc1 = __SH.oc; __SH.dbg1 = __SH.dbg; } __SH.drawsMirror += __rg.n;","__SH.compared++; if (!__SH.first) { __SH.rtag1 = __SH.recdt.slice(); __SH.oc1 = __SH.oc; __SH.dbg1 = __SH.dbg; } __SH.drawsMirror += __rg.n; __SH.recTotal = (__SH.recTotal||0) + __SH.recd.length; if (__rg.n !== __SH.recd.length) { __SH.drawMis = (__SH.drawMis||0)+1; if(!__SH.drawMisFirst) __SH.drawMisFirst = [__rg.n, __SH.recd.length]; }");
 }
 
 fs.writeFileSync(path.join(out,'ca2.js'),s);
