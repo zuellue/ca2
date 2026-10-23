@@ -1139,7 +1139,14 @@
   function separatorPass() {
     var segs = P.showAxis && axisInfo.segs ? axisInfo.segs : null, mask = P.showHud && SEP.img ? 1 : 0;
     if (!segs && !mask) return;
-    if (sepWOn()) { try { sepPassW(segs, mask); return; } catch (e) { WC.sepErr = String(e); } } // Rust/wasm (sep2.rs); JS below is the fallback (?nowasm=1 / ?nosim=1 / ?nosepw=1)
+    if (sepWOn()) {
+      var sepSnap = new Float64Array(cells.length * 5), sj; // pre-pass state of every field the wasm pass may write: a fault restores it before the JS fallback runs, so no cell is processed twice
+      for (sj = 0; sj < cells.length; sj++) { var sc = cells[sj], sb = sj * 5; sepSnap[sb] = sc.x; sepSnap[sb + 1] = sc.y; sepSnap[sb + 2] = sc.vx; sepSnap[sb + 3] = sc.vy; sepSnap[sb + 4] = sc.radius; }
+      try { sepPassW(segs, mask); return; } catch (e) {
+        WC.sepOff = true; WC.sepErr = String(e); // no wasm retry on later frames
+        for (sj = 0; sj < sepSnap.length / 5; sj++) { var rc = cells[sj], rb = sj * 5; rc.x = sepSnap[rb]; rc.y = sepSnap[rb + 1]; rc.vx = sepSnap[rb + 2]; rc.vy = sepSnap[rb + 3]; rc.radius = sepSnap[rb + 4]; }
+      }
+    } // Rust/wasm (sep2.rs); JS below is the fallback (?nowasm=1 / ?nosim=1 / ?nosepw=1)
     for (var i = 0; i < cells.length; i++) {
       var c = cells[i]; if (!c.alive) continue;
       var r = c.radius * Math.sqrt(Math.max(0, P.metaballStrength) / Math.max(0.001, P.THRESHOLD)) + Math.min(LW(), 1 / DD) / 2, j, dx, dy, d, nx, ny;
