@@ -1112,9 +1112,44 @@
     }
     return false;
   }
+  var SEPTRIG = null;
+  function sepWOn() { var E = WC.e; return !!(E && E.sep2_phase_a && WC.ok && !WC.off && !WC.simOff && !WC.sepOff && !/[?&](nosim|nosepw)=1/.test(location.search)); }
+  // Rust/wasm separatorPass (ca2core sep2.rs). Per cell: phase A (segment crossing, wedge, radius wear) -> JS sepBody(c) (emitCell, owning-source semantics stay JS)
+  // -> phase B (lobe-vs-hairline, ink search, plate wall). Views are re-created after every alloc (memory growth detaches them).
+  function sepPassW(segs, mask) {
+    var E = WC.e, ns = segs ? segs.length : 0, i, k;
+    var pp = E.sep2_alloc(0, 64), sp = E.sep2_alloc(1, Math.max(1, ns * 4)), cp = E.sep2_alloc(2, 16);
+    if (mask && (WC.sepMaskSrc !== SEP.img)) { var n4 = SEP.img.length, mp = E.sep2_alloc(4, n4); new Uint8Array(WC.mem.buffer, mp, n4).set(SEP.img); WC.sepMaskSrc = SEP.img; pp = E.sep2_alloc(0, 64); sp = E.sep2_alloc(1, Math.max(1, ns * 4)); cp = E.sep2_alloc(2, 16); }
+    var pv = new Float64Array(WC.mem.buffer, pp, 64), sv = new Float64Array(WC.mem.buffer, sp, Math.max(1, ns * 4));
+    pv.set([P.metaballStrength, P.THRESHOLD, P.CELL_RADIUS, P.boundForce || 0.8, P.boundGap || 0, Math.min(LW(), 1 / DD) / 2, cont.x, cont.y, cont.w, cont.h, lay().fs, SEP.mw || 0, SEP.mh || 0, mask ? 1 : 0, ns, segs ? 1 : 0]);
+    if (!SEPTRIG) { SEPTRIG = []; for (k = 0; k < 24; k++) SEPTRIG.push(Math.cos(k * Math.PI / 12), Math.sin(k * Math.PI / 12)); }
+    pv.set(SEPTRIG, 16);
+    for (i = 0; i < ns; i++) sv.set(segs[i], i * 4);
+    for (i = 0; i < cells.length; i++) {
+      var c = cells[i]; if (!c.alive) continue;
+      var cv = new Float64Array(WC.mem.buffer, cp, 16);
+      cv[0] = c.x; cv[1] = c.y; cv[2] = c.vx; cv[3] = c.vy; cv[4] = c.radius; cv[5] = c._sepX === undefined ? NaN : c._sepX; cv[6] = c._sepY === undefined ? NaN : c._sepY;
+      var need = E.sep2_phase_a(); cv = new Float64Array(WC.mem.buffer, cp, 16);
+      c.x = cv[0]; c.y = cv[1]; c.vx = cv[2]; c.vy = cv[3]; c.radius = cv[4];
+      if (!need) continue;
+      var body = sepBody(c), bn = body.n, bp = E.sep2_alloc(3, 2 + 3 * bn); cp = E.sep2_alloc(2, 16);
+      var bv = new Float64Array(WC.mem.buffer, bp, 2 + 3 * bn); bv[0] = bn; bv[1] = body.bound;
+      for (k = 0; k < bn; k++) { bv[2 + k] = body.x[k]; bv[2 + bn + k] = body.y[k]; bv[2 + 2 * bn + k] = body.r[k]; }
+      E.sep2_phase_b(); cv = new Float64Array(WC.mem.buffer, cp, 16);
+      c.x = cv[0]; c.y = cv[1]; c.vx = cv[2]; c.vy = cv[3];
+    }
+  }
   function separatorPass() {
     var segs = P.showAxis && axisInfo.segs ? axisInfo.segs : null, mask = P.showHud && SEP.img ? 1 : 0;
     if (!segs && !mask) return;
+    if (sepWOn()) {
+      var sepSnap = new Float64Array(cells.length * 5), sj; // pre-pass state of every field the wasm pass may write: a fault restores it before the JS fallback runs, so no cell is processed twice
+      for (sj = 0; sj < cells.length; sj++) { var sc = cells[sj], sb = sj * 5; sepSnap[sb] = sc.x; sepSnap[sb + 1] = sc.y; sepSnap[sb + 2] = sc.vx; sepSnap[sb + 3] = sc.vy; sepSnap[sb + 4] = sc.radius; }
+      try { sepPassW(segs, mask); return; } catch (e) {
+        WC.sepOff = true; WC.sepErr = String(e); // no wasm retry on later frames
+        for (sj = 0; sj < sepSnap.length / 5; sj++) { var rc = cells[sj], rb = sj * 5; rc.x = sepSnap[rb]; rc.y = sepSnap[rb + 1]; rc.vx = sepSnap[rb + 2]; rc.vy = sepSnap[rb + 3]; rc.radius = sepSnap[rb + 4]; }
+      }
+    } // Rust/wasm (sep2.rs); JS below is the fallback (?nowasm=1 / ?nosim=1 / ?nosepw=1)
     for (var i = 0; i < cells.length; i++) {
       var c = cells[i]; if (!c.alive) continue;
       var r = c.radius * Math.sqrt(Math.max(0, P.metaballStrength) / Math.max(0.001, P.THRESHOLD)) + Math.min(LW(), 1 / DD) / 2, j, dx, dy, d, nx, ny;
