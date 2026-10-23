@@ -2459,7 +2459,7 @@
     }
     else if (k === 'foodDensity') {
       var nf = Math.round(cont.w * cont.h * P.foodDensity / 2);
-      while (food.length < nf) food.push({ x: cont.x + rnd(cont.w), y: cont.y + rnd(cont.h), r: Math.random() });
+      for (var fg = 0, fq; food.length < nf && fg < nf; fg++) { fq = foodSpot(cont.x, cont.y, cont.w, cont.h); if (fq) food.push({ x: fq.x, y: fq.y, r: Math.random() }); } // out-of-frame spawn: same ink exclusion as every other spawn site (a skipped spawn counts against the bound)
       if (food.length > nf) food.length = nf;
     }
     else if (k === 'minRefreshInterval' || k === 'maxRefreshInterval') newRefresh();

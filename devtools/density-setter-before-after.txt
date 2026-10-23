@@ -1,0 +1,21 @@
+{"name":"ink text d=0","nf":0,"n":0,"onInk":0,"nan":0,"ms":0}
+{"name":"ink text d=0.025","nf":225,"n":225,"onInk":0,"nan":0,"ms":1}
+{"name":"ink text d=0.5 high","nf":4500,"n":4500,"onInk":0,"nan":0,"ms":9}
+{"name":"free band d=0.025","nf":225,"n":225,"onInk":0,"nan":0,"ms":2}
+{"name":"free band d=0.5","nf":4500,"n":4500,"onInk":0,"nan":0,"ms":8}
+{"name":"no free (all ink) d=0.025","nf":225,"n":0,"onInk":0,"nan":0,"ms":0}
+{"name":"no free d=0.5","nf":4500,"n":0,"onInk":0,"nan":0,"ms":0}
+{"name":"ink off d=0.025","nf":225,"n":225,"onInk":64,"nan":0,"ms":1}
+{"name":"ink off d=0.5","nf":4500,"n":4500,"onInk":1326,"nan":0,"ms":2}
+PASS (no ink, finite, bounded by nf)
+--- BEFORE (b4888710)
+{"name":"ink text d=0","nf":0,"n":0,"onInk":0,"nan":0,"ms":0}
+{"name":"ink text d=0.025","nf":225,"n":225,"onInk":81,"nan":0,"ms":0}
+{"name":"ink text d=0.5 high","nf":4500,"n":4500,"onInk":1459,"nan":0,"ms":2}
+{"name":"free band d=0.025","nf":225,"n":225,"onInk":192,"nan":0,"ms":0}
+{"name":"free band d=0.5","nf":4500,"n":4500,"onInk":3859,"nan":0,"ms":1}
+{"name":"no free (all ink) d=0.025","nf":225,"n":225,"onInk":225,"nan":0,"ms":0}
+{"name":"no free d=0.5","nf":4500,"n":4500,"onInk":4500,"nan":0,"ms":3}
+{"name":"ink off d=0.025","nf":225,"n":225,"onInk":66,"nan":0,"ms":0}
+{"name":"ink off d=0.5","nf":4500,"n":4500,"onInk":1473,"nan":0,"ms":0}
+FAIL
