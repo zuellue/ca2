@@ -1,8 +1,9 @@
 // deterministic unit test of the parasite/glyph-circle belief rules (pure node). Extracts circleInPlate + parasiteCircles from ca2.js.
-const fs=require('fs'),src=fs.readFileSync(__dirname+'/../ca2.js','utf8');
+const fs=require('fs'),WASM=process.argv[2],src=fs.readFileSync(__dirname+'/../ca2.js','utf8');
 const a=src.indexOf('  function circleInPlate'),b=src.indexOf('  function stepParasites() {');
 const code=src.slice(a,b);
-function mk(o){const env=Object.assign({P:{parasiteOn:1,showHud:1,titleCircles:1,parasiteSight:4000,parasiteNerv:0},clamp:(v,l,h)=>Math.max(l,Math.min(h,v)),cont:{x:100,y:100,w:400,h:300},circlesNow:[],cells:[],parasites:[],performance:{now:()=>0},Math},o);
+const E=WASM?new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync(__dirname+'/../'+WASM)),{}).exports:null;
+function mk(o){const env=Object.assign({WC:E?{e:E,mem:E.memory,ok:true}:{},location:{search:''},P:{parasiteOn:1,showHud:1,titleCircles:1,parasiteSight:4000,parasiteNerv:0},clamp:(v,l,h)=>Math.max(l,Math.min(h,v)),cont:{x:100,y:100,w:400,h:300},circlesNow:[],cells:[],parasites:[],performance:{now:()=>0},Math},o);
  return {env,f:new Function(...Object.keys(env),code+';return {parasiteCircles,circleInPlate};')(...Object.values(env))};}
 let fail=0;const ok=(n,c)=>{console.log((c?'PASS ':'FAIL ')+n);if(!c)fail++;};
 // 1 circle outside plate is never a target

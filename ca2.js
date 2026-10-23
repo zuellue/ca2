@@ -1783,7 +1783,41 @@
   // like a cell body; a real cell closer than the circle, or the circle leaving the plate, ends the mistake. It feeds nothing, so
   // the ordinary starvation rule (parasiteHardMs / parasiteHard) decides how long a parasite can keep believing.
   function circleInPlate(c) { var nx = clamp(c.x, cont.x, cont.x + cont.w), ny = clamp(c.y, cont.y, cont.y + cont.h); return Math.hypot(c.x - nx, c.y - ny) < c.r; }
+  function wingGeomW(vis, dtf) { // Rust/wasm wing geometry + heading/flap state (circles.rs pw_run) for the visible parasites; null = JS body draws (?nowasm=1, ?nosim=1, ?nowingw=1)
+    var E = WC.e; if (!E || !E.pw_run || !WC.ok || WC.off || WC.simOff || WC.wingOff || /[?&](nosim|nowingw)=1/.test(location.search)) return null;
+    try {
+      var idx = [], k = 0, i, p, o, m = parasites.length; for (i = 0; i < m; i++) idx[i] = vis[i] ? k++ : -1;
+      var bp = E.pw_buf(k), b = new Float64Array(WC.mem.buffer, bp, k * 14 + 1);
+      for (i = 0; i < m; i++) { if (!vis[i]) continue; p = parasites[i]; o = idx[i] * 14; var ha = p.host && p.host.alive;
+        b[o] = p.x; b[o + 1] = p.y; b[o + 2] = ha ? 1 : 0; b[o + 3] = ha ? p.host.x : 0; b[o + 4] = ha ? p.host.y : 0; b[o + 5] = p.h === undefined ? NaN : p.h;
+        b[o + 6] = p.px === undefined ? NaN : p.px; b[o + 7] = p.py === undefined ? NaN : p.py; b[o + 8] = p.fx === undefined ? NaN : p.fx; b[o + 9] = p.fy === undefined ? NaN : p.fy;
+        b[o + 10] = p.sp || 0; b[o + 11] = p.fp === undefined ? NaN : p.fp; b[o + 12] = p.ph || 0; b[o + 13] = 0; }
+      if (E.pw_run(k, dtf, P.parasiteSize > 0 ? P.parasiteSize : 1) < 0) return null;
+      WC.fwWg = (WC.fwWg || 0) + 1; return { idx: idx, b: new Float64Array(WC.mem.buffer, bp, k * 14 + 1) };
+    } catch (e) { WC.fwWgErr = String(e && e.stack || e); WC.wingOff = 1; return null; }
+  }
+  var circKid = Object.create(null), circKidN = 0;
+  function parasiteCirclesW() { // Rust/wasm overlay (circles.rs pc_run). Inputs are packed first and nothing is written until the call succeeded, so a failure leaves the state for the JS body (?nowasm=1, ?nosim=1, ?nocirclew=1)
+    var E = WC.e; if (!E || !E.pc_run || !WC.ok || WC.off || WC.simOff || WC.circOff || /[?&](nosim|nocirclew)=1/.test(location.search)) return false;
+    var n = cells.length, nk = circlesNow.length, m = parasites.length, i, c, p, b, o;
+    try {
+      var cp = E.pc_cells(n), kp = E.pc_circ(nk), pp = E.pc_par(m);
+      var cb = new Float64Array(WC.mem.buffer, cp, n * 4 + 1), kb = new Float64Array(WC.mem.buffer, kp, nk * 4 + 1), pb = new Float64Array(WC.mem.buffer, pp, m * 10 + 1);
+      for (i = 0; i < n; i++) { c = cells[i]; b = i * 4; cb[b] = c.x; cb[b + 1] = c.y; cb[b + 2] = c.alive ? 1 : 0; cb[b + 3] = c.cl ? 1 : 0; }
+      for (i = 0; i < nk; i++) { c = circlesNow[i]; b = i * 4; if (circKid[c.key] === undefined) circKid[c.key] = circKidN++; kb[b] = c.x; kb[b + 1] = c.y; kb[b + 2] = c.r; kb[b + 3] = circKid[c.key]; }
+      for (i = 0; i < m; i++) { p = parasites[i]; o = i * 10;
+        pb[o] = p.x; pb[o + 1] = p.y; pb[o + 2] = p.host ? 1 : 0; pb[o + 3] = p.circ && circKid[p.circ.key] !== undefined ? circKid[p.circ.key] : -1;
+        pb[o + 4] = p._ox === undefined ? NaN : p._ox; pb[o + 5] = p._oy === undefined ? NaN : p._oy; pb[o + 6] = p.ph || 0; pb[o + 7] = Math.random(); pb[o + 8] = Math.random(); pb[o + 9] = Math.random(); }
+      if (E.pc_run(n, nk, m, cont.x, cont.y, cont.w, cont.h, performance.now() / 1000, P.parasiteNerv, P.parasiteSight) < 0) return false;
+      pb = new Float64Array(WC.mem.buffer, pp, m * 10 + 1);
+    } catch (e) { WC.fwPcErr = String(e && e.stack || e); WC.circOff = 1; return false; }
+    for (i = 0; i < m; i++) { p = parasites[i]; o = i * 10; p.x = pb[o]; p.y = pb[o + 1]; p.circ = pb[o + 2] >= 0 ? circlesNow[pb[o + 2]] : null;
+      if (isNaN(pb[o + 3])) p._ox = undefined; else { p._ox = pb[o + 3]; p._oy = pb[o + 4]; }
+      if (pb[o + 5] !== 0 && p.ph !== pb[o + 5]) p.ph = pb[o + 5]; }
+    WC.fwPc = (WC.fwPc || 0) + 1; return true;
+  }
   function parasiteCircles() {
+    if (P.parasiteOn && P.showHud && P.titleCircles && circlesNow.length && parasites.length && parasiteCirclesW()) return;
     if (!P.parasiteOn || !P.showHud || !P.titleCircles || !circlesNow.length || !parasites.length) { for (var z = 0; z < parasites.length; z++) { parasites[z].circ = null; parasites[z]._ox = undefined; } return; }
     var cand = [], i, j, p, c;
     for (i = 0; i < circlesNow.length; i++) if (circleInPlate(circlesNow[i])) cand.push(circlesNow[i]);
@@ -2125,7 +2159,10 @@
     foodInkGuard(); // the boundary carry above can move dots onto ink: re-resolve before the dots are drawn
     if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 4) drawWorms(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 5) drawSpores(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) { var fd2 = food[i]; if (fd2.r < P.foodShow && introOn(CELL_END + fd2.r * (FOOD_END - CELL_END))) { var fs2 = fd2.fed > 0 && P.habitatFedShow > 0 ? fs * (1 + Math.min(3, fd2.fed * P.habitatFedShow)) : fs, fh2 = fs2 / 2; ctx.fillRect(fd2.x - fh2, fd2.y - fh2, fs2, fs2); } } ctx.globalAlpha = 1; } // food first: it sits under the cells
     pfm('sim+ui draw'); curS = DPR * res; if (cells.length || t0 - fadeT0 > INTRO_MS) { var tmb = performance.now(); drawMetaballs(curS); MB.ms = MB.ms * 0.9 + (performance.now() - tmb) * 0.1; MB.path = gOn ? 'GPU' : (WC.ok && !WC.off ? (WC.simd ? 'wasm-simd' : 'wasm') : 'JS'); } pfm('metaballs total'); // an empty intro plate skips the full-buffer pass
-    if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { var pp2 = parasites[i]; if (!fadeA('pa' + i)) continue;
+    if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.fillStyle = pc; var wvis = [], wg = null; for (i = 0; i < parasites.length; i++) wvis[i] = fadeA('pa' + i); wg = wingGeomW(wvis, dtf);
+      for (i = 0; i < parasites.length; i++) { var pp2 = parasites[i]; if (!wvis[i]) continue;
+      if (wg) { var wo = wg.idx[i] * 14, wb = wg.b; pp2.h = wb[wo]; pp2.px = wb[wo + 1]; pp2.py = wb[wo + 2]; pp2.fx = wb[wo + 3]; pp2.fy = wb[wo + 4]; pp2.sp = wb[wo + 5]; pp2.fp = wb[wo + 6];
+        var rad2w = wb[wo + 13]; ctx.beginPath(); ctx.moveTo((wb[wo + 7] + wb[wo + 9]) / 2, (wb[wo + 8] + wb[wo + 10]) / 2); ctx.arcTo(wb[wo + 9], wb[wo + 10], wb[wo + 11], wb[wo + 12], rad2w); ctx.arcTo(wb[wo + 11], wb[wo + 12], wb[wo + 7], wb[wo + 8], rad2w); ctx.lineTo(wb[wo + 7], wb[wo + 8]); ctx.fill(); continue; }
       // owner 22 Oct: parasites are triangles, not dots - the circle blurred into small cells. Same ink area as the r2.2
       // dot (no size growth): apex 3.43 / base half 2.965 / rear 1.71 = area 15.2. The apex tracks the cell the parasite
       // rides or burns (smoothed pursuit, organic); the base edge breathes +/-12% at ~9 Hz like a fly's wing.
