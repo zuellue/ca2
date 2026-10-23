@@ -25,3 +25,10 @@ Cost (devtools/t-cost-fixture.js, node v22.23.3, sim_step only, n=55 nf=19 ncm=0
  default shipped nonSIMD 40.2/37.7/40.1; default rebuilt nonSIMD 39.4/37.8/38.7; jsrnd nonSIMD 42.8/42.4/44.7
  default shipped SIMD 40.2/38.1/38.0; default rebuilt SIMD 38.7/38.1/40.2; jsrnd SIMD 43.4/44.8/46.3
 Not a browser, whole-simW, or +12% claim.
+
+Larger-n cost (SYNTHETIC scale-up, MULT=4 via devtools/t-cost-fixture.js: 4x the captured rows with seeded re-randomised x,y in the plate, copies' sym=-1; n=220, nf=76; jsrnd 1829 draws/step; node, sim_step only), median us/step, 3 reps:
+ default shipped nonSIMD 406.6/425.2/405.5; rebuilt nonSIMD 427.5/436.4/400.5; jsrnd nonSIMD 474.8/456.4/428.6
+ default shipped SIMD 431.7/443.3/388.8; rebuilt SIMD 435.6/430.7/426.9; jsrnd SIMD 469.3/449.0/428.3
+Noise is about +-20 us per rep; not a captured world, not browser/simW.
+
+Shadow full-config (symbiosis/eatMerge/selection/genome on, reproChance 0.3, real Math.random import, diag ulp tol 4096): nonSIMD 3 runs 68 newborns popD/life bit-equal; SIMD 1 valid run 49 frames, 3373 cells seen, draws 34162=34162, 26 newborns bit-equal, no diff (1 more run was a world reset, discarded).

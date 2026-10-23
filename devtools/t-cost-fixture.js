@@ -1,5 +1,11 @@
 const fs=require('fs');const F=JSON.parse(fs.readFileSync(''+__dirname+'/t-cost-fixture.json','utf8'));
 const R=__dirname+'/../';
+// SYNTHETIC scale-up (labelled): MULT>1 replicates the captured rows with seeded re-randomised x,y inside the plate (p[49..52]); sym index of copies = -1. Not a captured world.
+const MULT=+process.env.MULT||1;
+if(MULT>1){const n0=F.n,cx=F.p[49],cy=F.p[50],cw=F.p[51],ch=F.p[52];let a=99;const rn=()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+ const cells=F.cells.slice(),shp=F.shp.slice();for(let m=1;m<MULT;m++)for(let i=0;i<n0;i++){const r=F.cells.slice(i*24,i*24+24);r[0]=cx+rn()*cw;r[1]=cy+rn()*ch;r[14]=-1;cells.push(...r);shp.push(...F.shp.slice(i*12,i*12+12));}
+ const fx=F.fx.slice(),fy=F.fy.slice();for(let m=1;m<MULT;m++)for(let i=0;i<F.nf;i++){fx.push(cx+rn()*cw);fy.push(cy+rn()*ch);}
+ F.cells=cells;F.shp=shp;F.fx=fx;F.fy=fy;F.n=n0*MULT;F.nf=F.nf*MULT;}
 const bins=[['default-shipped-nonSIMD',R+'ca2core.wasm',0],['default-spikeSrc-nonSIMD',R+'wasm/target/wasm32-unknown-unknown/release/ca2core.wasm',0],['jsrnd-nonSIMD',R+'ca2core-jsrnd.wasm',1],
  ['default-shipped-SIMD',R+'ca2core-simd.wasm',0],['default-spikeSrc-SIMD',R+'wasm/target-simd/wasm32-unknown-unknown/release/ca2core.wasm',0],['jsrnd-SIMD',R+'ca2core-jsrnd-simd.wasm',1]];
 const stream=new Float64Array(1<<16);{let a=7;for(let i=0;i<stream.length;i++){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;stream[i]=((t^t>>>14)>>>0)/4294967296;}}
