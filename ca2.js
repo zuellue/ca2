@@ -1872,6 +1872,19 @@
     c.g.col = col; c.radius = Math.max(1, P.CELL_RADIUS * P.habitatSeedR);
     cells.push(c); habStat.seed++;
   }
+  // post.rs post_hab: per-food fed decay + sun gain (habField incl. niche/drift). Returns {fed,t} arrays or null (JS computes). Nothing is written to food until the call succeeded.
+  function habFedW(fullOn, dt, x0, x1, y0, y1) {
+    if (postOffW()) return null;
+    try {
+      var E = WC.e, n = food.length, i, f, bp = E.post_hab_buf(n), pp = E.post_hab_par(), b = new Float64Array(WC.mem.buffer, bp, n * 4), pv = new Float64Array(WC.mem.buffer, pp, 32);
+      pv.set([fullOn ? 1 : 0, P.habitatNiches, P.habitatNicheSun, P.habitatNicheMix, P.habitatDriftAmp, P.habitatDrift, P.habitatDriftFloor, habT, x0, x1, y0, y1, cont.w, cont.h, cont.x, cont.y, P.habitatSun, P.habitatFedDecay, dt]);
+      for (i = 0; i < n; i++) { f = food[i]; b[i * 4] = f.x; b[i * 4 + 1] = f.y; b[i * 4 + 2] = f.fed > 0 ? f.fed : (f.fed || 0); b[i * 4 + 3] = (f.worm || f.spore || f.blob) ? 1 : 0; }
+      if (E.post_hab(n) < 0) return null;
+      b = new Float64Array(WC.mem.buffer, bp, n * 4); var fed = new Float64Array(n), t = new Uint8Array(n);
+      for (i = 0; i < n; i++) { fed[i] = b[i * 4]; t[i] = b[i * 4 + 1] ? 1 : 0; }
+      WC.fwHb = (WC.fwHb || 0) + 1; return { fed: fed, t: t };
+    } catch (e) { WC.postOff = true; WC.postErr = String(e); return null; }
+  }
   function stepHabitat(dtf) {
     if (!P.habitatOn && !P.habitatReapOn) return;
     var fullOn = !!P.habitatOn, FLAT = { sun: 1, dec: 1 };
@@ -1880,12 +1893,16 @@
     for (i = 0; i < cells.length; i++) { var c = cells[i]; if (c.alive && c.x > x0 && c.x < x1 && c.y > y0 && c.y < y1) inPlate++; }
     if (fullOn) habT += dt;
     var seeding = fullOn && inPlate <= P.habitatFloor && cells.length < P.UNIVERSE_SIZE, sun = P.habitatSun, conv = P.habitatConv * dt * cont.w * cont.h / Math.max(1, W * H);
+    var hw = habFedW(fullOn, dt, x0, x1, y0, y1); // Rust/wasm nutrient update (post.rs post_hab); seeding stays below in the original reverse order
     for (i = food.length - 1; i >= 0; i--) {
       f = food[i];
       if (f.worm || f.spore || f.blob) continue; // mode-owned bodies stay their mode's business
-      var fld = fullOn ? habField(f.x, f.y) : FLAT;
-      if (f.fed > 0 && P.habitatFedDecay > 0) f.fed = Math.max(0, f.fed - P.habitatFedDecay * fld.dec * dt);
-      if (fullOn && sun > 0 && f.x > x0 && f.x < x1 && f.y > y0 && f.y < y1) f.fed = (f.fed || 0) + sun * fld.sun * dt;
+      if (hw) { if (hw.t[i]) f.fed = hw.fed[i]; }
+      else {
+        var fld = fullOn ? habField(f.x, f.y) : FLAT;
+        if (f.fed > 0 && P.habitatFedDecay > 0) f.fed = Math.max(0, f.fed - P.habitatFedDecay * fld.dec * dt);
+        if (fullOn && sun > 0 && f.x > x0 && f.x < x1 && f.y > y0 && f.y < y1) f.fed = (f.fed || 0) + sun * fld.sun * dt;
+      }
       if (seeding && (f.fed || 0) >= P.habitatFedMin && Math.random() < conv) { habSeed(f); f.gone = 1; food.splice(i, 1); }
     }
   }

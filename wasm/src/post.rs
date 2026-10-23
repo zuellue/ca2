@@ -52,3 +52,67 @@ pub extern "C" fn post_age(n: usize, dt: f64) -> i32 {
         0
     }
 }
+
+// ---- stepHabitat per-food nutrient update (habField + fed decay + sun gain). Seeding (random draws, habSeed, splice) stays in the JS caller in the
+// original reverse order: the fed update of one dot never depends on another dot or on a draw, so computing all fed values first is order-equivalent.
+static mut HB: Vec<f64> = Vec::new(); // per food: x, y, fed(0 if undefined), skip(1 = mode-owned) -> out: fed, touched
+static mut HP: Vec<f64> = Vec::new();
+#[no_mangle]
+pub extern "C" fn post_hab_buf(n: usize) -> *mut f64 { unsafe { let b = &mut *std::ptr::addr_of_mut!(HB); b.resize(n * 4 + 1, 0.0); b.as_mut_ptr() } }
+#[no_mangle]
+pub extern "C" fn post_hab_par() -> *mut f64 { unsafe { let b = &mut *std::ptr::addr_of_mut!(HP); b.resize(32, 0.0); b.as_mut_ptr() } }
+
+fn imul(a: i32, b: i32) -> i32 { a.wrapping_mul(b) }
+fn hab_hash(x: f64, y: f64) -> f64 {
+    let xi = x as i64 as i32; let yi = y as i64 as i32; // JS Math.imul ToInt32 on small integers
+    let mut h: u32 = (imul(xi, 73856093) ^ imul(yi, 19349663)) as u32;
+    h ^= h >> 13;
+    h = imul(h as i32, 0x5bd1e995u32 as i32) as u32;
+    h ^= h >> 15;
+    (h as f64) / 4294967296.0
+}
+fn js_max(a: f64, b: f64) -> f64 { if a != a || b != b { f64::NAN } else if a > b { a } else { b } }
+fn js_min(a: f64, b: f64) -> f64 { if a != a || b != b { f64::NAN } else if a < b { a } else { b } }
+
+// par: 0 fullOn, 1 niches, 2 nicheSun, 3 nicheMix, 4 driftAmp, 5 drift, 6 driftFloor, 7 habT, 8 x0, 9 x1, 10 y0, 11 y1, 12 cont.w, 13 cont.h, 14 cont.x, 15 cont.y, 16 sun, 17 fedDecay, 18 dt
+fn hab_field(x: f64, y: f64, p: &[f64]) -> (f64, f64) {
+    let k = p[1].floor(); let mut niche = 1.0;
+    let (cw, ch, cx, cy) = (p[12], p[13], p[14], p[15]);
+    if k > 1.0 && cw > 0.0 && ch > 0.0 {
+        let gx = (x - cx) / cw * k; let gy = (y - cy) / ch * k; let x0 = gx.floor(); let y0 = gy.floor();
+        let rv = |ix: f64, iy: f64| 1.0 + p[2] * (2.0 * hab_hash(ix, iy) - 1.0);
+        let fx2 = gx - x0; let fy2 = gy - y0;
+        let smooth = rv(x0, y0) * (1.0 - fx2) * (1.0 - fy2) + rv(x0 + 1.0, y0) * fx2 * (1.0 - fy2) + rv(x0, y0 + 1.0) * (1.0 - fx2) * fy2 + rv(x0 + 1.0, y0 + 1.0) * fx2 * fy2;
+        let m = js_max(0.0, js_min(1.0, p[3]));
+        niche = rv(x0, y0) * (1.0 - m) + smooth * m;
+    }
+    let mut d_mul = 1.0;
+    if p[4] > 0.0 && p[5] > 0.0 {
+        let dk = if k > 1.0 { k } else { 4.0 };
+        let dx0 = ((x - cx) / js_max(1.0, cw) * dk).floor(); let dy0 = ((y - cy) / js_max(1.0, ch) * dk).floor();
+        let ph = 2.0 * std::f64::consts::PI * p[5] * p[7]; let off = 2.0 * std::f64::consts::PI * hab_hash(dx0, dy0);
+        d_mul = 1.0 + p[4] * (0.6 * (ph + off).sin() + 0.4 * (1.618 * ph + 2.0 * off).sin());
+    }
+    let sun_mul = js_max(p[6], niche * d_mul);
+    (sun_mul, 1.0 + (1.0 - js_min(1.0, sun_mul)))
+}
+
+#[no_mangle]
+pub extern "C" fn post_hab(n: usize) -> i32 {
+    unsafe {
+        let b = &mut *std::ptr::addr_of_mut!(HB); let p = &*std::ptr::addr_of!(HP);
+        if b.len() < n * 4 || p.len() < 32 { return -1; }
+        let full = p[0] != 0.0; let dt = p[18];
+        for i in 0..n {
+            let (x, y, fed0, skip) = (b[i * 4], b[i * 4 + 1], b[i * 4 + 2], b[i * 4 + 3]);
+            let mut fed = fed0; let mut touched = 0.0;
+            if skip == 0.0 {
+                let (sun_m, dec) = if full { hab_field(x, y, p) } else { (1.0, 1.0) };
+                if fed > 0.0 && p[17] > 0.0 { fed = js_max(0.0, fed - p[17] * dec * dt); touched = 1.0; }
+                if full && p[16] > 0.0 && x > p[8] && x < p[9] && y > p[10] && y < p[11] { fed = fed + p[16] * sun_m * dt; touched = 1.0; }
+            }
+            b[i * 4] = fed; b[i * 4 + 1] = touched;
+        }
+        0
+    }
+}
