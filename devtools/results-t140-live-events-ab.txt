@@ -1,0 +1,10 @@
+# t140 live event A/B: commit e523658a0cb288b2e41959332071d0ab7ff528f9 ca2.js 39523f7479a8f320 NC=60 box 230,130 300x200 760x460 run 40s trimmed
+wasm wasm n=60 hash=1088739379 {"frames":2189,"n":29,"merge":105,"fuse":40,"pair":64,"eaten":270,"birth":438,"death":620,"divide":107,"sim":true,"simOff":false,"simErr":null,"liveOff":false} []
+nosim nowasm=1 n=60 hash=1088739379 {"frames":1662,"n":69,"merge":124,"fuse":30,"pair":49,"eaten":256,"birth":460,"death":499,"divide":107,"sim":false,"simOff":false,"simErr":null,"liveOff":false} []
+wasm wasm n=60 hash=1088739379 {"frames":2215,"n":44,"merge":186,"fuse":51,"pair":88,"eaten":409,"birth":584,"death":728,"divide":122,"sim":true,"simOff":false,"simErr":null,"liveOff":false} []
+nosim nowasm=1 n=60 hash=1088739379 {"frames":1330,"n":55,"merge":231,"fuse":69,"pair":91,"eaten":223,"birth":545,"death":633,"divide":74,"sim":false,"simOff":false,"simErr":null,"liveOff":false} []
+wasm wasm n=60 hash=1088739379 {"frames":2286,"n":38,"merge":178,"fuse":52,"pair":58,"eaten":324,"birth":598,"death":678,"divide":145,"sim":true,"simOff":false,"simErr":null,"liveOff":false} []
+nosim nowasm=1 n=60 hash=1088739379 {"frames":1325,"n":74,"merge":188,"fuse":64,"pair":66,"eaten":321,"birth":610,"death":638,"divide":87,"sim":false,"simOff":false,"simErr":null,"liveOff":false} []
+wasm wasm n=60 hash=1088739379 {"frames":2312,"n":49,"merge":185,"fuse":68,"pair":81,"eaten":246,"birth":515,"death":596,"divide":31,"sim":true,"simOff":false,"simErr":null,"liveOff":false} []
+nosim nowasm=1 n=60 hash=1088739379 {"frames":1681,"n":49,"merge":179,"fuse":47,"pair":62,"eaten":317,"birth":521,"death":576,"divide":162,"sim":false,"simOff":false,"simErr":null,"liveOff":false} []
+DONE
