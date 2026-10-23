@@ -878,7 +878,7 @@
 
   // ---- GPU metaball field (WebGL fragment shader): same formula as the CPU splat, evaluated per pixel on the GPU.
   // The CPU path above stays as the fallback (no WebGL, too many cells, or ?cpu=1). colorAt() evaluates the same field analytically at one point (no GPU readback).
-  var GMAX = 384, gl = null, glc = null, gProg = null, gU = {}, gOK = false, gSnap = null, gOn = false;
+  var GMAX = 384, gl = null, glc = null, gProg = null, gU = {}, gOK = false, gSnap = null, gOn = false, gOv = 0; // GMAX: device-adaptive (initGL), 384 is only the floor
   (function initGL() {
     if (/[?&]cpu=1/.test(location.search)) return;
     try {
@@ -888,14 +888,21 @@
       var dbg = gl.getExtension('WEBGL_debug_renderer_info'), rn = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) : '';
       if (/swiftshader|llvmpipe|software|softpipe/i.test(rn) && !/[?&]gpu=1/.test(location.search)) { gl = null; return; } // a software GL is slower than the CPU splat
       var vs = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0., 1.); }';
-      var fsrc = 'precision highp float;\n#define GMAX ' + GMAX + '\nuniform vec4 uC[GMAX]; uniform vec4 uW[GMAX]; uniform int uN; uniform float uS; uniform float uH; uniform float uTH; uniform float uBand;\n' +
+      function fs(gm) { return 'precision highp float;\n#define GMAX ' + gm + '\nuniform vec4 uC[GMAX]; uniform vec4 uW[GMAX]; uniform int uN; uniform float uS; uniform float uH; uniform float uTH; uniform float uBand;\n' +
         'void main(){ float px = gl_FragCoord.x / uS, py = (uH - gl_FragCoord.y) / uS; float s = 0.; vec3 w = vec3(0.);\n' +
         ' for (int i = 0; i < GMAX; i++) { if (i >= uN) break; vec4 c = uC[i]; float dx = px - c.x, dy = py - c.y; if (abs(dx) > c.w || abs(dy) > c.w) continue;\n' +
         '  float inf = c.z / (dx*dx + dy*dy + 0.0001); s += inf; w += uW[i].xyz * (inf*inf); }\n' +
-        ' float lim = uTH * 0.96; if (s > lim) { float t = w.x + w.y + w.z; vec3 col = t > 0. ? w / t : vec3(0.); float a = min(1., (s - lim) / uBand); gl_FragColor = vec4(col * a, a); } else gl_FragColor = vec4(0.); }';
+        ' float lim = uTH * 0.96; if (s > lim) { float t = w.x + w.y + w.z; vec3 col = t > 0. ? w / t : vec3(0.); float a = min(1., (s - lim) / uBand); gl_FragColor = vec4(col * a, a); } else gl_FragColor = vec4(0.); }'; }
       function sh(t, src) { var o = gl.createShader(t); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; }
-      gProg = gl.createProgram(); gl.attachShader(gProg, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(gProg, sh(gl.FRAGMENT_SHADER, fsrc)); gl.linkProgram(gProg);
-      if (!gl.getProgramParameter(gProg, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(gProg));
+      // device-adaptive source capacity: each source costs two vec4 uniforms (uC+uW). Try the device limit, halve on link failure, 384 floor, 2048 ceiling.
+      var maxV = gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS) || 224, gm = Math.max(384, Math.min(2048, Math.floor(maxV / 2) - 8));
+      for (;; gm = gm >> 1) {
+        try {
+          gProg = gl.createProgram(); gl.attachShader(gProg, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(gProg, sh(gl.FRAGMENT_SHADER, fs(gm))); gl.linkProgram(gProg);
+          if (!gl.getProgramParameter(gProg, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(gProg));
+          GMAX = gm; break;
+        } catch (e2) { if (gm <= 384) throw e2; }
+      }
       gl.useProgram(gProg);
       var buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
       var loc = gl.getAttribLocation(gProg, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
@@ -903,8 +910,49 @@
       gOK = true;
     } catch (e) { gOK = false; gl = null; if (window.console) console.warn('ca2: WebGL field off, CPU path', e && e.message); }
   })();
-  var gT0 = 0, gN = 0, gC = new Float32Array(GMAX * 4), gW = new Float32Array(GMAX * 4);
-  var gTC = new Float32Array(GMAX * 4), gTW = new Float32Array(GMAX * 4), GTILE = 256; // tiled draw: per-tile culled source lists (buffer px)
+  var GMAXBUF = 2048, gT0 = 0, gN = 0, gC = new Float32Array(GMAXBUF * 4), gW = new Float32Array(GMAXBUF * 4);
+  var gTC = new Float32Array(GMAXBUF * 4), gTW = new Float32Array(GMAXBUF * 4), GTILE = 256; // tiled draw: per-tile culled source lists (buffer px)
+  // one tile: cull by the exact per-source influence square (the shader culls with the same Rc per pixel),
+  // subdivide when a tile still exceeds the device source capacity; clamp only as a counted last resort.
+  function gpuTiles(C, W, n, bx0, by0, bx1, by1, depth) {
+    var m = 0, i, inv = 1 / (gSnapS || 1);
+    for (i = 0; i < n; i++) {
+      var sx = C[i * 4] / inv, sy = C[i * 4 + 1] / inv, sr = C[i * 4 + 3] / inv; // to buffer px
+      if (sx + sr < bx0 || sx - sr > bx1 || sy + sr < by0 || sy - sr > by1) continue;
+      if (m >= GMAX) break;
+      gTC[m * 4] = C[i * 4]; gTC[m * 4 + 1] = C[i * 4 + 1]; gTC[m * 4 + 2] = C[i * 4 + 2]; gTC[m * 4 + 3] = C[i * 4 + 3];
+      gTW[m * 4] = W[i * 4]; gTW[m * 4 + 1] = W[i * 4 + 1]; gTW[m * 4 + 2] = W[i * 4 + 2]; m++;
+    }
+    if (m >= GMAX && depth < 4) { // too many sources reach this tile: quarter it (culling then keeps every contributing source)
+      var mx = (bx0 + bx1) >> 1, my = (by0 + by1) >> 1;
+      gpuTiles(C, W, n, bx0, by0, mx, my, depth + 1); gpuTiles(C, W, n, mx, by0, bx1, my, depth + 1);
+      gpuTiles(C, W, n, bx0, my, mx, by1, depth + 1); gpuTiles(C, W, n, mx, my, bx1, by1, depth + 1);
+      return;
+    }
+    if (!m) return;
+    if (m >= GMAX) gOv++; // pathological density beyond 16px tiles: counted, rendered with the first GMAX in reach order
+    gl.uniform4fv(gU.uC, gTC.subarray(0, m * 4)); gl.uniform4fv(gU.uW, gTW.subarray(0, m * 4)); gl.uniform1i(gU.uN, m);
+    gl.scissor(bx0, gSnapBH - by1, bx1 - bx0, by1 - by0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+  var gSnapS = 0, gSnapBH = 0;
+  // shared draw body (full or tiled) so tests can render the SAME source array through both paths
+  function gpuDraw(C, W, n, bw, bh, S, tiled) {
+    gl.viewport(0, 0, bw, bh); gl.useProgram(gProg);
+    gl.uniform1f(gU.uS, S); gl.uniform1f(gU.uH, bh); gl.uniform1f(gU.uTH, P.THRESHOLD); gl.uniform1f(gU.uBand, P.THRESHOLD * 0.08);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gSnapS = S; gSnapBH = bh; gOv = 0;
+    if (!tiled || n <= 64) {
+      gl.uniform4fv(gU.uC, C.subarray(0, n * 4)); gl.uniform4fv(gU.uW, W.subarray(0, n * 4)); gl.uniform1i(gU.uN, n);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    } else {
+      gl.enable(gl.SCISSOR_TEST);
+      var txN = Math.ceil(bw / GTILE), tyN = Math.ceil(bh / GTILE);
+      for (var ty = 0; ty < tyN; ty++) for (var tx = 0; tx < txN; tx++)
+        gpuTiles(C, W, n, tx * GTILE, ty * GTILE, Math.min(bw, (tx + 1) * GTILE), Math.min(bh, (ty + 1) * GTILE), 0);
+      gl.disable(gl.SCISSOR_TEST);
+    }
+  }
   function drawMetaballs(S) {
     gOn = false;
     if (gOK && !gl.isContextLost()) {
@@ -917,30 +965,7 @@
       if (n >= 0) {
         var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
         if (glc.width !== bw || glc.height !== bh) { glc.width = bw; glc.height = bh; }
-        gl.viewport(0, 0, bw, bh); gl.useProgram(gProg);
-        gl.uniform1f(gU.uS, S); gl.uniform1f(gU.uH, bh); gl.uniform1f(gU.uTH, TH); gl.uniform1f(gU.uBand, TH * 0.08);
-        gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-        var txN = Math.ceil(bw / GTILE), tyN = Math.ceil(bh / GTILE);
-        if (txN * tyN <= 1 || n <= 64) { // one tile or few sources: the full pass is already cheap
-          gl.uniform4fv(gU.uC, gC); gl.uniform4fv(gU.uW, gW); gl.uniform1i(gU.uN, n);
-          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        } else { // tiled: each pixel loops only the sources whose influence square reaches its tile (same per-pixel formula, pixel-identical)
-          gl.enable(gl.SCISSOR_TEST);
-          for (var ty = 0; ty < tyN; ty++) for (var tx = 0; tx < txN; tx++) {
-            var x0 = tx * GTILE / S, y0 = ty * GTILE / S, x1 = Math.min(bw, (tx + 1) * GTILE) / S, y1 = Math.min(bh, (ty + 1) * GTILE) / S, m = 0;
-            for (i = 0; i < n; i++) {
-              var sx = gC[i * 4], sy = gC[i * 4 + 1], sr = gC[i * 4 + 3];
-              if (sx + sr < x0 || sx - sr > x1 || sy + sr < y0 || sy - sr > y1) continue;
-              gTC[m * 4] = sx; gTC[m * 4 + 1] = sy; gTC[m * 4 + 2] = gC[i * 4 + 2]; gTC[m * 4 + 3] = sr;
-              gTW[m * 4] = gW[i * 4]; gTW[m * 4 + 1] = gW[i * 4 + 1]; gTW[m * 4 + 2] = gW[i * 4 + 2]; m++;
-            }
-            if (!m) continue;
-            gl.uniform4fv(gU.uC, gTC.subarray(0, m * 4)); gl.uniform4fv(gU.uW, gTW.subarray(0, m * 4)); gl.uniform1i(gU.uN, m);
-            gl.scissor(tx * GTILE, bh - Math.min(bh, (ty + 1) * GTILE), Math.min(GTILE, bw - tx * GTILE), Math.min(GTILE, bh - ty * GTILE));
-            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-          }
-          gl.disable(gl.SCISSOR_TEST);
-        }
+        gpuDraw(gC, gW, n, bw, bh, S, Math.ceil(bw / GTILE) * Math.ceil(bh / GTILE) > 1); // tiled beyond one tile; the per-pixel formula is untouched
         pfm('gpu:draw+field'); gT0 = performance.now();
         ctx.imageSmoothingEnabled = false; ctx.drawImage(glc, 0, 0, bw, bh, cont.x, cont.y, cont.w, cont.h); ctx.globalAlpha = 1; pfm('gpu:drawImage'); if (++gN > 40 && PF['gpu:drawImage'] + PF['gpu:draw+field'] > 90 && !/[?&]gpu=1/.test(location.search)) gOK = false; // too slow on this machine: back to the CPU path
         gSnap = { n: n, S: S, bw: bw, bh: bh, TH: TH }; gOn = true; return;
@@ -1969,7 +1994,21 @@
     }
 
      var pairN = 0, compN = 0; for (var pci = 0; pci < cells.length; pci++) { if (cells[pci].sym) pairN++; if (cells[pci].comp > 1) compN++; }
-     window.__ca2 = { SIMW: SIMW, get axisInfo() { return axisInfo; }, sepInk: sepInk, sepSources: function(){ return {src:buildSources(),mask:SEP.img,mw:SEP.mw,mh:SEP.mh,t:frameT,collectMs:SEP.collectMs,radiusLoss:SEP.radiusLoss}; }, sepDiskHit: sepDiskHit, sepBodyLineHit: function(c,sg) { return sepBodyLineHit(sepBody(c),c.x,c.y,sg); }, sepBodyHit: function(c) { return sepBodyHit(sepBody(c), c.x, c.y); }, sepCollectStep: separatorCollectivePass, sepStep: separatorPass,  get sepMask() { return { on: !!SEP.img, mw: SEP.mw, mh: SEP.mh }; }, cmpWC: function () { if (!WC.ok) return 'nowasm:' + WC.err; var S = curS, sv = ctx.drawImage; ctx.drawImage = function () {}; var o = WC.off; var fdef = WC.field; WC.field = WC.fieldX; WC.off = false; var t0 = performance.now(); drawMetaballsCPU(S); var tw = performance.now() - t0; var a = new Uint8ClampedArray(img.data); WC.off = true; t0 = performance.now(); drawMetaballsCPU(S); var tj = performance.now() - t0; var b = new Uint8ClampedArray(img.data); WC.off = o; var fsv = fdef; WC.field = WC.fieldF; WC.off = false; t0 = performance.now(); drawMetaballsCPU(S); var tf = performance.now() - t0; var c32 = new Uint8ClampedArray(img.data); WC.field = fsv; WC.off = o; var d32 = 0, m32 = 0, ge2 = 0; for (var i = 0; i < b.length; i++) { var dd = Math.abs(c32[i] - b[i]); if (dd) { d32++; if (dd > m32) m32 = dd; if (dd > 2) ge2++; } } ctx.drawImage = sv; var bad = 0, mx = 0; for (var i = 0; i < a.length; i++) { var d = Math.abs(a[i] - b[i]); if (d) { bad++; if (d > mx) mx = d; } } return JSON.stringify({ bytes: a.length, diffBytes: bad, maxDiff: mx, tWasm: +tw.toFixed(1), tJS: +tj.toFixed(1), tF32: +tf.toFixed(1), f32diff: d32, f32max: m32, f32gt2: ge2, cells: cells.length }); }, WC: WC, PF: PF, pairs: pairN / 2, fusions: ev.fuse || 0, pairings: ev.pair || 0, composites: compN, cmp: function () { if (!gOK) return 'nogl'; var S = curS, sv = ctx.drawImage; var saved = ctx.drawImage; ctx.drawImage = function () {}; var t0 = performance.now(); drawMetaballs(S); var tg = performance.now() - t0; t0 = performance.now(); drawMetaballsCPU(S); var tc = performance.now() - t0; ctx.drawImage = saved; var tmp = document.createElement('canvas'); tmp.width = glc.width; tmp.height = glc.height; var tx = tmp.getContext('2d'); tx.drawImage(glc, 0, 0); var gd = tx.getImageData(0, 0, tmp.width, tmp.height).data, cd = img.data, n = tmp.width * tmp.height, bad = 0, mx = 0, sum = 0, lit = 0; for (var p = 0; p < n; p++) { var q = p * 4, ga = gd[q + 3], ca = cd[q + 3]; var d = Math.abs(ga - ca); if (ca > 0 || ga > 0) { lit++; if (ca > 250 && ga > 250) d = Math.max(d, Math.abs(gd[q] - cd[q]), Math.abs(gd[q + 1] - cd[q + 1]), Math.abs(gd[q + 2] - cd[q + 2])); } if (d > 8) bad++; if (d > mx) mx = d; sum += d; } return JSON.stringify({ px: n, lit: lit, bad: bad, maxd: mx, tGPUms: +tg.toFixed(1), tCPUms: +tc.toFixed(1), cells: gSnap && gSnap.n }); }, gpuState: function () { return { ok: gOK, on: gOn, n: gSnap && gSnap.n }; }, setGPU: function (v) { gOK = !!v && !!gl; }, colorAt: colorAt, seedKey: function (k, v) { P[k] = v; applyKey(k, v); }, /* seedKey = setKey without the touched pin: device-profile defaults (mobile seed) must not read as user edits */ setKey: function (k, v) { P[k] = v; applyKey(k, v); if (k === 'lineColor' || k === 'ruleColor' || k === 'circColor') applyLineColor(); touched[k] = 1; save(); }, cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var lastF, lastF2, run = 0, maxRun = 0, sumAbs = 0, bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; if (Math.abs(f - (lastF === undefined ? -9 : lastF)) < 0.01) { run++; maxRun = Math.max(maxRun, run); } else run = 0; lastF = f; sumAbs += lastF2 === undefined ? 0 : Math.abs(f - lastF2); lastF2 = f; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins, maxRunGens: maxRun, meanStep: sumAbs / gens }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, worms: worms, wormStat: wormStat, spores: spores, sporeStat: sporeStat, srcStat: function () { return { n: SRC.n, cells: SRC.cells }; }, shapeStat: function () { var t0 = frameT || performance.now(), asps = [], strings = 0, lobed = 0, rounds = 0, srcs = 0, i, a2, b2; for (i = 0; i < cells.length; i++) { var c = cells[i]; if (!c.alive) continue; var o = { x: [], y: [], r: [], n: 0 }; emitCell(c, t0, 99, o); srcs += o.n; var sh = c.shp || { t: 0 }; if (sh.t === 1) strings++; else if (sh.t === 2) lobed++; else rounds++; var mn = 1e9, mx = 0; for (a2 = 0; a2 < o.n; a2++) { mn = Math.min(mn, o.r[a2]); for (b2 = a2; b2 < o.n; b2++) mx = Math.max(mx, Math.hypot(o.x[a2] - o.x[b2], o.y[a2] - o.y[b2]) + o.r[a2] + o.r[b2]); } asps.push(mx / (2 * mn)); } asps.sort(function (x, y) { return x - y; }); var mean = 0; for (i = 0; i < asps.length; i++) mean += asps[i]; mean = asps.length ? mean / asps.length : 1; var sd = 0; for (i = 0; i < asps.length; i++) sd += (asps[i] - mean) * (asps[i] - mean); sd = asps.length ? Math.sqrt(sd / asps.length) : 0; var hist = [0, 0, 0, 0, 0, 0, 0], cuts = [1.05, 1.5, 2, 3, 4.5, 7, 12]; for (i = 0; i < asps.length; i++) { var bi = 0; while (bi < 6 && asps[i] >= cuts[bi]) bi++; hist[bi]++; } return { cells: asps.length, rounds: rounds, strings: strings, lobed: lobed, geneticSources: srcs, aspectMean: +mean.toFixed(3), aspectSd: +sd.toFixed(3), aspectMin: asps.length ? +asps[0].toFixed(2) : 1, aspectMed: asps.length ? +asps[Math.floor(asps.length / 2)].toFixed(2) : 1, aspectMax: asps.length ? +asps[asps.length - 1].toFixed(2) : 1, hist: hist }; }, live: live, P: P, getCells: function () { return cells; }, get sprayWaves() { return sprayWaveN; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, midBase: midBase, lead: L.lead, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, get circles() { return circlesNow; }, get transTg() { return trans && trans.tg; }, get touchedKeys() { return Object.keys(touched); }, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
+     window.__ca2 = { SIMW: SIMW, cmpGpuPaths: function () { // same source array through the full pass and the tiled pass: exact old-vs-new GPU A/B (pixel gates for the thermal fix)
+      if (!gOK) return 'nogl';
+      var S = curS, src = buildSources(), ms = P.metaballStrength, TH = P.THRESHOLD, n = Math.min(src.n, GMAX), i;
+      var C = new Float32Array(n * 4), W = new Float32Array(n * 4);
+      for (i = 0; i < n; i++) { C[i * 4] = src.x[i]; C[i * 4 + 1] = src.y[i]; C[i * 4 + 2] = ms * src.r[i] * src.r[i]; C[i * 4 + 3] = src.r[i] * Math.max(3, Math.sqrt(ms / (TH * 0.03))); W[i * 4] = src.wr[i]; W[i * 4 + 1] = src.wg[i]; W[i * 4 + 2] = src.wb[i]; }
+      var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
+      if (glc.width !== bw || glc.height !== bh) { glc.width = bw; glc.height = bh; }
+      var tmp = document.createElement('canvas'); tmp.width = bw; tmp.height = bh; var tx = tmp.getContext('2d');
+      gpuDraw(C, W, n, bw, bh, S, false); gl.finish(); tx.drawImage(glc, 0, 0); var a = new Uint8ClampedArray(tx.getImageData(0, 0, bw, bh).data);
+      var t0 = performance.now(); gpuDraw(C, W, n, bw, bh, S, true); gl.finish(); var tT = performance.now() - t0; tx.drawImage(glc, 0, 0); var b = new Uint8ClampedArray(tx.getImageData(0, 0, bw, bh).data);
+      t0 = performance.now(); gpuDraw(C, W, n, bw, bh, S, false); gl.finish(); var tF = performance.now() - t0;
+      var d = 0, mx = 0, ex = -1, ey = -1, chD = [0, 0, 0, 0], grid = {}, samples = [];
+      for (i = 0; i < a.length; i++) { var dd = Math.abs(a[i] - b[i]); if (dd) { d++; chD[i & 3]++; var px2 = (i >> 2) % bw, py2 = Math.floor((i >> 2) / bw), gk = Math.floor(px2 / 256) + ',' + Math.floor(py2 / 256); grid[gk] = (grid[gk] || 0) + 1; if ((i & 3) === 0 && samples.length < 12) samples.push([px2, py2, a[i], b[i], a[i + 1], b[i + 1], a[i + 2], b[i + 2], a[i + 3], b[i + 3]]); if (dd > mx) { mx = dd; ex = px2; ey = py2; } } }
+      return JSON.stringify({ bytes: a.length, diffBytes: d, maxDiff: mx, worstX: ex, worstY: ey, ch: chD, grid: grid, samples: samples, n: n, gmax: GMAX, bw: bw, bh: bh, tTiledMs: +tT.toFixed(1), tFullMs: +tF.toFixed(1), overflow: gOv });
+    }, get axisInfo() { return axisInfo; }, sepInk: sepInk, sepSources: function(){ return {src:buildSources(),mask:SEP.img,mw:SEP.mw,mh:SEP.mh,t:frameT,collectMs:SEP.collectMs,radiusLoss:SEP.radiusLoss}; }, sepDiskHit: sepDiskHit, sepBodyLineHit: function(c,sg) { return sepBodyLineHit(sepBody(c),c.x,c.y,sg); }, sepBodyHit: function(c) { return sepBodyHit(sepBody(c), c.x, c.y); }, sepCollectStep: separatorCollectivePass, sepStep: separatorPass,  get sepMask() { return { on: !!SEP.img, mw: SEP.mw, mh: SEP.mh }; }, cmpWC: function () { if (!WC.ok) return 'nowasm:' + WC.err; var S = curS, sv = ctx.drawImage; ctx.drawImage = function () {}; var o = WC.off; var fdef = WC.field; WC.field = WC.fieldX; WC.off = false; var t0 = performance.now(); drawMetaballsCPU(S); var tw = performance.now() - t0; var a = new Uint8ClampedArray(img.data); WC.off = true; t0 = performance.now(); drawMetaballsCPU(S); var tj = performance.now() - t0; var b = new Uint8ClampedArray(img.data); WC.off = o; var fsv = fdef; WC.field = WC.fieldF; WC.off = false; t0 = performance.now(); drawMetaballsCPU(S); var tf = performance.now() - t0; var c32 = new Uint8ClampedArray(img.data); WC.field = fsv; WC.off = o; var d32 = 0, m32 = 0, ge2 = 0; for (var i = 0; i < b.length; i++) { var dd = Math.abs(c32[i] - b[i]); if (dd) { d32++; if (dd > m32) m32 = dd; if (dd > 2) ge2++; } } ctx.drawImage = sv; var bad = 0, mx = 0; for (var i = 0; i < a.length; i++) { var d = Math.abs(a[i] - b[i]); if (d) { bad++; if (d > mx) mx = d; } } return JSON.stringify({ bytes: a.length, diffBytes: bad, maxDiff: mx, tWasm: +tw.toFixed(1), tJS: +tj.toFixed(1), tF32: +tf.toFixed(1), f32diff: d32, f32max: m32, f32gt2: ge2, cells: cells.length }); }, WC: WC, PF: PF, pairs: pairN / 2, fusions: ev.fuse || 0, pairings: ev.pair || 0, composites: compN, cmp: function () { if (!gOK) return 'nogl'; var S = curS, sv = ctx.drawImage; var saved = ctx.drawImage; ctx.drawImage = function () {}; var t0 = performance.now(); drawMetaballs(S); var tg = performance.now() - t0; t0 = performance.now(); drawMetaballsCPU(S); var tc = performance.now() - t0; ctx.drawImage = saved; var tmp = document.createElement('canvas'); tmp.width = glc.width; tmp.height = glc.height; var tx = tmp.getContext('2d'); tx.drawImage(glc, 0, 0); var gd = tx.getImageData(0, 0, tmp.width, tmp.height).data, cd = img.data, n = tmp.width * tmp.height, bad = 0, mx = 0, sum = 0, lit = 0; for (var p = 0; p < n; p++) { var q = p * 4, ga = gd[q + 3], ca = cd[q + 3]; var d = Math.abs(ga - ca); if (ca > 0 || ga > 0) { lit++; if (ca > 250 && ga > 250) d = Math.max(d, Math.abs(gd[q] - cd[q]), Math.abs(gd[q + 1] - cd[q + 1]), Math.abs(gd[q + 2] - cd[q + 2])); } if (d > 8) bad++; if (d > mx) mx = d; sum += d; } return JSON.stringify({ px: n, lit: lit, bad: bad, maxd: mx, tGPUms: +tg.toFixed(1), tCPUms: +tc.toFixed(1), cells: gSnap && gSnap.n }); }, gpuState: function () { return { ok: gOK, on: gOn, n: gSnap && gSnap.n }; }, setGPU: function (v) { gOK = !!v && !!gl; }, colorAt: colorAt, seedKey: function (k, v) { P[k] = v; applyKey(k, v); }, /* seedKey = setKey without the touched pin: device-profile defaults (mobile seed) must not read as user edits */ setKey: function (k, v) { P[k] = v; applyKey(k, v); if (k === 'lineColor' || k === 'ruleColor' || k === 'circColor') applyLineColor(); touched[k] = 1; save(); }, cont: cont, liveTest: function (k, gens) { var q = keyToQ[k]; liveStart(k, q, P[k], { classList: { add: function () {}, remove: function () {} }, style: { setProperty: function () {}, removeProperty: function () {} } }); var lastF, lastF2, run = 0, maxRun = 0, sumAbs = 0, bins = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], t = performance.now(), mn = 1e9, mx = -1e9, saveP = P[k]; for (var g = 0; g < gens; g++) { t += LIVE_MS; stepLive(t); var f = (P[k] - q[2]) / (q[3] - q[2]); bins[Math.min(19, Math.floor(clamp(f, 0, 0.9999) * 20))]++; if (Math.abs(f - (lastF === undefined ? -9 : lastF)) < 0.01) { run++; maxRun = Math.max(maxRun, run); } else run = 0; lastF = f; sumAbs += lastF2 === undefined ? 0 : Math.abs(f - lastF2); lastF2 = f; mn = Math.min(mn, P[k]); mx = Math.max(mx, P[k]); } var cov = bins.filter(function (x) { return x > 0; }).length / 20; delete live[k]; P[k] = saveP; applyKey(k, saveP); return { key: k, min: q[2], max: q[3], seenMin: mn, seenMax: mx, coverage20: cov, bins: bins, maxRunGens: maxRun, meanStep: sumAbs / gens }; }, introStat: introStat, sim: function () { return { UI_END: UI_END, CELL_END: CELL_END, FOOD_END: FOOD_END }; }, fadeK: fadeK, INTRO: INTRO_MS, drag: function () { return resizeDrag; }, clampTargets: clampTargets, blobs: blobs, blobStat: blobStat, swStat: swStat, worms: worms, wormStat: wormStat, spores: spores, sporeStat: sporeStat, srcStat: function () { return { n: SRC.n, cells: SRC.cells }; }, shapeStat: function () { var t0 = frameT || performance.now(), asps = [], strings = 0, lobed = 0, rounds = 0, srcs = 0, i, a2, b2; for (i = 0; i < cells.length; i++) { var c = cells[i]; if (!c.alive) continue; var o = { x: [], y: [], r: [], n: 0 }; emitCell(c, t0, 99, o); srcs += o.n; var sh = c.shp || { t: 0 }; if (sh.t === 1) strings++; else if (sh.t === 2) lobed++; else rounds++; var mn = 1e9, mx = 0; for (a2 = 0; a2 < o.n; a2++) { mn = Math.min(mn, o.r[a2]); for (b2 = a2; b2 < o.n; b2++) mx = Math.max(mx, Math.hypot(o.x[a2] - o.x[b2], o.y[a2] - o.y[b2]) + o.r[a2] + o.r[b2]); } asps.push(mx / (2 * mn)); } asps.sort(function (x, y) { return x - y; }); var mean = 0; for (i = 0; i < asps.length; i++) mean += asps[i]; mean = asps.length ? mean / asps.length : 1; var sd = 0; for (i = 0; i < asps.length; i++) sd += (asps[i] - mean) * (asps[i] - mean); sd = asps.length ? Math.sqrt(sd / asps.length) : 0; var hist = [0, 0, 0, 0, 0, 0, 0], cuts = [1.05, 1.5, 2, 3, 4.5, 7, 12]; for (i = 0; i < asps.length; i++) { var bi = 0; while (bi < 6 && asps[i] >= cuts[bi]) bi++; hist[bi]++; } return { cells: asps.length, rounds: rounds, strings: strings, lobed: lobed, geneticSources: srcs, aspectMean: +mean.toFixed(3), aspectSd: +sd.toFixed(3), aspectMin: asps.length ? +asps[0].toFixed(2) : 1, aspectMed: asps.length ? +asps[Math.floor(asps.length / 2)].toFixed(2) : 1, aspectMax: asps.length ? +asps[asps.length - 1].toFixed(2) : 1, hist: hist }; }, live: live, P: P, getCells: function () { return cells; }, get sprayWaves() { return sprayWaveN; }, getFood: function () { return food; }, parStat: parStat, foodStat: foodStat, cont: cont, vTop: vTop, vBot: vBot, gap: G, margin: M, midBase: midBase, lead: L.lead, topInkBottom: M + dh, botInkTop: H - M - dh, hL: axisInfo.hL || 0, oob: ev.oob, maxOut: maxOut, births: ev.birth, deaths: ev.death, trans: !!trans, get circles() { return circlesNow; }, get transTg() { return trans && trans.tg; }, get touchedKeys() { return Object.keys(touched); }, parasites: parasites.length, clusters: clusterCount, merges: ev.merge || 0, eaten: ev.eaten || 0, divides: ev.divide || 0, pbirth: ev.pbirth || 0, pdeath: ev.pdeath || 0, env: env, getParasites: function () { return parasites; }, cur: curInfo, W: W, H: H, res: res, cells: cells.length, areaTop: cont.y, areaBottom: cont.y + cont.h, areaLeft: cont.x, areaRight: cont.x + cont.w, safeW: L.safeW, safeH: L.safeH };
     __ca2.habStat = habStat;
     __ca2.habitat = function () { var fedN = 0, fedMax = 0, hueN = 0; for (var i = 0; i < food.length; i++) { var fd = food[i].fed || 0; if (fd >= P.habitatFedMin) fedN++; if (fd > fedMax) fedMax = fd; if (food[i].hr !== undefined) hueN++; } return { on: P.habitatOn, pulse: habStat.pulse, seed: habStat.seed, ateHue: habStat.ate, dominant: ateHueV, fedEligible: fedN, fedMax: +fedMax.toFixed(2), hueDots: hueN, cells: cells.length, food: food.length }; };
 
