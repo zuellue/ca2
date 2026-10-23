@@ -42,3 +42,10 @@ Legacy-save / load-order (TEST fixtures, labelled; config-only saves, no Cell st
 Binaries (sha256sum generated): shipped ca2core-simd.wasm 09ff540ef9ac4c5817497af2211f1f1dab001d7776c3adfbfa5997ff75433cbb; rebuilt-from-spike-source wasm/target-simd/.../ca2core.wasm 64d9d2e14835c581da90a6fd179383bb46d28037290b85d7cb121722b4d4a9ef.
 Both binaries, same 8 tests, same outputs: t144-cursor-parity mismatches 0; t-post-parity hab 72198/0 ulp0, wall 80894/0, age 61262/0; t-foodspawn-parity 300 scen 4500 spots 0 mismatch 0 draw mismatch; t-guard-parity 600/0; t-circles-wings-parity 162492 checks 0 mismatch, rng count mismatch 0; t-fdm-parity 1.6M 0 mismatch; t-sepbody-parity 20000 cases 0 mismatch maxUlp 0; t-ood-domain PASS.
 Node-only, per-module parity; not browser, not whole-simW.
+
+## Full-range fdlibm reduction (24 Oct 02:11) - wasm/src/fdm.rs, flag-gated, DEFAULT OFF
+Added __kernel_rem_pio2 (Payne-Hanek, prec 2) + e_rem_pio2 large branch; 2/pi table (66 x 24-bit) generated from big-int pi (first 6 and last 2 words match fdlibm), PIo2 constants checked against pi/2 24-bit chunks. Enabled only via exported fdm_set_large(1); default LARGE=false keeps the OOD fallback for callers beyond the medium range.
+Correction found while testing: V8's medium-range threshold is hi-word 0x413921fb (~1.647e6), not 8.2e5; in_domain and sin/cos now use the medium path up to that threshold (bit-equal in test), large path above.
+devtools/t-fdm-large.js (LARGE on): 1,200,030 sin/cos checks vs V8 Math.sin/cos incl. exponents to 2^1023, +-MAX_VALUE, 1e6-1e9 band, 1e6-1e36: 0 mismatch (Object.is). A first draft that routed 8.2e5-1.65e6 through the large path gave 125 mismatches (V8 uses medium there) - fixed, not hidden.
+Default-off regression on the rebuilt binary (sha256 a702da6e4a2020f58d71c7d06e16309069ca574f9aa4478254e1de852067e9c0, NOT committed, NOT copied to ca2core.wasm): t-fdm-parity 1.6M/0, t-ood-domain PASS, t-circles-wings 162492/0, t-post-parity 0, t144 mismatches [].
+Not done: callers still treat |x|>1.647e6 as OOD (flag off), JS fallback retained; no browser/SIMD run of this change; shipped ca2core*.wasm not rebuilt on this branch.
