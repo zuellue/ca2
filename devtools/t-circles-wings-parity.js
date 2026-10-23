@@ -81,6 +81,30 @@ for(let t=0;t<3000;t++){
  console.log(JSON.stringify({faultInjectionCases:fb,faultInjectionBad:fbBad,note:'pc_decide failure: no draw, JS body runs; pc_move failure: JS finishes the step with the already-drawn values (no redraw)'}));
  bad+=fbBad;
 }
+// pc_move OOD AFTER draws: real prescan (no stub). huge ph (prior-ph mode1) or huge clock makes pc_move return -2 after JS already drew; JS must finish from decided state with the drawn values.
+{
+ let n=0,bad2=0,drawsTot=0,negRet=0;
+ for(const kind of ['ph','clock','both','inDomain']){
+  for(let t=0;t<200;t++){
+   const rj=mkRng(500+t),rx=mkRng(500+t);const Jx=build(false,mkMath(rj)),Fx=build(true,mkMath(rx));
+   const P={parasiteOn:1,showHud:1,titleCircles:1,parasiteSight:4000,parasiteNerv:t%3===0?0:0.7,parasiteSize:2};const cont={x:100,y:100,w:400,h:300};
+   const circ=[{key:'a',x:90,y:150,r:30},{key:'b',x:300,y:90,r:25}];const cells=[{x:200,y:200,alive:1,cl:0}];
+   Fx.env.WC.e=Object.assign({},E,{pc_move:(...a)=>{const r=E.pc_move(...a);if(r<0)negRet++;return r;}});
+   const bigph=(kind==='ph'||kind==='both')?1e9:1.5;
+   const mk=()=>({P,cont,cells,circlesNow:circ.map(c=>Object.assign({},c)),parasites:[{x:150,y:150,e:5,host:null,ph:bigph},{x:300,y:180,e:5,host:null},{x:250,y:120,e:5,host:null,ph:bigph}]});
+   const sj=mk(),sf=mk();
+   for(let fr=0;fr<4;fr++){
+    now=(kind==='clock'||kind==='both')?1e9+fr*16:fr*16;
+    const c0=rj.count();Jx.f.run(sj);Fx.f.run(sf);
+    n++;drawsTot+=rj.count()-c0;
+    const st=x=>JSON.stringify(x.parasites.map(p=>[p.x,p.y,p._ox,p.ph,p.h,p.fp,p.circ&&p.circ.key]),(k,v)=>typeof v==='number'&&!isFinite(v)?String(v):v);
+    if(st(sj)!==st(sf)||rj.count()!==rx.count()||Fx.env.WC.circOff){bad2++;if(bad2<4)console.log('OOD pc_move MISMATCH',kind,t,fr,rj.count(),rx.count(),Fx.env.WC.circOff);}
+   }
+  }
+ }
+ console.log(JSON.stringify({pcMoveOodAfterDrawsFrames:n,mismatch:bad2,pcMoveNegativeReturns:negRet,jsDrawsTotal:drawsTot,note:'state + global draw count compared each frame; WC.circOff must stay unset (no retry/no disable); later frames keep using wasm hooks'}));
+ bad+=bad2;
+}
 // growth: big cell/circle/parasite counts force wasm memory growth between allocator calls and views
 {
  const Jg=build(false,mkMath(mkRng(5))),Wg=build(true,mkMath(mkRng(5)));
