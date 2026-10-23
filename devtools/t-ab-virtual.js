@@ -1,3 +1,4 @@
+// LABEL: FAILURE HARNESS / NOT A PASSING TEST. The virtual-clock A/B hung after warm-up (also on the baseline), so it produced no result. Kept as failure evidence only. See FOOD-TESTS-README.md.
 // Controlled A/B on a virtual clock. Same seed + same virtual frame timing for both builds; they differ only where the code differs
 // (food spawns/motion on ink, so RNG draws diverge: compare means over seeds, effect not identity).
 // node devtools/t-ab-virtual.js <seed> <port> [warmFrames] [measureFrames]

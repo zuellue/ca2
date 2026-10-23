@@ -1,3 +1,4 @@
+// LABEL: real-time seeded A/B (3 seeds, 760x460, FPS about 3 in a CPU-starved sandbox). Shows effect only: not snapshot parity, no valid cost number. See FOOD-TESTS-README.md.
 // Real-time A/B: seeded Math.random, default params, sampled every 4 s for 40 s after load; also frames/s from an rAF counter.
 // node devtools/t-ab-real.js <seed> <port>   (run once per tree; compare means over seeds. Layout/timing are NOT identical between builds.)
 const H=require('./harness.js'),D=require('./dbg-inject.js');
