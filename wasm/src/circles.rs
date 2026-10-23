@@ -28,9 +28,11 @@ pub extern "C" fn pc_circ(n: usize) -> *mut f64 { unsafe { let b = &mut *std::pt
 #[no_mangle]
 pub extern "C" fn pc_par(n: usize) -> *mut f64 { unsafe { let b = &mut *std::ptr::addr_of_mut!(PB); b.resize(n * PC_PF + 1, 0.0); b.as_mut_ptr() } }
 
-// One overlay pass (the enabled branch of parasiteCircles). Returns 0, or -1 on a buffer-size error (caller falls back to JS).
+// Overlay pass, two stages so JS draws Math.random only where the original JS does (per believing parasite, in parasite order: ph if it was falsy, then x jitter, then y jitter).
+// pc_decide: candidate filter, belief rules, episode-origin restore. Writes per parasite: x y circIdx mode ox oy ph (mode 0 = no belief, 1 = move, 2 = move and ph must be drawn first).
+// pc_move: the chase step for mode>0 with the random values JS put in r0 r1 r2 (pb[7..10]); mode 0 clears ox/oy.
 #[no_mangle]
-pub extern "C" fn pc_run(nc: usize, nk: usize, m: usize, cx: f64, cy: f64, cw: f64, ch: f64, tt: f64, nv: f64, sight: f64) -> i32 {
+pub extern "C" fn pc_decide(nc: usize, nk: usize, m: usize, cx: f64, cy: f64, cw: f64, ch: f64, sight: f64) -> i32 {
     unsafe {
         let (cb, kb, pb) = (&*std::ptr::addr_of!(CB), &*std::ptr::addr_of!(KB), &mut *std::ptr::addr_of_mut!(PB));
         if cb.len() < nc * 4 || kb.len() < nk * 4 || pb.len() < m * PC_PF { return -1; }
@@ -42,14 +44,13 @@ pub extern "C" fn pc_run(nc: usize, nk: usize, m: usize, cx: f64, cy: f64, cw: f
             if hypot2(x - nx, y - ny) < r { cand.push(i); }
         }
         let sight2 = sight * sight;
+        let nan = f64::NAN;
         for i in 0..m {
             let o = i * PC_PF;
             let (mut px, mut py) = (pb[o], pb[o + 1]);
-            let (host, cur_kid, ox, oy, mut ph) = (pb[o + 2], pb[o + 3], pb[o + 4], pb[o + 5], pb[o + 6]);
-            let (r0, r1, r2) = (pb[o + 7], pb[o + 8], pb[o + 9]);
-            let mut circ: i64 = -1; // index into circles, -1 none
-            let nan = f64::NAN;
-            if host != 0.0 { continue_out(pb, o, px, py, -1, nan, nan, ph); continue; }
+            let (host, cur_kid, ox, oy, ph) = (pb[o + 2], pb[o + 3], pb[o + 4], pb[o + 5], pb[o + 6]);
+            let mut circ: i64 = -1;
+            if host != 0.0 { put(pb, o, px, py, -1, 0.0, nan, nan, ph); continue; }
             if cur_kid >= 0.0 { for &j in &cand { if kb[j * 4 + 3] == cur_kid { circ = j as i64; break; } } }
             let mut bd = sight2; let mut best = false;
             for j in 0..nc {
@@ -66,10 +67,26 @@ pub extern "C" fn pc_run(nc: usize, nk: usize, m: usize, cx: f64, cy: f64, cw: f
                 let j = circ as usize; let dx = kb[j * 4] - px; let dy = kb[j * 4 + 1] - py;
                 if bd < dx * dx + dy * dy { circ = -1; }
             }
-            if circ < 0 { continue_out(pb, o, px, py, -1, nan, nan, ph); continue; }
+            if circ < 0 { put(pb, o, px, py, -1, 0.0, nan, nan, ph); continue; }
             if !ox.is_nan() { px = ox; py = oy; }
-            if ph == 0.0 { ph = r0 * 6.28; }
-            let j = circ as usize; let (kx, ky, kr) = (kb[j * 4], kb[j * 4 + 1], kb[j * 4 + 2]);
+            put(pb, o, px, py, circ, if ph == 0.0 { 2.0 } else { 1.0 }, nan, nan, ph);
+        }
+        0
+    }
+}
+#[no_mangle]
+pub extern "C" fn pc_move(m: usize, tt: f64, nv: f64) -> i32 {
+    unsafe {
+        let (kb, pb) = (&*std::ptr::addr_of!(KB), &mut *std::ptr::addr_of_mut!(PB));
+        if pb.len() < m * PC_PF { return -1; }
+        for i in 0..m {
+            let o = i * PC_PF;
+            let mode = pb[o + 3];
+            if mode == 0.0 { pb[o + 4] = f64::NAN; pb[o + 5] = f64::NAN; continue; }
+            let (mut px, mut py, circ, mut ph) = (pb[o], pb[o + 1], pb[o + 2] as usize, pb[o + 6]);
+            let (r0, r1, r2) = (pb[o + 7], pb[o + 8], pb[o + 9]);
+            if mode == 2.0 { ph = r0 * 6.28; }
+            let (kx, ky, kr) = (kb[circ * 4], kb[circ * 4 + 1], kb[circ * 4 + 2]);
             let osc = (tt * (2.0 + 2.0 * nv) + ph).sin();
             let h = hypot2(kx - px, ky - py);
             let dd2 = if h != 0.0 { h } else { 1.0 }; // (x || 1)
@@ -78,14 +95,14 @@ pub extern "C" fn pc_run(nc: usize, nk: usize, m: usize, cx: f64, cy: f64, cw: f
             let sp = f64::min(6.0, f64::max(1.2, dd2 * 0.08)) * (1.0 + 0.5 * nv * osc);
             px += (kx - px) / dd2 * sp * dir + (r1 - 0.5) * 2.0 * nv;
             py += (ky - py) / dd2 * sp * dir + (r2 - 0.5) * 2.0 * nv;
-            continue_out(pb, o, px, py, circ, px, py, ph);
+            pb[o] = px; pb[o + 1] = py; pb[o + 4] = px; pb[o + 5] = py; pb[o + 6] = ph;
         }
         0
     }
 }
-// out layout (overwrites the in fields): x y circIdx ox oy ph
-fn continue_out(pb: &mut Vec<f64>, o: usize, x: f64, y: f64, circ: i64, ox: f64, oy: f64, ph: f64) {
-    pb[o] = x; pb[o + 1] = y; pb[o + 2] = circ as f64; pb[o + 3] = ox; pb[o + 4] = oy; pb[o + 5] = ph;
+// layout after decide/move: x y circIdx mode ox oy ph
+fn put(pb: &mut Vec<f64>, o: usize, x: f64, y: f64, circ: i64, mode: f64, ox: f64, oy: f64, ph: f64) {
+    pb[o] = x; pb[o + 1] = y; pb[o + 2] = circ as f64; pb[o + 3] = mode; pb[o + 4] = ox; pb[o + 5] = oy; pb[o + 6] = ph;
 }
 
 #[no_mangle]

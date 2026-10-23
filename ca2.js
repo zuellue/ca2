@@ -1804,8 +1804,8 @@
     } catch (e) { WC.fwWgErr = String(e && e.stack || e); WC.wingOff = 1; return null; }
   }
   var circKid = Object.create(null), circKidN = 0;
-  function parasiteCirclesW() { // Rust/wasm overlay (circles.rs pc_run). Inputs are packed first and nothing is written until the call succeeded, so a failure leaves the state for the JS body (?nowasm=1, ?nosim=1, ?nocirclew=1)
-    var E = WC.e; if (!E || !E.pc_run || !WC.ok || WC.off || WC.simOff || WC.circOff || /[?&](nosim|nocirclew)=1/.test(location.search)) return false;
+  function parasiteCirclesW() { // Rust/wasm overlay (circles.rs pc_decide + pc_move). Inputs are packed first and nothing is written until the call succeeded, so a failure leaves the state for the JS body (?nowasm=1, ?nosim=1, ?nocirclew=1)
+    var E = WC.e; if (!E || !E.pc_decide || !E.pc_move || !WC.ok || WC.off || WC.simOff || WC.circOff || /[?&](nosim|nocirclew)=1/.test(location.search)) return false;
     var n = cells.length, nk = circlesNow.length, m = parasites.length, i, c, p, b, o;
     try {
       var cp = E.pc_cells(n), kp = E.pc_circ(nk), pp = E.pc_par(m);
@@ -1814,13 +1814,26 @@
       for (i = 0; i < nk; i++) { c = circlesNow[i]; b = i * 4; if (circKid[c.key] === undefined) circKid[c.key] = circKidN++; kb[b] = c.x; kb[b + 1] = c.y; kb[b + 2] = c.r; kb[b + 3] = circKid[c.key]; }
       for (i = 0; i < m; i++) { p = parasites[i]; o = i * 10;
         pb[o] = p.x; pb[o + 1] = p.y; pb[o + 2] = p.host ? 1 : 0; pb[o + 3] = p.circ && circKid[p.circ.key] !== undefined ? circKid[p.circ.key] : -1;
-        pb[o + 4] = p._ox === undefined ? NaN : p._ox; pb[o + 5] = p._oy === undefined ? NaN : p._oy; pb[o + 6] = p.ph || 0; pb[o + 7] = Math.random(); pb[o + 8] = Math.random(); pb[o + 9] = Math.random(); }
-      if (E.pc_run(n, nk, m, cont.x, cont.y, cont.w, cont.h, performance.now() / 1000, P.parasiteNerv, P.parasiteSight) < 0) return false;
+        pb[o + 4] = p._ox === undefined ? NaN : p._ox; pb[o + 5] = p._oy === undefined ? NaN : p._oy; pb[o + 6] = p.ph || 0; }
+      if (E.pc_decide(n, nk, m, cont.x, cont.y, cont.w, cont.h, P.parasiteSight) < 0) return false;
+      pb = new Float64Array(WC.mem.buffer, pp, m * 10 + 1); // views are re-made after every wasm call (growth detaches them)
+      for (i = 0; i < m; i++) { o = i * 10; var md = pb[o + 3]; // same Math.random calls, same order as the JS body: ph (only if it was falsy), then x jitter, then y jitter, only for a believing parasite
+        if (md === 2) pb[o + 7] = Math.random(); if (md > 0) { pb[o + 8] = Math.random(); pb[o + 9] = Math.random(); } }
+      var tn = performance.now() / 1000, mvOk = false;
+      try { mvOk = E.pc_move(m, tn, P.parasiteNerv) >= 0; } catch (e2) { WC.fwPcErr = String(e2 && e2.stack || e2); WC.circOff = 1; }
       pb = new Float64Array(WC.mem.buffer, pp, m * 10 + 1);
+      if (!mvOk) { // the random values are already drawn: finish the chase step in JS from the decided state with those same values (never redraw, never advance twice)
+        var nv = P.parasiteNerv;
+        for (i = 0; i < m; i++) { o = i * 10; if (pb[o + 3] === 0) { pb[o + 4] = NaN; pb[o + 5] = NaN; continue; }
+          var qx = pb[o], qy = pb[o + 1], qph = pb[o + 6], cq = circlesNow[pb[o + 2]]; if (pb[o + 3] === 2) qph = pb[o + 7] * 6.28;
+          var qo = Math.sin(tn * (2 + 2 * nv) + qph), qd = Math.hypot(cq.x - qx, cq.y - qy) || 1, qw = cq.r * (1.1 + 0.5 * nv * (1 + qo)), qdir = qd > qw ? 1 : -0.6 * nv, qs = Math.min(6, Math.max(1.2, qd * 0.08)) * (1 + 0.5 * nv * qo);
+          qx += (cq.x - qx) / qd * qs * qdir + (pb[o + 8] - 0.5) * 2 * nv; qy += (cq.y - qy) / qd * qs * qdir + (pb[o + 9] - 0.5) * 2 * nv;
+          pb[o] = qx; pb[o + 1] = qy; pb[o + 4] = qx; pb[o + 5] = qy; pb[o + 6] = qph; }
+      }
     } catch (e) { WC.fwPcErr = String(e && e.stack || e); WC.circOff = 1; return false; }
     for (i = 0; i < m; i++) { p = parasites[i]; o = i * 10; p.x = pb[o]; p.y = pb[o + 1]; p.circ = pb[o + 2] >= 0 ? circlesNow[pb[o + 2]] : null;
-      if (isNaN(pb[o + 3])) p._ox = undefined; else { p._ox = pb[o + 3]; p._oy = pb[o + 4]; }
-      if (pb[o + 5] !== 0 && p.ph !== pb[o + 5]) p.ph = pb[o + 5]; }
+      if (isNaN(pb[o + 4])) p._ox = undefined; else { p._ox = pb[o + 4]; p._oy = pb[o + 5]; }
+      if (pb[o + 6] !== 0 && p.ph !== pb[o + 6]) p.ph = pb[o + 6]; }
     WC.fwPc = (WC.fwPc || 0) + 1; return true;
   }
   function parasiteCircles() {
