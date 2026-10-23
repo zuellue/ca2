@@ -97,3 +97,9 @@ Tools: devtools/t70 (interact iso), t71 (CDP profiler, node devtools/t71-prof.js
 - cmpGpuPaths (same frozen source array, same viewport/res/frame, full vs tiled, gl.finish): NOT bit-identical. N=250: 11855/2.59M diff bytes; RGB ±1-2, alpha diffs up to 64; global spread, worst in top rows ((133,67), (1451,40), (379,19)); persists in single-tile case (bw=849<GTILE) => NOT tile-culling; systematic alpha-level s difference between the two gpuDraw branches. Root cause OPEN.
 - Implication: 300f3ff v1 tiled path (n>64 multi-tile) may carry the same divergence. If root cause not found: commit tiling-OFF + adaptive GMAX only.
 - Samples in /tmp/t117b.log (sandbox). Desktop pushed 0ede66c to main; next main push needs rebase onto 0ede66c, ca2.js core merge watch.
+
+## 2026-10-23 round 3 — GMAX shipped, readback noise discovered
+- SHIPPED c20cb7e (main, live-verified): device-adaptive GMAX (384 floor, device MAX_FRAGMENT_UNIFORM_VECTORS, halve-on-link-fail, 2048 ceiling) + GMAXBUF 2048 buffers + subarray uploads + __ca2.cmpGmax384 bit-identity gate. Tiling remains OFF (4615aea).
+- BIT-IDENTITY PROVEN for the GMAX change: same frozen source array (n<=384) through a 384-reference program and the device program: diffBytes=0/9.4M, selfDiff=0 (t117 gmaxfix3, swiftshader).
+- KEY HARNESS FINDING: canvas drawImage(glc) readback is NON-DETERMINISTIC on swiftshader — same program, same inputs, back-to-back renders differ on ~1% of bytes (selfDiff 10649/804608). gl.readPixels after gl.finish() is deterministic (selfDiff=0). All pixel A/B gates must use readPixels. This noise, not tiling, produced the round-2 "alpha divergence" readings; tiled-vs-full A/B is being re-run with readPixels before any tiling decision.
+- Rust toolchain in sandbox OK: rustc 1.99.1, wasm32-unknown-unknown installed.

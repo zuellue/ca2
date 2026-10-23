@@ -2001,10 +2001,10 @@
       for (i = 0; i < n; i++) { C[i * 4] = src.x[i]; C[i * 4 + 1] = src.y[i]; C[i * 4 + 2] = ms * src.r[i] * src.r[i]; C[i * 4 + 3] = src.r[i] * Math.max(3, Math.sqrt(ms / (TH * 0.03))); W[i * 4] = src.wr[i]; W[i * 4 + 1] = src.wg[i]; W[i * 4 + 2] = src.wb[i]; }
       var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
       if (glc.width !== bw || glc.height !== bh) { glc.width = bw; glc.height = bh; }
-      var tmp = document.createElement('canvas'); tmp.width = bw; tmp.height = bh; var tx = tmp.getContext('2d');
-      gpuDraw(C, W, n, bw, bh, S, false); gl.finish(); tx.drawImage(glc, 0, 0); var a = new Uint8ClampedArray(tx.getImageData(0, 0, bw, bh).data);
-      var t0 = performance.now(); gpuDraw(C, W, n, bw, bh, S, true); gl.finish(); var tT = performance.now() - t0; tx.drawImage(glc, 0, 0); var b = new Uint8ClampedArray(tx.getImageData(0, 0, bw, bh).data);
-      t0 = performance.now(); gpuDraw(C, W, n, bw, bh, S, false); gl.finish(); var tF = performance.now() - t0;
+      gpuDraw(C, W, n, bw, bh, S, false); gl.finish(); var a = new Uint8Array(bw * bh * 4); gl.readPixels(0, 0, bw, bh, gl.RGBA, gl.UNSIGNED_BYTE, a);
+      var t0 = performance.now(); gpuDraw(C, W, n, bw, bh, S, true); gl.finish(); var tT = performance.now() - t0; var b = new Uint8Array(bw * bh * 4); gl.readPixels(0, 0, bw, bh, gl.RGBA, gl.UNSIGNED_BYTE, b);
+      t0 = performance.now(); gpuDraw(C, W, n, bw, bh, S, false); gl.finish(); var tF = performance.now() - t0; // gl.readPixels: the drawImage readback is NOT deterministic on swiftshader (same-program same-input selfDiff ~1%)
+
       var d = 0, mx = 0, ex = -1, ey = -1, chD = [0, 0, 0, 0], grid = {}, samples = [];
       for (i = 0; i < a.length; i++) { var dd = Math.abs(a[i] - b[i]); if (dd) { d++; chD[i & 3]++; var px2 = (i >> 2) % bw, py2 = Math.floor((i >> 2) / bw), gk = Math.floor(px2 / 256) + ',' + Math.floor(py2 / 256); grid[gk] = (grid[gk] || 0) + 1; if ((i & 3) === 0 && samples.length < 12) samples.push([px2, py2, a[i], b[i], a[i + 1], b[i + 1], a[i + 2], b[i + 2], a[i + 3], b[i + 3]]); if (dd > mx) { mx = dd; ex = px2; ey = py2; } } }
       return JSON.stringify({ bytes: a.length, diffBytes: d, maxDiff: mx, worstX: ex, worstY: ey, ch: chD, grid: grid, samples: samples, n: n, gmax: GMAX, bw: bw, bh: bh, tTiledMs: +tT.toFixed(1), tFullMs: +tF.toFixed(1), overflow: gOv });
