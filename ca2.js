@@ -1207,8 +1207,29 @@
       f.x = bx; f.y = by;
     }
   }
+  // post.rs post_guard: the whole guard loop (disk hit, push-out, carry rules) in Rust over the food list. Returns false (nothing written) so the JS loop runs.
+  var inkMaskUp = null;
+  function foodInkGuardW() {
+    if (postOffW()) return false;
+    try {
+      var E = WC.e, n = food.length, i, f, o, r = Math.max(0.5, P.foodSize / 2);
+      if (inkMaskUp !== SEP.img) { var mb = E.post_mask_buf(SEP.img.length); new Uint8Array(WC.mem.buffer, mb, SEP.img.length).set(SEP.img); E.post_mask_dims(SEP.mw, SEP.mh); inkMaskUp = SEP.img; }
+      var gp = E.post_guard_buf(n), g = new Float64Array(WC.mem.buffer, gp, n * 12);
+      for (i = 0; i < n; i++) { f = food[i]; o = i * 12; g[o] = f.x; g[o + 1] = f.y; g[o + 2] = f.vx !== undefined ? f.vx : 0; g[o + 3] = f.vy !== undefined ? f.vy : 0; g[o + 4] = f.vx !== undefined ? 1 : 0; g[o + 5] = f.vy !== undefined ? 1 : 0; g[o + 6] = f._pk === undefined ? -1 : f._pk; g[o + 7] = f._px === undefined ? 0 : f._px; g[o + 8] = f._py === undefined ? 0 : f._py; g[o + 9] = (f.blob || f.worm || f.spore) ? 1 : 0; }
+      if (E.post_guard(n, W, H, r) < 0) return false;
+      g = new Float64Array(WC.mem.buffer, gp, n * 12);
+      var w = 0;
+      for (i = 0; i < n; i++) {
+        f = food[i]; o = i * 12; f.x = g[o]; f.y = g[o + 1]; if (f.vx !== undefined) f.vx = g[o + 2]; if (f.vy !== undefined) f.vy = g[o + 3];
+        if (g[o + 10]) { f.gone = 1; continue; }
+        f._pk = g[o + 6]; f._px = g[o + 7]; f._py = g[o + 8]; food[w++] = f;
+      }
+      food.length = w; WC.fwGd = (WC.fwGd || 0) + 1; return true;
+    } catch (e) { WC.postOff = true; WC.postErr = String(e); return false; }
+  }
   function foodInkGuard() {
     if (!foodInkOn()) { for (var j = 0; j < food.length; j++) food[j]._pk = 0; return; }
+    if (foodInkGuardW()) return; // Rust/wasm (post.rs); JS below is the fallback
     var i, f, on, owned, w = 0;
     for (i = 0; i < food.length; i++) {
       f = food[i]; owned = f.blob || f.worm || f.spore; on = foodOnInk(f.x, f.y);

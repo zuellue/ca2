@@ -116,3 +116,93 @@ pub extern "C" fn post_hab(n: usize) -> i32 {
         0
     }
 }
+
+// ---- food-ink guard (foodInkGuard / foodPushOut / foodOnInk) : deterministic, no RNG, same arithmetic as ca2.js. Own copy of the ink mask (RGBA u8), uploaded by JS
+// when SEP.img changes (identity), independent of the separator module's mask.
+static mut MK: Vec<u8> = Vec::new();
+static mut MKW: f64 = 0.0;
+static mut MKH: f64 = 0.0;
+static mut GB: Vec<f64> = Vec::new();
+const COS8: [f64; 8] = [1.0, 0.7071, 0.0, -0.7071, -1.0, -0.7071, 0.0, 0.7071];
+const SIN8: [f64; 8] = [0.0, 0.7071, 1.0, 0.7071, 0.0, -0.7071, -1.0, -0.7071];
+#[no_mangle]
+pub extern "C" fn post_mask_buf(n: usize) -> *mut u8 { unsafe { let m = &mut *std::ptr::addr_of_mut!(MK); m.resize(n, 0); m.as_mut_ptr() } }
+#[no_mangle]
+pub extern "C" fn post_mask_dims(mw: f64, mh: f64) { unsafe { MKW = mw; MKH = mh; } }
+#[no_mangle]
+pub extern "C" fn post_guard_buf(n: usize) -> *mut f64 { unsafe { let b = &mut *std::ptr::addr_of_mut!(GB); b.resize(n * 12 + 1, 0.0); b.as_mut_ptr() } }
+
+// sepDiskHit(x, y, r) on the food mask
+unsafe fn disk_hit(x: f64, y: f64, r: f64) -> bool {
+    let m = &*std::ptr::addr_of!(MK); let (mw, mh) = (MKW, MKH);
+    if m.is_empty() { return false; }
+    let x0 = f64::max(0.0, ((x - r) * 0.5).floor()); let x1 = f64::min(mw - 1.0, ((x + r) * 0.5).ceil());
+    let y0 = f64::max(0.0, ((y - r) * 0.5).floor()); let y1 = f64::min(mh - 1.0, ((y + r) * 0.5).ceil());
+    let rr = (r + 1.42) * (r + 1.42);
+    let mut yy = y0;
+    while yy <= y1 {
+        let mut xx = x0;
+        while xx <= x1 {
+            let dx = xx * 2.0 + 1.0 - x; let dy = yy * 2.0 + 1.0 - y;
+            if dx * dx + dy * dy <= rr && m[((yy * mw + xx) as usize) * 4 + 3] > 40 { return true; }
+            xx += 1.0;
+        }
+        yy += 1.0;
+    }
+    false
+}
+// foodPushOut on (x, y): returns the new (x, y)
+unsafe fn push_out(x: f64, y: f64, w: f64, h: f64, r: f64) -> (f64, f64) {
+    let st = if MKW != 0.0 { w / MKW } else { 2.0 };
+    let (mut bk, mut bl) = (-1i32, 1e9f64);
+    for k in 0..8usize {
+        let mut ln = 1.0f64; let mut rx = x + COS8[k] * st; let mut ry = y + SIN8[k] * st;
+        while ln < bl && rx > 0.0 && ry > 0.0 && rx < w && ry < h && disk_hit(rx, ry, r) { ln += 1.0; rx += COS8[k] * st; ry += SIN8[k] * st; }
+        if ln < bl && rx > 0.0 && ry > 0.0 && rx < w && ry < h { bl = ln; bk = k as i32; }
+    }
+    if bk >= 0 { return (x + COS8[bk as usize] * st * bl, y + SIN8[bk as usize] * st * bl); }
+    let m = &*std::ptr::addr_of!(MK); let mw = MKW as usize; let n = (MKW * MKH) as usize;
+    let (mut bd, mut bx, mut by) = (1e18f64, x, y);
+    for q in 0..n {
+        if m[q * 4 + 3] > 40 { continue; } // free pixels only, ascending index = the cached free list order
+        let cx = (q % mw) as f64; let cy = ((q - q % mw) / mw) as f64;
+        let qx = (cx + 0.5) * st; let qy = (cy + 0.5) * st;
+        let d2 = (qx - x) * (qx - x) + (qy - y) * (qy - y);
+        if d2 < bd && !disk_hit(qx, qy, r) { bd = d2; bx = qx; by = qy; }
+    }
+    (bx, by)
+}
+// per food in (stride 12): 0 x,1 y,2 vx,3 vy,4 hasVx,5 hasVy,6 pk(-1 undefined),7 px,8 py,9 owned.  out: 0 x,1 y,2 vx,3 vy,6 pk,7 px,8 py,10 gone(1)
+#[no_mangle]
+pub extern "C" fn post_guard(n: usize, w: f64, h: f64, r: f64) -> i32 {
+    unsafe {
+        let b = &mut *std::ptr::addr_of_mut!(GB);
+        if b.len() < n * 12 { return -1; }
+        for i in 0..n {
+            let o = i * 12;
+            let (mut x, mut y, mut vx, mut vy) = (b[o], b[o + 1], b[o + 2], b[o + 3]);
+            let (hvx, hvy, pk, px, py, owned) = (b[o + 4] != 0.0, b[o + 5] != 0.0, b[o + 6], b[o + 7], b[o + 8], b[o + 9] != 0.0);
+            let mut gone = false;
+            if disk_hit(x, y, r) {
+                if pk == 1.0 {
+                    if !disk_hit(x, py, r) { y = py; if hvy { vy = -vy * 0.5; } }
+                    else if !disk_hit(px, y, r) { x = px; if hvx { vx = -vx * 0.5; } }
+                    else {
+                        x = px; y = py;
+                        if hvx { vx = -vx * 0.5; vy = -vy * 0.5; }
+                        if disk_hit(x, y, r) { let p = push_out(x, y, w, h, r); x = p.0; y = p.1; }
+                    }
+                } else if pk == 2.0 || pk == 0.0 {
+                    let p = push_out(x, y, w, h, r); x = p.0; y = p.1;
+                } else if pk == -1.0 {
+                    if owned { let p = push_out(x, y, w, h, r); x = p.0; y = p.1; } else { gone = true; }
+                }
+                if !gone && disk_hit(x, y, r) { gone = true; }
+            }
+            let mut npk = pk; let (mut npx, mut npy) = (px, py);
+            if !gone { npk = if disk_hit(x, y, r) { 2.0 } else { 1.0 }; npx = x; npy = y; }
+            b[o] = x; b[o + 1] = y; b[o + 2] = vx; b[o + 3] = vy; b[o + 6] = npk; b[o + 7] = npx; b[o + 8] = npy; b[o + 10] = if gone { 1.0 } else { 0.0 };
+        }
+        0
+    }
+}
