@@ -31,7 +31,7 @@ function ulp(a,b){if(Object.is(a,b))return 0;const f=new Float64Array(1),u=new B
 let hTot=0,hBad=0,hMaxUlp=0,hMaxAbs=0,hTouchedMis=0;
 for(let t=0;t<3000;t++){
  Object.assign(P,Q);P.habitatNiches=[1,2,3,5][t%4];P.habitatDriftAmp=t%3?0.3:0;P.habitatFedDecay=t%5?0.2:0;P.habitatSun=t%7?0.6:0;
- cont.x=rnd()*200;cont.y=rnd()*100;cont.w=100+rnd()*1500;cont.h=100+rnd()*800;habT=rnd()*500;
+ cont.x=rnd()*200;cont.y=rnd()*100;cont.w=100+rnd()*1500;cont.h=100+rnd()*800;habT=rnd()*(+process.env.TMAX||500);
  const full=rnd()<0.8,dt=0.005+rnd()*0.05,x0=cont.x,x1=cont.x+cont.w,y0=cont.y,y1=cont.y+cont.h;
  const n=1+Math.floor(rnd()*50),fs=[];for(let i=0;i<n;i++)fs.push({x:rnd()*2000-100,y:rnd()*1200-100,fed:rnd()<0.4?undefined:(rnd()<0.2?0:rnd()*3),worm:rnd()<0.05});
  const hp=E.post_hab_par(),bp=E.post_hab_buf(n);const pv=new Float64Array(E.memory.buffer,hp,32);

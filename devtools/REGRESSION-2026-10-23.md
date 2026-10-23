@@ -62,3 +62,9 @@ Node, both builds: t-fdm-large 1,200,030/0; t-fdm-parity 1.6M/0; t-fdm-edge flag
 Browser smoke (t143 fixed clock, default SIMD and ?nosimd=1, 10 s): sim:true, simOff false, liveOff false, simErr null. This is a boot/path smoke only.
 CAVEAT (measured): the t143 fixed-clock fixture is NOT run-to-run deterministic. Same shipped binary, same seed 12345, 10 s: merge 54 fuse 11 (earlier run) vs merge 28 fuse 7 (re-run 02:45). So rebuilt-vs-shipped behavior cannot be compared with it; the earlier JS-vs-wasm n=4 comparisons carry that unexplained variance too.
 NOT done: hab/wing/circles large-argument parity against JS (only sepbody checked with huge T), browser behavior comparison, drivers.
+
+### Large-argument caller parity vs JS (24 Oct 02:57, shipped-candidate binaries a94dbf3f.../bdd56ede...)
+- hab (post_hab) with huge clock: t-post-parity TMAX=500,1e7,1e10,1e30,1e150 (SIMD binary): habChecks 72198, habTouchedMismatch 0, maxUlp 0 each; wall 80894/0, age 61262/0. 
+- circles pc_move (huge ph 1e9 / huge clock / both, 3200 frames) on ca2core.wasm: pcMoveNegativeReturns 0 (was 2400 with the old OOD fallback), mismatch 0, state and global draw count compared each frame, circOff unset.
+- sepBody: see above (TMAX to 1e150, 20000 each, 0 mismatch).
+- NOT covered: wing (pw_run) huge-argument parity vs JS (only t-ood-domain nonnegative return), parasites.rs huge-ph path beyond pc_move, non-SIMD hab TMAX sweep.
