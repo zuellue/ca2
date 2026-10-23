@@ -17,6 +17,14 @@
   #devs a.on { color: #fff; }
   #devs a.on::after { content: ' \2022'; }
   #meta { position: fixed; right: 22px; top: 16px; color: rgba(233,233,233,.35); font-size: 11px; letter-spacing: .04em; text-align: right; line-height: 1.5; z-index: 2; }
+  /* orientation circles (owner 23 Oct): top-left of the black control screen, never inside the preview; P stands the phone up, L lays it on its side so the page inside really re-lays out at the landscape viewport */
+  #orient { display: none; position: fixed; left: 22px; top: 16px; z-index: 3; gap: 8px; }
+  #orient.show { display: flex; }
+  .oc { position: relative; height: 28px; min-width: 28px; width: 28px; box-sizing: border-box; border-radius: 999px; border: 1.5px solid #e9e9e9; background: transparent; color: #e9e9e9; padding: 0; font: inherit; font-size: 12px; cursor: pointer; overflow: hidden; white-space: nowrap; transition: width .18s ease; }
+  .oc.on { border-width: 2.5px; border-color: #fff; color: #fff; }
+  .oc.x { padding: 0 10px; }
+  .oc i { font-style: normal; } .oc s { display: none; text-decoration: none; font-weight: 600; }
+  .oc.x i { display: none; } .oc.x s { display: inline; }
   #scale { position: fixed; left: 22px; bottom: 16px; z-index: 2; }
   #savem { display: none; position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 2; }
   #scale a, #savem a { color: #e9e9e9; text-decoration: none; font-size: 13px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; cursor: pointer; }
@@ -35,6 +43,7 @@
 <div id="devs"><div class="t">device</div></div>
 <div id="stage"><iframe id="fr" title="ca2 mobile"></iframe></div>
 <div id="meta"></div>
+<div id="orient"><button type="button" class="oc" id="ocP" aria-label="PORTRAIT"><i>P</i><s>PORTRAIT</s></button><button type="button" class="oc" id="ocL" aria-label="LANDSCAPE"><i>L</i><s>LANDSCAPE</s></button></div>
 <div id="adm2"><div class="ac"><span></span></div><div class="ac"><span></span></div><div class="ac"><span></span></div><div class="ac"><span></span></div></div>
 <div id="scale"><a id="scalea">scale: fit</a></div>
 <div id="savem"><a id="savea">save</a></div>
@@ -62,15 +71,31 @@
   var cur = 1; try { cur = Math.min(DEVS.length - 1, Math.max(0, parseInt(localStorage.getItem('ca2.device') || '1', 10) || 0)); } catch (e) {}
   var scaleMode = 0; try { scaleMode = Math.max(0, Math.min(SCALES.length - 1, SCALES.indexOf(localStorage.getItem('ca2.scale') || 'fit'))); } catch (e) {}
   var links = [];
+  var ocP = document.getElementById('ocP'), ocL = document.getElementById('ocL'), orientEl = document.getElementById('orient');
+  function rgb() { return 'rgb(' + Math.floor(Math.random() * 256) + ',' + Math.floor(Math.random() * 256) + ',' + Math.floor(Math.random() * 256) + ')'; }
+  [ocP, ocL].forEach(function (b) { // the login-circle hover language: random colour, grows into the full word
+    b.addEventListener('pointerenter', function () { b.classList.add('x'); b.style.width = (b.querySelector('s').getBoundingClientRect().width + 24) + 'px'; var c = rgb(); b.style.background = c; b.style.borderColor = c; b.style.color = '#000'; });
+    b.addEventListener('pointerleave', function () { b.classList.remove('x'); b.style.width = ''; b.style.background = ''; b.style.borderColor = ''; b.style.color = ''; });
+  });
+  function setOrient(o) {
+    if (o === orient) return;
+    orient = o; try { localStorage.setItem('ca2.orient', o); } catch (e) {}
+    fit(); // the frame resizes to the rotated viewport; the page inside re-lays out on its own resize
+    try { var w = fr.contentWindow; if (w && typeof w.__ca2ProfFollow === 'function') setTimeout(w.__ca2ProfFollow, 60); } catch (e) {}
+  }
+  ocP.addEventListener('click', function () { setOrient('P'); });
+  ocL.addEventListener('click', function () { setOrient('L'); });
   DEVS.forEach(function (d, i) {
     var a = document.createElement('a');
     a.innerHTML = d[0] + ' <small>' + d[1] + '\u00d7' + d[2] + '</small>';
     a.addEventListener('click', function () { pick(i, true); });
     devs.appendChild(a); links.push(a);
   });
+  var orient = 'P'; try { orient = localStorage.getItem('ca2.orient') === 'L' ? 'L' : 'P'; } catch (e) {}
   function fit() {
-    var d = DEVS[cur];
-    var fitS = Math.min((window.innerWidth - 170) / d[1], (window.innerHeight - 48) / d[2]);
+    var d0 = DEVS[cur];
+    var d = orient === 'L' ? [d0[0], d0[2], d0[1], d0[3]] : d0; // landscape = the same phone on its side: width and height swap
+    var fitS = Math.min((window.innerWidth - 500) / d[1], (window.innerHeight - 48) / d[2]);
     var s, fixed = scaleMode > 0;
     if (fixed) s = parseFloat(SCALES[scaleMode]) / 100;
     else s = Math.min(3, Math.max(0.2, fitS)); // fit now fills the window instead of capping at 100%
@@ -94,7 +119,8 @@
       // keep the frame's top-left at the visual centre: transform-origin 0 0 with an explicit offset
       stage.style.transform = 'translate(' + (-d[1] * s / 2) + 'px,' + (-d[2] * s / 2) + 'px) scale(' + s + ')';
     }
-    meta.innerHTML = d[0] + '<br>' + d[1] + ' \u00d7 ' + d[2] + ' @ ' + d[3] + 'x<br>' + Math.round(s * 100) + '%';
+    meta.innerHTML = d[0] + '<br>' + d[1] + ' \u00d7 ' + d[2] + ' @ ' + d[3] + 'x<br>' + (orient === 'L' ? 'landscape' : 'portrait') + '<br>' + Math.round(s * 100) + '%';
+    ocP.classList.toggle('on', orient === 'P'); ocL.classList.toggle('on', orient === 'L');
     scalea.textContent = 'scale: ' + SCALES[scaleMode];
   }
   function pick(i, nav) {
@@ -167,9 +193,10 @@
     location.href = 'index.html';
   });
   // a fresh frame inherits the unlocked state; an unlock done inside the frame mirrors back out here
-  fr.addEventListener('load', function () { pushIv && clearInterval(pushIv); pushIv = null; pushCode(); }); // a fresh frame inherits the unlocked state
+  fr.addEventListener('load', function () { try { setTimeout(function () { var w = fr.contentWindow; if (w && w.__ca2ProfFollow) w.__ca2ProfFollow(); }, 1500); } catch (e) {} pushIv && clearInterval(pushIv); pushIv = null; pushCode(); }); // a fresh frame inherits the unlocked state
   setInterval(function () {
     try { if (!outerOn && fr.contentWindow && fr.contentWindow.__adminOn) setOk(); } catch (e) {}
+    try { var on = !!(fr.contentWindow && fr.contentWindow.__adminOn) || outerOn; orientEl.classList.toggle('show', on); } catch (e) {}
     // owner 23 Oct: once the frame's verified Worker module offers the host bridge, the host page runs the SAME
     // admin widget bottom-right (no hand-built duplicate, nothing inside the preview). The bridge moves the widget
     // DOM + listeners onto this document; the frame's own widget stays hidden. On logout the hand-built entry

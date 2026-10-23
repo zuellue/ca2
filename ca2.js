@@ -3041,7 +3041,9 @@
   // otherwise the window width decides - a narrowed desktop window previews the mobile mode and its preset.
   // The mobile lane consumes this through window.__ca2Mode() / the 'ca2mode' event / body[data-camode].
   var MODE_BREAK = 820, modeSel = null, modeCur = '';
-  function modeEff() { return modeSel || (window.innerWidth <= MODE_BREAK ? 'm' : 'd'); }
+  // a phone turned sideways (or the device.html frame, which passes ?mobile=1) is still a phone: width alone must not flip it to the desktop layout when the landscape width passes the break (iphone 15 landscape = 852 > 820)
+  var PHONE_HW = (/[?&]mobile=1/.test(location.search)) || !!(window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches);
+  function modeEff() { return modeSel || ((PHONE_HW || window.innerWidth <= MODE_BREAK) ? 'm' : 'd'); }
   function modePub() {
     var m = modeEff(); if (m === modeCur) return; modeCur = m;
     document.body.dataset.camode = m;
@@ -3523,6 +3525,7 @@
     // ---- L / P circles (owner 23 Oct): top-left corner, same family as the login circles - hover (or the touch
     // press) paints a random RGB and grows the circle into a pill spelling the full word; a tap switches profile
     var lpw = null, lpEls = {};
+    window.__ca2ProfFollow = function () { prof.active = null; profSave(); applyProf(); }; // device.html: the frame's viewport aspect decides the profile
     function lpPaint() {
       if (!lpw) return;
       var act = profActive();
@@ -3563,7 +3566,8 @@
       });
       // the profile switcher is an admin instrument (owner 23 Oct): it mounts with admin and leaves with ca2logout
       var lpOn = false;
-      function lpMount() { if (lpOn) return; lpOn = true; document.body.appendChild(lpw); lpPaint(); }
+      var inFrame = MODE_Q && window.parent !== window; // the device.html host owns the P/L circles (top-left of its black screen); nothing inside the preview
+      function lpMount() { if (lpOn || inFrame) return; lpOn = true; document.body.appendChild(lpw); lpPaint(); }
       function lpDrop() { if (!lpOn) return; lpOn = false; if (lpw.parentNode) lpw.parentNode.removeChild(lpw); }
       window.addEventListener('ca2logout', lpDrop);
       setInterval(function () { if (window.__adminOn) lpMount(); else lpDrop(); }, 500);
