@@ -1168,10 +1168,23 @@
   // switch (separatorOn + HUD). Spawns resample on the real mask; motion that would enter ink is stopped like a wall (slide
   // along the free axis, else hold, velocity reflected); no teleport search. Parasites fly and are exempt.
   function foodInkOn() { return !!(P.separatorOn && P.showHud && SEP.img); }
-  function foodOnInk(x, y) { return foodInkOn() && sepDiskHit(x, y, Math.max(0.5, P.foodSize / 2)); }
+  // post.rs ink-mask queries (disk hit, ink fraction, free list lowerBound/at, reseed proximity): compute in Rust, the Math.random draws that interleave with them stay in JS in the original order. null/false = JS body.
+  var inkMaskUp = null;
+  function inkW() {
+    if (postOffW() || !SEP.img) return false;
+    if (inkMaskUp !== SEP.img) { try { var E0 = WC.e, mb = E0.post_mask_buf(SEP.img.length); new Uint8Array(WC.mem.buffer, mb, SEP.img.length).set(SEP.img); E0.post_mask_dims(SEP.mw, SEP.mh); inkMaskUp = SEP.img; } catch (e) { WC.postOff = true; WC.postErr = String(e); return false; } }
+    return true;
+  }
+  function foodOnInk(x, y) {
+    if (!foodInkOn()) return false;
+    var r = Math.max(0.5, P.foodSize / 2);
+    if (inkW()) { try { var h = WC.e.post_on_ink(x, y, r); WC.fwOi = (WC.fwOi || 0) + 1; return h === 1; } catch (e) { WC.postOff = true; WC.postErr = String(e); } }
+    return sepDiskHit(x, y, r);
+  }
   var inkFrac = { img: null, p: 0 };
   function foodInkFrac() { // fraction of mask pixels that are ink; recounted once per rebuilt mask
     if (inkFrac.img === SEP.img) return inkFrac.p;
+    if (inkW()) { inkFrac.img = SEP.img; inkFrac.p = WC.e.post_ink_frac(); return inkFrac.p; }
     var d = SEP.img, n = SEP.mw * SEP.mh, c = 0; for (var i = 3; i < d.length; i += 4) if (d[i] > 40) c++;
     inkFrac.img = d; inkFrac.p = n ? c / n : 0; return inkFrac.p;
   }
@@ -1193,10 +1206,10 @@
       return null;
     }
     // mostly ink: choose among the free mask pixels of the rows the rect covers (sorted index, binary search); tries never exceed that slice
-    var idx = foodFreeIdx(), mw = SEP.mw, st = foodMaskPx(), r0 = Math.max(0, Math.floor(y / st)), r1 = Math.min(SEP.mh - 1, Math.floor((y + h) / st));
-    var lo = lowerBound(idx, r0 * mw), hi = lowerBound(idx, (r1 + 1) * mw), n = hi - lo;
+    var idx = inkW() ? null : foodFreeIdx(), mw = SEP.mw, st = foodMaskPx(), r0 = Math.max(0, Math.floor(y / st)), r1 = Math.min(SEP.mh - 1, Math.floor((y + h) / st));
+    var fw = inkW(), lo = fw ? WC.e.post_free_lb(r0 * mw) : lowerBound(idx, r0 * mw), hi = fw ? WC.e.post_free_lb((r1 + 1) * mw) : lowerBound(idx, (r1 + 1) * mw), n = hi - lo;
     for (t = 0; t < n; t++) {
-      var q = idx[lo + Math.floor(Math.random() * n)], cx = q % mw, cy = (q - cx) / mw;
+      var q = fw ? WC.e.post_free_at(lo + Math.floor(Math.random() * n)) : idx[lo + Math.floor(Math.random() * n)], cx = q % mw, cy = (q - cx) / mw;
       px = (cx + Math.random()) * st; py = (cy + Math.random()) * st;
       if (px >= x && px <= x + w && py >= y && py <= y + h && !foodOnInk(px, py)) return { x: px, y: py };
     }
@@ -1215,12 +1228,11 @@
     }
   }
   // post.rs post_guard: the whole guard loop (disk hit, push-out, carry rules) in Rust over the food list. Returns false (nothing written) so the JS loop runs.
-  var inkMaskUp = null;
   function foodInkGuardW() {
     if (postOffW()) return false;
     try {
       var E = WC.e, n = food.length, i, f, o, r = Math.max(0.5, P.foodSize / 2);
-      if (inkMaskUp !== SEP.img) { var mb = E.post_mask_buf(SEP.img.length); new Uint8Array(WC.mem.buffer, mb, SEP.img.length).set(SEP.img); E.post_mask_dims(SEP.mw, SEP.mh); inkMaskUp = SEP.img; }
+      if (!inkW()) return false;
       var gp = E.post_guard_buf(n), g = new Float64Array(WC.mem.buffer, gp, n * 12);
       for (i = 0; i < n; i++) { f = food[i]; o = i * 12; g[o] = f.x; g[o + 1] = f.y; g[o + 2] = f.vx !== undefined ? f.vx : 0; g[o + 3] = f.vy !== undefined ? f.vy : 0; g[o + 4] = f.vx !== undefined ? 1 : 0; g[o + 5] = f.vy !== undefined ? 1 : 0; g[o + 6] = f._pk === undefined ? -1 : f._pk; g[o + 7] = f._px === undefined ? 0 : f._px; g[o + 8] = f._py === undefined ? 0 : f._py; g[o + 9] = (f.blob || f.worm || f.spore) ? 1 : 0; }
       if (E.post_guard(n, W, H, r) < 0) return false;
@@ -1425,13 +1437,15 @@
     var nf = cont.w * cont.h * P.foodDensity / 2, want = Math.max(P.foodReseedMin, nf * P.foodReseedFloor);
     if (food.length >= want) { reseedBudget = 0; return; }
     reseedBudget = Math.min(P.foodReseedMax, reseedBudget + P.foodReseedMax * dtf / 1000);
+    var rcw = false; if (!postOffW()) { try { var rp0 = WC.e.post_rc_buf(cells.length), rb0 = new Float64Array(WC.mem.buffer, rp0, cells.length * 3 + 1); for (var rj = 0; rj < cells.length; rj++) { rb0[rj * 3] = cells[rj].x; rb0[rj * 3 + 1] = cells[rj].y; rb0[rj * 3 + 2] = cells[rj].radius; } rcw = true; } catch (e) { WC.postOff = true; WC.postErr = String(e); } }
     var nb = Math.min(Math.ceil((want - food.length) / 5), Math.floor(reseedBudget / 5)), spawned = 0; // ~5 dots per 3x3 blob; isolated dots die at once under Conway's rules
     for (var b = 0; b < nb; b++) {
       var bx = 0, by = 0, ok = false;
       for (var tr = 0; tr < P.foodReseedTries && !ok; tr++) { // a seed dropped inside a cell's eat reach is eaten the same frame; look for a gap
         bx = Math.floor((x0 + rnd(Math.max(1, cont.w - 4 * gs))) / gs); by = Math.floor((y0 + rnd(Math.max(1, cont.h - 4 * gs))) / gs);
         var cx = (bx + 1.5) * gs, cy = (by + 1.5) * gs; ok = true;
-        for (var ci = 0; ci < cells.length; ci++) { var cc = cells[ci], rr = cc.radius + P.foodEatR + 2 * gs; if (Math.abs(cc.x - cx) < rr && Math.abs(cc.y - cy) < rr && (cc.x - cx) * (cc.x - cx) + (cc.y - cy) * (cc.y - cy) < rr * rr) { ok = false; break; } }
+        if (rcw) { if (WC.e.post_rc_near(cx, cy, P.foodEatR, gs)) ok = false; } // Rust/wasm (post.rs)
+        else for (var ci = 0; ci < cells.length; ci++) { var cc = cells[ci], rr = cc.radius + P.foodEatR + 2 * gs; if (Math.abs(cc.x - cx) < rr && Math.abs(cc.y - cy) < rr && (cc.x - cx) * (cc.x - cx) + (cc.y - cy) * (cc.y - cy) < rr * rr) { ok = false; break; } }
       }
       if (!ok) continue;
       for (var dx = 0; dx < 3; dx++) for (var dy = 0; dy < 3; dy++) if (Math.random() < 0.55 && !foodOnInk((bx + dx + 0.5) * gs, (by + dy + 0.5) * gs)) { food.push({ x: (bx + dx + 0.5) * gs, y: (by + dy + 0.5) * gs, r: Math.random() }); spawned++; }

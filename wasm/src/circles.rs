@@ -87,7 +87,7 @@ pub extern "C" fn pc_move(m: usize, tt: f64, nv: f64) -> i32 {
             let (r0, r1, r2) = (pb[o + 7], pb[o + 8], pb[o + 9]);
             if mode == 2.0 { ph = r0 * 6.28; }
             let (kx, ky, kr) = (kb[circ * 4], kb[circ * 4 + 1], kb[circ * 4 + 2]);
-            let osc = (tt * (2.0 + 2.0 * nv) + ph).sin();
+            let osc = crate::fdm::sin(tt * (2.0 + 2.0 * nv) + ph);
             let h = hypot2(kx - px, ky - py);
             let dd2 = if h != 0.0 { h } else { 1.0 }; // (x || 1)
             let want = kr * (1.1 + 0.5 * nv * (1.0 + osc));
@@ -131,8 +131,8 @@ pub extern "C" fn pw_run(n: usize, dtf: f64, psz: f64) -> i32 {
             sp = sp + (f64::min(spd, 6.0) - sp) * 0.15;
             let mut fph = if fp.is_nan() { ph } else { fp };
             fph = fph + dtf * 0.0565 * (1.0 + 0.12 * sp);
-            let fl = fph.sin(); let amp = 0.22 + 0.025 * sp;
-            let (ux, uy) = (h.cos(), h.sin()); let (vx, vy) = (-uy, ux);
+            let fl = crate::fdm::sin(fph); let amp = 0.22 + 0.025 * sp;
+            let (ux, uy) = (crate::fdm::cos(h), crate::fdm::sin(h)); let (vx, vy) = (-uy, ux);
             let bw = 2.965 * psz * (1.0 + amp * fl); let rr = (1.71 - 0.35 * fl) * psz; let rad = 0.5 * psz;
             let (ax, ay) = (x + ux * 3.43 * psz, y + uy * 3.43 * psz);
             let (lx, ly) = (x - ux * rr + vx * bw, y - uy * rr + vy * bw);

@@ -5,7 +5,7 @@ const code=src.slice(a,b);
 function run(inkShare){
   const mw=100,mh=100,img=new Uint8ClampedArray(mw*mh*4);
   const cut=Math.round(inkShare*mw*mh); for(let i=0;i<cut;i++) img[i*4+3]=255; // first rows are ink
-  const env={W:mw*2,P:{separatorOn:1,showHud:1,foodSize:2},SEP:{img,mw,mh},sepDiskHit:(x,y,r)=>{const ix=Math.min(mw-1,Math.max(0,(x*0.5)|0)),iy=Math.min(mh-1,Math.max(0,(y*0.5)|0));return img[(iy*mw+ix)*4+3]>40;},Math,food:[]};
+  const env={postOffW:()=>true,inkW:()=>false,WC:{},W:mw*2,P:{separatorOn:1,showHud:1,foodSize:2},SEP:{img,mw,mh},sepDiskHit:(x,y,r)=>{const ix=Math.min(mw-1,Math.max(0,(x*0.5)|0)),iy=Math.min(mh-1,Math.max(0,(y*0.5)|0));return img[(iy*mw+ix)*4+3]>40;},Math,food:[]};
   const f=new Function(...Object.keys(env),code+';return {foodSpot,foodInkFrac};')(...Object.values(env));
   let ok=0,skip=0,onInk=0,N=20000;
   for(let i=0;i<N;i++){const r=f.foodSpot(0,0,200,200); if(!r) skip++; else {ok++; if(env.sepDiskHit(r.x,r.y,1)) onInk++;}}

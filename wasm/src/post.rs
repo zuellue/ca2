@@ -91,7 +91,7 @@ fn hab_field(x: f64, y: f64, p: &[f64]) -> (f64, f64) {
         let dk = if k > 1.0 { k } else { 4.0 };
         let dx0 = ((x - cx) / js_max(1.0, cw) * dk).floor(); let dy0 = ((y - cy) / js_max(1.0, ch) * dk).floor();
         let ph = 2.0 * std::f64::consts::PI * p[5] * p[7]; let off = 2.0 * std::f64::consts::PI * hab_hash(dx0, dy0);
-        d_mul = 1.0 + p[4] * (0.6 * (ph + off).sin() + 0.4 * (1.618 * ph + 2.0 * off).sin());
+        d_mul = 1.0 + p[4] * (0.6 * crate::fdm::sin(ph + off) + 0.4 * crate::fdm::sin(1.618 * ph + 2.0 * off));
     }
     let sun_mul = js_max(p[6], niche * d_mul);
     (sun_mul, 1.0 + (1.0 - js_min(1.0, sun_mul)))
@@ -128,7 +128,41 @@ const SIN8: [f64; 8] = [0.0, 0.7071, 1.0, 0.7071, 0.0, -0.7071, -1.0, -0.7071];
 #[no_mangle]
 pub extern "C" fn post_mask_buf(n: usize) -> *mut u8 { unsafe { let m = &mut *std::ptr::addr_of_mut!(MK); m.resize(n, 0); m.as_mut_ptr() } }
 #[no_mangle]
-pub extern "C" fn post_mask_dims(mw: f64, mh: f64) { unsafe { MKW = mw; MKH = mh; } }
+pub extern "C" fn post_mask_dims(mw: f64, mh: f64) {
+    unsafe {
+        MKW = mw; MKH = mh;
+        let m = &*std::ptr::addr_of!(MK); let n = (mw * mh) as usize;
+        let fr = &mut *std::ptr::addr_of_mut!(FREE); fr.clear();
+        let mut ink = 0usize;
+        for i in 0..n.min(m.len() / 4) { if m[i * 4 + 3] > 40 { ink += 1; } else { fr.push(i as u32); } } // free = alpha <= 40, ascending (foodFreeIdx order)
+        INKP = if n > 0 { ink as f64 / n as f64 } else { 0.0 };
+    }
+}
+static mut FREE: Vec<u32> = Vec::new();
+static mut INKP: f64 = 0.0;
+// foodInkFrac
+#[no_mangle] pub extern "C" fn post_ink_frac() -> f64 { unsafe { INKP } }
+// foodOnInk core (sepDiskHit on the food mask)
+#[no_mangle] pub extern "C" fn post_on_ink(x: f64, y: f64, r: f64) -> i32 { unsafe { if disk_hit(x, y, r) { 1 } else { 0 } } }
+// lowerBound over the free list, and element access (foodSpot's mostly-ink branch; the Math.random draws stay in JS)
+#[no_mangle] pub extern "C" fn post_free_lb(v: f64) -> f64 { unsafe { let a = &*std::ptr::addr_of!(FREE); let (mut lo, mut hi) = (0usize, a.len()); while lo < hi { let m = (lo + hi) >> 1; if (a[m] as f64) < v { lo = m + 1; } else { hi = m; } } lo as f64 } }
+#[no_mangle] pub extern "C" fn post_free_at(i: f64) -> f64 { unsafe { let a = &*std::ptr::addr_of!(FREE); let k = i as usize; if k < a.len() { a[k] as f64 } else { -1.0 } } }
+// reseedFood cell-proximity test: packed cells (x, y, radius) uploaded once per call
+static mut RC: Vec<f64> = Vec::new();
+static mut RCN: usize = 0;
+#[no_mangle] pub extern "C" fn post_rc_buf(n: usize) -> *mut f64 { unsafe { let b = &mut *std::ptr::addr_of_mut!(RC); b.resize(n * 3 + 1, 0.0); RCN = n; b.as_mut_ptr() } }
+// true when a cell's eat reach covers (cx, cy): the JS `ok = false; break` condition, same arithmetic, same order
+#[no_mangle] pub extern "C" fn post_rc_near(cx: f64, cy: f64, eat_r: f64, gs: f64) -> i32 {
+    unsafe {
+        let b = &*std::ptr::addr_of!(RC);
+        for i in 0..RCN {
+            let (x, y, r) = (b[i * 3], b[i * 3 + 1], b[i * 3 + 2]);
+            let rr = r + eat_r + 2.0 * gs;
+            if (x - cx).abs() < rr && (y - cy).abs() < rr && (x - cx) * (x - cx) + (y - cy) * (y - cy) < rr * rr { return 1; }
+        }
+        0
+    }
+}
 #[no_mangle]
 pub extern "C" fn post_guard_buf(n: usize) -> *mut f64 { unsafe { let b = &mut *std::ptr::addr_of_mut!(GB); b.resize(n * 12 + 1, 0.0); b.as_mut_ptr() } }
 
@@ -236,9 +270,9 @@ pub extern "C" fn post_sepbody() -> i32 {
             let rs = cr * th; let span = 2.0 * cr * th * (asp - 1.0);
             let want = f64::min(9.0, f64::max(2.0, js_round(span / (1.15 * rs)) + 1.0)); let nn = f64::min(want, allow);
             if nn >= 2.0 {
-                let ux = dir.cos(); let uy = dir.sin(); let px = -uy; let py = ux; let ds = span / (nn - 1.0); let tq = t0 / 850.0 * (1.0 + wsp) + ph;
+                let ux = crate::fdm::cos(dir); let uy = crate::fdm::sin(dir); let px = -uy; let py = ux; let ds = span / (nn - 1.0); let tq = t0 / 850.0 * (1.0 + wsp) + ph;
                 let mut k = 0.0f64;
-                while k < nn { let d0 = -span / 2.0 + ds * k; let off2 = wig * rs * (tq + k * 0.85).sin(); push(bx + ux * d0 + px * off2, by + uy * d0 + py * off2, rs); k += 1.0; }
+                while k < nn { let d0 = -span / 2.0 + ds * k; let off2 = wig * rs * crate::fdm::sin(tq + k * 0.85); push(bx + ux * d0 + px * off2, by + uy * d0 + py * off2, rs); k += 1.0; }
                 done = true;
             }
         } else if shapes && has_sh && st == 2.0 && allow > 2.0 {
@@ -247,7 +281,7 @@ pub extern "C" fn post_sepbody() -> i32 {
             let mut q2 = 0.0f64;
             while q2 < sat {
                 let aa = rot + q2 * 2.4 + ph2; let dd = cr * (0.42 + 0.24 * ((q2 * 0.731 + ph) % 1.0)); let rr2 = cr * (0.3 + 0.22 * ((q2 * 0.377 + ph2) % 1.0));
-                push(bx + aa.cos() * dd, by + aa.sin() * dd, rr2); q2 += 1.0;
+                push(bx + crate::fdm::cos(aa) * dd, by + crate::fdm::sin(aa) * dd, rr2); q2 += 1.0;
             }
             done = true;
         }

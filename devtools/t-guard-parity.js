@@ -6,7 +6,7 @@ function fn(name){const i=src.indexOf('function '+name+'(');let j=src.indexOf('{
 const code=`var P={foodSize:6,separatorOn:1,showHud:1},SEP={img:null,mw:0,mh:0},W=800,H=500,food=[];
 var COS8=[1,0.7071,0,-0.7071,-1,-0.7071,0,0.7071],SIN8=[0,0.7071,1,0.7071,0,-0.7071,-1,-0.7071];
 ${['sepDiskHit','foodInkOn','foodOnInk','foodFreeIdx','foodMaskPx','foodPushOut','foodInkGuard'].map(fn).join('\n')}
-var inkFree={img:null,idx:null};function foodInkGuardW(){return false;}
+var inkFree={img:null,idx:null};function foodInkGuardW(){return false;}function inkW(){return false;}
 return {P:P,SEP:SEP,set food(v){food=v;},get food(){return food;},setW:function(w,h){W=w;H=h;},run:foodInkGuard};`;
 const J=new Function(code)();
 (async()=>{

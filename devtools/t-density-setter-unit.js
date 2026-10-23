@@ -8,7 +8,7 @@ const helpers=src.slice(a,b), branch=src.slice(s0,s1).replace(/^else /,'');
 function run(name,{ink,free,dens,on=1}){
  const mw=100,mh=60,img=new Uint8ClampedArray(mw*mh*4);
  if(ink==='all')for(let i=0;i<mw*mh;i++)img[i*4+3]=255; else if(ink==='band'){for(let i=0;i<mw*mh;i++)img[i*4+3]=255;for(let y=26;y<34;y++)for(let x=0;x<mw;x++)img[(y*mw+x)*4+3]=0;} else if(ink==='text'){for(let k=0;k<30;k++){const cx=Math.random()*mw,cy=Math.random()*mh,r=2+Math.random()*4;for(let y=0;y<mh;y++)for(let x=0;x<mw;x++)if((x-cx)**2+(y-cy)**2<r*r)img[(y*mw+x)*4+3]=255;}}
- const env={W:mw*2,H:mh*2,P:{separatorOn:on,showHud:1,foodSize:2,foodDensity:dens},SEP:{img,mw,mh},cont:{x:10,y:10,w:180,h:100},food:[],rnd:x=>Math.random()*x,
+ const env={postOffW:()=>true,inkW:()=>false,WC:{},W:mw*2,H:mh*2,P:{separatorOn:on,showHud:1,foodSize:2,foodDensity:dens},SEP:{img,mw,mh},cont:{x:10,y:10,w:180,h:100},food:[],rnd:x=>Math.random()*x,
   sepDiskHit:(x,y,r)=>{const x0=Math.max(0,Math.floor((x-r)*.5)),x1=Math.min(mw-1,Math.ceil((x+r)*.5)),y0=Math.max(0,Math.floor((y-r)*.5)),y1=Math.min(mh-1,Math.ceil((y+r)*.5)),rr=(r+1.42)**2;for(let yy=y0;yy<=y1;yy++)for(let xx=x0;xx<=x1;xx++){const dx=xx*2+1-x,dy=yy*2+1-y;if(dx*dx+dy*dy<=rr&&img[(yy*mw+xx)*4+3]>40)return true;}return false;}};
  const fn=new Function(...Object.keys(env),'k',helpers+';var k_=k;'+branch.replace(/^if \(k === 'foodDensity'\)/,'if (k === \'foodDensity\')')+';return {}');
  // branch text starts "if (k === 'foodDensity') {...}" so it runs directly with k
