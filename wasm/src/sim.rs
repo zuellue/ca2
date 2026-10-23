@@ -504,11 +504,14 @@ impl Sim {
         }
         acc.sort_by(|a, b| a[0].partial_cmp(&b[0]).unwrap());
         for a in &acc { self.cm_id.push(a[0]); self.cm.extend_from_slice(&[a[2] / a[1], a[3] / a[1], a[4] / a[1], a[5] / a[1], a[6] / a[1]]); }
+        // dissolve rolls use a side stream (as the JS flow did with Math.random) so the main interact/update stream order is unchanged
+        let (sv0, sv1) = (self.s0, self.s1); self.s0 = sv0 ^ 0xD1B54A32D192ED03; self.s1 = sv1 ^ 0x8CB92BA72F3D8DD7;
         for i in 0..n0 {
             let cl = self.g(i, CL); if cl == 0.0 { continue; }
             let cnt = acc.iter().find(|a| a[0] == cl).map_or(0.0, |a| a[1]);
-            if cnt < 2.0 || self.rnd01() < 0.0005 { self.set(i, CL, 0.0); }
+            if (cnt < 2.0 && self.p[81] != 2.0) || self.rnd01() < (if self.p[81] != 0.0 { 0.0 } else { 0.0005 }) { self.set(i, CL, 0.0); }
         }
+        self.s0 = sv0; self.s1 = sv1;
         acc.len() as f64
     }
 }
