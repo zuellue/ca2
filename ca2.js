@@ -3247,6 +3247,7 @@
         var v;
         if (mob) v = (mb2[k] !== undefined) ? mb2[k] : MOBILE_SEED[k];
         else v = (g[k] !== undefined) ? g[k] : MOBILE_SEED[k]; // no desktop source offline: keep the seed value
+        if (mob && profActive() === 'L') { var lmz = landMap(); if (lmz[k] !== undefined) v = lmz[k]; } // the LANDSCAPE mirror wins over the portrait layer (owner 23 Oct)
         if (v === undefined) return;
         // device-profile default, NOT a user edit: seedKey. setKey would mark the key touched and pin it against
         // the bounded morph deal forever (CR never moved on mobile / small viewports - measured tg.cr frozen at the seed).
@@ -3310,7 +3311,7 @@
     window.addEventListener('resize', function () { if (applying || lane || window.__ca2Mode || lsSel) return; refresh(); }); // fallback auto-switch only while no lane module and no explicit pick
     // the other lane's pullG applies fresh desktop keys over the mobile layer; re-apply it after every global update
     var g0 = storedG(); seenV = (g0 && g0._v) || 0;
-    setInterval(function () { var g = storedG(), v = g && g._v; if (v && v !== seenV) { seenV = v; if (mode === 'm') applyMode(); } }, 1000);
+    setInterval(function () { var g = storedG(), v = g && g._v; if (v && v !== seenV) { seenV = v; if (mode === 'm') { applyMode(); landResync(); } } }, 1000);
     setInterval(portraitGuard, 200); // fast cadence: a re-dealt thin plate must not visibly ease below the width floor (owner 21 Oct)
     (function wBand() { // render-synced: intervals stall on the saturated main thread, so the eased size itself is held inside the band every painted frame
       requestAnimationFrame(wBand);
@@ -3327,8 +3328,140 @@
       if (c.w > bw.hi) c.w = bw.hi;
       if (c.h > bh.hi) c.h = bh.hi;
     })();
-    // admin saves reroute into _mobile from the admin module's own fetch wrap (owner 21 Oct: no admin code ships publicly)
+    // ---- orientation profiles (owner 23 Oct): PORTRAIT is the existing mobile layer, unchanged. LANDSCAPE is a
+    // mirror profile: only the parameters changed while in LANDSCAPE are overridden; everything else follows
+    // PORTRAIT live. Overrides travel inside the global's _mobile._land (the Worker merges _mobile whole) with the
+    // device-local mirror on top, so a phone keeps its unsaved landscape edits across reloads.
+    var PROF_KEY = 'ca2.mprof';
+    function profLoad() { try { var p = JSON.parse(localStorage.getItem(PROF_KEY) || 'null'); if (p && typeof p === 'object') { p.land = (p.land && typeof p.land === 'object') ? p.land : {}; p.active = (p.active === 'L' || p.active === 'P') ? p.active : null; return p; } } catch (e) {} return { active: null, land: {} }; }
+    var prof = profLoad(); // active: pinned pick or null (= follow the window aspect)
+    function profSave() { try { localStorage.setItem(PROF_KEY, JSON.stringify(prof)); } catch (e) {} }
+    function profActive() { if (prof.active) return prof.active; return window.innerWidth > window.innerHeight ? 'L' : 'P'; }
+    function landMap() { var mb = mobOf(storedG() || {}); var gl = (mb._land && typeof mb._land === 'object') ? mb._land : {}; return Object.assign({}, gl, prof.land); }
+    var curProf = null, entryVals = null, diffBase = null;
+    function scalarKeys(o) { var r = {}; if (!o) return r; Object.keys(o).forEach(function (k) { var v = o[k]; if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') r[k] = v; }); return r; }
+    function intended(o) { // live morphs ease P frame by frame; the intended value is the morph target (live[k].orig)
+      var r = scalarKeys(o), lv = window.__ca2.live || {};
+      Object.keys(lv).forEach(function (k) { if (lv[k] && typeof lv[k].orig === typeof r[k]) r[k] = lv[k].orig; });
+      return r;
+    }
+    function readCfgP() { try { var c = JSON.parse(localStorage.getItem(window.__ca2x.STORE) || 'null'); return scalarKeys(c && c.P); } catch (e) { return {}; } }
+    function profSeed(k, v) { window.__ca2.seedKey(k, v); } // a layer write: no touched pin, no save - never reads as an edit
+    function landResync() { if (curProf !== 'L' || !diffBase) return; diffBase = readCfgP(); }
+    function applyProf() {
+      var act = profActive();
+      if (act === curProf) return;
+      if (curProf === 'L' && entryVals) { // leaving LANDSCAPE: hand every overridden key its portrait value back
+        var lm0 = landMap();
+        Object.keys(lm0).forEach(function (k) { if (entryVals[k] !== undefined) profSeed(k, entryVals[k]); });
+        entryVals = null; diffBase = null;
+      }
+      curProf = act;
+      applyMode(); // profile-aware: in L the mirror wins per key inside the layer
+      if (act === 'L') {
+        captureLand();
+        entryVals = intended(P); diffBase = readCfgP();
+        var lm = landMap();
+        Object.keys(lm).forEach(function (k) { if (typeof lm[k] === typeof entryVals[k]) profSeed(k, lm[k]); }); // non-layer keys: the layer keys were already seeded by applyMode
+      }
+      try { window.__ca2x.save(); } catch (e) {}
+      if (curProf === 'L') diffBase = readCfgP(); // my own save above must not read back as edits
+      lpPaint();
+    }
+    // edits made while LANDSCAPE is active are the mirror's content (owner 23 Oct). Capture = keys the core marked
+    // touched whose persisted (save()-written, morph-target) value changed: user edits only. Layer seeds, global
+    // pulls, boot deals and in-flight morphs neither mark touched nor call save, so they can never pollute the mirror.
+    function captureLand() { // returns true when the mirror changed; safe to call any time, cheap
+      if (mode !== 'm' || curProf !== 'L' || !diffBase) return false;
+      var cfgP = readCfgP(), tk = window.__ca2.touchedKeys || [], dirty = false;
+      tk.forEach(function (k) {
+        if (cfgP[k] === undefined || cfgP[k] === diffBase[k]) return;
+        prof.land[k] = cfgP[k]; diffBase[k] = cfgP[k]; dirty = true;
+      });
+      if (dirty) { profSave(); lpPaint(); }
+      return dirty;
+    }
+    setInterval(function () { captureLand(); }, 400); // the cadence for unsaved edits; saves sweep synchronously below
+    window.addEventListener('resize', function () { if (mode === 'm' && !prof.active) applyProf(); }); // unpinned: follow the window aspect
+    // ---- L / P circles (owner 23 Oct): top-left corner, same family as the login circles - hover (or the touch
+    // press) paints a random RGB and grows the circle into a pill spelling the full word; a tap switches profile
+    var lpw = null, lpEls = {};
+    function lpPaint() {
+      if (!lpw) return;
+      var act = profActive();
+      ['L', 'P'].forEach(function (k) {
+        var b = lpEls[k]; if (!b) return;
+        b.classList.toggle('on', act === k);
+        b.classList.toggle('pin', prof.active === k);
+      });
+    }
+    (function lpUI() {
+      var st = document.createElement('style');
+      st.textContent = '#lpl{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:calc(8px + env(safe-area-inset-left,0px));z-index:70;display:none;gap:8px;font-family:inherit}' +
+        'body[data-camode="m"] #lpl{display:flex}' +
+        '.lpc{position:relative;height:calc(var(--sd,26px)*1.2);min-width:calc(var(--sd,26px)*1.2);width:calc(var(--sd,26px)*1.2);box-sizing:border-box;border-radius:999px;border:1.5px solid var(--fg,#111);background:transparent;color:var(--fg,#111);padding:0 10px;cursor:pointer;overflow:hidden;white-space:nowrap;transition:width .38s cubic-bezier(.4,0,.2,1),background .38s,color .38s,border-color .38s;font-size:12px;letter-spacing:.14em;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;touch-action:manipulation}' +
+        '.lpc i{font-style:normal}' +
+        '.lpc s{display:none;text-decoration:none;font-weight:600}' +
+        '.lpc.x{width:auto}.lpc.x i{display:none}.lpc.x s{display:inline}' +
+        '.lpc.on{border-width:2.5px}' +
+        '.lpc.pin:after{content:"";position:absolute;right:4px;top:4px;width:5px;height:5px;border-radius:50%;background:currentColor}';
+      document.head.appendChild(st);
+      lpw = document.createElement('div'); lpw.id = 'lpl';
+      [['L', 'LANDSCAPE'], ['P', 'PORTRAIT']].forEach(function (pair) {
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'lpc'; b.setAttribute('aria-label', pair[1]);
+        var i = document.createElement('i'); i.textContent = pair[0]; var s = document.createElement('s'); s.textContent = pair[1];
+        b.appendChild(i); b.appendChild(s); lpw.appendChild(b); lpEls[pair[0]] = b;
+        function rgb() { return 'rgb(' + Math.floor(Math.random() * 256) + ',' + Math.floor(Math.random() * 256) + ',' + Math.floor(Math.random() * 256) + ')'; }
+        function grow() { if (b.classList.contains('x')) return; b.classList.add('x'); var c = rgb(); b.style.background = c; b.style.borderColor = c; var m = /rgb\((\d+),(\d+),(\d+)\)/.exec(c); var lum = m ? (0.299 * m[1] + 0.587 * m[2] + 0.114 * m[3]) : 0; b.style.color = lum > 150 ? '#111' : '#fff'; }
+        function shrink() { b.classList.remove('x'); b.style.background = ''; b.style.borderColor = ''; b.style.color = ''; }
+        b.addEventListener('pointerenter', grow); // the login-circle hover language: random colour + the full word (owner 23 Oct)
+        b.addEventListener('pointerleave', shrink);
+        b.addEventListener('click', function () {
+          var k = pair[0];
+          if (prof.active === k) { prof.active = null; } // a second tap on the pinned circle hands control back to the aspect
+          else prof.active = k;
+          profSave(); grow(); applyProf();
+          setTimeout(function () { if (!b.matches(':hover')) shrink(); }, 900);
+        });
+      });
+      // the profile switcher is an admin instrument (owner 23 Oct): it mounts with admin and leaves with ca2logout
+      var lpOn = false;
+      function lpMount() { if (lpOn) return; lpOn = true; document.body.appendChild(lpw); lpPaint(); }
+      function lpDrop() { if (!lpOn) return; lpOn = false; if (lpw.parentNode) lpw.parentNode.removeChild(lpw); }
+      window.addEventListener('ca2logout', lpDrop);
+      setInterval(function () { if (window.__adminOn) lpMount(); else lpDrop(); }, 500);
+    })();
+    // admin saves reroute into _mobile (owner 21 Oct): the desktop lane's Worker module calls this hook right
+    // before POSTing an admin save (owner 23 Oct contract). Sync, never mutates its argument, never throws:
+    // null = post the original body, an object = post it as the full replacement body (a Promise of either is
+    // accepted by the caller). PORTRAIT keeps the 21 Oct shape: the whole effective mobile config into _mobile,
+    // sent whole because the Worker merges shallowly. LANDSCAPE writes the same whole portrait config PLUS
+    // _mobile._land = only the keys actually changed while in LANDSCAPE - the mirror (owner 23 Oct).
+    // admin saves reroute into _mobile (owner 21 Oct): the desktop lane's Worker module calls this hook right
+    // before POSTing an admin save (owner 23 Oct contract). body = the full POST object {code, patch:{...}};
+    // returns null (= post the original) or a full replacement body - never mutates, never throws, sync (a
+    // returned Promise is also accepted by the caller). Mobile shape: the patch's config keys collapse into
+    // patch._mobile as a JSON STRING (the Worker merges patches shallowly, so _mobile travels whole, like
+    // _live). PORTRAIT keeps the 21 Oct whole-config shape; LANDSCAPE writes the whole PORTRAIT-effective
+    // config with the mirror backed out PLUS _mobile._land = only the keys actually changed in LANDSCAPE
+    // (owner 23 Oct). A PORTRAIT save preserves the stored mirror. Desktop saves pass through (null).
+    window.__ca2RewriteAdminPatch = function (body, ctx) {
+      try {
+        if (!body || typeof body !== 'object' || !body.patch || typeof body.patch !== 'object') return null;
+        if (detect() !== 'm') return null;
+        captureLand(); // an edit followed by an immediate Save must land in the mirror, not in the portrait copy
+        var out = JSON.parse(JSON.stringify(body));
+        var eff = intended(P), lm = landMap();
+        if (profActive() === 'L' && entryVals) Object.keys(lm).forEach(function (k) { if (entryVals[k] !== undefined) eff[k] = entryVals[k]; }); // back the mirror out of the portrait copy
+        if (Object.keys(lm).length) eff._land = lm;
+        var np = { _mobile: JSON.stringify(eff) };
+        if (typeof out.patch._live === 'string') np._live = out.patch._live;
+        out.patch = np;
+        return out;
+      } catch (e) { return null; }
+    };
     refresh();
+    applyProf(); // settle the aspect-followed or pinned profile before the first paint after boot
   }
   boot();
   // mobile lane (owner 21 Oct): section-button spacing halved on mobile + hover division unclipped (overflow-y:auto forced x-clipping)

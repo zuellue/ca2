@@ -170,7 +170,21 @@
   fr.addEventListener('load', function () { pushIv && clearInterval(pushIv); pushIv = null; pushCode(); }); // a fresh frame inherits the unlocked state
   setInterval(function () {
     try { if (!outerOn && fr.contentWindow && fr.contentWindow.__adminOn) setOk(); } catch (e) {}
+    // owner 23 Oct: once the frame's verified Worker module offers the host bridge, the host page runs the SAME
+    // admin widget bottom-right (no hand-built duplicate, nothing inside the preview). The bridge moves the widget
+    // DOM + listeners onto this document; the frame's own widget stays hidden. On logout the hand-built entry
+    // circles return for the next login.
+    try {
+      var w = fr.contentWindow;
+      if (w && w.__adminOn && typeof w.__ca2MountAdminHost === 'function' && !hostMounted) {
+        if (w.__ca2MountAdminHost(document)) { hostMounted = true; adm2.style.display = 'none'; document.getElementById('savem').style.display = 'none'; }
+      }
+      if (hostMounted && w && !w.__adminOn) { hostMounted = false; adm2.style.display = ''; }
+      // the host-mounted widget's DESK action flips the frame's mode: follow it to the desktop page (owner 23 Oct)
+      if (w && typeof w.__ca2Mode === 'function' && w.__ca2Mode() === 'd') { try { localStorage.setItem('ca2.mode', 'desktop'); } catch (e2) {} location.href = 'index.html'; }
+    } catch (e) {}
   }, 400);
+  var hostMounted = false;
   // page-level save: bottom row, centered under the preview, same line as the desktop link (owner 21 Oct).
   // Drives the real save button inside the frame (its handler and text states stay authoritative) and mirrors its label.
   var savea = document.getElementById('savea');
