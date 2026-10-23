@@ -55,7 +55,7 @@ ${loopSrc}
       var __jHov = [hovering, JSON.stringify(tmpHover), hoverCell ? cells.indexOf(hoverCell) : -1], __wH = [__wHov, JSON.stringify(__wTmp), __wHC ? __wSn.cells.indexOf(__wHC) : -1];
       if (JSON.stringify(__jHov) !== JSON.stringify(__wH)) __dd.push({ w1: 'hover', wasm: __wH, js: __jHov });
       __shRestore(__wSn); hovering = __wHov; tmpHover = __wTmp; hoverCell = __wHC;
-      if (__dd.length && !__SH.first) { __SH.first = { badIdx: __SH.badIdx.slice(), frame: __SH.frames, nCells: __wSn.f.length, diffs: __dd, drawsMirror: __rg.n, seeds: [__SH.s0, __SH.s1], preCell0: __shPre.f.slice(0, 2), wasmCell0: __wSn.f.slice(0, 2), jsCell0: __jSn.f.slice(0, 2) }; __SH.on = false; } }
+      if (__dd.length && !__SH.first) { __SH.first = { strIdx: __wSn.f.map(function (c, i) { return c.shp && c.shp.t === 1 ? i : -1; }).filter(function (i) { return i >= 0; }), badIdx: __SH.badIdx.slice(), frame: __SH.frames, nCells: __wSn.f.length, diffs: __dd, drawsMirror: __rg.n, seeds: [__SH.s0, __SH.s1], preCell0: __shPre.f.slice(0, 2), wasmCell0: __wSn.f.slice(0, 2), jsCell0: __jSn.f.slice(0, 2) }; __SH.on = false; } }
 `;
 rep1(afterA,afterA+block);
 fs.writeFileSync(path.join(out,'ca2.js'),s);
