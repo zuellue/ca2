@@ -2219,7 +2219,16 @@
     }
   }
   // ---- persistence: every config key, versioned; unknown/removed keys are ignored, new keys keep defaults ----
-  var STORE = 'ca2.config', STORE_V = 6, savedLive = {}, rangeBounds = {};
+  // three profiles, separate local records (owner 23 Oct): desktop 'ca2.config', mobile 'ca2.config.m' (portrait + the landscape mirror
+  // live in ca2.mprof). A preview/phone save can no longer overwrite the desktop record in the same browser. Non-destructive
+  // migration: 'ca2.config' is never cleared or copied (it may hold values from before the split); the mobile record starts empty and the mobile layer comes from the global _mobile + ca2.mprof.
+  var STORE_D = 'ca2.config', STORE_M = 'ca2.config.m';
+  function storeMode0() { return (/[?&]mobile=1/.test(location.search) || !!(window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches) || window.innerWidth <= 820) ? 'm' : 'd'; }
+  var STORE = (storeMode0() === 'm') ? STORE_M : STORE_D, STORE_V = 6, savedLive = {}, rangeBounds = {};
+    // the admin module (served by the Worker) parks unaccepted saves in 'ca2.pending'; tag them with the mode that wrote them
+  try { var _si = Storage.prototype.setItem; Storage.prototype.setItem = function (k, v) { if (k === 'ca2.pending') { try { _si.call(this, 'ca2.pending.mode', curStoreMode()); } catch (e) {} } return _si.apply(this, arguments); }; } catch (e) {}
+  function curStoreMode() { return (window.__ca2Mode ? window.__ca2Mode() : storeMode0()); }
+  function pendingOk() { var pm = null; try { pm = localStorage.getItem('ca2.pending.mode'); } catch (e) {} return pm === curStoreMode(); } // untagged legacy records are quarantined: bytes stay in localStorage, never replayed into an unproven mode
   (function load() {
     try {
       var sv = JSON.parse(localStorage.getItem(STORE) || 'null');
@@ -3045,7 +3054,9 @@
   var PHONE_HW = (/[?&]mobile=1/.test(location.search)) || !!(window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches);
   function modeEff() { return modeSel || ((PHONE_HW || window.innerWidth <= MODE_BREAK) ? 'm' : 'd'); }
   function modePub() {
-    var m = modeEff(); if (m === modeCur) return; modeCur = m;
+    var m = modeEff(); if (m === modeCur) return;
+    if (modeCur) { try { save(); } catch (e) {} STORE = (m === 'm') ? STORE_M : STORE_D; } // leave the old mode's record as it is, continue in the new mode's own record
+    modeCur = m;
     document.body.dataset.camode = m;
     try { window.dispatchEvent(new CustomEvent('ca2mode', { detail: { mode: m, sel: modeSel, width: window.innerWidth } })); } catch (e) {}
   }
@@ -3061,7 +3072,7 @@
     var WK = 'https://ca2-presets.middots.workers.dev/', lastV = 0, GK = 'ca2.global';
     function applyG(g) {
       if (!g || typeof g !== 'object') return false; var n = 0;
-      var pnd = {}; try { pnd = JSON.parse(localStorage.getItem('ca2.pending') || '{}'); } catch (e) {}
+      var pnd = {}; try { if (pendingOk()) pnd = JSON.parse(localStorage.getItem('ca2.pending') || '{}'); } catch (e) {}
       Object.keys(g).forEach(function (k) { if (k === '_v' || k === '_live' || !(k in P) || k in pnd) return; var v = g[k]; if (typeof v === typeof P[k] && (typeof v !== 'number' || isFinite(v)) && P[k] !== v) { P[k] = v; n++; } });
       var gl = typeof g._live === 'string' ? (function () { try { return JSON.parse(g._live); } catch (e) { return null; } })() : (g._live && typeof g._live === 'object' ? g._live : null);
       if (gl) {
@@ -3082,7 +3093,7 @@
     }
     try { var cg = JSON.parse(localStorage.getItem(GK) || 'null'); if (cg) { applyG(cg); lastV = cg._v || 0; } } catch (e) {}
     // edits not yet accepted by the server stay ahead of the (older) global on reload
-    try { var pd0 = JSON.parse(localStorage.getItem('ca2.pending') || '{}'); Object.keys(pd0).forEach(function (k) { if (k !== '_live' && k in P && typeof pd0[k] === typeof P[k]) { P[k] = pd0[k]; touched[k] = 1; } }); syncBgFromP(); } catch (e) {}
+    try { var pd0 = pendingOk() ? JSON.parse(localStorage.getItem('ca2.pending') || '{}') : {}; Object.keys(pd0).forEach(function (k) { if (k !== '_live' && k in P && typeof pd0[k] === typeof P[k]) { P[k] = pd0[k]; touched[k] = 1; } }); syncBgFromP(); } catch (e) {}
     pullG(true); setInterval(pullG, 15000);
   })();
   // capability hooks the server-verified admin module builds on (owner 21 Oct): handles only - no admin UI,
@@ -3091,7 +3102,7 @@
     admCircles: admCircles, hookHov: hookHov,
     rePlace: function () { circSig = ''; placeCircles(); },
     modeSel: function () { return modeSel; }, modeSet: function (v) { modeSel = v; modePub(); },
-    save: save, STORE: STORE, STORE_V: STORE_V,
+    save: save, get STORE() { return STORE; }, STORE_V: STORE_V,
     touched: touched, liveMap: liveMap, btns: btns, panel: panel
   };
   // ---- entry gate (owner 22 Oct: restore the original design - the code entry is the 4-circle column
@@ -3440,7 +3451,7 @@
         dealW = c.rawW; dealH = c.rawH;
       }
     }
-    function refresh(m) { var nm = m || detect(); if (nm === mode) return; mode = nm; applyMode(); if (mode === 'm') dealPortrait(); }
+    function refresh(m) { var nm = m || detect(); if (nm === mode) return; mode = nm; applyMode(); if (mode === 'm') dealPortrait(); if (typeof prof !== 'undefined' && prof) applyProf(); }
     window.addEventListener('ca2mode', function (e) {
       lane = true; if (!e.detail || !e.detail.mode) return;
       // B picked on a wide desktop window opens the phone-frame preview (owner 21 Oct); the frame is device.html
@@ -3477,7 +3488,10 @@
     function profSave() { try { localStorage.setItem(PROF_KEY, JSON.stringify(prof)); } catch (e) {} }
     function profActive() { if (prof.active) return prof.active; return window.innerWidth > window.innerHeight ? 'L' : 'P'; }
     function landMap() { var mb = mobOf(storedG() || {}); var gl = (mb._land && typeof mb._land === 'object') ? mb._land : {}; return Object.assign({}, gl, prof.land); }
-    var curProf = null, entryVals = null, diffBase = null;
+    var curProf = null, entryVals = null, diffBase = null, keepP = {};
+    // the PORTRAIT value of a key = an unsaved portrait edit, else the global _mobile layer, else the seed. Never read it back from P while
+    // LANDSCAPE is active: applyMode has already seeded the landscape bucket into P (also on a boot straight into landscape).
+    function portraitBase(k) { if (keepP[k] !== undefined) return keepP[k]; var mb = mobOf(storedG() || {}); return (mb[k] !== undefined) ? mb[k] : MOBILE_SEED[k]; }
     function scalarKeys(o) { var r = {}; if (!o) return r; Object.keys(o).forEach(function (k) { var v = o[k]; if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') r[k] = v; }); return r; }
     function intended(o) { // live morphs ease P frame by frame; the intended value is the morph target (live[k].orig)
       var r = scalarKeys(o), lv = window.__ca2.live || {};
@@ -3488,15 +3502,23 @@
     function profSeed(k, v) { window.__ca2.seedKey(k, v); } // a layer write: no touched pin, no save - never reads as an edit
     function landResync() { if (curProf !== 'L' || !diffBase) return; diffBase = readCfgP(); }
     function applyProf() {
-      var act = profActive();
+      // the orientation profiles exist ONLY in mobile mode: the desktop is its own profile and a wide window must never
+      // select LANDSCAPE there (that seeded the landscape bucket into the desktop config and persisted it)
+      var act = (mode === 'm') ? profActive() : 'D';
       if (act === curProf) return;
+      if (curProf === 'P') { // PORTRAIT bucket: unsaved portrait edits survive a trip through LANDSCAPE / desktop (applyMode below re-seeds the layer from the global)
+        var ivP = intended(P), tkP = window.__ca2.touchedKeys || [];
+        tkP.forEach(function (k) { if (ivP[k] !== undefined) keepP[k] = ivP[k]; });
+      }
       if (curProf === 'L' && entryVals) { // leaving LANDSCAPE: hand every overridden key its portrait value back
         var lm0 = landMap();
-        Object.keys(lm0).forEach(function (k) { if (entryVals[k] !== undefined) profSeed(k, entryVals[k]); });
+        Object.keys(lm0).forEach(function (k) { var pv = portraitBase(k); if (pv === undefined) pv = entryVals[k]; if (pv !== undefined) profSeed(k, pv); });
         entryVals = null; diffBase = null;
       }
       curProf = act;
+      if (act === 'D') { applyMode(); lpPaint(); return; } // desktop: layer restore only, no landscape seeding, no save
       applyMode(); // profile-aware: in L the mirror wins per key inside the layer
+      if (act === 'P') { var tkA = window.__ca2.touchedKeys || []; Object.keys(keepP).forEach(function (k) { if (tkA.indexOf(k) >= 0 && typeof keepP[k] === typeof P[k]) profSeed(k, keepP[k]); else delete keepP[k]; }); } // only still-unsaved portrait edits come back
       if (act === 'L') {
         captureLand();
         entryVals = intended(P); diffBase = readCfgP();
@@ -3593,9 +3615,11 @@
         captureLand(); // an edit followed by an immediate Save must land in the mirror, not in the portrait copy
         var out = JSON.parse(JSON.stringify(body));
         var eff = intended(P), lm = landMap();
-        if (profActive() === 'L' && entryVals) Object.keys(lm).forEach(function (k) { if (entryVals[k] !== undefined) eff[k] = entryVals[k]; }); // back the mirror out of the portrait copy
+        if (profActive() === 'L') Object.keys(lm).forEach(function (k) { var pv = portraitBase(k); if (pv === undefined && entryVals) pv = entryVals[k]; if (pv !== undefined) eff[k] = pv; }); // back the mirror out of the portrait copy
         if (Object.keys(lm).length) eff._land = lm;
         var np = { _mobile: JSON.stringify(eff) };
+        // the next profile switch / save in this session must see what this save is sending, not the cache from before it (pullG refreshes it within 15 s anyway)
+        try { var gg = storedG() || {}; gg._mobile = np._mobile; localStorage.setItem('ca2.global', JSON.stringify(gg)); } catch (e) {}
         if (typeof out.patch._live === 'string') np._live = out.patch._live;
         out.patch = np;
         return out;
