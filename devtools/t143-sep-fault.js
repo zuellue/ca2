@@ -16,7 +16,7 @@ cells.forEach(function(c,i){ if(i%3==0){c.x=cx+cw/2+(i%7-3);c.y=cy+ch/2+(i%5-2)*
 function snap(){return cells.map(function(c){return [c.x,c.y,c.vx,c.vy,c.radius]})}
 function restore(S){cells.forEach(function(c,i){c.x=S[i][0];c.y=S[i][1];c.vx=S[i][2];c.vy=S[i][3];c.radius=S[i][4]})}
 var S0=snap(), nA=0,nB=0, oa=E.sep2_phase_a, ob=E.sep2_phase_b;
-E.sep2_phase_a=function(){nA++;return oa.apply(E,arguments)}; E.sep2_phase_b=function(){nB++; if(nB===2) throw new Error('injected fault'); return ob.apply(E,arguments)};
+var realE=C.WC.e; var ov={sep2_phase_a:function(){nA++;return oa.apply(realE,arguments)},sep2_phase_b:function(){nB++; if(nB===2) throw new Error('injected fault'); return ob.apply(realE,arguments)}}; var cp2={};for(var kk in realE)cp2[kk]=ov[kk]||realE[kk]; C.WC.e=cp2; /* wasm exports are read-only: wrap through a Proxy */
 C.WC.sepOff=false; C.WC.sepErr=null;
 C.sepStep(); var A=snap(), offA=!!C.WC.sepOff, errA=C.WC.sepErr, callsA=[nA,nB];
 restore(S0); C.WC.sepOff=true; C.sepStep(); var B=snap();
@@ -24,7 +24,7 @@ var maxd=0,nd=0; for(var i=0;i<A.length;i++)for(var k=0;k<5;k++){var d=Math.abs(
 C.WC.sepOff=false; /* keep the fault state: sepOff was set by the first fault, a later frame must not retry */
 restore(S0); C.WC.sepOff=offA; var a0=nA,b0=nB; C.sepStep(); var callsC=[nA-a0,nB-b0];
 var moved=0; for(i=0;i<A.length;i++) if(A[i][0]!==S0[i][0]||A[i][1]!==S0[i][1]) moved++;
-E.sep2_phase_a=oa;E.sep2_phase_b=ob;
+C.WC.e=realE;
 return {cells:A.length,moved:moved,faultCallCounts:callsA,sepOffAfterFault:offA,sepErr:errA,diffEntriesVsPureJS:nd,maxAbsDiff:maxd,wasmCallsOnNextFrame:callsC};
 })()`);
 console.log(JSON.stringify(r),JSON.stringify(h.errs));h.close();s.close();process.exit(0)})();
