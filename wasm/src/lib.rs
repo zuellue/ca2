@@ -1,4 +1,5 @@
 mod sep;
+mod live;
 mod fd1;
 mod fd2;
 mod bs;
@@ -258,3 +259,7 @@ static mut SHT: [f64; 28] = [0.0; 28];
         t[18..27].copy_from_slice(&r);
     }
 }
+
+#[no_mangle] pub extern "C" fn live_buf() -> *mut f64 { unsafe { live::BUF.as_mut_ptr() } }
+#[no_mangle] pub extern "C" fn live_init(slot: usize, st: f64) { live::init(slot, st); }
+#[no_mangle] pub extern "C" fn live_gen(slot: usize, rule: f64, plate: f64, shift: f64, q2: f64, q3: f64, cap: f64) -> f64 { live::gen(slot, rule, plate != 0.0, shift, q2, q3, cap) }
