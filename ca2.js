@@ -2191,12 +2191,13 @@
   }
   var liveSlotN = 0;
   // wasm -> JS transition: rebuild the full JS state (bits, lcg state, walk, rank history) from the resident wasm state so the JS path continues the same sequence
+  // called at the start of a generation (stepLive already did L.gen++), so the JS block that runs next must see wasm gen + 1
   function liveSyncBack(L) {
     var E = WC.e, slot = L.slot; L.slot = -1;
     try {
       E.live_state(slot); var buf = new Float64Array(WC.mem.buffer, E.live_buf(), 64), i, nb = new Array(28);
       for (i = 0; i < 28; i++) nb[i] = buf[i];
-      L.bits = nb; L.st.s = buf[56]; L.gen = buf[58]; L.walk = isNaN(buf[57]) ? undefined : buf[57];
+      L.bits = nb; L.st.s = buf[56]; L.gen = buf[58] + 1; L.walk = isNaN(buf[57]) ? undefined : buf[57];
       var hn = E.live_hist(slot), hb = new Float64Array(WC.mem.buffer, E.live_hist_buf(), 304); L.hist = []; for (i = 0; i < hn; i++) L.hist.push(hb[i]);
       return true;
     } catch (e2) { L.hist = []; L.syncFail = true; return false; }
