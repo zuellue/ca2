@@ -18,7 +18,7 @@ pub static mut SIM: Option<Sim> = None;
 pub fn sim() -> &'static mut Sim {
     unsafe {
         let s = &mut *std::ptr::addr_of_mut!(SIM);
-        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 80], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new(), shp: Vec::new() }); }
+        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 96], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new(), shp: Vec::new() }); }
         s.as_mut().unwrap()
     }
 }
@@ -447,6 +447,7 @@ impl Sim {
         self.s0 = (s0 as u64) << 32 | 0x9E3779B9; self.s1 = (s1 as u64) << 32 | 0x85EBCA6B;
         for k in 0..20 { self.out[k] = 0.0; } // 20-23 are cumulative kill-reason diagnostics, not per-step
         let n0 = self.n; self.live = n0; self.log.clear();
+        let ccount = if self.p[80] != 0.0 { self.cluster_state(n0) } else { -1.0 };
         let (mx, my, over) = (self.p[P_MX], self.p[P_MY], self.p[P_MOVER] != 0.0);
         let (cx, cy, cw, ch) = (self.p[P_CX], self.p[P_CY], self.p[P_CW], self.p[P_CH]);
         let mut hov_i: f64 = -1.0; let mut hovering = false; let mut hc = [255.0f64, 255.0, 255.0];
@@ -478,7 +479,7 @@ impl Sim {
             if !self.alive(i) { self.out[9] += 1.0; self.set(i, REM, 1.0); self.live -= 1; }
         }
         self.out[10] = self.p[P_CLSEQ]; self.out[11] = if hovering { 1.0 } else { 0.0 };
-        self.out[12] = hc[0]; self.out[13] = hc[1]; self.out[14] = hc[2]; self.out[15] = self.n as f64; self.out[16] = hov_i; self.out[17] = self.log.len() as f64;
+        self.out[12] = hc[0]; self.out[13] = hc[1]; self.out[14] = hc[2]; self.out[15] = self.n as f64; self.out[16] = hov_i; self.out[17] = self.log.len() as f64; self.out[18] = ccount;
         let _ = PI;
     }
 }
@@ -487,4 +488,27 @@ impl Sim {
     pub fn seed_for_test(&mut self, seed: f64) { self.s0 = (seed as u64).wrapping_mul(0x9E3779B97F4A7C15) | 1; self.s1 = (seed as u64) ^ 0xD1B54A32D192ED03; for _ in 0..4 { self.rnd01(); } }
     pub fn new_shape_pub(&mut self, p: Option<Shp>) -> Shp { self.new_shape(p) }
     pub fn mix_shape_pub(&mut self, a: Option<Shp>, b: Option<Shp>) -> Shp { self.mix_shape(a, b) }
+}
+
+impl Sim {
+    // port of the JS "cluster state" block: per-cluster mean motion/energy, a cluster of one dissolves, members leave on a whim (p[80]=1 enables it)
+    fn cluster_state(&mut self, n0: usize) -> f64 {
+        self.cm_id.clear(); self.cm.clear();
+        if self.p[P_EATMERGE] == 0.0 { for i in 0..n0 { self.set(i, CL, 0.0); } return 0.0; }
+        let mut acc: Vec<[f64; 7]> = Vec::new(); // id, n, vx, vy, x, y, e
+        for i in 0..n0 {
+            let cl = self.g(i, CL); if cl == 0.0 { continue; }
+            let k = match acc.iter().position(|a| a[0] == cl) { Some(k) => k, None => { acc.push([cl, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]); acc.len() - 1 } };
+            let (vx, vy, x, y, e) = (self.g(i, VX), self.g(i, VY), self.g(i, X), self.g(i, Y), self.g(i, EN));
+            let a = &mut acc[k]; a[1] += 1.0; a[2] += vx; a[3] += vy; a[4] += x; a[5] += y; a[6] += e;
+        }
+        acc.sort_by(|a, b| a[0].partial_cmp(&b[0]).unwrap());
+        for a in &acc { self.cm_id.push(a[0]); self.cm.extend_from_slice(&[a[2] / a[1], a[3] / a[1], a[4] / a[1], a[5] / a[1], a[6] / a[1]]); }
+        for i in 0..n0 {
+            let cl = self.g(i, CL); if cl == 0.0 { continue; }
+            let cnt = acc.iter().find(|a| a[0] == cl).map_or(0.0, |a| a[1]);
+            if cnt < 2.0 || self.rnd01() < 0.0005 { self.set(i, CL, 0.0); }
+        }
+        acc.len() as f64
+    }
 }
