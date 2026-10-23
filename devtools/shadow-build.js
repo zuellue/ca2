@@ -29,7 +29,7 @@ const helpers=`
     __SH.badIdx = []; for (var i = 0; i < Math.min(w.f.length, j.f.length); i++) { var a = w.f[i], b = j.f[i]; if (a.x !== b.x || a.vx !== b.vx || a.vy !== b.vy) __SH.badIdx.push(i); for (var k in a) { if (k === 'sym') add(i, k, a[k], b[k]); else if (typeof a[k] === 'object' && a[k]) { var ja = JSON.stringify(a[k]), jb = JSON.stringify(b[k]); if (ja !== jb) { if (d.length < 12) d.push({ w1: i, k: k, wasm: ja.slice(0, 80), js: jb && jb.slice(0, 80) }); __SH.nonExact++; } } else add(i, k, a[k], b[k]); } for (var k3 in b) if (!(k3 in a)) d.push({ w1: i, k: k3, onlyJS: b[k3] }); }
     if (w.food.length !== j.food.length) d.push({ w1: 'food.length', wasm: w.food.length, js: j.food.length }); else for (var q = 0; q < w.food.length; q++) { add('food' + q, 'x', w.food[q].x, j.food[q].x); add('food' + q, 'y', w.food[q].y, j.food[q].y); }
     for (var ke in w.ev) add('ev', ke, w.ev[ke], j.ev[ke]); for (var ke2 in j.ev) if (!(ke2 in w.ev)) add('ev', ke2, undefined, j.ev[ke2]);
-    add('seq', 'clusterSeq', w.seq, j.seq); var wk = Object.keys(w.cm), jk = Object.keys(j.cm); if (wk.length !== jk.length) d.push({ w1: 'cmean', wasm: wk.length, js: jk.length }); else wk.forEach(function (key) { var m1 = w.cm[key], m2 = j.cm[key]; if (!m2) d.push({ w1: 'cmean', k: key, js: null }); else for (var f in m1) add('cm' + key, f, m1[f], m2[f]); });
+    add('seq', 'clusterSeq', w.seq, j.seq); var wk = Object.keys(w.cm), jk = Object.keys(j.cm), wn = (__SH.ccW !== undefined && !wk.length) ? __SH.ccW : wk.length; if (wn !== jk.length) d.push({ w1: 'cmean', wasm: wn, js: jk.length, viaCC: __SH.ccW !== undefined && !wk.length }); else wk.forEach(function (key) { var m1 = w.cm[key], m2 = j.cm[key]; if (!m2) d.push({ w1: 'cmean', k: key, js: null }); else for (var f in m1) add('cm' + key, f, m1[f], m2[f]); });
     return d; }
 `;
 rep1('  function simW(tmpRef, wcl) {',helpers+'  function simW(tmpRef, wcl) {');
@@ -43,7 +43,7 @@ const callB='var tmpR = { v: null }, tj0 = performance.now(), __shPre = (__SH.on
 rep1(callA,callB);
 const afterA='if (simDone) { tmpHover = tmpR.v; hoverCell = tmpR.hc; }';
 const block=`
-    if (simDone && __shPre) { __SH.frames++; var __wHov = hovering, __wTmp = tmpHover, __wHC = hoverCell, __wSn = __shSnap(); __shRestore(__shPre); var __oldR = Math.random, __rg = __xorSeed(__SH.s0, __SH.s1); Math.random = __rg; __SH.jl = []; __SH.tags = []; __SH.rv = []; if (!__SH.first) { var __inner = __rg; Math.random = function () { var st = (new Error().stack || '').split(String.fromCharCode(10)); __SH.tags.push(String(st[2] || '').slice(0, 70)); var __v = __inner(); (__SH.rv = __SH.rv || []).push(__v); return __v; }; }
+    if (simDone && __shPre) { __SH.ccW = tmpR.cc; __SH.frames++; var __wHov = hovering, __wTmp = tmpHover, __wHC = hoverCell, __wSn = __shSnap(); __shRestore(__shPre); var __oldR = Math.random, __rg = __xorSeed(__SH.s0, __SH.s1); Math.random = __rg; __SH.jl = []; __SH.tags = []; __SH.rv = []; if (!__SH.first) { var __inner = __rg; Math.random = function () { var st = (new Error().stack || '').split(String.fromCharCode(10)); __SH.tags.push(String(st[2] || '').slice(0, 70)); var __v = __inner(); (__SH.rv = __SH.rv || []).push(__v); return __v; }; }
       try { cmean = {}; jsCluster(); hovering = false; tmpHover = [255, 255, 255]; hoverCell = null;
 ${loopSrc}
       } finally { Math.random = __oldR; }
