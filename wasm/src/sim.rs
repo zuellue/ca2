@@ -273,6 +273,7 @@ impl Sim {
         self.set(c, X, x); self.set(c, Y, y); self.set(c, VX, vx); self.set(c, VY, vy);
     }
     fn update(&mut self, c: usize) {
+        self.out[28] += 1.0;
         if !self.alive(c) { return; }
         let (mx, my) = (self.p[P_MX], self.p[P_MY]);
         let dm = hyp(self.g(c, X) - mx, self.g(c, Y) - my);
@@ -496,7 +497,7 @@ impl Sim {
         let (mx, my, over) = (self.p[P_MX], self.p[P_MY], self.p[P_MOVER] != 0.0);
         let (cx, cy, cw, ch) = (self.p[P_CX], self.p[P_CY], self.p[P_CW], self.p[P_CH]);
         let mut hov_i: f64 = -1.0; let mut hovering = false; let mut hc = [255.0f64, 255.0, 255.0];
-        self.out[30] = -1.0;
+        self.out[30] = -1.0; self.out[28] = 0.0;
         for i in (0..n0).rev() {
             self.out[30] = i as f64;
             let oi = self.p[P_ONLYINT] != 0.0;
