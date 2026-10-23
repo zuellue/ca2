@@ -1,0 +1,7 @@
+const H=require('./harness.js');const qs=process.argv[2],port=+process.argv[3],cfg=process.argv[4];
+(async()=>{const s=await H.serve(port);const b=await H.launch(port+1000,'http://127.0.0.1:'+port+'/blank.html',['--window-size=1000,700']);
+await b.send('Page.addScriptToEvaluateOnNewDocument',{source:"var _f=window.fetch;window.fetch=function(u){return /workers\\.dev/.test(String(u))?Promise.reject(new Error('blocked')):_f.apply(this,arguments)};try{var c=JSON.stringify("+cfg+");localStorage.setItem('ca2.config',c);localStorage.setItem('ca2.config.m',c)}catch(e){}"});
+await b.send('Page.navigate',{url:'http://127.0.0.1:'+port+'/index.html?'+qs});
+for(let i=0;i<60&&!(await b.ev('!!window.__ca2&&__ca2.WC.ok'));i++)await b.sleep(500);
+await b.ev("__ca2.P.grain=0;0");await b.sleep(12000);
+console.log(qs,await b.ev(`JSON.stringify((function(){var WC=__ca2.WC,E=WC.e,P=__ca2.P,p=new Float64Array(WC.mem.buffer,E.sim_params(),100);var cs=__ca2.getCells(),bad=0,lmin=1e9,lmax=-1e9,k=0;cs.forEach(function(c){if(!isFinite(c.popD)||!isFinite(c.life))bad++;if(c.bornAt){k++;lmin=Math.min(lmin,c.life);lmax=Math.max(lmax,c.life)}});return {jr:!!WC.jsrnd,simOff:!!WC.simOff,err:WC.simErr||null,Pcl:P.cellLife,rc:P.reproChance,glob:!!localStorage.getItem('ca2.global'),Pclv:P.cellLifeVar,p96:p[96],p97:p[97],n:cs.length,badNum:bad,bornN:k,lifeMin:lmin,lifeMax:lmax,births:__ca2.births}})())`),JSON.stringify(b.errs));b.close();s.close();process.exit(0)})();
