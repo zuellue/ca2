@@ -2015,7 +2015,7 @@
     }
 
      var pairN = 0, compN = 0; for (var pci = 0; pci < cells.length; pci++) { if (cells[pci].sym) pairN++; if (cells[pci].comp > 1) compN++; }
-     window.__ca2 = { SIMW: SIMW, PF: PF, cmpGmax384: function () { // bit-identity gate for adaptive GMAX: same frozen source array (n<=384) through the 384-reference program and the device program; harness requires diffBytes=0
+     window.__ca2 = { SIMW: SIMW, PF: PF, liveN: function () { return Object.keys(live).length; }, cmpGmax384: function () { // bit-identity gate for adaptive GMAX: same frozen source array (n<=384) through the 384-reference program and the device program; harness requires diffBytes=0
       if (!gOK) return 'nogl'; if (!gProg384) return 'noreference';
       var S = curS, src = buildSources(), ms = P.metaballStrength, TH = P.THRESHOLD, n = Math.min(src.n, 384), i;
       var C = new Float32Array(n * 4), W = new Float32Array(n * 4);
@@ -2135,7 +2135,7 @@
       if (panel.classList.contains('open') || panel.classList.contains('hov') || resizeDrag) lastRefresh = performance.now();
       else randomize();
     }
-    stepLive(t0);
+    var slT = performance.now(); stepLive(t0); PF.stepLive = (PF.stepLive || 0) * 0.9 + (performance.now() - slT) * 0.1;
     syncUI(rc + gc + bc);
     var lum = (0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2]), fgc = lum > 128 ? '17,17,17' : '240,240,240', root = document.documentElement.style;
     root.setProperty('--fg', 'rgb(' + fgc + ')'); root.setProperty('--fg-soft', 'rgba(' + fgc + ',.35)'); root.setProperty('--bg', css(bg, 1)); root.setProperty('--panel-bg', css(bg, P.panelAlpha));
