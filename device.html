@@ -176,12 +176,12 @@
     // circles return for the next login.
     try {
       var w = fr.contentWindow;
+      // DESK follow first (the bridge-mount call below can throw once the frame starts reloading and must not starve this): the host-mounted widget's DESK action flips the frame's mode: follow it to the desktop page (owner 23 Oct)
+      if (w && ((typeof w.__ca2Mode === 'function' && w.__ca2Mode() === 'd') || localStorage.getItem('ca2.mode') === 'd')) { try { localStorage.setItem('ca2.mode', 'desktop'); } catch (e2) {} location.href = 'index.html'; }
       if (w && w.__adminOn && typeof w.__ca2MountAdminHost === 'function' && !hostMounted) {
         if (w.__ca2MountAdminHost(document)) { hostMounted = true; adm2.style.display = 'none'; document.getElementById('savem').style.display = 'none'; }
       }
       if (hostMounted && w && !w.__adminOn) { hostMounted = false; adm2.style.display = ''; }
-      // the host-mounted widget's DESK action flips the frame's mode: follow it to the desktop page (owner 23 Oct)
-      if (w && typeof w.__ca2Mode === 'function' && w.__ca2Mode() === 'd') { try { localStorage.setItem('ca2.mode', 'desktop'); } catch (e2) {} location.href = 'index.html'; }
     } catch (e) {}
   }, 400);
   var hostMounted = false;
