@@ -1163,6 +1163,7 @@
         } else if (f._pk === 2 || f._pk === 0) { // ink arrived under a resting dot (changing HUD digits, moving title): carried off the ink like a cell off a wall
           foodPushOut(f);
         } else if (f._pk === undefined) { if (owned) foodPushOut(f); else { f.gone = 1; continue; } } // newborn dot on ink (a mode's own birth/spawn): refused, density reseed refills elsewhere
+        if (foodOnInk(f.x, f.y)) { f.gone = 1; continue; } // no free mask pixel to carry it to: dropped, never kept on ink
       }
       f._pk = foodOnInk(f.x, f.y) ? 2 : 1; f._px = f.x; f._py = f.y; food[w++] = f;
     }
