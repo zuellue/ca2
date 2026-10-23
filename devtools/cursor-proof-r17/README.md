@@ -17,3 +17,9 @@ No flee effect is visible with this metric and it is not evidence of absence: wi
 ## t-cursor-abab.js (23 Oct 23:58, one run, within-run ABAB, weak)
 Bottleneck found: default world has P.grain=1 (WebGL grain); in headless SwiftShader (program) was 3985 of 4000 ms and rAF ~2/s even with setGPU(0). P.grain=0 gives ~10 polls/s. Intentional diffs: grain 0, setGPU(0), preset host blocked, births off, selStrength 0, 1000x640 dsf 1.
 Same cells (236 at boot), mean radial velocity of cells within R=90 of X, windows 3 s, 4x OFF/ON: OFF 0.0836,0.2295,0.3049,-0.3348 (mean 0.0708); ON -0.0682,-0.0134,0.3062,-0.2946 (mean -0.0175). Window noise ~0.3 exceeds the difference. No flee effect detected at this sensitivity; not PASS or FAIL. Not verified here: mouse.over state read back, no carryover/washout measurement, no parasite world.
+
+## t-cursor-abab2.js (24 Oct 00:23, 2 runs) - fixed-cell-ID cohort per window, #cur readback
+mouse.over readback: after the ON dispatch #cur style.display=block, translate near X; after OFF (document mouseleave) display=none. (Verified in both runs; transform reflects mouse minus cursor radius.)
+Positive control (INTENTIONAL: cursorFleePush=1, cursorFleeWob=0): OFF 0.2161,0.071,0.0322,0.1885 (mean 0.127), ON 1.1909,1.666,0.1232,0.2689 (mean 0.8123). Detector sees a strong push in windows 1-2; windows 3-4 small (cohort shrinks/leaves R; not analysed).
+Default push 0.15, 6 cycles, 208 cells: OFF 0.1444,0.3811,-0.478,0,0,-3.2358; ON 0.9628,-0.1387,-0.0085,0.7857,-1.3258,0. Fixed cohort empties within ~10 s (cell-samples 409,517,281,46,23,11,0,1,0,7,51,0). Only window pair 1 has n>400: OFF 0.1444 vs ON 0.9628, single sample, order-confounded (OFF first), no carryover control. Not a PASS; later windows have too few cells.
+No parasite world, no snapshot replay.
