@@ -935,7 +935,7 @@
     gl.scissor(bx0, gSnapBH - by1, bx1 - bx0, by1 - by0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
-  var gSnapS = 0, gSnapBH = 0;
+  var gSnapS = 0, gSnapBH = 0, gTiledForce = null;
   // shared draw body (full or tiled) so tests can render the SAME source array through both paths
   function gpuDraw(C, W, n, bw, bh, S, tiled) {
     gl.viewport(0, 0, bw, bh); gl.useProgram(gProg);
@@ -965,7 +965,7 @@
       if (n >= 0) {
         var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
         if (glc.width !== bw || glc.height !== bh) { glc.width = bw; glc.height = bh; }
-        gpuDraw(gC, gW, n, bw, bh, S, Math.ceil(bw / GTILE) * Math.ceil(bh / GTILE) > 1); // tiled beyond one tile; the per-pixel formula is untouched
+        gpuDraw(gC, gW, n, bw, bh, S, gTiledForce !== null ? gTiledForce : Math.ceil(bw / GTILE) * Math.ceil(bh / GTILE) > 1); // tiled beyond one tile; the per-pixel formula is untouched (gTiledForce: harness A/B only)
         pfm('gpu:draw+field'); gT0 = performance.now();
         ctx.imageSmoothingEnabled = false; ctx.drawImage(glc, 0, 0, bw, bh, cont.x, cont.y, cont.w, cont.h); ctx.globalAlpha = 1; pfm('gpu:drawImage'); if (++gN > 40 && PF['gpu:drawImage'] + PF['gpu:draw+field'] > 90 && !/[?&]gpu=1/.test(location.search)) gOK = false; // too slow on this machine: back to the CPU path
         gSnap = { n: n, S: S, bw: bw, bh: bh, TH: TH }; gOn = true; return;
@@ -1994,12 +1994,40 @@
     }
 
      var pairN = 0, compN = 0; for (var pci = 0; pci < cells.length; pci++) { if (cells[pci].sym) pairN++; if (cells[pci].comp > 1) compN++; }
-     window.__ca2 = { SIMW: SIMW, cmpGpuPaths: function () { // same source array through the full pass and the tiled pass: exact old-vs-new GPU A/B (pixel gates for the thermal fix)
+     window.__ca2 = { SIMW: SIMW, t118: function (tiled, seconds) { // t118 harness: SAME FROZEN source array through full or tiled gpuDraw; a 1px readPixels after each draw forces real raster completion (glc is offscreen: rAF alone never blocks). Returns per-frame wall stats.
       if (!gOK) return 'nogl';
-      var S = curS, src = buildSources(), ms = P.metaballStrength, TH = P.THRESHOLD, n = Math.min(src.n, GMAX), i;
-      var C = new Float32Array(n * 4), W = new Float32Array(n * 4);
-      for (i = 0; i < n; i++) { C[i * 4] = src.x[i]; C[i * 4 + 1] = src.y[i]; C[i * 4 + 2] = ms * src.r[i] * src.r[i]; C[i * 4 + 3] = src.r[i] * Math.max(3, Math.sqrt(ms / (TH * 0.03))); W[i * 4] = src.wr[i]; W[i * 4 + 1] = src.wg[i]; W[i * 4 + 2] = src.wb[i]; }
-      var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
+      if (!window.__t118pack) { // one freeze shared by both modes: full and tiled render the SAME source array/geometry
+        var S0 = curS, src = buildSources(), ms0 = P.metaballStrength, TH0 = P.THRESHOLD, n0 = Math.min(src.n, GMAX), j;
+        var C0 = new Float32Array(n0 * 4), W0 = new Float32Array(n0 * 4);
+        for (j = 0; j < n0; j++) { C0[j * 4] = src.x[j]; C0[j * 4 + 1] = src.y[j]; C0[j * 4 + 2] = ms0 * src.r[j] * src.r[j]; C0[j * 4 + 3] = src.r[j] * Math.max(3, Math.sqrt(ms0 / (TH0 * 0.03))); W0[j * 4] = src.wr[j]; W0[j * 4 + 1] = src.wg[j]; W0[j * 4 + 2] = src.wb[j]; }
+        window.__t118pack = { C: C0, W: W0, n: n0, S: S0, bw: Math.max(1, Math.ceil(cont.w * S0)), bh: Math.max(1, Math.ceil(cont.h * S0)) };
+      }
+      var pk = window.__t118pack, S = pk.S, n = pk.n, C = pk.C, W = pk.W, i;
+      var bw = pk.bw, bh = pk.bh;
+      if (glc.width !== bw || glc.height !== bh) { glc.width = bw; glc.height = bh; }
+      var px = new Uint8Array(4);
+      return new Promise(function (done) {
+        var dts = [], last = performance.now(), t0 = last, frames = 0;
+        (function f() {
+          gpuDraw(C, W, n, bw, bh, S, tiled); gl.finish(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+          var now = performance.now(); dts.push(now - last); last = now; frames++;
+          if (now - t0 < seconds * 1000) requestAnimationFrame(f); else {
+            dts.sort(function (a, b) { return a - b; });
+            var q = function (p) { return +dts[Math.min(dts.length - 1, Math.floor(dts.length * p))].toFixed(1); };
+            done(JSON.stringify({ tiled: !!tiled, frames: frames, fps: +(frames / seconds).toFixed(2), p50: q(0.5), p95: q(0.95), p99: q(0.99), max: +dts[dts.length - 1].toFixed(1), n: n, gmax: GMAX, bw: bw, bh: bh, overflow: gOv }));
+          }
+        })();
+      });
+    }, setTiled: function (v) { gTiledForce = (v === null || v === undefined) ? null : !!v; }, cmpGpuPaths: function () { // same source array through the full pass and the tiled pass: exact old-vs-new GPU A/B (pixel gates for the thermal fix)
+      if (!gOK) return 'nogl';
+      if (!window.__t118pack) { // one freeze shared by both modes: full and tiled render the SAME source array/geometry
+        var S0 = curS, src = buildSources(), ms0 = P.metaballStrength, TH0 = P.THRESHOLD, n0 = Math.min(src.n, GMAX), j;
+        var C0 = new Float32Array(n0 * 4), W0 = new Float32Array(n0 * 4);
+        for (j = 0; j < n0; j++) { C0[j * 4] = src.x[j]; C0[j * 4 + 1] = src.y[j]; C0[j * 4 + 2] = ms0 * src.r[j] * src.r[j]; C0[j * 4 + 3] = src.r[j] * Math.max(3, Math.sqrt(ms0 / (TH0 * 0.03))); W0[j * 4] = src.wr[j]; W0[j * 4 + 1] = src.wg[j]; W0[j * 4 + 2] = src.wb[j]; }
+        window.__t118pack = { C: C0, W: W0, n: n0, S: S0, bw: Math.max(1, Math.ceil(cont.w * S0)), bh: Math.max(1, Math.ceil(cont.h * S0)) };
+      }
+      var pk = window.__t118pack, S = pk.S, n = pk.n, C = pk.C, W = pk.W, i;
+      var bw = pk.bw, bh = pk.bh;
       if (glc.width !== bw || glc.height !== bh) { glc.width = bw; glc.height = bh; }
       gpuDraw(C, W, n, bw, bh, S, false); gl.finish(); var a = new Uint8Array(bw * bh * 4); gl.readPixels(0, 0, bw, bh, gl.RGBA, gl.UNSIGNED_BYTE, a);
       var t0 = performance.now(); gpuDraw(C, W, n, bw, bh, S, true); gl.finish(); var tT = performance.now() - t0; var b = new Uint8Array(bw * bh * 4); gl.readPixels(0, 0, bw, bh, gl.RGBA, gl.UNSIGNED_BYTE, b);
