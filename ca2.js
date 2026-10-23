@@ -2005,7 +2005,7 @@
     }
 
      var pairN = 0, compN = 0; for (var pci = 0; pci < cells.length; pci++) { if (cells[pci].sym) pairN++; if (cells[pci].comp > 1) compN++; }
-     window.__ca2 = { SIMW: SIMW, PF: PF, LIVEW: LIVEW, liveN: function () { return Object.keys(live).length; }, cmpGmax384: function () { // bit-identity gate for adaptive GMAX: same frozen source array (n<=384) through the 384-reference program and the device program; harness requires diffBytes=0
+     window.__ca2 = { SIMW: SIMW, PF: PF, LIVEW: LIVEW, liveN: function () { return Object.keys(live).length; }, liveInfo: function () { return Object.keys(live).map(function (k) { var L = live[k]; return { k: k, slot: L.slot, gen: L.gen, hist: L.hist ? L.hist.length : -1, walk: L.walk, off: !!WC.liveOff, syncFail: !!L.syncFail }; }); }, cmpGmax384: function () { // bit-identity gate for adaptive GMAX: same frozen source array (n<=384) through the 384-reference program and the device program; harness requires diffBytes=0
       if (!gOK) return 'nogl'; if (!gProg384) return 'noreference';
       var S = curS, src = buildSources(), ms = P.metaballStrength, TH = P.THRESHOLD, n = Math.min(src.n, 384), i;
       var C = new Float32Array(n * 4), W = new Float32Array(n * 4);
@@ -2190,9 +2190,20 @@
     delete live[k]; P[k] = L.orig; if (typeof touched === 'object') touched[k] = 1; applyKey(k, L.orig); save();
   }
   var liveSlotN = 0;
+  // wasm -> JS transition: rebuild the full JS state (bits, lcg state, walk, rank history) from the resident wasm state so the JS path continues the same sequence
+  function liveSyncBack(L) {
+    var E = WC.e, slot = L.slot; L.slot = -1;
+    try {
+      E.live_state(slot); var buf = new Float64Array(WC.mem.buffer, E.live_buf(), 64), i, nb = new Array(28);
+      for (i = 0; i < 28; i++) nb[i] = buf[i];
+      L.bits = nb; L.st.s = buf[56]; L.gen = buf[58]; L.walk = isNaN(buf[57]) ? undefined : buf[57];
+      var hn = E.live_hist(slot), hb = new Float64Array(WC.mem.buffer, E.live_hist_buf(), 304); L.hist = []; for (i = 0; i < hn; i++) L.hist.push(hb[i]);
+      return true;
+    } catch (e2) { L.hist = []; L.syncFail = true; return false; }
+  }
   // resident wasm port of the generation (live.rs, bit-exact vs the JS block below; devtools/t136). A knob only goes to wasm if it was initialised at its first generation; on any error it falls back to JS for good.
   function liveGenW(L, k) {
-    var E = WC.e; if (!E || !E.live_gen || !WC.ok || WC.off || WC.liveOff || L.bits.length !== 28 || /[?&]nolivewasm=1/.test(location.search)) return false;
+    var E = WC.e; if (!E || !E.live_gen || !WC.ok || WC.off || WC.liveOff || L.bits.length !== 28 || /[?&]nolivewasm=1/.test(location.search)) { if (L.slot >= 0 && E && E.live_state) liveSyncBack(L); return false; }
     try {
       var buf, i, t0 = performance.now();
       if (L.slot === undefined) {
@@ -2206,10 +2217,10 @@
       var tg = E.live_gen(L.slot, L.rule, L.plate ? 1 : 0, L.shift, L.q[2], L.q[3], LIVE_CAP[k] || 1);
       buf = new Float64Array(WC.mem.buffer, E.live_buf(), 64);
       var nb = new Array(28); for (i = 0; i < 28; i++) nb[i] = buf[i];
-      L.bits = nb; L.st.s = buf[56]; L.walk = buf[57]; L.hist = undefined; L.target = tg;
+      L.bits = nb; L.st.s = buf[56]; L.walk = buf[57]; L.target = tg;
       LIVEW.ms = (LIVEW.ms || 0) * 0.9 + (performance.now() - t0) * 0.1; LIVEW.n++;
       return true;
-    } catch (e) { WC.liveOff = true; WC.liveErr = String(e); return false; }
+    } catch (e) { WC.liveOff = true; WC.liveErr = String(e); if (L.slot >= 0) liveSyncBack(L); return false; }
   }
   var LIVEW = { n: 0, ms: 0 };
   function stepLive(now) {
