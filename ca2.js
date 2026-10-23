@@ -211,7 +211,7 @@
     d = x1 - c.x; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vx -= F * t * t * ms * 0.25; if (c.vx > 0) c.vx *= 1 - 0.25 * t; if (t > press) press = t; }
     d = c.y - y0; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vy += F * t * t * ms * 0.25; if (c.vy < 0) c.vy *= 1 - 0.25 * t; if (t > press) press = t; }
     d = y1 - c.y; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vy -= F * t * t * ms * 0.25; if (c.vy > 0) c.vy *= 1 - 0.25 * t; if (t > press) press = t; }
-    // the wall narrows what presses it (owner 22 Oct: "hücreler sıkışır, daralır, geri itilir") - pressed growth
+    // the wall narrows pressed bodies and pushes them back - pressed growth
     // wears off toward the base radius, so giants are not center-pinned by their own radius inset
     if (press > 0 && c.radius > P.CELL_RADIUS) c.radius = Math.max(P.CELL_RADIUS, c.radius - F * press * 0.5);
     wallPull(c, r, true); // the shared boundary-morph rule; cells add velocity reflection
@@ -3026,13 +3026,13 @@
     }
     var cW = statsEl.clientWidth, fit = 1;
     if (cW > 0 && statGeom.rowW0 > cW) fit = (cW - 12) / Math.max(1, statGeom.rowW0 - 12);
-    var labPx = Math.max(7, Math.floor(13 * fit * 10) / 10), valPx = Math.max(12, Math.floor(54 * fit));
+    var labPx = Math.max(7, Math.floor(labFs0 * fit * 10) / 10), valPx = Math.max(12, Math.floor(valFs0 * fit));
     if (fit < 1) { statsEl.style.fontSize = labPx + 'px'; for (ni2 = 0; ni2 < ns2.length; ni2++) ns2[ni2].style.fontSize = valPx + 'px'; }
     statsEl.style.gridTemplateColumns = (statGeom.labEm * labPx) + 'px 1fr';
     for (ni2 = 0; ni2 < ns2.length; ni2++) ns2[ni2].style.width = (statGeom.valEm * valPx) + 'px';
     // perf labels longer than the pinned label column shrink individually; base rows keep their font
     var ls2 = statsEl.querySelectorAll('span:nth-child(odd)');
-    for (ni2 = 0; ni2 < ls2.length; ni2++) { var lsp = ls2[ni2]; lsp.style.fontSize = ''; var nat = lsp.scrollWidth, box = lsp.clientWidth; if (box > 0 && nat > box + 1) lsp.style.fontSize = Math.max(7, Math.floor(labPx * box / nat * 10) / 10) + 'px'; }
+    for (ni2 = 0; ni2 < ls2.length; ni2++) { var lsp = ls2[ni2]; lsp.style.fontSize = ''; var nat = lsp.scrollWidth, box = lsp.clientWidth; if (ni2 >= 5 && box > 0 && nat > box + 1) lsp.style.fontSize = Math.max(7, Math.floor(labPx * box / nat * 10) / 10) + 'px'; }
     for (var lk in live) { var lr = rows[lk]; lr.inp.value = P[lk]; lr.val.textContent = fmt(P[lk]); }
     if (panel.matches(':hover')) return;
     GROUPS.forEach(function (g) { g[1].forEach(function (q) { var r = rows[q[0]], v = P[q[0]]; r.inp.value = v; r.val.textContent = fmt(v); }); });
