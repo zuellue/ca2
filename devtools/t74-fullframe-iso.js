@@ -35,16 +35,16 @@ const E=(await WebAssembly.instantiate(wasm,{})).instance.exports;
 function pack(cs,nf,cmObj,SEQ,cont){
  const n=cs.length,cap=n+256;E.sim_cells(cap);E.sim_food(nf+1);E.sim_cm(Object.keys(cmObj).length+1);
  const cp=E.sim_cells(cap),fxp=E.sim_food(nf+1),fyp=E.sim_food_y(),cmp=E.sim_cm(Object.keys(cmObj).length+1),cip=E.sim_cm_ids(),pp=E.sim_params();
- const buf=E.memory.buffer,cf=new Float64Array(buf,cp,cap*24),fx=new Float64Array(buf,fxp,nf+1),fy=new Float64Array(buf,fyp,nf+1),cmf=new Float64Array(buf,cmp,(Object.keys(cmObj).length+1)*5),cid=new Float64Array(buf,cip,Object.keys(cmObj).length+1),p=new Float64Array(buf,pp,80);
+ const buf=E.memory.buffer,cf=new Float64Array(buf,cp,cap*24),fx=new Float64Array(buf,fxp,nf+1),fy=new Float64Array(buf,fyp,nf+1),cmf=new Float64Array(buf,cmp,(Object.keys(cmObj).length+1)*5),cid=new Float64Array(buf,cip,Object.keys(cmObj).length+1),p=new Float64Array(buf,pp,96);
  pack.stamp=(pack.stamp||0)+1;cs.forEach((c,i)=>{c._i=i;c._f=pack.stamp;});
  cs.forEach((c,i)=>{const b=i*24,g=c.g;cf.set([c.x,c.y,c.vx,c.vy,c.radius,c.energy,c.gene,c.alive?1:0,c.maxSpeed,c.speedModifier,c.hostility,c.mutationRate,c.sv,c.cl||0,(c.sym&&c.sym._f===pack.stamp)?c.sym._i:-1,g.spd,g.app,g.bnd,g.col[0],g.col[1],g.col[2],c.comp||0,0,0],b);});
  E.sim_set_n(n);E.sim_set_nf(nf);
  for(let i=0;i<nf;i++){fx[i]=J.food[i].x;fy[i]=J.food[i].y;}
- const cl=Object.keys(cmObj);cl.forEach((k,i)=>{const m=cmObj[k];cid[i]=+k;cmf[i*5]=m.vx;cmf[i*5+1]=m.vy;cmf[i*5+2]=m.x;cmf[i*5+3]=m.y;cmf[i*5+4]=m.e;});
+ const cl=P.cl80?[]:Object.keys(cmObj);cl.forEach((k,i)=>{const m=cmObj[k];cid[i]=+k;cmf[i*5]=m.vx;cmf[i*5+1]=m.vy;cmf[i*5+2]=m.x;cmf[i*5+3]=m.y;cmf[i*5+4]=m.e;});
  E.sim_cm_count(cl.length);
  PI.forEach((k,i)=>{let v=P[k];p[i]=typeof v==='boolean'?(v?1:0):v;});
  p[39]=J.env.spd;p[40]=J.env.app;p[41]=J.env.bnd;p[42]=J.env.col?1:0;if(J.env.col){p[43]=J.env.col[0];p[44]=J.env.col[1];p[45]=J.env.col[2];}
- p[46]=-1e9;p[47]=-1e9;p[48]=0;p[49]=cont.x;p[50]=cont.y;p[51]=cont.w;p[52]=cont.h;p[53]=0;p[54]=SEQ;p[56]=0;
+ p[46]=-1e9;p[47]=-1e9;p[48]=0;p[49]=cont.x;p[50]=cont.y;p[51]=cont.w;p[52]=cont.h;p[53]=0;p[54]=SEQ;p[56]=0;p[80]=P.cl80?1:0;
  p[58]=P.reproMinAgeMs||0;p[59]=P.reproChance===undefined?0.02:P.reproChance;p[73]=P.habitatOn?1:0;p[74]=P.habitatBirthCap;p[60]=P.crowdTol;p[61]=P.orgLifeDie;p[62]=P.orgLifeGrow;p[63]=P.orgBirth;p[64]=P.orgDead;p[65]=P.orgBrain;p[66]=P.orgR90;p[67]=P.symEnergy;p[68]=P.symBreak;p[69]=P.symBreakDist;p[70]=P.eatDistF;p[71]=P.fuseDistF;p[72]=P.symDistF;
  return{cp:cp};
 }
@@ -84,6 +84,7 @@ if(mode==='A'||mode==='D'){
   // wasm run
   const{cp}=pack(clone(cs),nf,cmObj,SEQ,cont);
   E.sim_step(s0,s1);
+  if(P.cl80){const ids=new Float64Array(E.memory.buffer,E.sim_cm_ids(),E.sim_cm_len()),cmv=new Float64Array(E.memory.buffer,E.sim_cm_ptr(),E.sim_cm_len()*5);const ks=Object.keys(cmObj).map(Number).sort((a,b)=>a-b);let bad2=ks.length!==ids.length?1:0,md=0;ks.forEach((k,i)=>{if(ids[i]!==k){bad2=1;return;}const m=cmObj[k];[m.vx,m.vy,m.x,m.y,m.e].forEach((v,j)=>{md=Math.max(md,Math.abs(v-cmv[i*5+j]));});});global.__clN=(global.__clN||0)+1;if(bad2||md>1e-9||E.sim_out&&0){global.__clBad=(global.__clBad||0)+1;console.log('CL MISMATCH trial',t,'ids',ks.length,ids.length,'maxdiff',md);}global.__clMax=Math.max(global.__clMax||0,md);if(t<10){const pp2=new Float64Array(E.memory.buffer,E.sim_params(),96);let a=0,b=0,js=0;for(let r=0;r<40;r++){pp2[80]=1;let x0=performance.now();E.sim_step(s0,s1);a+=performance.now()-x0;pp2[80]=0;x0=performance.now();E.sim_step(s0,s1);b+=performance.now()-x0;const cc={};x0=performance.now();cs.forEach(c=>{if(!c.cl)return;const m=cc[c.cl]||(cc[c.cl]={n:0,vx:0,vy:0,x:0,y:0,e:0});m.n++;m.vx+=c.vx;m.vy+=c.vy;m.x+=c.x;m.y+=c.y;m.e+=c.energy;});for(const k in cc){const m=cc[k];m.vx/=m.n;m.vy/=m.n;m.x/=m.n;m.y/=m.n;m.e/=m.n;}cs.forEach(c=>{if(c.cl&&(cc[c.cl].n<2||Math.random()<0.0005)){}});js+=performance.now()-x0;}global.__bn=(global.__bn||0)+1;global.__bw=(global.__bw||0)+a/40;global.__bo=(global.__bo||0)+b/40;global.__bj=(global.__bj||0)+js/40;}}
   const o=new Float64Array(E.memory.buffer,E.sim_out(),32);
   if(ONLY>=0){console.log(" rng draws js",rgen.n,'wasm',E.sim_rng_n?E.sim_rng_n():'n/a');
    if(E.sim_trace){const wt=new Float64Array(E.memory.buffer,E.sim_trace(),E.sim_trace_len());
@@ -126,7 +127,7 @@ if(mode==='A'||mode==='D'){
   }
  }
  Math.hypot=origHypot;Math.random=origRandom;
- console.log('A done: trials',trials,'diverged',bad,'event-mismatch counts',JSON.stringify(evDiff));
+ if(P.cl80)console.log('bench per frame (10 states, N=75, ~24 clusters): wasm step with cluster_state',(global.__bw/global.__bn).toFixed(4),'ms, without',(global.__bo/global.__bn).toFixed(4),'ms; JS cluster loop',(global.__bj/global.__bn).toFixed(4),'ms');console.log('cluster check: trials',global.__clN,'bad',global.__clBad||0,'max |mean diff|',global.__clMax);console.log('A done: trials',trials,'diverged',bad,'event-mismatch counts',JSON.stringify(evDiff));
  console.log('worst fields:',JSON.stringify(worst,null,1).slice(0,2000));
 }else if(mode==='C'){
  // birth pressure: dense energized population; births/frame can exceed the wasm kid buffer (cap n+256).
