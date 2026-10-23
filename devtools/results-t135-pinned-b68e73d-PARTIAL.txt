@@ -1,0 +1,17 @@
+# INCOMPLETE CHECKPOINT: run in progress, superseded by final results
+# t135 pinned run: commit b68e73d9a3fee1142e85084fba634cf8d3150d13, worktree /tmp/ca2pin (unmodified)
+# sha256 509d815fa39a6884be5556e47399927920ebec72bcc6688d6bb6f072e4f29c51  ca2.js
+# sha256 cf220d496a31836463797a5f5d2eff64a6967f69d80867b9805075434248a15c  ca2core.wasm
+# sha256 16c5c2e5fc601dbf3353791ee4a9973fc263ec6ba927b3b6a44633e2688630f5  ca2core-simd.wasm
+wasm n=24 food=0 hash=-1442756886 {"n":36,"round":21,"lobed":15,"sim":true} []
+nosim=1 n=24 food=0 hash=-1442756886 {"n":41,"round":22,"lobed":19,"sim":false} []
+wasm n=24 food=0 hash=-1442756886 {"n":49,"round":30,"lobed":19,"sim":true} []
+nosim=1 n=24 food=0 hash=-1442756886 {"n":41,"round":17,"lobed":24,"sim":false} []
+wasm n=24 food=0 hash=-1442756886 {"n":36,"round":16,"lobed":20,"sim":true} []
+nosim=1 n=24 food=0 hash=-1442756886 {"n":37,"round":18,"lobed":19,"sim":false} []
+wasm n=24 food=0 hash=-1442756886 {"n":35,"round":14,"lobed":21,"sim":true} []
+nosim=1 n=24 food=0 hash=-1442756886 {"n":39,"round":21,"lobed":18,"sim":false} []
+wasm n=24 food=0 hash=-1442756886 {"n":37,"round":22,"lobed":15,"sim":true} []
+nosim=1 n=24 food=0 hash=-1442756886 {"n":32,"round":18,"lobed":14,"sim":false} []
+wasm n=24 food=0 hash=-1442756886 {"n":39,"round":19,"lobed":20,"sim":true} []
+nosim=1 n=24 food=0 hash=-1442756886 {"n":44,"round":15,"lobed":29,"sim":false} []
