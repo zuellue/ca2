@@ -775,6 +775,15 @@
   // Rust/wasm sim step (ca2core sim.rs): the per-frame cell loop (update, organic, checkSurvival, hover colour, interact, keepIn) runs in wasm on
   // struct-of-arrays state packed from the cells each frame. Returns false (JS loop runs) when wasm/sim is unavailable or disabled (?nowasm=1, ?nosim=1).
   var simStamp = 0, SIMW = { ms: 0, on: false };
+  function jsCluster() {
+    var i;
+    if (P.eatMergeOn) {
+      for (i = 0; i < cells.length; i++) { var cc0 = cells[i]; if (!cc0.cl) continue; var m0 = cmean[cc0.cl] || (cmean[cc0.cl] = { n: 0, vx: 0, vy: 0, x: 0, y: 0, e: 0 }); m0.n++; m0.vx += cc0.vx; m0.vy += cc0.vy; m0.x += cc0.x; m0.y += cc0.y; m0.e += cc0.energy; }
+      for (var kk in cmean) { var mm = cmean[kk]; mm.vx /= mm.n; mm.vy /= mm.n; mm.x /= mm.n; mm.y /= mm.n; mm.e /= mm.n; }
+      for (i = 0; i < cells.length; i++) { var c1 = cells[i]; if (c1.cl && (cmean[c1.cl].n < 2 || Math.random() < 0.0005)) c1.cl = 0; }
+    } else for (i = 0; i < cells.length; i++) cells[i].cl = 0;
+  }
+  function simCanRun() { var E = WC.e; return !!(E && E.sim_step && WC.ok && !WC.off && !WC.simOff && !/[?&](nosim|simab)=1/.test(location.search)); }
   function simSwim(c) { // JS body-plan swim (same as the block inside update(), applied after the wasm step: strings turn to their drift and swim with a wave)
     var sh2 = c.shp; sh2.svx = (sh2.svx || 0) * 0.94 + c.vx * 0.06; sh2.svy = (sh2.svy || 0) * 0.94 + c.vy * 0.06;
     var spv = Math.hypot(sh2.svx, sh2.svy);
@@ -783,13 +792,13 @@
     c.vx += -Math.sin(sh2.dir) * swk; c.vy += Math.cos(sh2.dir) * swk;
     var vv = Math.hypot(c.vx, c.vy); if (vv > 0.05) { c.vx = lerp(c.vx, Math.cos(sh2.dir) * vv, 0.04); c.vy = lerp(c.vy, Math.sin(sh2.dir) * vv, 0.04); }
   }
-  function simW(tmpRef) {
+  function simW(tmpRef, wcl) {
     var E = WC.e; if (E && /[?&]simab=1/.test(location.search) && (SIMW.t = !SIMW.t)) return false; if (!E || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) { SIMW.on = false; return false; }
     try {
       var t0 = performance.now(), n = cells.length, cap = n + 256, nf = food.length, cl = Object.keys(cmean), ncm = cl.length, i, c, b;
       E.sim_cells(cap); E.sim_food(nf + 1); E.sim_cm(ncm + 1);
       var cp = E.sim_cells(cap), fxp = E.sim_food(nf + 1), fyp = E.sim_food_y(), fgp = E.sim_food_gone(), cmp = E.sim_cm(ncm + 1), cip = E.sim_cm_ids(), pp = E.sim_params();
-      var buf = WC.mem.buffer, cf = new Float64Array(buf, cp, cap * 24), fx = new Float64Array(buf, fxp, nf + 1), fy = new Float64Array(buf, fyp, nf + 1), cmf = new Float64Array(buf, cmp, (ncm + 1) * 5), cid = new Float64Array(buf, cip, ncm + 1), p = new Float64Array(buf, pp, 80);
+      var buf = WC.mem.buffer, cf = new Float64Array(buf, cp, cap * 24), fx = new Float64Array(buf, fxp, nf + 1), fy = new Float64Array(buf, fyp, nf + 1), cmf = new Float64Array(buf, cmp, (ncm + 1) * 5), cid = new Float64Array(buf, cip, ncm + 1), p = new Float64Array(buf, pp, 96);
       simStamp++;
       for (i = 0; i < n; i++) {
         c = cells[i]; c._i = i; c._f = simStamp;
@@ -809,7 +818,7 @@
       // 75-77: divideMode/age/mass gate
       p[20] = P.UNIVERSE_SIZE; p[21] = P.foodShrink; p[22] = P.boundAware ? 1 : 0; p[23] = P.boundZone; p[24] = P.boundForce; p[25] = P.restless; p[26] = P.eatRatio; p[27] = P.eatChance; p[28] = P.mergeGene; p[29] = P.mergeChance; p[30] = P.symbiogenesisOn ? 1 : 0; p[31] = P.energyGainFromInteraction; p[32] = P.GENE_MIN; p[33] = P.GENE_MAX; p[34] = P.minEnergyForReproduction; p[35] = P.clusterMax; p[36] = P.genomeMut; p[37] = P.mutationRateRange; p[38] = P.metaballStrength;
       p[39] = env.spd; p[40] = env.app; p[41] = env.bnd; p[42] = env.col ? 1 : 0; if (env.col) { p[43] = env.col[0]; p[44] = env.col[1]; p[45] = env.col[2]; }
-      p[46] = mouse.x; p[47] = mouse.y; p[48] = mouse.over ? 1 : 0; p[49] = cont.x; p[50] = cont.y; p[51] = cont.w; p[52] = cont.h; p[53] = resizeDrag ? 1 : 0; p[54] = clusterSeq;
+      p[46] = mouse.x; p[47] = mouse.y; p[48] = mouse.over ? 1 : 0; p[49] = cont.x; p[50] = cont.y; p[51] = cont.w; p[52] = cont.h; p[53] = resizeDrag ? 1 : 0; p[54] = clusterSeq; p[80] = wcl ? 1 : 0;
       p[78] = frameDtf; p[79] = P.foodEatRate === undefined ? 1.5 : P.foodEatRate; // frame dt ms + grazing rate for sim.rs eat roll - 55/56 are NCM/ONLYINT, never pack them (6d7a61a collision disabled update() sitewide)
       p[57] = P.boundGap || 0; p[58] = P.reproMinAgeMs || 0; p[59] = P.reproChance === undefined ? 0.02 : P.reproChance; // 58: juvenile gate ms, 59: contact birth chance // boundGap slot for sim.rs keep_in (625f4e8 port); 44/45 are env.col
       p[60] = P.crowdTol; p[61] = P.orgLifeDie; p[62] = P.orgLifeGrow; p[63] = P.orgBirth; p[64] = P.orgDead; p[65] = P.orgBrain; p[66] = P.orgR90;
@@ -833,13 +842,13 @@
       var fg = new Float64Array(WC.mem.buffer, fgp, nf + 1);
       // body-plan assignment on births/fusions now happens inside sim.rs (new_shape/mix_shape); E.sim_log() is still emitted for diagnostics
       for (i = 0; i < cells.length; i++) { c = cells[i]; if (c.alive && c.shp && c.shp.t === 1) simSwim(c); }
-      tmpRef.hc = o[16] >= 0 ? cells[o[16]] : null;
+      tmpRef.hc = o[16] >= 0 ? cells[o[16]] : null; tmpRef.cc = o[18];
       for (i = nf - 1; i >= 0; i--) if (fg[i] !== 0) { habAte(food[i]); food[i].gone = 1; food.splice(i, 1); }
       ev.birth += o[0]; ev.divide = (ev.divide || 0) + o[1]; ev.eaten = (ev.eaten || 0) + o[2]; ev.merge = (ev.merge || 0) + o[3]; ev.fuse = (ev.fuse || 0) + o[4]; ev.pair = (ev.pair || 0) + o[5]; ev.hit += o[6]; ev.oob += o[7]; ev.ate = (ev.ate || 0) + o[8]; clusterSeq = o[10];
       for (i = cells.length - 1; i >= 0; i--) if (!cells[i].alive) { ev.death++; habReap(cells[i]); cells.splice(i, 1); }
       hovering = o[11] !== 0; tmpRef.v = [o[12], o[13], o[14]];
       SIMW.ms = SIMW.ms * 0.9 + (performance.now() - t0) * 0.1; SIMW.on = true; return true;
-    } catch (e) { WC.simOff = true; WC.simErr = String(e); SIMW.on = false; return false; }
+    } catch (e) { WC.simOff = true; WC.simErr = String(e); SIMW.on = false; if (wcl) { cmean = {}; jsCluster(); } return false; }
   }
   function drawMetaballsCPU(S) {
     var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
@@ -1776,15 +1785,12 @@
     if (trans) stepTrans(t0, dtf);
     pfm('stepTrans');
     // cluster state: shared motion and energy; a cluster of one dissolves, members sometimes leave on their own
+    var wcl = simCanRun(); // with the wasm sim the cluster-state pass runs inside sim_step (no marshal); JS version below is the fallback
     cmean = {};
-    if (P.eatMergeOn) {
-      for (i = 0; i < cells.length; i++) { var cc0 = cells[i]; if (!cc0.cl) continue; var m0 = cmean[cc0.cl] || (cmean[cc0.cl] = { n: 0, vx: 0, vy: 0, x: 0, y: 0, e: 0 }); m0.n++; m0.vx += cc0.vx; m0.vy += cc0.vy; m0.x += cc0.x; m0.y += cc0.y; m0.e += cc0.energy; }
-      for (var kk in cmean) { var mm = cmean[kk]; mm.vx /= mm.n; mm.vy /= mm.n; mm.x /= mm.n; mm.y /= mm.n; mm.e /= mm.n; }
-      for (i = 0; i < cells.length; i++) { var c1 = cells[i]; if (c1.cl && (cmean[c1.cl].n < 2 || Math.random() < 0.0005)) c1.cl = 0; }
-    } else for (i = 0; i < cells.length; i++) cells[i].cl = 0;
-    var clusterCount = Object.keys(cmean).length;
+    if (!wcl) jsCluster();
+    var clusterCount = 0;
     pfm('cluster state'); hovering = false; var tmpHover = [255, 255, 255], hoverCell = null;
-    var tmpR = { v: null }, tj0 = performance.now(), simDone = simW(tmpR); SIMW.frames = (SIMW.frames || 0) + 1; if (simDone) { tmpHover = tmpR.v; hoverCell = tmpR.hc; }
+    var tmpR = { v: null }, tj0 = performance.now(), simDone = simW(tmpR, wcl); if (wcl && simDone) clusterCount = tmpR.cc; else clusterCount = Object.keys(cmean).length; SIMW.frames = (SIMW.frames || 0) + 1; if (simDone) { tmpHover = tmpR.v; hoverCell = tmpR.hc; }
     if (!simDone) for (var i = cells.length - 1; i >= 0; i--) {
       var c = cells[i]; update(c); checkSurvival(c);
       if (mouse.over && Math.hypot(mouse.x - c.x, mouse.y - c.y) < c.radius && c.x > cont.x && c.x < cont.x + cont.w && c.y > cont.y && c.y < cont.y + cont.h) {
@@ -2009,7 +2015,7 @@
     }
 
      var pairN = 0, compN = 0; for (var pci = 0; pci < cells.length; pci++) { if (cells[pci].sym) pairN++; if (cells[pci].comp > 1) compN++; }
-     window.__ca2 = { SIMW: SIMW, cmpGmax384: function () { // bit-identity gate for adaptive GMAX: same frozen source array (n<=384) through the 384-reference program and the device program; harness requires diffBytes=0
+     window.__ca2 = { SIMW: SIMW, PF: PF, cmpGmax384: function () { // bit-identity gate for adaptive GMAX: same frozen source array (n<=384) through the 384-reference program and the device program; harness requires diffBytes=0
       if (!gOK) return 'nogl'; if (!gProg384) return 'noreference';
       var S = curS, src = buildSources(), ms = P.metaballStrength, TH = P.THRESHOLD, n = Math.min(src.n, 384), i;
       var C = new Float32Array(n * 4), W = new Float32Array(n * 4);
