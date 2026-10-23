@@ -330,13 +330,13 @@ impl Sim {
         let reach = if genome { self.g(c, RAD) * (2.0 + 6.0 * self.g(c, GAPP)) } else { 0.0 };
         let (mut best_d, mut bx, mut by) = (1e9f64, 0.0, 0.0);
         let eat_r = self.p[P_FEATR];
-        let crad = self.g(c, RAD); // eating range reaches from the body EDGE inward (owner 21 Oct: cells do not eat)
+        let _crad0 = self.g(c, RAD); // JS reads c.radius live inside the loop (an eat grows it); eating range reaches from the body EDGE inward (owner 21 Oct: cells do not eat)
         let (px, py) = (self.g(c, X), self.g(c, Y));
         for f in (0..self.nf).rev() {
             if self.fgone[f] != 0.0 { continue; }
             let fd = hyp(px - self.fx[f], py - self.fy[f]);
             if fd >= eat_r && fd < reach && fd < best_d { best_d = fd; bx = self.fx[f]; by = self.fy[f]; }
-            if fd < crad + eat_r && self.rnd01() < 1.0 - (-self.p[P_DTF] * self.p[P_FERATE] / 1000.0).exp() { // grazing rate, matches the JS fallback
+            if fd < self.g(c, RAD) + eat_r && self.rnd01() < 1.0 - (-self.p[P_DTF] * self.p[P_FERATE] / 1000.0).exp() { // grazing rate, matches the JS fallback
                 let e = self.g(c, EN); self.set(c, EN, e + self.p[P_FEV]);
                 self.fgone[f] = 1.0; self.out[8] += 1.0;
                 if self.p[P_FGROW] != 0.0 { let r = (self.g(c, RAD) + self.p[P_FGAMT]).min(self.p[P_CELLR] * self.p[P_FGMAX]); self.set(c, RAD, r); }
