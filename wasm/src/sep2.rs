@@ -1,12 +1,12 @@
 // Port of separatorPass / sepDiskHit / sepBodyHit / sepBodyLineHit numeric compute (ca2.js). No DOM, no RNG.
-// ABI: sep2_alloc(kind,n)->ptr: 0 params f64[16], 1 segs f64[4*n], 2 cell io f64[16], 3 body f64[2+3*n] (n,bound,x..,y..,r..),
+// ABI: sep2_alloc(kind,n)->ptr: 0 params f64[64], 1 segs f64[4*n], 2 cell io f64[16], 3 body f64[2+3*n] (n,bound,x..,y..,r..),
 //      4 mask bytes (RGBA copy, u8). Pointers may move after any alloc or memory growth: re-fetch.
 static mut PRM: Vec<f64> = Vec::new();
 static mut SEGS: Vec<f64> = Vec::new();
 static mut CELL: Vec<f64> = Vec::new();
 static mut BODY: Vec<f64> = Vec::new();
 static mut MASK: Vec<u8> = Vec::new();
-// params: 0 ms,1 TH,2 CELL_RADIUS,3 boundForce(||0.8 applied by JS),4 boundGap,5 lwHalf=min(LW,1/DD)/2,6 cont.x,7 cont.y,8 cont.w,9 cont.h,10 lay.fs,11 mw,12 mh,13 hasMask,14 nsegs,15 hasSegs
+// params 16..63: Math.cos/Math.sin(dir*PI/12) table filled by JS (V8 trig, bit-equal to the JS fallback). 0 ms,1 TH,2 CELL_RADIUS,3 boundForce(||0.8 applied by JS),4 boundGap,5 lwHalf=min(LW,1/DD)/2,6 cont.x,7 cont.y,8 cont.w,9 cont.h,10 lay.fs,11 mw,12 mh,13 hasMask,14 nsegs,15 hasSegs
 // cell io: 0 x,1 y,2 vx,3 vy,4 radius,5 sepX,6 sepY,7 (unused),8 r (out of phase A)
 #[no_mangle] pub extern "C" fn sep2_alloc(kind:usize,n:usize)->*mut u8 {unsafe{match kind{
  0=>{let v=&mut *std::ptr::addr_of_mut!(PRM);v.resize(n,0.);v.as_mut_ptr() as *mut u8}
@@ -14,7 +14,17 @@ static mut MASK: Vec<u8> = Vec::new();
  2=>{let v=&mut *std::ptr::addr_of_mut!(CELL);v.resize(n,0.);v.as_mut_ptr() as *mut u8}
  3=>{let v=&mut *std::ptr::addr_of_mut!(BODY);v.resize(n,0.);v.as_mut_ptr() as *mut u8}
  _=>{let v=&mut *std::ptr::addr_of_mut!(MASK);v.resize(n,0);v.as_mut_ptr()}}}}
-fn hyp(a:f64,b:f64)->f64{(a*a+b*b).sqrt()}
+// V8 Math.hypot (two args): scale by max, Kahan-compensated sum of squares, sqrt, rescale. Plain sqrt(a*a+b*b) was not bit-equal to Math.hypot.
+fn hyp(a:f64,b:f64)->f64{
+ if a.is_infinite()||b.is_infinite(){return f64::INFINITY}
+ if a.is_nan()||b.is_nan(){return f64::NAN}
+ let m=a.abs().max(b.abs());if m==0.{return 0.}
+ let mut sum=0.;let mut comp=0.;
+ for v in [a,b]{let n=v.abs()/m;let summand=n*n-comp;let pre=sum+summand;comp=(pre-sum)-summand;sum=pre;}
+ sum.sqrt()*m}
+fn hyp_plain(a:f64,b:f64)->f64{(a*a+b*b).sqrt()}
+// test-only probes: op 0 hypot(V8 form), 1 hypot plain sqrt form, 2 cos, 3 sin
+#[no_mangle] pub extern "C" fn sep2_dbg(op:usize,x:f64,y:f64)->f64{match op{0=>hyp(x,y),1=>hyp_plain(x,y),2=>x.cos(),_=>x.sin()}}
 fn clamp(v:f64,a:f64,b:f64)->f64{if v<a{a}else if v>b{b}else{v}}
 unsafe fn p(i:usize)->f64{(&*std::ptr::addr_of!(PRM))[i]}
 unsafe fn disk_hit(x:f64,y:f64,r:f64)->bool{
@@ -100,7 +110,7 @@ unsafe fn seg(j:usize)->[f64;4]{let s=&*std::ptr::addr_of!(SEGS);[s[j*4],s[j*4+1
   let (cx,cy,cw,ch)=(p(6),p(7),p(8),p(9));
   let mut reach=step;
   while reach<=max_ink&&!found{
-   for dir in 0..24{let ang=(dir as f64)*std::f64::consts::PI/12.;let tx=c[0]+ang.cos()*reach;let ty=c[1]+ang.sin()*reach;
+   for dir in 0..24{let tx=c[0]+p(16+dir*2)*reach;let ty=c[1]+p(17+dir*2)*reach;
     if tx<cx+gap||tx>cx+cw-gap||ty<cy+gap||ty>cy+ch-gap{continue}
     let mut crosses=false;
     if has{for k in 0..ns{let s=seg(k);if line_hit(tx,ty,s){crosses=true;break}

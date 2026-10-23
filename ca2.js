@@ -1112,15 +1112,18 @@
     }
     return false;
   }
+  var SEPTRIG = null;
   function sepWOn() { var E = WC.e; return !!(E && E.sep2_phase_a && WC.ok && !WC.off && !WC.simOff && !WC.sepOff && !/[?&](nosim|nosepw)=1/.test(location.search)); }
   // Rust/wasm separatorPass (ca2core sep2.rs). Per cell: phase A (segment crossing, wedge, radius wear) -> JS sepBody(c) (emitCell, owning-source semantics stay JS)
   // -> phase B (lobe-vs-hairline, ink search, plate wall). Views are re-created after every alloc (memory growth detaches them).
   function sepPassW(segs, mask) {
     var E = WC.e, ns = segs ? segs.length : 0, i, k;
-    var pp = E.sep2_alloc(0, 16), sp = E.sep2_alloc(1, Math.max(1, ns * 4)), cp = E.sep2_alloc(2, 16);
-    if (mask && (WC.sepMaskSrc !== SEP.img)) { var n4 = SEP.img.length, mp = E.sep2_alloc(4, n4); new Uint8Array(WC.mem.buffer, mp, n4).set(SEP.img); WC.sepMaskSrc = SEP.img; pp = E.sep2_alloc(0, 16); sp = E.sep2_alloc(1, Math.max(1, ns * 4)); cp = E.sep2_alloc(2, 16); }
-    var pv = new Float64Array(WC.mem.buffer, pp, 16), sv = new Float64Array(WC.mem.buffer, sp, Math.max(1, ns * 4));
+    var pp = E.sep2_alloc(0, 64), sp = E.sep2_alloc(1, Math.max(1, ns * 4)), cp = E.sep2_alloc(2, 16);
+    if (mask && (WC.sepMaskSrc !== SEP.img)) { var n4 = SEP.img.length, mp = E.sep2_alloc(4, n4); new Uint8Array(WC.mem.buffer, mp, n4).set(SEP.img); WC.sepMaskSrc = SEP.img; pp = E.sep2_alloc(0, 64); sp = E.sep2_alloc(1, Math.max(1, ns * 4)); cp = E.sep2_alloc(2, 16); }
+    var pv = new Float64Array(WC.mem.buffer, pp, 64), sv = new Float64Array(WC.mem.buffer, sp, Math.max(1, ns * 4));
     pv.set([P.metaballStrength, P.THRESHOLD, P.CELL_RADIUS, P.boundForce || 0.8, P.boundGap || 0, Math.min(LW(), 1 / DD) / 2, cont.x, cont.y, cont.w, cont.h, lay().fs, SEP.mw || 0, SEP.mh || 0, mask ? 1 : 0, ns, segs ? 1 : 0]);
+    if (!SEPTRIG) { SEPTRIG = []; for (k = 0; k < 24; k++) SEPTRIG.push(Math.cos(k * Math.PI / 12), Math.sin(k * Math.PI / 12)); }
+    pv.set(SEPTRIG, 16);
     for (i = 0; i < ns; i++) sv.set(segs[i], i * 4);
     for (i = 0; i < cells.length; i++) {
       var c = cells[i]; if (!c.alive) continue;
