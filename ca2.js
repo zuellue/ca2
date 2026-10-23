@@ -878,7 +878,7 @@
 
   // ---- GPU metaball field (WebGL fragment shader): same formula as the CPU splat, evaluated per pixel on the GPU.
   // The CPU path above stays as the fallback (no WebGL, too many cells, or ?cpu=1). colorAt() evaluates the same field analytically at one point (no GPU readback).
-  var GMAX = 384, gl = null, glc = null, gProg = null, gU = {}, gOK = false, gSnap = null, gOn = false, gOv = 0; // GMAX: device-adaptive (initGL), 384 is only the floor
+  var GMAX = 384, gShaderMax = 0, gl = null, glc = null, gProg = null, gU = {}, gOK = false, gSnap = null, gOn = false, gOv = 0; // GMAX: device-adaptive (initGL), 384 is only the floor; gShaderMax = compiled capacity (GMAX may be test-lowered)
   (function initGL() {
     if (/[?&]cpu=1/.test(location.search)) return;
     try {
@@ -900,7 +900,7 @@
         try {
           gProg = gl.createProgram(); gl.attachShader(gProg, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(gProg, sh(gl.FRAGMENT_SHADER, fs(gm))); gl.linkProgram(gProg);
           if (!gl.getProgramParameter(gProg, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(gProg));
-          GMAX = gm; break;
+          GMAX = gm; gShaderMax = gm; break;
         } catch (e2) { if (gm <= 384) throw e2; }
       }
       gl.useProgram(gProg);
@@ -1994,10 +1994,11 @@
     }
 
      var pairN = 0, compN = 0; for (var pci = 0; pci < cells.length; pci++) { if (cells[pci].sym) pairN++; if (cells[pci].comp > 1) compN++; }
-     window.__ca2 = { SIMW: SIMW, t118: function (tiled, seconds) { // t118 harness: SAME FROZEN source array through full or tiled gpuDraw; a 1px readPixels after each draw forces real raster completion (glc is offscreen: rAF alone never blocks). Returns per-frame wall stats.
+     window.__ca2 = { SIMW: SIMW, setGmaxTest: function (v) { GMAX = v | 0 || 384; }, // t119 ONLY: forces subdivision/overflow paths in cmpGpuPaths; never ship-set
+      t118: function (tiled, seconds) { // t118 harness: SAME FROZEN source array through full or tiled gpuDraw; a 1px readPixels after each draw forces real raster completion (glc is offscreen: rAF alone never blocks). Returns per-frame wall stats.
       if (!gOK) return 'nogl';
       if (!window.__t118pack) { // one freeze shared by both modes: full and tiled render the SAME source array/geometry
-        var S0 = curS, src = buildSources(), ms0 = P.metaballStrength, TH0 = P.THRESHOLD, n0 = Math.min(src.n, GMAX), j;
+        var S0 = curS, src = buildSources(), ms0 = P.metaballStrength, TH0 = P.THRESHOLD, n0 = Math.min(src.n, gShaderMax || GMAX), j;
         var C0 = new Float32Array(n0 * 4), W0 = new Float32Array(n0 * 4);
         for (j = 0; j < n0; j++) { C0[j * 4] = src.x[j]; C0[j * 4 + 1] = src.y[j]; C0[j * 4 + 2] = ms0 * src.r[j] * src.r[j]; C0[j * 4 + 3] = src.r[j] * Math.max(3, Math.sqrt(ms0 / (TH0 * 0.03))); W0[j * 4] = src.wr[j]; W0[j * 4 + 1] = src.wg[j]; W0[j * 4 + 2] = src.wb[j]; }
         window.__t118pack = { C: C0, W: W0, n: n0, S: S0, bw: Math.max(1, Math.ceil(cont.w * S0)), bh: Math.max(1, Math.ceil(cont.h * S0)) };
@@ -2021,7 +2022,7 @@
     }, setTiled: function (v) { gTiledForce = (v === null || v === undefined) ? null : !!v; }, cmpGpuPaths: function () { // same source array through the full pass and the tiled pass: exact old-vs-new GPU A/B (pixel gates for the thermal fix)
       if (!gOK) return 'nogl';
       if (!window.__t118pack) { // one freeze shared by both modes: full and tiled render the SAME source array/geometry
-        var S0 = curS, src = buildSources(), ms0 = P.metaballStrength, TH0 = P.THRESHOLD, n0 = Math.min(src.n, GMAX), j;
+        var S0 = curS, src = buildSources(), ms0 = P.metaballStrength, TH0 = P.THRESHOLD, n0 = Math.min(src.n, gShaderMax || GMAX), j;
         var C0 = new Float32Array(n0 * 4), W0 = new Float32Array(n0 * 4);
         for (j = 0; j < n0; j++) { C0[j * 4] = src.x[j]; C0[j * 4 + 1] = src.y[j]; C0[j * 4 + 2] = ms0 * src.r[j] * src.r[j]; C0[j * 4 + 3] = src.r[j] * Math.max(3, Math.sqrt(ms0 / (TH0 * 0.03))); W0[j * 4] = src.wr[j]; W0[j * 4 + 1] = src.wg[j]; W0[j * 4 + 2] = src.wb[j]; }
         window.__t118pack = { C: C0, W: W0, n: n0, S: S0, bw: Math.max(1, Math.ceil(cont.w * S0)), bh: Math.max(1, Math.ceil(cont.h * S0)) };
