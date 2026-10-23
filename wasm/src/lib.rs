@@ -234,7 +234,7 @@ pub extern "C" fn mb_field_f32(n: usize, bw: usize, bh: usize, s: f64, ms: f64, 
 
 #[no_mangle] pub extern "C" fn pa_cells(cap: usize) -> *mut f64 { let s = parasites::pa(); s.ci.resize(cap * 5 + 5, 0.0); s.ci.as_mut_ptr() }
 #[no_mangle] pub extern "C" fn pa_energy(cap: usize) -> *mut f64 { let s = parasites::pa(); s.en.resize(cap + 1, 0.0); s.en.as_mut_ptr() }
-#[no_mangle] pub extern "C" fn pa_in(cap: usize) -> *mut f64 { let s = parasites::pa(); s.pi.resize(cap * 7 + 7, 0.0); s.pi.as_mut_ptr() }
+#[no_mangle] pub extern "C" fn pa_in(cap: usize) -> *mut f64 { let s = parasites::pa(); s.pi.resize(cap * 7 + 16, 0.0); s.pi.as_mut_ptr() } // +16 tail: cursor-mistake pack (mouse x/y/over, on, believeMs, retK, phantomR, cont x/y/w/h, beliefR, spare)
 #[no_mangle] pub extern "C" fn pa_run(n: usize, m: usize, now: f64, on: f64, frac: f64, sight: f64, nerv: f64, drain: f64, eff: f64, hard: f64, hard_ms: f64, s0: f64, s1: f64) -> f64 { parasites::pa().step(n, m, now, on != 0.0, frac, sight, nerv, drain, eff, hard, hard_ms, s0, s1) as f64 }
 #[no_mangle] pub extern "C" fn pa_out() -> *const f64 { parasites::pa().po.as_ptr() }
 #[no_mangle] pub extern "C" fn pa_stat() -> *const f64 { parasites::pa().stat.as_ptr() }

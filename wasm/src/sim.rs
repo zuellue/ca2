@@ -12,13 +12,13 @@ pub struct Sim {
     pub fx: Vec<f64>, pub fy: Vec<f64>, pub fgone: Vec<f64>, pub nf: usize,
     pub cm_id: Vec<f64>, pub cm: Vec<f64>, // per cluster: vx,vy,x,y,e (stride 5)
     pub p: Vec<f64>, pub out: Vec<f64>,
-    s0: u64, s1: u64, live: usize, pub log: Vec<f64>, pub shp: Vec<f64>,
+    s0: u64, s1: u64, live: usize, pub log: Vec<f64>, pub shp: Vec<f64>, t_ms: f64,
 }
 pub static mut SIM: Option<Sim> = None;
 pub fn sim() -> &'static mut Sim {
     unsafe {
         let s = &mut *std::ptr::addr_of_mut!(SIM);
-        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 96], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new(), shp: Vec::new() }); }
+        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 96], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new(), shp: Vec::new(), t_ms: 0.0 }); }
         s.as_mut().unwrap()
     }
 }
@@ -39,6 +39,7 @@ const P_ORGDIE: usize = 61; const P_ORGGROW: usize = 62; const P_ORGBIRTH: usize
 const P_ORGBRAIN: usize = 65; const P_ORGR90: usize = 66; // organic() life/birth/energy deltas (B3/S23 topology stays)
 const P_SYMEN: usize = 67; const P_SYMBRK: usize = 68; const P_SYMBRKD: usize = 69; // symbiosis bond feed, whim break, distance break (x span)
 const P_DTF: usize = 78; const P_FERATE: usize = 79; // frame dt ms + grazing rate (dots/s per touched dot) - moved off 55/56: those belong to P_NCM/P_ONLYINT, and foodEatRate!=0 read as ONLYINT disabled update()/check_survival() for every cell (divide/graze/shrink/keepIn all dead)
+const P_FLEEON: usize = 82; const P_FLEER: usize = 83; const P_FLEEPH: usize = 84; const P_FLEEWB: usize = 85; const P_FLEEJT: usize = 86; const P_FLEEDP: usize = 87; // cursor unease (owner 23 Oct, phonemsg-01M5MP8J6KY6SXEHEN0QSXQ5VP): 82..87 reserved for the cursor behavior, 88..95 belong to the separator
 const P_EATDF: usize = 70; const P_FUSEDF: usize = 71; const P_SYMDF: usize = 72; // eat/fuse/pair contact distance (x radii sum)
 const P_HABON: usize = 73; const P_HABCAP: usize = 74;
 const P_DIVMODE: usize = 75; const P_DIVAGE: usize = 76; const P_DIVEN: usize = 77; // 75: 0 = legacy radius gate, 1 = age+mass; 76: min age ms; 77: min energy // habitat soft birth cap (habitat-gated): over habitatBirthCap x UNIVERSE_SIZE the birth chance scales cap/n, never a hard wall
@@ -259,6 +260,26 @@ impl Sim {
         let rd = self.p[P_RDRAG] != 0.0;
         let lim = self.g(c, MAXS) * sm * self.g(c, SPM) * if rd { 1.0 + self.p[P_RESTL] * 1.5 } else { 1.0 };
         self.limit(c, lim);
+        // cursor unease (owner 23 Oct): a cell under the cursor grows restless, cannot decide, and drifts
+        // away slowly. A gentle quadratic push on a slow-wavering escape direction, random hesitation and a
+        // light drag - no teleport, no sprint. JS mirror: the flee block in update() (same draws, same order).
+        if self.p[P_FLEEON] != 0.0 && self.p[P_MOVER] != 0.0 {
+            let fr = self.p[P_FLEER];
+            if dm < fr && dm > 1e-9 {
+                let t = 1.0 - dm / fr;
+                let ph = self.g(c, GENE) * 1.7 + self.g(c, SV) * 13.0;
+                let wob = crate::fdm::sin((self.t_ms / 900.0 + ph) % 6.283185307179586) * self.p[P_FLEEWB];
+                let ux = (self.g(c, X) - mx) / dm; let uy = (self.g(c, Y) - my) / dm;
+                let (ca, sa) = (crate::fdm::cos(wob), crate::fdm::sin(wob));
+                let push = self.p[P_FLEEPH] * t * t;
+                let jit = self.p[P_FLEEJT] * t;
+                let jx = self.rnd01() - 0.5; let jy = self.rnd01() - 0.5;
+                let damp = 1.0 - self.p[P_FLEEDP] * t;
+                let vx = (self.g(c, VX) + (ux * ca - uy * sa) * push + jx * jit) * damp;
+                let vy = (self.g(c, VY) + (ux * sa + uy * ca) * push + jy * jit) * damp;
+                self.set(c, VX, vx); self.set(c, VY, vy);
+            }
+        }
         self.organic(c, 0);
         let (nx, ny) = (self.g(c, X) + self.g(c, VX), self.g(c, Y) + self.g(c, VY));
         self.set(c, X, nx); self.set(c, Y, ny);
@@ -445,6 +466,7 @@ impl Sim {
     }
     pub fn step(&mut self, s0: f64, s1: f64) {
         self.s0 = (s0 as u64) << 32 | 0x9E3779B9; self.s1 = (s1 as u64) << 32 | 0x85EBCA6B;
+        self.t_ms += self.p[P_DTF]; // cursor-unease clock, mirrors fleeT += frameDtf in the JS frame loop
         for k in 0..20 { self.out[k] = 0.0; } // 20-23 are cumulative kill-reason diagnostics, not per-step
         let n0 = self.n; self.live = n0; self.log.clear();
         let ccount = if self.p[80] != 0.0 { self.cluster_state(n0) } else { -1.0 };

@@ -49,6 +49,10 @@
   P.crowdTol = 0.5; P.orgLifeDie = -0.005; P.orgLifeGrow = 1.0025; P.orgBirth = 1.005; P.orgDead = -0.0025; P.orgBrain = 0.008; P.orgR90 = 0.0025;
   P.symEnergy = 0.00075; P.symBreak = 0.0002; P.symBreakDist = 3; P.eatDistF = 0.85; P.fuseDistF = 0.6; P.symDistF = 1.1;
   P.focusIdleMs = 4000; P.focusInMs = 4000; P.focusOutMs = 380; P.focusDepth = 14; // idle depth-of-field blur: wait, slow blur-in, swift refocus, depth px
+  // cursor ecology (owner 23 Oct): cells grow uneasy under the cursor, cannot decide, and drift away slowly;
+  // hostless parasites take the cursor for a cell, chase it a while, give up and head back into the plate.
+  P.cursorFleeOn = 1; P.cursorFleeR = 90; P.cursorFleePush = 0.15; P.cursorFleeWob = 0.9; P.cursorFleeJit = 0.6; P.cursorFleeDamp = 0.05;
+  P.parasiteCursorOn = 1; P.parasiteCursorMs = 2500; P.parasiteCursorR = 250; P.parasiteCursorRetK = 1.2;
   P.cellShapes = 1; // heritable body plans: round / string / lobed (render expands a cell into metaball sources)
   var DEFAULTS = JSON.parse(JSON.stringify(P));
   var TYPE_SIZE_MAX = 4; // the type-size KNOB range end (owner 21 Oct); manual entry is unbounded (the width fit is the only limit)
@@ -151,6 +155,17 @@
     var dm = Math.hypot(c.x - mouse.x, c.y - mouse.y), sm = dm < P.slowDownRadius ? P.speedReductionFactor : 1;
     var r = rand2D(); c.vx += r.x * 0.2 * sm; c.vy += r.y * 0.2 * sm;
     limit(c, c.maxSpeed * sm * c.speedModifier * (resizeDrag ? 1 + P.restless * 1.5 : 1));
+    // cursor unease (owner 23 Oct): a cell under the cursor grows restless, cannot decide, and drifts away
+    // slowly - a gentle quadratic push on a slow-wavering escape direction, random hesitation and a light
+    // drag. No teleport, no sprint. Rust mirror: the flee block in sim.rs update() (same draws, same order).
+    if (P.cursorFleeOn && mouse.over && dm < P.cursorFleeR && dm > 1e-9) {
+      var ft = 1 - dm / P.cursorFleeR, fph = c.gene * 1.7 + c.sv * 13;
+      var fwob = Math.sin((fleeT / 900 + fph) % 6.283185307179586) * P.cursorFleeWob;
+      var fux = (c.x - mouse.x) / dm, fuy = (c.y - mouse.y) / dm;
+      var fca = Math.cos(fwob), fsa = Math.sin(fwob), fpush = P.cursorFleePush * ft * ft, fjit = P.cursorFleeJit * ft, fdamp = 1 - P.cursorFleeDamp * ft;
+      c.vx = (c.vx + (fux * fca - fuy * fsa) * fpush + (Math.random() - 0.5) * fjit) * fdamp;
+      c.vy = (c.vy + (fux * fsa + fuy * fca) * fpush + (Math.random() - 0.5) * fjit) * fdamp;
+    }
     organic(c);
     c.x += c.vx; c.y += c.vy;
     if (c.shp && c.shp.t === 1) { // a string turns into its drift and swims with a side-to-side wave
@@ -716,7 +731,7 @@
   // main disc with small orbiting satellites. Every field path (wasm, WebGL, CPU) consumes this one list, so all draw the
   // same bodies and the wasm interface stays 6 f64 per source. One shared budget (the shader's uniform cap): when the
   // population is dense the strings shorten instead of pushing a path off its budget.
-  var frameT = 0;
+  var frameT = 0, fleeT = 0; // fleeT: cursor-unease clock (mirrors sim.rs t_ms += p[P_DTF] per step)
   var SRC_MAX = 384, SRC = { n: 0, cells: 0, built: -1, x: new Float32Array(512), y: new Float32Array(512), r: new Float32Array(512), wr: new Float32Array(512), wg: new Float32Array(512), wb: new Float32Array(512) };
   function srcGrow(n) { if (n <= SRC.x.length) return; var m = SRC.x.length * 2; while (m < n) m *= 2; ['x', 'y', 'r', 'wr', 'wg', 'wb'].forEach(function (k) { var a2 = new Float32Array(m); a2.set(SRC[k]); SRC[k] = a2; }); }
   function emitCell(c, t0, allowance, o) { // appends the cell's sources (plate-relative) to o = { x, y, r, n }
@@ -842,6 +857,7 @@
       p[60] = P.crowdTol; p[61] = P.orgLifeDie; p[62] = P.orgLifeGrow; p[63] = P.orgBirth; p[64] = P.orgDead; p[65] = P.orgBrain; p[66] = P.orgR90;
       p[67] = P.symEnergy; p[68] = P.symBreak; p[69] = P.symBreakDist; p[70] = P.eatDistF; p[71] = P.fuseDistF; p[72] = P.symDistF;
       p[73] = P.habitatOn ? 1 : 0; p[74] = P.habitatBirthCap; // habitat soft birth cap (sim.rs interact)
+      p[82] = P.cursorFleeOn ? 1 : 0; p[83] = P.cursorFleeR; p[84] = P.cursorFleePush; p[85] = P.cursorFleeWob; p[86] = P.cursorFleeJit; p[87] = P.cursorFleeDamp; // 82-87: cursor unease (reserved); 88-95 belong to the separator
       var tp = performance.now(); E.sim_step(Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
       var ts = performance.now(); SIMW.pack = (SIMW.pack || 0) * 0.9 + (tp - t0) * 0.1; SIMW.step = (SIMW.step || 0) * 0.9 + (ts - tp) * 0.1;
       var o = new Float64Array(WC.mem.buffer, E.sim_out(), 32), nf2 = o[15];
@@ -1780,11 +1796,15 @@
       if (!P.parasiteOn || !cells.length) { parasites.length = 0; return true; }
       var n = cells.length, m = parasites.length, i, c, p, b;
       var cp = E.pa_cells(n), ep = E.pa_energy(n), pp = E.pa_in(m); // alloc before reading the buffer: a resize can grow memory and detach it
-      var ci = new Float64Array(WC.mem.buffer, cp, n * 5 + 5), en = new Float64Array(WC.mem.buffer, ep, n + 1), pi = new Float64Array(WC.mem.buffer, pp, m * 7 + 7);
+      var ci = new Float64Array(WC.mem.buffer, cp, n * 5 + 5), en = new Float64Array(WC.mem.buffer, ep, n + 1), pi = new Float64Array(WC.mem.buffer, pp, m * 7 + 16);
       var hidx = {};
       for (i = 0; i < n; i++) { c = cells[i]; c._pi = i; b = i * 5; ci[b] = c.x; ci[b + 1] = c.y; ci[b + 2] = c.radius; ci[b + 3] = c.cl || 0; ci[b + 4] = c.alive ? 1 : 0; en[i] = c.energy; }
       for (i = 0; i < m; i++) { p = parasites[i]; b = i * 7; pi[b] = p.x; pi[b + 1] = p.y; pi[b + 2] = p.e; // a spliced host keeps a stale _pi: validate identity before packing
       pi[b + 3] = (p.host && p.host.alive && cells[p.host._pi] === p.host) ? p.host._pi : -1; pi[b + 4] = p.a; pi[b + 5] = p.ph || 0; pi[b + 6] = p.lost || 0; }
+      var tb2 = m * 7; // cursor-mistake tail (parasites.rs): mouse, params, plate rect
+      pi[tb2] = mouse.x; pi[tb2 + 1] = mouse.y; pi[tb2 + 2] = mouse.over ? 1 : 0; pi[tb2 + 3] = P.parasiteCursorOn ? 1 : 0;
+      pi[tb2 + 4] = P.parasiteCursorMs; pi[tb2 + 5] = P.parasiteCursorRetK; pi[tb2 + 6] = P.CELL_RADIUS;
+      pi[tb2 + 7] = cont.x; pi[tb2 + 8] = cont.y; pi[tb2 + 9] = cont.w; pi[tb2 + 10] = cont.h; pi[tb2 + 11] = P.parasiteCursorR;
       var now = performance.now();
       var q = E.pa_run(n, m, now, 1, P.parasiteFrac, P.parasiteSight, P.parasiteNerv, P.parasiteDrain, P.parasiteEff, P.parasiteHard, P.parasiteHardMs, Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
       if (q < 0) return false;
@@ -1888,7 +1908,31 @@
       if (!p.host) {
         var best = null, bd = P.parasiteSight * P.parasiteSight; if (!p.lost) p.lost = performance.now(); if (!p.ph) p.ph = Math.random() * 6.28;
         for (var j = 0; j < cells.length; j++) { var q = cells[j], d = (q.x - p.x) * (q.x - p.x) + (q.y - p.y) * (q.y - p.y); if (q.cl) d *= 0.5; if (d < bd) { bd = d; best = q; } }
-        if (best) {
+        // cursor mistake (owner 23 Oct): a hostless parasite can take the cursor for a cell - it chases the
+        // phantom for parasiteCursorMs, gives up, and tries to re-enter the boundary area. p.a <= -1e9 marks
+        // the belief (start time = -p.a - 1e9; the orbit angle only matters once hosted, and it can drift
+        // negative, so the marker lives far below any orbit angle). Rust mirror: parasites.rs (same draws).
+        var cuOn = P.parasiteCursorOn && mouse.over;
+        if (p.a <= -1e9) {
+          var cuT = -p.a - 1e9, nowP = performance.now();
+          if (cuOn && nowP - cuT < P.parasiteCursorMs) {
+            var dm2 = (mouse.x - p.x) * (mouse.x - p.x) + (mouse.y - p.y) * (mouse.y - p.y);
+            if (best && bd < dm2) p.a = 0; // a real cell nearer breaks the illusion
+            else {
+              var cdd = Math.sqrt(dm2) || 1, cosc = Math.sin((nowP / 1000 * (2 + 2 * P.parasiteNerv) + p.ph) % 6.283185307179586), cwant = P.CELL_RADIUS * (1.1 + 0.5 * P.parasiteNerv * (1 + cosc)), cdir = (cdd > cwant ? 1 : -0.6 * P.parasiteNerv), csp = Math.min(6, Math.max(1.2, cdd * 0.08)) * (1 + 0.5 * P.parasiteNerv * cosc);
+              p.x += (mouse.x - p.x) / cdd * csp * cdir + (Math.random() - 0.5) * 2 * P.parasiteNerv; p.y += (mouse.y - p.y) / cdd * csp * cdir + (Math.random() - 0.5) * 2 * P.parasiteNerv;
+            }
+          } else if (p.x > cont.x && p.x < cont.x + cont.w && p.y > cont.y && p.y < cont.y + cont.h) p.a = 0; // back inside: the mistake is over
+          else {
+            var rtx = clamp(p.x, cont.x, cont.x + cont.w), rty = clamp(p.y, cont.y, cont.y + cont.h), rdx = rtx - p.x, rdy = rty - p.y, rdd = Math.hypot(rdx, rdy);
+            if (rdd < 2) p.a = 0;
+            else { var rsp = Math.min(6, Math.max(1.2, rdd * 0.08)) * P.parasiteCursorRetK; p.x += rdx / rdd * rsp + (Math.random() - 0.5) * 2 * P.parasiteNerv; p.y += rdy / rdd * rsp + (Math.random() - 0.5) * 2 * P.parasiteNerv; }
+          }
+        } else if (cuOn) {
+          var dm3 = (mouse.x - p.x) * (mouse.x - p.x) + (mouse.y - p.y) * (mouse.y - p.y);
+          if (dm3 < P.parasiteCursorR * P.parasiteCursorR && (!best || dm3 < bd)) p.a = -performance.now() - 1e9; // believes: the cursor is a cell (nearer than any real one)
+        }
+        if (!(p.a <= -1e9) && best) {
           var dd = Math.sqrt(bd) || 1, nv = P.parasiteNerv, tt = performance.now() / 1000, osc = Math.sin(tt * (2 + 2 * nv) + p.ph), want = best.radius * (1.1 + 0.5 * nv * (1 + osc)), dir = (dd > want ? 1 : -0.6 * nv), sp = Math.min(6, Math.max(1.2, dd * 0.08)) * (1 + 0.5 * nv * osc);
           p.x += (best.x - p.x) / dd * sp * dir + (Math.random() - 0.5) * 2 * nv; p.y += (best.y - p.y) / dd * sp * dir + (Math.random() - 0.5) * 2 * nv;
           if (Math.hypot(best.x - p.x, best.y - p.y) < best.radius) { p.host = best; p.lost = 0; parStat.rehost++; }
@@ -2016,7 +2060,7 @@
   function pfm(n) { var t = performance.now(); PF[n] = (PF[n] === undefined ? 0 : PF[n]) * 0.9 + (t - pfT) * 0.1; pfT = t; }
   function frame() {
     if (P.separatorOn) for (var si0 = 0; si0 < cells.length; si0++) { cells[si0]._sepX = cells[si0].x; cells[si0]._sepY = cells[si0].y; }
-    var t0 = performance.now(); pfT = t0; frameT = t0; var dtf = Math.min(100, t0 - lastFrameT); lastFrameT = t0; frameDtf = dtf;
+    var t0 = performance.now(); pfT = t0; frameT = t0; var dtf = Math.min(100, t0 - lastFrameT); lastFrameT = t0; frameDtf = dtf; fleeT += dtf;
     if (resizeDrag) lastRefresh = t0;
     var pk = trans ? 1 - Math.exp(-dtf * 3 / trans.dur) : P.morphEase;
     cont.ew += (cont.tw - cont.ew) * pk; cont.eh += (cont.th - cont.eh) * pk;
@@ -2600,7 +2644,9 @@
       ['panelAlpha', 'panel opacity', 0, 1, 0.01], ['cfgFontSize', 'font size', 8, 28, 1], ['panelWidth', 'panel width', 200, 600, 5], ['blurWidth', 'blur width', 0, 600, 5], ['blurStrength', 'blur strength', 0, 64, 1],
       ['panelRowGap', 'row gap', 0, 30, 1], ['focusIdleMs', 'focus wait', 500, 20000, 100], ['focusInMs', 'blur in', 500, 12000, 100], ['focusOutMs', 'refocus snap', 60, 3000, 10], ['focusDepth', 'blur depth', 0, 64, 1]]],
     ['cursor', [
-      ['cursorSens', 'sensitivity', 0.05, 1, 0.01], ['cursorSize', 'size', 0.2, 2, 0.01], ['cursorLockMs', 'lock ms', 0, 3000, 50], ['sprayMs', 'interval', 40, 1000, 10], ['sprayGapPx', 'spacing', 4, 200, 1], ['sprayBurst', 'burst', 1, 20, 1], ['sprayRadius', 'spread', 0, 300, 5]]],
+      ['cursorSens', 'sensitivity', 0.05, 1, 0.01], ['cursorSize', 'size', 0.2, 2, 0.01], ['cursorLockMs', 'lock ms', 0, 3000, 50], ['sprayMs', 'interval', 40, 1000, 10], ['sprayGapPx', 'spacing', 4, 200, 1], ['sprayBurst', 'burst', 1, 20, 1], ['sprayRadius', 'spread', 0, 300, 5],
+      ['cursorFleeOn', 'cell flee', 0, 1, 1], ['cursorFleeR', 'unease radius', 0, 400, 5], ['cursorFleePush', 'flee push', 0, 1, 0.01], ['cursorFleeWob', 'waver', 0, 3.2, 0.01], ['cursorFleeJit', 'hesitation', 0, 2, 0.05], ['cursorFleeDamp', 'flee drag', 0, 0.5, 0.005],
+      ['parasiteCursorOn', 'cursor prey', 0, 1, 1], ['parasiteCursorMs', 'belief ms', 0, 20000, 100], ['parasiteCursorR', 'belief radius', 0, 2000, 10], ['parasiteCursorRetK', 'return speed', 0, 5, 0.1]]],
     ['grain', [
       ['grainAmount', 'amount', 0, 2, 0.01], ['grainStrength', 'strength', 0, 10, 0.1], ['grainSize', 'size', 0.3, 6, 0.1],
       ['grainSoft', 'softness', 0, 1, 0.01], ['grainChroma', 'chroma', 0, 1, 0.01], ['grainDev', 'development', 0.1, 1.5, 0.01],

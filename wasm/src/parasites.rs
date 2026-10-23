@@ -2,7 +2,9 @@
 // cells preferred), attach as a host, orbit it and drain its energy; starve off past parasiteHard,
 // split when fed. JS keeps object identity: hosts come back as cell indices, energy drains write
 // back to the packed cell rows. in cells: n x 5 (x, y, radius, cl, alive); energy in/out: n x 1.
-// in parasites: m x 7 (x, y, e, host index or -1, a, ph, lost ms). out parasites: q x 8 (x, y, e, host idx, a, ph, lost, src or -1).
+// in parasites: m x 7 (x, y, e, host index or -1, a, ph, lost ms) + a 16-slot tail: the cursor-mistake pack
+// (mouse x, mouse y, over, on, believeMs, retK, phantomR, cont x, cont y, cont w, cont h, beliefR, 4 spare).
+// out parasites: q x 8 (x, y, e, host idx, a, ph, lost, src or -1).
 // out cell energy: n x 1 (full write-back). stat: pdeath, pbirth, rehost, spawned.
 pub struct Pa { pub ci: Vec<f64>, pub en: Vec<f64>, pub pi: Vec<f64>, pub po: Vec<f64>, pub stat: [f64; 4], s0: u64, s1: u64 }
 pub static mut PA: Option<Pa> = None;
@@ -26,7 +28,7 @@ impl Pa {
         self.s0 = ((s0 as u64) << 32) | 0x9E3779B9; self.s1 = ((s1 as u64) << 32) | 0x85EBCA6B;
         for _ in 0..8 { self.r01(); }
         self.stat = [0.0; 4]; self.po.clear();
-        if self.ci.len() < n * 5 || self.en.len() < n || self.pi.len() < m * 7 { return -1; }
+        if self.ci.len() < n * 5 || self.en.len() < n || self.pi.len() < m * 7 + 12 { return -1; }
         if !on || n == 0 { return 0; } // JS: parasites.length = 0
         for i in 0..n { if !(self.ci[i * 5].is_finite() && self.ci[i * 5 + 1].is_finite()) { return -1; } }
         let target = (n as f64 * frac).round() as i64;
@@ -57,7 +59,49 @@ impl Pa {
                     if d < bd { bd = d; best = j as i64; }
                 }
                 let mut phn = ph;
-                if best >= 0 {
+                // cursor mistake (owner 23 Oct): a hostless parasite can take the cursor for a cell - it chases
+                // the phantom for believeMs, gives up, and tries to re-enter the plate. a <= -1e9 marks the
+                // belief (start time = -a - 1e9; the orbit angle only matters once hosted, and it can drift
+                // negative, so the marker lives far below any orbit angle). Mouse + params: the pa_in tail.
+                // JS mirror: the hostless branch of stepParasitesCore (same draws, same order).
+                let tb = m * 7;
+                let (cmx, cmy) = (self.pi[tb], self.pi[tb + 1]);
+                let cu_on = self.pi[tb + 3] != 0.0 && self.pi[tb + 2] != 0.0;
+                let (believe_ms, ret_k, phantom_r) = (self.pi[tb + 4], self.pi[tb + 5], self.pi[tb + 6]);
+                let (bx0, by0) = (self.pi[tb + 7], self.pi[tb + 8]);
+                let (bx1, by1) = (bx0 + self.pi[tb + 9], by0 + self.pi[tb + 10]);
+                if a <= -1e9 {
+                    let cu_t = -a - 1e9;
+                    if cu_on && now - cu_t < believe_ms {
+                        let dm2 = (cmx - x) * (cmx - x) + (cmy - y) * (cmy - y);
+                        if best >= 0 && bd < dm2 { a = 0.0; } // a real cell nearer breaks the illusion
+                        else {
+                            let dd0 = dm2.sqrt(); let dd = if dd0 == 0.0 { 1.0 } else { dd0 };
+                            let osc = crate::fdm::sin((tt * (2.0 + 2.0 * nerv) + ph) % 6.283185307179586);
+                            let want = phantom_r * (1.1 + 0.5 * nerv * (1.0 + osc));
+                            let dir = if dd > want { 1.0 } else { -0.6 * nerv };
+                            let sp = (6.0f64).min((1.2f64).max(dd * 0.08)) * (1.0 + 0.5 * nerv * osc);
+                            x += (cmx - x) / dd * sp * dir + (self.r01() - 0.5) * 2.0 * nerv;
+                            y += (cmy - y) / dd * sp * dir + (self.r01() - 0.5) * 2.0 * nerv;
+                        }
+                    } else if x > bx0 && x < bx1 && y > by0 && y < by1 { a = 0.0; } // back inside: the mistake is over
+                    else {
+                        let rtx = x.max(bx0).min(bx1); let rty = y.max(by0).min(by1);
+                        let (rdx, rdy) = (rtx - x, rty - y);
+                        let rdd = hyp(rdx, rdy);
+                        if rdd < 2.0 { a = 0.0; }
+                        else {
+                            let rsp = (6.0f64).min((1.2f64).max(rdd * 0.08)) * ret_k;
+                            x += rdx / rdd * rsp + (self.r01() - 0.5) * 2.0 * nerv;
+                            y += rdy / rdd * rsp + (self.r01() - 0.5) * 2.0 * nerv;
+                        }
+                    }
+                } else if cu_on {
+                    let dm2 = (cmx - x) * (cmx - x) + (cmy - y) * (cmy - y);
+                    let br = self.pi[tb + 11];
+                    if dm2 < br * br && (best < 0 || dm2 < bd) { a = -now - 1e9; } // believes: the cursor is a cell (nearer than any real one)
+                }
+                if !(a <= -1e9) && best >= 0 {
                     let b = best as usize * 5;
                     let dd = bd.sqrt().max(1e-9); let dd = if bd.sqrt() == 0.0 { 1.0 } else { dd };
                     let osc = (tt * (2.0 + 2.0 * nerv) + ph).sin();
