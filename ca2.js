@@ -921,7 +921,7 @@
         gl.uniform1f(gU.uS, S); gl.uniform1f(gU.uH, bh); gl.uniform1f(gU.uTH, TH); gl.uniform1f(gU.uBand, TH * 0.08);
         gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
         var txN = Math.ceil(bw / GTILE), tyN = Math.ceil(bh / GTILE);
-        if (txN * tyN <= 1 || n <= 64) { // one tile or few sources: the full pass is already cheap
+        if (true || txN * tyN <= 1 || n <= 64) { // 23 Oct: tiling OFF — exact same-input A/B (cmpGpuPaths, wip-gpu-tiling) shows alpha divergence vs the full pass; full pass only until bit-identity is proven
           gl.uniform4fv(gU.uC, gC); gl.uniform4fv(gU.uW, gW); gl.uniform1i(gU.uN, n);
           gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         } else { // tiled: each pixel loops only the sources whose influence square reaches its tile (same per-pixel formula, pixel-identical)
