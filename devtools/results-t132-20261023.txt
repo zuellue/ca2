@@ -1,0 +1,6 @@
+wasm 89 founders, round after set 44 {"n":76,"round":36,"lobed":40,"sim":true} []
+nosim=1 3 founders, round after set 1 {"n":36,"round":10,"lobed":26,"sim":false} []
+wasm 15 founders, round after set 7 {"n":70,"round":27,"lobed":43,"sim":true} []
+nosim=1 1 founders, round after set 0 {"n":45,"round":4,"lobed":41,"sim":false} []
+wasm 54 founders, round after set 27 {"n":62,"round":30,"lobed":32,"sim":true} []
+nosim=1 7 founders, round after set 3 {"n":38,"round":17,"lobed":21,"sim":false} []
