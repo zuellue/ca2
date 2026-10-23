@@ -12,8 +12,11 @@ await b.ev(`(()=>{const A=window.__ca2;A.setKey('grain',0);A.setKey('audioOn',0)
 await b.ev(`window.__ca2.setKey('UNIVERSE_SIZE',${N})`);
 await b.sleep(5000);
 console.log('t119',tag,'state',await b.ev('JSON.stringify({n:window.__ca2.cells,res:window.__ca2.res,src:window.__ca2.srcStat()})'));
-for(const cap of [32,6]){
-  await b.ev(`window.__ca2.setGmaxTest(${cap})`);
-  console.log('t119',tag,'cap='+cap,await b.ev('window.__ca2.cmpGpuPaths()'));
-}
+console.log('t119',tag,'synth64',await b.ev('window.__ca2.t119synth(64,1000)'));
+console.log('t119',tag,'synth16',await b.ev('window.__ca2.t119synth(32,1000)'));
+await b.ev('window.__ca2.setGmaxTest(32)'); // force overflow in the LIVE path
+await b.sleep(1500);
+console.log('t119',tag,'liveOverflowGpuOn',await b.ev('JSON.stringify(window.__ca2.gpuState())'));
+console.log('t119',tag,'liveOverflowCmp',await b.ev('window.__ca2.cmp()')); // under forced overflow BOTH cmp arms render via CPU fallback: bad=0 proves the visible frame is the exact CPU field, not the clamped GPU render
+await b.ev('window.__ca2.setGmaxTest(0)');
 b.close();s.close();process.exit(0)})().catch(e=>{console.error(e);process.exit(1)});
