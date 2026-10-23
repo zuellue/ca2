@@ -867,7 +867,7 @@
       p[67] = P.symEnergy; p[68] = P.symBreak; p[69] = P.symBreakDist; p[70] = P.eatDistF; p[71] = P.fuseDistF; p[72] = P.symDistF;
       p[73] = P.habitatOn ? 1 : 0; p[74] = P.habitatBirthCap; // habitat soft birth cap (sim.rs interact)
       p[82] = P.cursorFleeOn ? 1 : 0; p[83] = P.cursorFleeR; p[84] = P.cursorFleePush; p[85] = P.cursorFleeWob; p[86] = P.cursorFleeJit; p[87] = P.cursorFleeDamp; // 82-87: cursor unease (reserved); 88-95 belong to the separator
-      var tp = performance.now(); if (WC.jsrnd) { var pj = new Float64Array(WC.mem.buffer, pp, 100); pj[96] = P.cellLife; pj[97] = P.cellLifeVar; E.sim_step(0, 0); } else E.sim_step(Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
+      var tp = performance.now(); if (WC.jsrnd) { var pj = new Float64Array(WC.mem.buffer, pp, 100); pj[96] = P.cellLife; pj[97] = P.cellLifeVar; E.sim_step(0, 0); } else { E.sim_step(Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296)); }
       var ts = performance.now(); SIMW.pack = (SIMW.pack || 0) * 0.9 + (tp - t0) * 0.1; SIMW.step = (SIMW.step || 0) * 0.9 + (ts - tp) * 0.1;
       var o = new Float64Array(WC.mem.buffer, E.sim_out(), 32), nf2 = o[15];
       var kids = [];
