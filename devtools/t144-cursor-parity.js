@@ -66,11 +66,11 @@ let bad=0;const out={};
  out.A={frames,maxAbsDiff:maxD,over1e6:cntMis};if(cntMis)bad++;
 }
 // ---------- Part B: stepParasitesW/pa_run vs stepParasitesCore fallback ----------
-// The fallback loops parasites BACKWARD while pa_run loops FORWARD (both pre-existing). B1: exactly one
-// drawing (hostless) parasite per frame, so the mirrored stream assigns identically and every output field
-// must match to ulp. B2: several drawing parasites - the fallback fed the REVERSED array must match the
-// wasm exactly (proves the only multi-drawer divergence is the pre-existing loop direction, which the base
-// code has too); straight order is expected to diverge then and is only counted, never asserted.
+// pa_run runs the exact JS array algorithm (coordinator ruling 19:07: descending index, in-place
+// splice/push, newborn pushed before the loop and processed first, live-length birth gate). B1: one drawing
+// (hostless) parasite per frame; B2: several drawers incl. births/deaths/spawns - both must match every
+// field every frame. (Draw counts on the wasm side are internal; exact state equality over thousands of
+// frames across every branch is the stream-alignment proof.)
 {
  const paCode=fn('stepParasitesW')+'\n'+fn('stepParasitesCore');
  const build=(useW,mathX)=>{const env={P:null,cells:null,parasites:null,ev:{},parStat:{rehost:0},mouse:{x:0,y:0,over:false},cont:{x:100,y:100,w:600,h:400},WC:useW?{e:E,mem:E.memory,ok:true}:{},location:{search:''},performance:{now:()=>env._now},Math:mathX,clamp:(v,l,h)=>v<l?l:v>h?h:v,lerp:(a,b,t2)=>a+(b-a)*t2,_now:0};
@@ -81,7 +81,7 @@ let bad=0;const out={};
  const xr=XR(),mJ=mkMath(xr),mW=mkSeededMath(xr);
  const J=build(false,mJ),W=build(true,mW);
  function scenario(t){
-  const P={parasiteOn:1,parasiteFrac:0.3,parasiteSight:4000,parasiteNerv:0.6,parasiteDrain:0.02,parasiteEff:0.8,parasiteHard:12,parasiteHardMs:20000,CELL_RADIUS:34.5,parasiteCursorOn:t%7!==6?1:0,parasiteCursorMs:80+(t%5)*40,parasiteCursorR:150+(t%4)*60,parasiteCursorRetK:1.2};
+  const P={parasiteOn:1,parasiteFrac:0.3,parasiteSight:4000,parasiteNerv:0.6,parasiteDrain:0.02,parasiteEff:0.8,parasiteHard:12,parasiteHardMs:20000,CELL_RADIUS:34.5,parasiteCursorOn:t%7!==6?1:0,parasiteCursorMs:80+(t%5)*40,parasiteCursorR:150+(t%4)*60,parasiteCursorRetK:1.2,parasiteCursorCooldown:600+(t%4)*400};
   const cells=[];const nc=1+(t%4);for(let i=0;i<nc;i++)cells.push({x:150+((t*61+i*137)%500),y:150+((t*47+i*89)%300),radius:20,cl:i%3===0?7:0,alive:true,energy:30,pc:0});
   const now0=1000+t*1000;
   const sub={x:120+((t*83)%560),y:120+((t*59)%360),e:5,host:null,a:(t*1.3)%6.28,ph:t%11===0?0:0.5+t*0.01,lost:0};
@@ -105,11 +105,13 @@ let bad=0;const out={};
    const am=a.a<=-1e9,bm=b.a<=-1e9;
    if(am!==bm||(am&&!Object.is(a.a,b.a)))return 'marker '+i+' '+a.a+'/'+b.a;
    if(!am&&Math.abs(a.a-b.a)>1e-6)return 'a '+i+' '+a.a+'/'+b.a;
-   if(!Object.is(a.ph,b.ph))return 'ph '+i+' '+a.ph+'/'+b.ph;
-   if(!Object.is(a.lost,b.lost))return 'lost '+i+' '+a.lost+'/'+b.lost;
+   if(!Object.is(a.ph||0,b.ph||0))return 'ph '+i+' '+a.ph+'/'+b.ph;
+   if(!Object.is(a.lost||0,b.lost||0))return 'lost '+i+' '+a.lost+'/'+b.lost;
    const ha=a.host?J.env.cells.indexOf(a.host):-1,hb=b.host?W.env.cells.indexOf(b.host):-1;
    if(ha!==hb)return 'host '+i+' '+ha+'/'+hb;}
   for(let i=0;i<J.env.cells.length;i++)if(Math.abs(J.env.cells[i].energy-W.env.cells[i].energy)>1e-6)return 'energy '+i;
+  if((J.env.ev.pbirth||0)!==(W.env.ev.pbirth||0))return 'pbirth';
+  if((J.env.ev.pdeath||0)!==(W.env.ev.pdeath||0))return 'pdeath';
   return null;
  }
  // B1: single drawer per frame
@@ -134,40 +136,36 @@ let bad=0;const out={};
   }
  }
  out.B1={frames,mismatches:posMis};if(posMis)bad++;
- // B2: several drawers - reversed input order must match the wasm exactly; straight order diverges (pre-existing)
- let revMis=0,fwdMis=0,frames2=0;
- for(let t=0;t<60;t++){
+ // B2: several drawers per frame incl. births, deaths and spawns - exact full-state match expected
+ let mis2=0,frames2=0,births0=0,deaths0=0,maxLen=0;
+ for(let t=0;t<120;t++){
   const S0=(7777+t*7919)>>>0,S1=(3333+t*104729)>>>0;
   const sc=scenario(t);
-  const par2=sc.par.concat([{x:100+((t*211)%500),y:100+((t*151)%300),e:5,host:null,a:0.9,ph:1.1,lost:0}]); // second hostless drawer
-  const mkSide=(cells)=>{const cc=cells.map(c=>Object.assign({},c,{pc:0}));const pp=par2.map(q=>Object.assign({},q));
-   for(let i=0;i<par2.length;i++)if(par2[i].host)pp[i].host=cc[sc.cells.indexOf(par2[i].host)];return {cc,pp};};
-  const Ws=mkSide(sc.cells),Jrev=mkSide(sc.cells),Jfwd=mkSide(sc.cells);
-  const JR=build(false,mkMath(xr)),JF=build(false,mkMath(xr));
-  W.env.P=sc.P;W.env.cells=Ws.cc;W.env.parasites=Ws.pp;W.env.mouse=Object.assign({},sc.mouse);
-  JR.env.P=sc.P;JR.env.cells=Jrev.cc;JR.env.parasites=Jrev.pp.slice().reverse();JR.env.mouse=Object.assign({},sc.mouse);
-  JF.env.P=sc.P;JF.env.cells=Jfwd.cc;JF.env.parasites=Jfwd.pp;JF.env.mouse=Object.assign({},sc.mouse);
+  sc.P.parasiteFrac=t%3===0?100:0.3; // huge frac on every third scenario: the spawn roll fires every frame
+  const par2=sc.par.map(q=>Object.assign({},q));
+  if(t%4===1)par2[0].e=12.5; // birth this frame (halves, appends, not iterated)
+  if(t%4===3)par2[0].e=-13;  // death this frame (spliced in place)
+  par2.push({x:100+((t*211)%500),y:100+((t*151)%300),e:5,host:null,a:0.9,ph:1.1,lost:0}); // second drawer
+  const cloneCells=a=>a.map(c=>Object.assign({},c,{pc:0}));
+  const cj=cloneCells(sc.cells),cw=cloneCells(sc.cells);
+  const pj=par2.map(q=>Object.assign({},q)),pw=par2.map(q=>Object.assign({},q));
+  for(let i=0;i<par2.length;i++)if(par2[i].host){pj[i].host=cj[sc.cells.indexOf(par2[i].host)];pw[i].host=cw[sc.cells.indexOf(par2[i].host)];}
+  J.env.P=sc.P;W.env.P=sc.P;J.env.cells=cj;W.env.cells=cw;J.env.parasites=pj;W.env.parasites=pw;
+  J.env.mouse=W.env.mouse=Object.assign({},sc.mouse);
   for(let fr=0;fr<3;fr++){
-   const now=sc.now0+fr*16;W.env._now=now;JR.env._now=now;JF.env._now=now;
-   xr.seed(S0+fr,S1+fr);xr.warm(8);JR.f();
-   xr.seed(S0+fr,S1+fr);xr.warm(8);JF.f();
+   const now=sc.now0+fr*16;J.env._now=now;W.env._now=now;
+   xr.seed(S0+fr,S1+fr);xr.warm(8);mJ._n=0;J.f();
    mW._n=0;mW._seeds=[S0+fr,S1+fr];W.f();
-   frames2++;
-   const jr=JR.env.parasites.slice().reverse(); // undo the input reversal for comparison
-   let dRev=0,dFwd=0;
-   for(let i=0;i<W.env.parasites.length;i++){
-    const w=W.env.parasites[i];
-    if(jr[i])dRev=Math.max(dRev,Math.abs(jr[i].x-w.x),Math.abs(jr[i].y-w.y));
-    const fj=JF.env.parasites[i];
-    if(fj)dFwd=Math.max(dFwd,Math.abs(fj.x-w.x),Math.abs(fj.y-w.y));
-   }
-   if(dRev>1e-6){revMis++;if(revMis<4)console.log('B2 REV MISMATCH',t,fr,dRev);}
-   if(dFwd>1e-6)fwdMis++;
+   frames2++;maxLen=Math.max(maxLen,J.env.parasites.length);
+   const err=cmp('B2',t,fr);
+   if(err){mis2++;if(mis2<5)console.log('B2 MISMATCH',t,fr,err);}
   }
  }
- out.B2={frames:frames2,reversedMismatches:revMis,straightOrderDivergentFrames:fwdMis};
- if(revMis)bad++; // fwdMis>0 is the expected pre-existing loop-direction divergence, reported not asserted
+ births0=J.env.ev.pbirth||0;deaths0=J.env.ev.pdeath||0;
+ out.B2={frames:frames2,mismatches:mis2,birthsSeen:births0,deathsSeen:deaths0,maxLen};
+ if(mis2||!births0||!deaths0)bad++; // zero mismatches AND the birth/death paths provably exercised
 }
+
 // ---------- Part C: switched-off == pre-change base (Object.is) ----------
 {
  const xr=XR(),mN=mkMath(xr),mO=mkMath(xr);
@@ -217,25 +215,76 @@ let bad=0;const out={};
  const xr2=XR(),m2=mkMath(xr2);
  const env2={P:null,cells:[],parasites:null,ev:{},parStat:{rehost:0},mouse:{x:60,y:60,over:true},cont:{x:100,y:100,w:600,h:400},WC:{},location:{search:''},performance:{now:()=>env2._now},Math:m2,clamp:(v,l,h)=>v<l?l:v>h?h:v,lerp:(a,b,t2)=>a+(b-a)*t2,_now:0};
  const step=new Function('env',`with(env){var Math=env.Math,performance=env.performance,clamp=env.clamp,lerp=env.lerp,location=env.location,WC=env.WC,mouse=env.mouse,cont=env.cont;${paCode};return stepParasitesCore;}`)(env2);
- env2.P={parasiteOn:1,parasiteFrac:0,parasiteSight:4000,parasiteNerv:0.6,parasiteDrain:0.02,parasiteEff:0.8,parasiteHard:12,parasiteHardMs:20000,CELL_RADIUS:34.5,parasiteCursorOn:1,parasiteCursorMs:500,parasiteCursorR:250,parasiteCursorRetK:1.2};
+ env2.P={parasiteOn:1,parasiteFrac:0,parasiteSight:4000,parasiteNerv:0.6,parasiteDrain:0.02,parasiteEff:0.8,parasiteHard:12,parasiteHardMs:20000,CELL_RADIUS:34.5,parasiteCursorOn:1,parasiteCursorMs:500,parasiteCursorR:250,parasiteCursorRetK:1.2,parasiteCursorCooldown:2000};
  env2.cells=[{x:600,y:450,radius:20,cl:0,alive:true,energy:30,pc:0}]; // real cell far from the cursor
  env2.parasites=[{x:80,y:70,e:5,host:null,a:1.0,ph:0.5,lost:0}];
- const q=env2.parasites[0];let believed=false,returned=false,cleared=false;
+ const q=env2.parasites[0];let believed=false,returned=false,cleared=false,coolSeen=false,earlyRe=false,clearAt=null;
  const dCur=()=>Math.hypot(q.x-60,q.y-60),dPlate=()=>{const tx=Math.max(100,Math.min(700,q.x)),ty=Math.max(100,Math.min(500,q.y));return Math.hypot(tx-q.x,ty-q.y);};
+ const inBel=()=>q.a<=-1e9&&q.a>-2e9,inCool=()=>q.a<=-2e9;
  let d0=dCur(),dMin=1e9,dRetStart=null,dRetMin=1e9;
  for(let fr=0;fr<400;fr++){env2._now=1000+fr*16;xr2.seed(9+fr,10+fr);step();
-  if(q.a<=-1e9){believed=true;
+  if(inBel()){if(clearAt!==null&&env2._now-clearAt<2000)earlyRe=true;believed=true;
    if(env2._now-(-q.a-1e9)<500)dMin=Math.min(dMin,dCur()); // belief window: closing on the cursor
    else {if(dRetStart===null)dRetStart=dPlate();dRetMin=Math.min(dRetMin,dPlate());} // gave up: heading back
-  }else if(believed&&dRetStart!==null){if(dRetMin<dRetStart-5)returned=true;dRetStart=null;dRetMin=1e9;if(q.x>100&&q.x<700&&q.y>100&&q.y<500)cleared=true;}
+  }else{
+   if(inCool())coolSeen=true;
+   if(believed&&clearAt===null)clearAt=env2._now;
+   if(believed&&dRetStart!==null){if(dRetMin<dRetStart-5)returned=true;dRetStart=null;dRetMin=1e9;if(q.x>100&&q.x<700&&q.y>100&&q.y<500)cleared=true;}
+  }
  }
- out.D2={believed,chaseCloser:dMin<d0,returned,clearedInside:cleared,a:q.a,x:+q.x.toFixed(1),y:+q.y.toFixed(1)};
- if(!(believed&&dMin<d0&&returned))bad++;
- // D3 illusion break: real cell nearer than cursor ends the belief
+ out.D2={believed,chaseCloser:dMin<d0,returned,cooldownSeen:coolSeen,noEarlyRebelief:!earlyRe,clearedInside:cleared,a:q.a,x:+q.x.toFixed(1),y:+q.y.toFixed(1)};
+ if(!(believed&&dMin<d0&&returned&&coolSeen&&!earlyRe))bad++;
+ // D3 illusion break: real cell nearer than the cursor (but outside attach range) ends the belief -> cooldown
  env2.parasites=[{x:300,y:250,e:5,host:null,a:-1e9-1000,ph:0.5,lost:0}];
- env2.cells=[{x:305,y:252,radius:20,cl:0,alive:true,energy:30,pc:0}];env2.mouse={x:600,y:60,over:true};env2._now=5000;
+ env2.cells=[{x:360,y:280,radius:20,cl:0,alive:true,energy:30,pc:0}];env2.mouse={x:600,y:60,over:true};env2._now=5000;
  xr2.seed(1,2);step();
- out.D3={markerCleared:env2.parasites[0].a>-1e9};if(!out.D3.markerCleared)bad++;
+ const a3=env2.parasites[0].a;out.D3={beliefCleared:!(a3<=-1e9&&a3>-2e9),cooldownSet:a3<=-2e9};if(!out.D3.beliefCleared||!out.D3.cooldownSet)bad++;
+}
+// ---------- Part E: glyph-circle overlay x cursor belief (production order: core then overlay) ----------
+{
+ const paCode=fn('stepParasitesW')+'\n'+fn('stepParasitesCore');
+ const circCode=src.slice(src.indexOf('  function circleInPlate'),src.indexOf('  function stepParasites() {'));
+ const buildE=()=>{const xr3=XR(),m3=mkMath(xr3);
+  const env={P:{parasiteOn:1,showHud:1,titleCircles:1,parasiteSight:4000,parasiteNerv:0.6,CELL_RADIUS:34.5,parasiteFrac:0,parasiteDrain:0.02,parasiteEff:0.8,parasiteHard:12,parasiteHardMs:20000,parasiteCursorOn:1,parasiteCursorMs:300,parasiteCursorR:250,parasiteCursorRetK:1.2,parasiteCursorCooldown:2000},
+   cells:[{x:500,y:400,radius:20,cl:0,alive:true,energy:30,pc:0}],parasites:[{x:180,y:160,e:5,host:null,a:-1e9-1000,ph:0.5,lost:0}],
+   circlesNow:[{key:'g',x:120,y:150,r:30}],ev:{},parStat:{rehost:0},mouse:{x:150,y:140,over:true},cont:{x:100,y:100,w:600,h:400},WC:{},location:{search:''},performance:{now:()=>env._now},Math:m3,clamp:(v,l,h)=>v<l?l:v>h?h:v,lerp:(a,b,t2)=>a+(b-a)*t2,_now:1000};
+  const f=new Function('env',`with(env){var Math=env.Math,performance=env.performance,clamp=env.clamp,lerp=env.lerp,location=env.location,WC=env.WC,mouse=env.mouse,cont=env.cont;${paCode};${circCode};return {stepParasitesCore,parasiteCircles};}`)(env);
+  return {env,f,xr3,m3};};
+ const A=buildE(),B=buildE(); // A: production order (core+overlay); B: same pre-core frame state, overlay only
+ let circFrames=0,motionMis=0,markerExpired=false,maxSnap=0,prevX=0,prevY=0;
+ for(let fr=0;fr<50;fr++){
+  const now=1000+fr*16;
+  if(fr===40)A.env.circlesNow[0].x=900; // the circle leaves the plate
+  A.env._now=now;A.xr3.seed(500+fr,501+fr);A.m3._n=0;A.f.stepParasitesCore();const coreDraws=A.m3._n;
+  B.env.parasites=JSON.parse(JSON.stringify(A.env.parasites));B.env.cells=JSON.parse(JSON.stringify(A.env.cells));B.env.circlesNow=JSON.parse(JSON.stringify(A.env.circlesNow));B.env._now=now; // B starts from A's POST-core state
+  A.f.parasiteCircles();
+  B.xr3.seed(500+fr,501+fr);for(let k=0;k<coreDraws;k++)B.m3.random();B.f.parasiteCircles(); // same stream position, overlay only
+  const pa=A.env.parasites[0],pb=B.env.parasites[0];
+  if(pa.circ){circFrames++;
+   if(!Object.is(pa.x,pb.x)||!Object.is(pa.y,pb.y)){motionMis++;if(motionMis<4)console.log('E MOTION',fr,pa.x,pb.x,pa.y,pb.y);} // overlay is a pure function of (state, stream position)
+  }
+  if(fr>20&&!(pa.a<=-1e9&&pa.a>-2e9))markerExpired=true; // the cursor-belief lifecycle runs on during the circle episode
+  if(fr===41)maxSnap=Math.hypot(pa.x-prevX,pa.y-prevY); // first frame after the circle left: no snap back
+  prevX=pa.x;prevY=pa.y;
+ }
+ out.E={circFrames,motionMismatch:motionMis,markerLifecycleContinues:markerExpired,snapAfterCircleExit:+maxSnap.toFixed(2)};
+ if(!circFrames||motionMis||!markerExpired||maxSnap>8)bad++;
+}
+// ---------- Part F: cursor keys survive the REAL preset save()/load() round trip ----------
+{
+ const saveCode=fn('liveMap')+'\n'+fn('save');
+ const li=src.indexOf('(function load() {');let lj=src.indexOf('{',li),d=0,lk=lj;for(;lk<src.length;lk++){if(src[lk]=='{')d++;else if(src[lk]=='}'){d--;if(!d)break;}}
+ const loadCode=src.slice(li,lk+1)+')();';
+ const store={};const ls={getItem:k=>(k in store)?store[k]:null,setItem:(k,v)=>{store[k]=String(v)},removeItem:k=>{delete store[k]}};
+ const CURKEYS=['cursorFleeOn','cursorFleeR','cursorFleePush','cursorFleeWob','cursorFleeJit','cursorFleeDamp','parasiteCursorOn','parasiteCursorMs','parasiteCursorR','parasiteCursorRetK','parasiteCursorCooldown'];
+ const env={localStorage:ls,STORE:'ca2.test',STORE_V:6,P:{foodEatR:9},live:{},savedLive:{},rangeBounds:{},autoRefresh:true,lockParams:false,bgTarget:[0,0,0],bg:[0,0,0],bgIndex:0};
+ CURKEYS.forEach((k,i)=>env.P[k]=1000+i);
+ const mk=code=>new Function('env',`with(env){var localStorage=env.localStorage,STORE=env.STORE,STORE_V=env.STORE_V,P=env.P,live=env.live,savedLive=env.savedLive,rangeBounds=env.rangeBounds,autoRefresh=env.autoRefresh,lockParams=env.lockParams,bgTarget=env.bgTarget,bg=env.bg,bgIndex=env.bgIndex;${code}}`);
+ mk(saveCode+';save();')(env); // the real write path
+ CURKEYS.forEach(k=>env.P[k]=-999); // clobber
+ mk(loadCode)(env); // the real restore path
+ const fMis=CURKEYS.filter((k,i)=>env.P[k]!==1000+i);
+ out.F={roundTripOk:CURKEYS.length-fMis.length,of:CURKEYS.length,mismatches:fMis};if(fMis.length)bad++;
 }
 console.log(JSON.stringify(out,null,1));
 process.exit(bad?1:0);

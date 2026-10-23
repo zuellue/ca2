@@ -3,7 +3,7 @@
 // split when fed. JS keeps object identity: hosts come back as cell indices, energy drains write
 // back to the packed cell rows. in cells: n x 5 (x, y, radius, cl, alive); energy in/out: n x 1.
 // in parasites: m x 7 (x, y, e, host index or -1, a, ph, lost ms) + a 16-slot tail: the cursor-mistake pack
-// (mouse x, mouse y, over, on, believeMs, retK, phantomR, cont x, cont y, cont w, cont h, beliefR, 4 spare).
+// (mouse x, mouse y, over, on, believeMs, retK, phantomR, cont x, cont y, cont w, cont h, beliefR, cooldownMs, 3 spare).
 // out parasites: q x 8 (x, y, e, host idx, a, ph, lost, src or -1).
 // out cell energy: n x 1 (full write-back). stat: pdeath, pbirth, rehost, spawned.
 pub struct Pa { pub ci: Vec<f64>, pub en: Vec<f64>, pub pi: Vec<f64>, pub po: Vec<f64>, pub stat: [f64; 4], s0: u64, s1: u64 }
@@ -28,7 +28,7 @@ impl Pa {
         self.s0 = ((s0 as u64) << 32) | 0x9E3779B9; self.s1 = ((s1 as u64) << 32) | 0x85EBCA6B;
         for _ in 0..8 { self.r01(); }
         self.stat = [0.0; 4]; self.po.clear();
-        if self.ci.len() < n * 5 || self.en.len() < n || self.pi.len() < m * 7 + 12 { return -1; }
+        if self.ci.len() < n * 5 || self.en.len() < n || self.pi.len() < m * 7 + 13 { return -1; }
         if !on || n == 0 { return 0; } // JS: parasites.length = 0
         for i in 0..n { if !(self.ci[i * 5].is_finite() && self.ci[i * 5 + 1].is_finite()) { return -1; } }
         let target = (n as f64 * frac).round() as i64;
@@ -36,17 +36,19 @@ impl Pa {
         let mut pc = vec![0f64; n];
         for i in 0..m { let h = self.pi[i * 7 + 3]; if h >= 0.0 && (h as usize) < n { pc[h as usize] += 1.0; } }
         let mut ps: Vec<[f64; 8]> = (0..m).map(|i| { let b = i * 7; [self.pi[b], self.pi[b + 1], self.pi[b + 2], self.pi[b + 3], self.pi[b + 4], self.pi[b + 5], self.pi[b + 6], i as f64] }).collect();
-        // JS spawns before its backward loop, so the newborn is not processed this frame: emit it unprocessed
-        let mut newborn: Vec<[f64; 8]> = vec![];
+        // exact JS array algorithm (stepParasitesCore, coordinator ruling 19:07): the spawned newborn is
+        // pushed BEFORE the backward loop and IS processed this frame (first); deaths splice in place;
+        // births append at the end and are not visited this frame; the birth gate reads the live length.
         if (ps.len() as i64) < target && self.r01() < 0.08 {
             let c = (self.r01() * n as f64).floor() as usize % n;
-            newborn.push([self.ci[c * 5], self.ci[c * 5 + 1], 6.0, -1.0, self.r01() * 6.2832, 0.0, 0.0, -1.0]);
+            ps.push([self.ci[c * 5], self.ci[c * 5 + 1], 6.0, -1.0, self.r01() * 6.2832, 0.0, 0.0, -1.0]);
             self.stat[3] += 1.0;
         }
         let tt = now / 1000.0;
-        let mut out: Vec<[f64; 8]> = Vec::with_capacity(ps.len() + 4);
-        for p in ps.into_iter() {
-            let (mut x, mut y, mut e, mut host, mut a, ph0, mut lost, src) = (p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
+        let mut i: i64 = ps.len() as i64 - 1;
+        while i >= 0 {
+            let rec = ps[i as usize];
+            let (mut x, mut y, mut e, mut host, mut a, ph0, mut lost, src) = (rec[0], rec[1], rec[2], rec[3], rec[4], rec[5], rec[6], rec[7]);
             if host >= 0.0 && (host as usize >= n || self.ci[host as usize * 5 + 4] == 0.0) { host = -1.0; lost = now; }
             if host < 0.0 {
                 let mut best: i64 = -1; let mut bd = sight * sight;
@@ -68,13 +70,16 @@ impl Pa {
                 let (cmx, cmy) = (self.pi[tb], self.pi[tb + 1]);
                 let cu_on = self.pi[tb + 3] != 0.0 && self.pi[tb + 2] != 0.0;
                 let (believe_ms, ret_k, phantom_r) = (self.pi[tb + 4], self.pi[tb + 5], self.pi[tb + 6]);
+                let cd_ms = self.pi[tb + 12];
                 let (bx0, by0) = (self.pi[tb + 7], self.pi[tb + 8]);
                 let (bx1, by1) = (bx0 + self.pi[tb + 9], by0 + self.pi[tb + 10]);
-                if a <= -1e9 {
+                if a <= -2e9 && now >= -a - 2e9 { a = 0.0; } // re-belief wait elapsed - a parked cursor does not re-fool at once
+                if a <= -1e9 && a > -2e9 {
                     let cu_t = -a - 1e9;
-                    if cu_on && now - cu_t < believe_ms {
+                    let el = now - cu_t; // el < 0: timestamp from another clock epoch - treat as expired
+                    if cu_on && el >= 0.0 && el < believe_ms {
                         let dm2 = (cmx - x) * (cmx - x) + (cmy - y) * (cmy - y);
-                        if best >= 0 && bd < dm2 { a = 0.0; } // a real cell nearer breaks the illusion
+                        if best >= 0 && bd < dm2 { a = -2e9 - (now + cd_ms); } // a real cell nearer breaks the illusion; no instant re-belief
                         else {
                             let dd0 = dm2.sqrt(); let dd = if dd0 == 0.0 { 1.0 } else { dd0 };
                             let osc = crate::fdm::sin((tt * (2.0 + 2.0 * nerv) + ph) % 6.283185307179586);
@@ -84,24 +89,24 @@ impl Pa {
                             x += (cmx - x) / dd * sp * dir + (self.r01() - 0.5) * 2.0 * nerv;
                             y += (cmy - y) / dd * sp * dir + (self.r01() - 0.5) * 2.0 * nerv;
                         }
-                    } else if x > bx0 && x < bx1 && y > by0 && y < by1 { a = 0.0; } // back inside: the mistake is over
+                    } else if x > bx0 && x < bx1 && y > by0 && y < by1 { a = -2e9 - (now + cd_ms); } // back inside: the mistake is over, no instant re-belief
                     else {
                         let rtx = x.max(bx0).min(bx1); let rty = y.max(by0).min(by1);
                         let (rdx, rdy) = (rtx - x, rty - y);
                         let rdd = hyp(rdx, rdy);
-                        if rdd < 2.0 { a = 0.0; }
+                        if rdd < 2.0 { a = -2e9 - (now + cd_ms); }
                         else {
                             let rsp = (6.0f64).min((1.2f64).max(rdd * 0.08)) * ret_k;
                             x += rdx / rdd * rsp + (self.r01() - 0.5) * 2.0 * nerv;
                             y += rdy / rdd * rsp + (self.r01() - 0.5) * 2.0 * nerv;
                         }
                     }
-                } else if cu_on {
+                } else if cu_on && a > -1e9 {
                     let dm2 = (cmx - x) * (cmx - x) + (cmy - y) * (cmy - y);
                     let br = self.pi[tb + 11];
                     if dm2 < br * br && (best < 0 || dm2 < bd) { a = -now - 1e9; } // believes: the cursor is a cell (nearer than any real one)
                 }
-                if !(a <= -1e9) && best >= 0 {
+                if !(a <= -1e9 && a > -2e9) && best >= 0 { // cooling parasites behave normally, only the cursor is off-limits
                     let b = best as usize * 5;
                     let dd = bd.sqrt().max(1e-9); let dd = if bd.sqrt() == 0.0 { 1.0 } else { dd };
                     let osc = (tt * (2.0 + 2.0 * nerv) + ph).sin();
@@ -110,13 +115,12 @@ impl Pa {
                     let sp = (6.0f64).min((1.2f64).max(dd * 0.08)) * (1.0 + 0.5 * nerv * osc);
                     x += (self.ci[b] - x) / dd * sp * dir + (self.r01() - 0.5) * 2.0 * nerv;
                     y += (self.ci[b + 1] - y) / dd * sp * dir + (self.r01() - 0.5) * 2.0 * nerv;
-                    if hyp(self.ci[b] - x, self.ci[b + 1] - y) < self.ci[b + 2] { host = best as f64; lost = 0.0; self.stat[2] += 1.0; }
+                    if hyp(self.ci[b] - x, self.ci[b + 1] - y) < self.ci[b + 2] { if a <= -1e9 { a = 0.0; } host = best as f64; lost = 0.0; self.stat[2] += 1.0; } // a cooldown band never becomes an orbit angle
                 }
                 if now - lost > hard_ms { e -= 0.004; }
-                out.push([x, y, e, host, a, phn, lost, src]);
-                let e2 = out.last().unwrap()[2];
-                if e2 <= -hard { out.pop(); self.stat[0] += 1.0; continue; }
-                if e2 > 12.0 && (out.len() as f64) < n as f64 * 0.8 + 3.0 { let q = out.last_mut().unwrap(); q[2] /= 2.0; let (qx, qy, qe, qh) = (q[0], q[1], q[2], q[3]); out.push([qx, qy, qe, qh, self.r01() * 6.2832, 0.0, 0.0, -1.0]); self.stat[1] += 1.0; }
+                ps[i as usize] = [x, y, e, host, a, phn, lost, src];
+                if e <= -hard { ps.remove(i as usize); self.stat[0] += 1.0; i -= 1; continue; }
+                if e > 12.0 && (ps.len() as f64) < n as f64 * 0.8 + 3.0 { ps[i as usize][2] /= 2.0; ps.push([x, y, e / 2.0, host, self.r01() * 6.2832, 0.0, 0.0, -1.0]); self.stat[1] += 1.0; }
             } else {
                 let h = host as usize; let b = h * 5;
                 let nvr = 0.85 + 0.2 * nerv * (now / 400.0 + ph0).sin();
@@ -127,13 +131,13 @@ impl Pa {
                 let crowd = (pc[h] - 1.0).max(0.0);
                 let dr = drain * (0.4 + self.en[h].min(20.0) * 0.03) / (1.0 + 0.4 * crowd);
                 self.en[h] -= dr; e += dr * eff - 0.012 * (1.0 + 0.7 * crowd);
-                out.push([x, y, e, host, a, ph0, lost, src]);
-                let e2 = out.last().unwrap()[2];
-                if e2 <= -hard { out.pop(); self.stat[0] += 1.0; continue; }
-                if e2 > 12.0 && (out.len() as f64) < n as f64 * 0.8 + 3.0 { let q = out.last_mut().unwrap(); q[2] /= 2.0; let (qx, qy, qe, qh) = (q[0], q[1], q[2], q[3]); out.push([qx, qy, qe, qh, self.r01() * 6.2832, 0.0, 0.0, -1.0]); self.stat[1] += 1.0; }
+                ps[i as usize] = [x, y, e, host, a, ph0, lost, src];
+                if e <= -hard { ps.remove(i as usize); self.stat[0] += 1.0; i -= 1; continue; }
+                if e > 12.0 && (ps.len() as f64) < n as f64 * 0.8 + 3.0 { ps[i as usize][2] /= 2.0; ps.push([x, y, e / 2.0, host, self.r01() * 6.2832, 0.0, 0.0, -1.0]); self.stat[1] += 1.0; }
             }
+            i -= 1;
         }
-        for p in out.iter().chain(newborn.iter()) { self.po.extend_from_slice(p); }
+        for p in ps.iter() { self.po.extend_from_slice(p); }
         self.po.len() as i64 / 8
     }
 }
