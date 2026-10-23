@@ -273,7 +273,6 @@ impl Sim {
         self.set(c, X, x); self.set(c, Y, y); self.set(c, VX, vx); self.set(c, VY, vy);
     }
     fn update(&mut self, c: usize) {
-        self.out[28] += 1.0;
         if !self.alive(c) { return; }
         let (mx, my) = (self.p[P_MX], self.p[P_MY]);
         let dm = hyp(self.g(c, X) - mx, self.g(c, Y) - my);
@@ -497,14 +496,9 @@ impl Sim {
         let (mx, my, over) = (self.p[P_MX], self.p[P_MY], self.p[P_MOVER] != 0.0);
         let (cx, cy, cw, ch) = (self.p[P_CX], self.p[P_CY], self.p[P_CW], self.p[P_CH]);
         let mut hov_i: f64 = -1.0; let mut hovering = false; let mut hc = [255.0f64, 255.0, 255.0];
-        self.out[30] = -1.0; self.out[28] = 0.0;
         for i in (0..n0).rev() {
-            self.out[30] = i as f64;
             let oi = self.p[P_ONLYINT] != 0.0;
-            if self.dbg.len() < n0 * 4 { self.dbg.resize(n0 * 4, 0.0); }
-            self.dbg[i * 4] = self.g(i, EN);
             if !oi { self.update(i); self.check_survival(i); }
-            self.dbg[i * 4 + 1] = self.g(i, EN);
             let (x, y, rad) = (self.g(i, X), self.g(i, Y), self.g(i, RAD));
             if over && hyp(mx - x, my - y) < rad && x > cx && x < cx + cw && y > cy && y < cy + ch {
                 hovering = true; hov_i = i as f64;
@@ -526,9 +520,7 @@ impl Sim {
                 let (a1, a2) = (self.rnd01(), self.rnd01());
                 self.set(i, VX, self.g(i, VX) + (a1 - 0.5) * ms2 * 2.0); self.set(i, VY, self.g(i, VY) + (a2 - 0.5) * ms2 * 2.0);
             }
-            self.dbg[i * 4 + 2] = self.g(i, EN);
             if self.p[P_BOUND] != 0.0 && self.p[P_ONLYINT] != 1.0 && self.alive(i) { self.keep_in(i); }
-            self.dbg[i * 4 + 3] = self.g(i, EN);
             if !self.alive(i) { self.out[9] += 1.0; self.set(i, REM, 1.0); self.live -= 1; }
         }
         self.out[10] = self.p[P_CLSEQ]; self.out[11] = if hovering { 1.0 } else { 0.0 };

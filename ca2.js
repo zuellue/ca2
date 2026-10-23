@@ -731,8 +731,8 @@
   if (window.WebAssembly && !/[?&]nowasm=1/.test(location.search)) {
     var simd = false; try { simd = WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11])); } catch (e) {} WC.simd = simd && !/[?&]nosimd=1/.test(location.search);
     WC.jsrnd = /[?&]jsrnd=1/.test(location.search); // SPIKE flag: build with --features jsrnd, Rust draws from the real Math.random stream (import env.js_rnd) incl. births
-    if (WC.jsrnd) WC.simd = false;
-    fetch((WC.jsrnd ? 'ca2core-jsrnd.wasm' : WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610221624').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, WC.jsrnd ? { env: { js_rnd: function (ln) { return Math.random(); } } } : {}); }).then(function (m) {
+    
+    fetch((WC.jsrnd ? (WC.simd ? 'ca2core-jsrnd-simd.wasm' : 'ca2core-jsrnd.wasm') : WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610221624').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, WC.jsrnd ? { env: { js_rnd: function (ln) { return Math.random(); } } } : {}); }).then(function (m) {
       var e = m.instance.exports; WC.mem = e.memory; WC.cells = e.cells_ptr; WC.out = e.out_ptr; WC.fieldX = e.mb_field; WC.field = e.mb_field_f32; WC.fieldF = e.mb_field_f32; if (e.sim_step) WC.e = e; WC.ok = true;
     }).catch(function (e) { WC.err = String(e); });
   }
