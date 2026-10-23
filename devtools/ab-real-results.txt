@@ -1,0 +1,7 @@
+BASE {"seed":1,"fps":"2.9","food":13.6,"onInk":1.3,"cells":72.8,"meanE":14.26,"par":4.4}
+CAND {"seed":1,"fps":"2.9","food":16.5,"onInk":0,"cells":81.6,"meanE":18.96,"par":0.3}
+BASE {"seed":2,"fps":"3.0","food":13.2,"onInk":1.7,"cells":78.7,"meanE":16.8,"par":0}
+CAND {"seed":2,"fps":"2.9","food":4.4,"onInk":0,"cells":82.8,"meanE":14.96,"par":1}
+BASE {"seed":3,"fps":"2.9","food":17.6,"onInk":1.4,"cells":87.1,"meanE":16.16,"par":2.1}
+CAND {"seed":3,"fps":"2.9","food":27.7,"onInk":0,"cells":83.2,"meanE":21.56,"par":0.7}
+DONE
