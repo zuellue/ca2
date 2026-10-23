@@ -79,6 +79,13 @@ pub extern "C" fn pc_move(m: usize, tt: f64, nv: f64) -> i32 {
     unsafe {
         let (kb, pb) = (&*std::ptr::addr_of!(KB), &mut *std::ptr::addr_of_mut!(PB));
         if pb.len() < m * PC_PF { return -1; }
+        // prescan: no write happens unless every trig argument is inside the verified domain (JS then finishes the step from the untouched decided state)
+        for i in 0..m {
+            let o = i * PC_PF;
+            if pb[o + 3] == 0.0 { continue; }
+            let ph = if pb[o + 3] == 2.0 { pb[o + 7] * 6.28 } else { pb[o + 6] };
+            if !crate::fdm::in_domain(tt * (2.0 + 2.0 * nv) + ph) { return -2; }
+        }
         for i in 0..m {
             let o = i * PC_PF;
             let mode = pb[o + 3];
@@ -115,6 +122,7 @@ pub extern "C" fn pw_run(n: usize, dtf: f64, psz: f64) -> i32 {
     unsafe {
         let b = &mut *std::ptr::addr_of_mut!(WB);
         if b.len() < n * WG_IN { return -1; }
+        crate::fdm::take_ood();
         for i in 0..n {
             let o = i * WG_IN;
             let (x, y, host_alive, hx, hy) = (b[o], b[o + 1], b[o + 2], b[o + 3], b[o + 4]);
@@ -140,6 +148,7 @@ pub extern "C" fn pw_run(n: usize, dtf: f64, psz: f64) -> i32 {
             let out = [h, x, y, x, y, sp, fph, ax, ay, lx, ly, mx, my, rad];
             for k in 0..WG_OUT { b[o + k] = out[k]; }
         }
+        if crate::fdm::take_ood() { return -2; } // out of verified trig domain: JS draws this frame's wings
         0
     }
 }

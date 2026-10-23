@@ -55,11 +55,16 @@ fn rem_pio2(x: f64) -> (i32, f64, f64) {
     if (hx as i32) < 0 { (-n, -y0, -y1) } else { (n, y0, y1) }
 }
 const MAXA: f64 = 8.2e5;
+// Out-of-domain flag: set when an argument is beyond the verified medium-range reduction (|x| > 8.2e5). The result is then libm's (NOT V8-equal); callers must check take_ood() and return an error so JS computes that call.
+static mut OOD: bool = false;
+pub fn in_domain(x: f64) -> bool { x.abs() <= MAXA || !x.is_finite() }
+pub fn take_ood() -> bool { unsafe { let v = OOD; OOD = false; v } }
+#[no_mangle] pub extern "C" fn fdm_clear_ood() { unsafe { OOD = false; } }
 pub fn sin(x: f64) -> f64 {
     let ix = hi(x) & 0x7fffffff;
     if ix <= 0x3fe921fb { return ksin(x, 0.0, 0); }
     if ix >= 0x7ff00000 { return f64::NAN; }
-    if x.abs() > MAXA { return x.sin(); }
+    if x.abs() > MAXA { unsafe { OOD = true; } return x.sin(); }
     let (n, y0, y1) = rem_pio2(x);
     match n & 3 { 0 => ksin(y0, y1, 1), 1 => kcos(y0, y1), 2 => -ksin(y0, y1, 1), _ => -kcos(y0, y1) }
 }
@@ -67,7 +72,7 @@ pub fn cos(x: f64) -> f64 {
     let ix = hi(x) & 0x7fffffff;
     if ix <= 0x3fe921fb { return kcos(x, 0.0); }
     if ix >= 0x7ff00000 { return f64::NAN; }
-    if x.abs() > MAXA { return x.cos(); }
+    if x.abs() > MAXA { unsafe { OOD = true; } return x.cos(); }
     let (n, y0, y1) = rem_pio2(x);
     match n & 3 { 0 => kcos(y0, y1), 1 => -ksin(y0, y1, 1), 2 => -kcos(y0, y1), _ => ksin(y0, y1, 1) }
 }

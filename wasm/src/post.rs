@@ -102,6 +102,7 @@ pub extern "C" fn post_hab(n: usize) -> i32 {
     unsafe {
         let b = &mut *std::ptr::addr_of_mut!(HB); let p = &*std::ptr::addr_of!(HP);
         if b.len() < n * 4 || p.len() < 32 { return -1; }
+        crate::fdm::take_ood();
         let full = p[0] != 0.0; let dt = p[18];
         for i in 0..n {
             let (x, y, fed0, skip) = (b[i * 4], b[i * 4 + 1], b[i * 4 + 2], b[i * 4 + 3]);
@@ -113,6 +114,7 @@ pub extern "C" fn post_hab(n: usize) -> i32 {
             }
             b[i * 4] = fed; b[i * 4 + 1] = touched;
         }
+        if crate::fdm::take_ood() { return -2; } // out of the verified trig domain: JS computes this update
         0
     }
 }
@@ -253,6 +255,7 @@ pub extern "C" fn post_sepbody() -> i32 {
     unsafe {
         let i = &*std::ptr::addr_of!(SBI);
         if i.len() < 24 { return -1; }
+        crate::fdm::take_ood();
         let (cxx, cyy, rad, has_sh, st, asp, th, dir, wsp, ph, wig, sat, ph2, t0, allow) = (i[0], i[1], i[2], i[3] != 0.0, i[4], i[5], i[6], i[7], i[8], i[9], i[10], i[11], i[12], i[13], i[14]);
         let (cox, coy, cow, coh, shapes, bgap, ms, thr) = (i[15], i[16], i[17], i[18], i[19] != 0.0, i[20], i[21], i[22]);
         let (mut xs, mut ys, mut rs_): (Vec<f64>, Vec<f64>, Vec<f64>) = (Vec::new(), Vec::new(), Vec::new());
@@ -290,6 +293,7 @@ pub extern "C" fn post_sepbody() -> i32 {
         let scale = (f64::max(0.0, ms) * f64::max(1.0, n as f64) / f64::max(0.001, thr * 0.96)).sqrt();
         let mut bound = 0.0f64;
         for k in 0..n { xs[k] += cox - cxx; ys[k] += coy - cyy; bound = f64::max(bound, crate::sep2::hyp(xs[k], ys[k]) + rs_[k] * scale); }
+        if crate::fdm::take_ood() { return -2; } // a trig argument left the verified domain: JS builds this body
         crate::sep2::set_body(&xs, &ys, &rs_, bound);
         n as i32
     }
