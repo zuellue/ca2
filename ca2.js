@@ -85,6 +85,13 @@
     this.cl = 0; this.maxSpeed = this.maxSpeed * (P.genomeOn ? this.g.spd : 1); this.shp = newShape(null); this.bornAt = frameT || 0;
     this.age = 0; this.life = P.cellLife > 0 ? Math.max(1, P.cellLife * (1 + rnd(-P.cellLifeVar, P.cellLifeVar))) : 0;
   }
+  function cellFromRow(cf, b, bp, q) { // draw-free materialisation of a wasm-born cell (jsrnd): no Math.random; popD/life come from Rust, the rest is overwritten from the row by the caller
+    var c = Object.create(Cell.prototype);
+    c.x = cf[b]; c.y = cf[b + 1]; c.popD = bp[q]; c.sv = cf[b + 12]; c.maxSpeed = cf[b + 8]; c.vx = cf[b + 2]; c.vy = cf[b + 3];
+    c.gene = cf[b + 6]; c.alive = true; c.radius = cf[b + 4]; c.energy = cf[b + 5]; c.mutationRate = cf[b + 11]; c.hostility = cf[b + 10]; c.speedModifier = cf[b + 9];
+    c.g = { spd: cf[b + 15], app: cf[b + 16], bnd: cf[b + 17], col: [cf[b + 18], cf[b + 19], cf[b + 20]] }; c.cl = 0; c.shp = {}; c.bornAt = frameT || 0; c.age = 0; c.life = bp[q + 1];
+    return c;
+  }
   function normCol(v) { var s = v[0] + v[1] + v[2] || 1; return [v[0] / s, v[1] / s, v[2] / s]; }
   function speedOf(c) { return Math.max(0, P.baseMaxSpeed + c.sv * P.maxSpeedVariation) * (P.genomeOn ? c.g.spd : 1); }
   function mutGenome(g, a) {
@@ -723,7 +730,9 @@
   var WC = { ok: false, off: false }, MB = { ms: 0, path: '-' };
   if (window.WebAssembly && !/[?&]nowasm=1/.test(location.search)) {
     var simd = false; try { simd = WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11])); } catch (e) {} WC.simd = simd && !/[?&]nosimd=1/.test(location.search);
-    fetch((WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610221624').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, {}); }).then(function (m) {
+    WC.jsrnd = /[?&]jsrnd=1/.test(location.search); // SPIKE flag: build with --features jsrnd, Rust draws from the real Math.random stream (import env.js_rnd) incl. births
+    if (WC.jsrnd) WC.simd = false;
+    fetch((WC.jsrnd ? 'ca2core-jsrnd.wasm' : WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610221624').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, WC.jsrnd ? { env: { js_rnd: function (ln) { return Math.random(); } } } : {}); }).then(function (m) {
       var e = m.instance.exports; WC.mem = e.memory; WC.cells = e.cells_ptr; WC.out = e.out_ptr; WC.fieldX = e.mb_field; WC.field = e.mb_field_f32; WC.fieldF = e.mb_field_f32; if (e.sim_step) WC.e = e; WC.ok = true;
     }).catch(function (e) { WC.err = String(e); });
   }
@@ -858,14 +867,14 @@
       p[67] = P.symEnergy; p[68] = P.symBreak; p[69] = P.symBreakDist; p[70] = P.eatDistF; p[71] = P.fuseDistF; p[72] = P.symDistF;
       p[73] = P.habitatOn ? 1 : 0; p[74] = P.habitatBirthCap; // habitat soft birth cap (sim.rs interact)
       p[82] = P.cursorFleeOn ? 1 : 0; p[83] = P.cursorFleeR; p[84] = P.cursorFleePush; p[85] = P.cursorFleeWob; p[86] = P.cursorFleeJit; p[87] = P.cursorFleeDamp; // 82-87: cursor unease (reserved); 88-95 belong to the separator
-      var tp = performance.now(); E.sim_step(Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
+      var tp = performance.now(); if (WC.jsrnd) { var pj = new Float64Array(WC.mem.buffer, pp, 100); pj[96] = P.cellLife; pj[97] = P.cellLifeVar; E.sim_step(0, 0); } else E.sim_step(Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
       var ts = performance.now(); SIMW.pack = (SIMW.pack || 0) * 0.9 + (tp - t0) * 0.1; SIMW.step = (SIMW.step || 0) * 0.9 + (ts - tp) * 0.1;
       var o = new Float64Array(WC.mem.buffer, E.sim_out(), 32), nf2 = o[15];
       var kids = [];
       if (E.sim_cap && E.sim_cap() !== cap) { cap = E.sim_cap(); cp = E.sim_cells_ptr(); } // wasm grew its cell buffer on a birth burst: re-anchor before reading back
       cf = new Float64Array(WC.mem.buffer, cp, cap * 24);
       for (i = 0; i < nf2; i++) {
-        b = i * 24; c = i < n ? cells[i] : new Cell(cf[b], cf[b + 1], cf[b + 6], cf[b + 11]);
+        b = i * 24; c = i < n ? cells[i] : WC.jsrnd ? cellFromRow(cf, b, new Float64Array(WC.mem.buffer, E.sim_birth_ptr(), cap * 2), i * 2) : new Cell(cf[b], cf[b + 1], cf[b + 6], cf[b + 11]);
         if (i >= n) { cells.push(c); c._i = i; c._f = simStamp; }
         c.x = cf[b]; c.y = cf[b + 1]; c.vx = cf[b + 2]; c.vy = cf[b + 3]; c.radius = cf[b + 4]; c.energy = cf[b + 5]; c.gene = cf[b + 6]; c.alive = cf[b + 7] !== 0; c.maxSpeed = cf[b + 8]; c.speedModifier = cf[b + 9]; c.hostility = cf[b + 10]; c.mutationRate = cf[b + 11]; c.sv = cf[b + 12]; c.cl = cf[b + 13];
         var gg = c.g; gg.spd = cf[b + 15]; gg.app = cf[b + 16]; gg.bnd = cf[b + 17]; gg.col = [cf[b + 18], cf[b + 19], cf[b + 20]]; if (cf[b + 21] > 0) c.comp = cf[b + 21]; c.absorbed = cf[b + 23] < 0 ? 1 : 0;

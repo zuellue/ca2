@@ -187,7 +187,7 @@ pub extern "C" fn mb_field_f32(n: usize, bw: usize, bh: usize, s: f64, ms: f64, 
 }
 
 // ---- sim exports ----
-#[no_mangle] pub extern "C" fn sim_cells(cap: usize) -> *mut f64 { let s = sim::sim(); s.cap = cap; s.cells.resize(cap * sim::ST, 0.0); s.shp.resize(cap * sim::SHS, 0.0); s.cells.as_mut_ptr() }
+#[no_mangle] pub extern "C" fn sim_cells(cap: usize) -> *mut f64 { let s = sim::sim(); s.cap = cap; s.cells.resize(cap * sim::ST, 0.0); s.shp.resize(cap * sim::SHS, 0.0); s.birth.resize(cap * sim::BST, 0.0); s.cells.as_mut_ptr() }
 #[no_mangle] pub extern "C" fn sim_set_n(n: usize) { sim::sim().n = n; }
 #[no_mangle] pub extern "C" fn sim_food(cap: usize) -> *mut f64 { let s = sim::sim(); s.fx.resize(cap, 0.0); s.fy.resize(cap, 0.0); s.fgone.resize(cap, 0.0); s.fx.as_mut_ptr() }
 #[no_mangle] pub extern "C" fn sim_food_y() -> *mut f64 { sim::sim().fy.as_mut_ptr() }
@@ -270,3 +270,6 @@ static mut SHT: [f64; 28] = [0.0; 28];
 #[no_mangle] pub extern "C" fn live_hist_buf() -> *const f64 { unsafe { live::HB.as_ptr() } }
 #[no_mangle] pub extern "C" fn live_hist(slot: usize) -> usize { live::hist_out(slot) }
 #[no_mangle] pub extern "C" fn live_state(slot: usize) { live::state_out(slot) }
+
+#[no_mangle] pub extern "C" fn sim_jsrnd() -> u32 { sim::JSRND as u32 }
+#[no_mangle] pub extern "C" fn sim_birth_ptr() -> *mut f64 { sim::sim().birth.as_mut_ptr() }

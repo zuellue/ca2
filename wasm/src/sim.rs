@@ -1,6 +1,9 @@
 // ca2core sim: port of the per-frame cell loop (update/organic/checkSurvival/interact/keepIn/divide/reproduce/joinCluster/fuse,
 // hover colour). State is struct-of-arrays in wasm memory; JS packs/unpacks around one call per frame. No DOM.
 use std::f64::consts::PI;
+#[cfg(feature = "jsrnd")] #[link(wasm_import_module = "env")] extern "C" { fn js_rnd(line: u32) -> f64; }
+pub const JSRND: bool = cfg!(feature = "jsrnd");
+pub const BST: usize = 2; // side row per cell (jsrnd): popD, life
 pub const ST: usize = 24; // f64 per cell
 const X: usize = 0; const Y: usize = 1; const VX: usize = 2; const VY: usize = 3; const RAD: usize = 4; const EN: usize = 5; const GENE: usize = 6;
 const ALIVE: usize = 7; const MAXS: usize = 8; const SPM: usize = 9; const HOST: usize = 10; const MUT: usize = 11; const SV: usize = 12; const CL: usize = 13;
@@ -12,13 +15,13 @@ pub struct Sim {
     pub fx: Vec<f64>, pub fy: Vec<f64>, pub fgone: Vec<f64>, pub nf: usize,
     pub cm_id: Vec<f64>, pub cm: Vec<f64>, // per cluster: vx,vy,x,y,e (stride 5)
     pub p: Vec<f64>, pub out: Vec<f64>,
-    s0: u64, s1: u64, live: usize, pub log: Vec<f64>, pub shp: Vec<f64>, t_ms: f64,
+    s0: u64, s1: u64, live: usize, pub log: Vec<f64>, pub shp: Vec<f64>, pub birth: Vec<f64>, t_ms: f64,
 }
 pub static mut SIM: Option<Sim> = None;
 pub fn sim() -> &'static mut Sim {
     unsafe {
         let s = &mut *std::ptr::addr_of_mut!(SIM);
-        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 96], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new(), shp: Vec::new(), t_ms: 0.0 }); }
+        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 100], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new(), shp: Vec::new(), birth: Vec::new(), t_ms: 0.0 }); }
         s.as_mut().unwrap()
     }
 }
@@ -96,12 +99,17 @@ impl Sim {
 }
 
 impl Sim {
+    #[cfg_attr(feature = "jsrnd", track_caller)]
     fn rnd01(&mut self) -> f64 {
+        #[cfg(feature = "jsrnd")] { return unsafe { js_rnd(core::panic::Location::caller().line()) }; }
+        #[allow(unreachable_code)]
         let (mut x, y) = (self.s0, self.s1);
         self.s0 = y; x ^= x << 23; self.s1 = x ^ y ^ (x >> 17) ^ (y >> 26);
         ((self.s1.wrapping_add(y)) >> 11) as f64 * (1.0 / 9007199254740992.0)
     }
+    #[cfg_attr(feature = "jsrnd", track_caller)]
     fn rnd(&mut self, a: f64, b: f64) -> f64 { a + self.rnd01() * (b - a) }
+    #[cfg_attr(feature = "jsrnd", track_caller)]
     fn rand2d(&mut self) -> (f64, f64) { let a = self.rnd01() * 6.283185307; (a.cos(), a.sin()) }
     fn g(&self, i: usize, f: usize) -> f64 { self.cells[i * ST + f] }
     fn set(&mut self, i: usize, f: usize, v: f64) { self.cells[i * ST + f] = v; }
@@ -166,15 +174,30 @@ impl Sim {
             // one-step birth burst overflowed the JS-sized buffer: grow instead of dropping the kid
             // (JS re-reads sim_cap/sim_cells_ptr after every step)
             let ncap = (self.cap * 2).max(self.n + 256);
-            self.cap = ncap; self.cells.resize(ncap * ST, 0.0); self.shp.resize(ncap * SHS, 0.0);
+            self.cap = ncap; self.cells.resize(ncap * ST, 0.0); self.shp.resize(ncap * SHS, 0.0); self.birth.resize(ncap * BST, 0.0);
             if self.n * ST >= self.cells.len() { return usize::MAX; }
         }
         let i = self.n; self.n += 1; self.live += 1;
-        { let s = self.new_shape(None); self.put_shape(i, s); }
-        let (vdx, vdy) = self.rand2d();
-        let sv = self.rnd(-1.0, 1.0);
+        let (vdx, vdy, sv, hostility, spm);
+        if JSRND {
+            // draw order of ca2.js Cell(): rand2D, popD, sv, hostility, speedModifier, g.spd/app/bnd, g.col x3 (discarded: divide/repro override g), newShape(null), life
+            let v = self.rand2d(); vdx = v.0; vdy = v.1;
+            let popd = 800.0 + self.rnd01() * (1300.0 - 800.0);
+            sv = self.rnd(-1.0, 1.0);
+            hostility = self.rnd01(); spm = self.rnd(0.7, 2.3);
+            for _ in 0..3 { self.rnd01(); } for _ in 0..3 { self.rnd01(); }
+            { let s = self.new_shape(None); self.put_shape(i, s); }
+            let (cl, clv) = (self.p[96], self.p[97]);
+            let life = if cl > 0.0 { (cl * (1.0 + self.rnd(-clv, clv))).max(1.0) } else { 0.0 };
+            if self.birth.len() < (i + 1) * BST { self.birth.resize((i + 1) * BST, 0.0); }
+            self.birth[i * BST] = popd; self.birth[i * BST + 1] = life;
+        } else {
+            { let s = self.new_shape(None); self.put_shape(i, s); }
+            let v = self.rand2d(); vdx = v.0; vdy = v.1;
+            sv = self.rnd(-1.0, 1.0);
+            hostility = self.rnd01(); spm = self.rnd(0.7, 2.3);
+        }
         let ms = (self.p[P_BASEMS] + sv * self.p[P_MSVAR]).max(0.0);
-        let hostility = self.rnd01(); let spm = self.rnd(0.7, 2.3);
         let b = i * ST;
         for k in 0..ST { self.cells[b + k] = 0.0; }
         self.cells[b + X] = x; self.cells[b + Y] = y; self.cells[b + VX] = vdx * ms; self.cells[b + VY] = vdy * ms;
@@ -473,7 +496,9 @@ impl Sim {
         let (mx, my, over) = (self.p[P_MX], self.p[P_MY], self.p[P_MOVER] != 0.0);
         let (cx, cy, cw, ch) = (self.p[P_CX], self.p[P_CY], self.p[P_CW], self.p[P_CH]);
         let mut hov_i: f64 = -1.0; let mut hovering = false; let mut hc = [255.0f64, 255.0, 255.0];
+        self.out[30] = -1.0;
         for i in (0..n0).rev() {
+            self.out[30] = i as f64;
             let oi = self.p[P_ONLYINT] != 0.0;
             if !oi { self.update(i); self.check_survival(i); }
             let (x, y, rad) = (self.g(i, X), self.g(i, Y), self.g(i, RAD));
