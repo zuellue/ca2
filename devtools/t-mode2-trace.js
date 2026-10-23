@@ -1,6 +1,6 @@
 // test-only, bounded: mode 2 right after the switch; hook at the guard exit records any dot still on ink (flags: blob, _pk) and the per-frame end state.
 process.env.GUARDHOOK='1';
-const H=require('./harness.js'),D=require('./dbg-inject.js');const port=8790;
+const H=require('./harness.js'),D=require('./dbg-inject.js');const port=8890;
 (async()=>{const srv=await D.serve(port),b=await H.launch(port+1,'http://127.0.0.1:'+port+'/index.html?simab=1',[]);try{
  await b.send('Emulation.setDeviceMetricsOverride',{width:760,height:460,deviceScaleFactor:1,mobile:false});
  await b.sleep(6000);
