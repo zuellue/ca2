@@ -91,3 +91,45 @@ Tools: devtools/t70 (interact iso), t71 (CDP profiler, node devtools/t71-prof.js
 - KALAN (sonraki run, sıralı): (1) GMAX device-adaptive (MAX_FRAGMENT_UNIFORM_VECTORS/2, link-fail → 384 fallback) + tile başına >GMAX durumunda multi-draw; crowd GPU bail'i kapatır. (2) SRC_MAX 384→ yükseltme GÖRSEL DEĞİŞİKLİK (kalabalıkta string/lobed şekiller geri gelir) — owner'a önce/sonra screenshot ile sunulacak, sessiz yapma. (3) grain texImage2D fullscene maliyeti ayrı ölçülecek. (4) sim O(n²) grid/spatial hash: RNG/order paritesi + hover sınırsız gather kısıtı yüzünden ancak harness lockstep'iyle; öncelik düşük (sim 0.66ms@1107).
 - Harness: devtools/t116-scaling.js (backend-kayıtlı scaling), t117-gpu-tile.js (GPU engagement + cmp fidelity), harness.js '--gpu-ok' bayrağı. js-cpu boot çok yavaş (5.3s/frame, res autoQuality düşüşü confounder — autoQuality=0 boot'tan ÖNCE set edilmeli).
 - Rebase akışı: f4d401e → cbfe360 desktop commitleri üzerine rebase edilip push'landı (300f3ff).
+
+## 2026-10-23 round 2 (perf/thermal, WIP on origin/wip-gpu-tiling d5afdc6 — NOT on main)
+- Adaptive GMAX (device MAX_FRAGMENT_UNIFORM_VECTORS, halve-on-link-fail, floor 384, ceil 2048): swiftshader picks 2040. N=1000 (847 sources) GPU stays ON (was: silent CPU bail >384). GPU-vs-CPU cmp N=1000: bad=1119/1.9M maxd=23. Thermal chain GMAX link root-fixed (sandbox evidence only).
+- cmpGpuPaths (same frozen source array, same viewport/res/frame, full vs tiled, gl.finish): NOT bit-identical. N=250: 11855/2.59M diff bytes; RGB ±1-2, alpha diffs up to 64; global spread, worst in top rows ((133,67), (1451,40), (379,19)); persists in single-tile case (bw=849<GTILE) => NOT tile-culling; systematic alpha-level s difference between the two gpuDraw branches. Root cause OPEN.
+- Implication: 300f3ff v1 tiled path (n>64 multi-tile) may carry the same divergence. If root cause not found: commit tiling-OFF + adaptive GMAX only.
+- Samples in /tmp/t117b.log (sandbox). Desktop pushed 0ede66c to main; next main push needs rebase onto 0ede66c, ca2.js core merge watch.
+
+## 2026-10-23 round 3 — GMAX shipped, readback noise discovered
+- SHIPPED c20cb7e (main, live-verified): device-adaptive GMAX (384 floor, device MAX_FRAGMENT_UNIFORM_VECTORS, halve-on-link-fail, 2048 ceiling) + GMAXBUF 2048 buffers + subarray uploads + __ca2.cmpGmax384 bit-identity gate. Tiling remains OFF (4615aea).
+- BIT-IDENTITY PROVEN for the GMAX change: same frozen source array (n<=384) through a 384-reference program and the device program: diffBytes=0/9.4M, selfDiff=0 (t117 gmaxfix3, swiftshader).
+- KEY HARNESS FINDING: canvas drawImage(glc) readback is NON-DETERMINISTIC on swiftshader — same program, same inputs, back-to-back renders differ on ~1% of bytes (selfDiff 10649/804608). gl.readPixels after gl.finish() is deterministic (selfDiff=0). All pixel A/B gates must use readPixels. This noise, not tiling, produced the round-2 "alpha divergence" readings; tiled-vs-full A/B is being re-run with readPixels before any tiling decision.
+- Rust toolchain in sandbox OK: rustc 1.99.1, wasm32-unknown-unknown installed.
+
+## 2026-10-23 round 3b — tiling VINDICATED, t118 wall evidence
+- cmpGpuPaths with gl.readPixels: tiled-vs-full SAME frozen array: diffBytes=0 at N=250 (10.5M bytes, 49 tiles+subdivision) AND N=1000 (11.9M bytes, 912 src, 56 tiles, partial tiles, overflow=0). Round-2 "alpha divergence" = drawImage readback artifact (selfDiff ~1% same-program same-input). v1 (300f3ff) DID have a real scissor partial-tile offset defect (bh%GTILE!=0 band never drawn) — fixed on wip.
+- t118 (page hook __ca2.t118): SAME frozen source array both modes, per-frame wall with 1px readPixels after each draw (forces raster completion: readPixels is a synchronous data-returning call in GL command order — it cannot return before prior writes to the framebuffer are visible; gl.finish proved NOT to capture raster cost on this swiftshader stack: tFullMs=0.1ms for a 17.8s render). swiftshader software raster, N=1000 frozen (n=830, 1806x957): full 17.8s/frame (1 frame/12s), tiled p50=5027ms p95=5562ms (3 frames/12s) ≈ 3.5x. Thin samples; direction-only, NO Mac/real-GPU speed claim.
+- Acceptance record (parent 11:18): same-input bit-identity proof exists for the <=384 band (cmpGmax384, 0/9.4M). The >384 band has no old-GPU reference (old code fell back to CPU); acceptance criterion = existing GPU backend semantics (GPU is the site's reference renderer; GPU-vs-CPU raster delta maxd 15-36 across bands, pre-existing class).
+- Arithmetic correction: 3091/2.97M = 0.104% of px; 0.373% of lit.
+
+## 2026-10-23 round 4 — subdivision fully understood + gated
+- Counter-snapshot bug in my instrumentation had hidden the counters (reset by the timing pass). Real: subdivision fires and clamps ARE counted (gOv/gTStat).
+- GATES (all readPixels, same frozen inputs): normal tiling bit-exact (N=250 10.5M, N=1000 11.9M, diff=0); subdivision WITHOUT clamp bit-exact (t119synth grid, cap=32: subdiv=5 leaves=45 clamps=0 diff=0/7.56M); forced clamp = designed lossy last resort, gOv-counted; LIVE overflow now falls back to drawMetaballsCPU (e723c01) so a source-dropping frame is never displayed (gpuState().on=false engagement-verified; the fallback is literally the cmp() reference renderer, no new semantics).
+- Structural finding: source reach R~200px+ ⇒ subdivision 256→16px cuts per-leaf m only ~2.5×; tiling win is bounded by R/GTILE (t118: ~3.5× swiftshader wall at 830 src — direction only, no Mac claim).
+- zeroTail A/B identical: stale-uniform-tail hypothesis dead.
+- Remaining for re-enable decision (parent coordinates): none blocking on my side; candidate = wip-gpu-tiling GPU regions rebased onto main c20cb7e.
+
+## Round 5 — overflow fallback: full-pass GPU re-render (not CPU), real gOv fixture
+- Change (wip): drawMetaballs overflow branch now re-renders the SAME packed sources through the full pass (`gpuDraw(...,false)`, clears the clamped tile image first) instead of drawMetaballsCPU; gOv saved/restored across the re-render (gpuDraw resets counters). Harness seam: `window.__t119src` frozen-source injection + `t119cluster()` fixture (n=GMAX phyllotaxis disc r<=18, reach 67 -> central 16px leaves see all n).
+- Measured (swiftshader, gl.readPixels, n=GMAX=2040 clustered): ov=272 leaves clamped, gpuOn=true, candidate vs full-pass reference diff=0/6.19M bytes (bit-identical); candidate vs clamped-tiled ALSO 0 diff — at m=GMAX=n exactly the cull break never fires (all sources packed), so the clamp is a counted no-op and the tiled path cannot drop sources for any n<=GMAX. Regression: t119synth cap64 diff=0.
+- Boundary proof (source): pack bail `if (n >= GMAX) { n=-1; break; }` -> CPU iff src.n>GMAX; tile cull `if (m >= GMAX) break;` -> m capped at GMAX; subdivide `m>=GMAX && depth<4`; clamp+gOv at depth 4 `if (m >= GMAX)`. Since m<=n, gOv fires IFF n=GMAX exactly AND all sources in one 16px leaf's reach. Source-dropping would need n>GMAX, which is CPU-bailed upstream on both main and candidate.
+- Consequence: with current >= boundaries tiling is raster-lossless for every frame the GPU renders; the gOv fallback is zero-visual-cost armor (stays GPU, bit-exact) replacing the old CPU fall (measured 31-34% px diff). Main unchanged: c20cb7e, tiling OFF.
+
+## Round 6 — final gate suite on 0cc5add (devtools/t120-final-gate.js)
+All results stamped commit 0cc5add, one page session, swiftshader, gl.readPixels gates, same-input rules:
+- cmp250: n=289, 1692x506, diff=0/3.42M bytes, ov=0, subdiv=0, leaves=14, maxM=104, clamps=0.
+- cmp1000: n=970, 1680x506, diff=0/3.40M, ov=0, subdiv=0, leaves=14, maxM=269, clamps=0.
+- Scissor partial-tile: bh=506 -> bh%256=250, partial row exercised, diff grid empty in every 256-tile band.
+- synth64/synth32 (forced caps, no-clamp subdivision): diff=0 both; synth32 subdiv=8, leaves=38, maxM=30.
+- cluster (real gOv): n=GMAX=2040 phyllotaxis disc, ov=77 leaves, gpuOn=true, cand vs full-pass ref 0 diff, cand vs clamped 0 diff (clamp is counted no-op at n=GMAX; source-drop would need n>GMAX which pack-bails to CPU).
+- n>GMAX regression: setGmaxTest(32), live n=947 -> gpuState on=false (pack bail -> CPU), candidate vs baseline CPU render bad=0 maxd=0 same input.
+- Perf (frozen same scene n=970, 1680x506, 1px readPixels forced completion, interleaved 40s passes t/f/f/t): tiled 17 frames p50 5136/5029ms, full 8 frames p50 11408/11068ms -> ~2.2x swiftshader wall direction ONLY; no Mac/general claim.
+- Visual: /tmp shots t120-tiled.png (wip default tiled live) and t120-full.png (forced full) both show the normal field, no seams/banding; HUD "metaball field: GPU" confirms GPU path live.
