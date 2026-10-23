@@ -17,3 +17,6 @@ nosim=1 n=24 food=0 hash=-1442756886 {"n":44,"round":15,"lobed":29,"sim":false} 
 wasm n=24 food=0 hash=-1442756886 {"n":42,"round":25,"lobed":17,"sim":true} []
 nosim=1 n=24 food=0 hash=-1442756886 {"n":39,"round":17,"lobed":22,"sim":false} []
 wasm n=24 food=0 hash=-1442756886 {"n":42,"round":24,"lobed":18,"sim":true} []
+nosim=1 n=24 food=0 hash=-1442756886 {"n":41,"round":23,"lobed":18,"sim":false} []
+wasm n=24 food=0 hash=-1442756886 {"n":37,"round":15,"lobed":22,"sim":true} []
+nosim=1 n=24 food=0 hash=-1442756886 {"n":38,"round":21,"lobed":17,"sim":false} []
