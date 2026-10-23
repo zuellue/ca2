@@ -11,6 +11,11 @@ for(let i=0;i<60;i++){if(await b.ev('!!(window.__ca2&&window.__ca2.cells>=0)')==
 await b.ev(`(()=>{const A=window.__ca2;A.setKey('grain',0);A.setKey('audioOn',0);A.setKey('autoQuality',0);A.setKey('minRefreshInterval',60000);A.setKey('maxRefreshInterval',60000);A.setKey('energyConsumptionRate',0.002);A.setKey('selectOn',0);return 1})()`);
 await b.ev(`window.__ca2.setKey('UNIVERSE_SIZE',${N})`);
 await b.sleep(5000);
+if(tag==='clu'){
+  console.log('t119',tag,'cluster',await b.ev('window.__ca2.t119cluster()')); // real gOv fixture: n=GMAX fully clustered
+  console.log('t119',tag,'synth64',await b.ev('window.__ca2.t119synth(64,1000)')); // regression: subdivision-no-clamp stays bit-identical
+  b.close();s.close();process.exit(0);
+}
 console.log('t119',tag,'state',await b.ev('JSON.stringify({n:window.__ca2.cells,res:window.__ca2.res,src:window.__ca2.srcStat()})'));
 console.log('t119',tag,'synth64',await b.ev('window.__ca2.t119synth(64,1000)'));
 console.log('t119',tag,'synth16',await b.ev('window.__ca2.t119synth(32,1000)'));

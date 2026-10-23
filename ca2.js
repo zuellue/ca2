@@ -959,7 +959,7 @@
   function drawMetaballs(S) {
     gOn = false;
     if (gOK && !gl.isContextLost()) {
-      var ms = P.metaballStrength, TH = P.THRESHOLD, n = 0, src = buildSources(), i;
+      var ms = P.metaballStrength, TH = P.THRESHOLD, n = 0, src = window.__t119src || buildSources(), i; // __t119src: harness-only frozen source injection (t119cluster)
       for (i = 0; i < src.n; i++) {
         if (n >= GMAX) { n = -1; break; }
         gC[n * 4] = src.x[i]; gC[n * 4 + 1] = src.y[i]; gC[n * 4 + 2] = ms * src.r[i] * src.r[i]; gC[n * 4 + 3] = src.r[i] * Math.max(3, Math.sqrt(ms / (TH * 0.03)));
@@ -969,7 +969,7 @@
         var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
         if (glc.width !== bw || glc.height !== bh) { glc.width = bw; glc.height = bh; }
         gpuDraw(gC, gW, n, bw, bh, S, gTiledForce !== null ? gTiledForce : Math.ceil(bw / GTILE) * Math.ceil(bh / GTILE) > 1); // tiled beyond one tile; the per-pixel formula is untouched (gTiledForce: harness A/B only)
-        if (gOv > 0) { drawMetaballsCPU(S); return; } // a tile exceeded the device source capacity even after subdivision: never show the clamped (source-dropping) render - exact CPU field instead
+        if (gOv > 0) { var ov = gOv; gpuDraw(gC, gW, n, bw, bh, S, false); gOv = ov; } // a 16px leaf hit capacity even after subdivision (only possible at n=GMAX fully clustered, m<=n<=GMAX): never show the clamped source-dropping tiles - clear and re-render the SAME packed sources through the full pass, which holds all n<=GMAX<=gShaderMax. gpuDraw resets gOv, so restore the engagement counter.
         pfm('gpu:draw+field'); gT0 = performance.now();
         ctx.imageSmoothingEnabled = false; ctx.drawImage(glc, 0, 0, bw, bh, cont.x, cont.y, cont.w, cont.h); ctx.globalAlpha = 1; pfm('gpu:drawImage'); if (++gN > 40 && PF['gpu:drawImage'] + PF['gpu:draw+field'] > 90 && !/[?&]gpu=1/.test(location.search)) gOK = false; // too slow on this machine: back to the CPU path
         gSnap = { n: n, S: S, bw: bw, bh: bh, TH: TH }; gOn = true; return;
@@ -2035,6 +2035,25 @@
       var cd = img.data, bad = 0, mx = 0, lit = 0;
       for (var p = 0; p < bw * bh; p++) { var q = p * 4, ga = a[q + 3], ca = cd[q + 3]; var d = Math.abs(ga - ca); if (ca > 0 || ga > 0) { lit++; if (ca > 250 && ga > 250) d = Math.max(d, Math.abs(a[q] - cd[q]), Math.abs(a[q + 1] - cd[q + 1]), Math.abs(a[q + 2] - cd[q + 2])); } if (d > 8) bad++; if (d > mx) mx = d; }
       return JSON.stringify({ px: bw * bh, lit: lit, bad: bad, maxd: mx, n: n, note: 'a=GPU full (baseline), b=CPU field (overflow fallback); same frozen sources' });
+    }, t119cluster: function () { // REAL gOv trigger: n=GMAX sources in a tight phyllotaxis disc (r<=18, reach 67) -> the central 16px leaves have m=GMAX -> clamp+overflow at n=GMAX exactly (the only gOv window: m<=n<=GMAX). Gate: candidate drawMetaballs output must be bit-identical to the direct full-pass reference (main c20cb7e behavior at this frame) and visibly different from the clamped tiled render it avoided; counters prove the fallback engaged and stayed on GPU.
+      if (!gOK) return 'nogl';
+      var S = curS, n = GMAX, i, ms = P.metaballStrength, TH = P.THRESHOLD;
+      var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S)), cx = bw / 2, cy = bh / 2;
+      var src = { n: n, x: new Float64Array(n), y: new Float64Array(n), r: new Float64Array(n), wr: new Float64Array(n), wg: new Float64Array(n), wb: new Float64Array(n) };
+      for (i = 0; i < n; i++) { var ang = i * 2.39996, rad = 18 * Math.sqrt(i / n); src.x[i] = cx + rad * Math.cos(ang); src.y[i] = cy + rad * Math.sin(ang); src.r[i] = 22; src.wr[i] = 0.5; src.wg[i] = 0.5; src.wb[i] = 0.5; }
+      window.__t119src = src;
+      var sv = ctx.drawImage; ctx.drawImage = function () {};
+      drawMetaballs(S); ctx.drawImage = sv; // candidate production path: tiled pass, overflow -> full-pass GPU re-render
+      var ov = gOv, onAfter = gOn;
+      gl.finish(); var a = new Uint8Array(bw * bh * 4); gl.readPixels(0, 0, bw, bh, gl.RGBA, gl.UNSIGNED_BYTE, a);
+      window.__t119src = null;
+      var C = new Float32Array(n * 4), W = new Float32Array(n * 4);
+      for (i = 0; i < n; i++) { C[i * 4] = src.x[i]; C[i * 4 + 1] = src.y[i]; C[i * 4 + 2] = ms * src.r[i] * src.r[i]; C[i * 4 + 3] = src.r[i] * Math.max(3, Math.sqrt(ms / (TH * 0.03))); W[i * 4] = src.wr[i]; W[i * 4 + 1] = src.wg[i]; W[i * 4 + 2] = src.wb[i]; }
+      gpuDraw(C, W, n, bw, bh, S, false); gl.finish(); var b = new Uint8Array(bw * bh * 4); gl.readPixels(0, 0, bw, bh, gl.RGBA, gl.UNSIGNED_BYTE, b); // reference: full-pass GPU (= live baseline at this frame)
+      gpuDraw(C, W, n, bw, bh, S, true); gl.finish(); var ovT = gOv, cl = gTStat.clamp, c = new Uint8Array(bw * bh * 4); gl.readPixels(0, 0, bw, bh, gl.RGBA, gl.UNSIGNED_BYTE, c); // defect avoided: clamped tiled render without fallback
+      var d1 = 0, m1 = 0, d2 = 0, m2 = 0;
+      for (i = 0; i < a.length; i++) { var dd = Math.abs(a[i] - b[i]); if (dd) { d1++; if (dd > m1) m1 = dd; } var ee = Math.abs(a[i] - c[i]); if (ee > 8) d2++; if (ee > m2) m2 = ee; }
+      return JSON.stringify({ bytes: a.length, n: n, gmax: GMAX, ov: ov, gpuOn: onAfter, ovTiledOnly: ovT, clamps: cl, candVsFullDiff: d1, candVsFullMax: m1, candVsClampedDiff: d2, candVsClampedMax: m2 });
     }, cmpOverflowBaseline: function () { // the literal parent gate: candidate overflow-trigger frame vs live-baseline behavior at the SAME input. With overflow forced (setGmaxTest), (a) drawMetaballs = candidate (GPU attempt, gOv>0 -> CPU fallback), (b) drawMetaballsCPU direct = main c20cb7e behavior at n>GMAX. Same synchronous task => buildSources frozen between calls.
       if (!gOK) return 'nogl';
       var S = curS, sv = ctx.drawImage; ctx.drawImage = function () {};
