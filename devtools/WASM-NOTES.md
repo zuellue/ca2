@@ -143,3 +143,5 @@ All results stamped commit 0cc5add, one page session, swiftshader, gl.readPixels
   - Live readback 0-diff korunuyor: cmpGpuPaths 0/4.17M, cmpGmax384 0/5.07M, t119cluster candVsFullDiff=0.
   - Kaba görünüm nedeni (çıkarım, HUD destekli): autoQuality swiftshader'da res'i 0.35–0.40'a düşürüyor; res=1 local capture temiz.
 - Sonuç: gerçek defect yok, rollback yok. origin/main = 3cac619. Toggle dry-run hazır (drawMetaballs default false, 1 satır).
+- Capture scriptleri repo'ya alındı: devtools/t124-live-natural-shots.js (live tiled/full/doğal frame), devtools/t125-local-res1-shot.js (localhost res=1, autoQuality off).
+- Parent closeout 13:06: kullanıcıya "optimizasyon yayında + aynı-girdi 0-diff + Mac hız/sıcaklık ölçülmedi" iletildi. Rollback yok, yeni capture döngüsü yok. Execution tamam.
