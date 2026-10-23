@@ -189,6 +189,8 @@ pub extern "C" fn mb_field_f32(n: usize, bw: usize, bh: usize, s: f64, ms: f64, 
 #[no_mangle] pub extern "C" fn sim_food_gone() -> *mut f64 { sim::sim().fgone.as_mut_ptr() }
 #[no_mangle] pub extern "C" fn sim_set_nf(n: usize) { let s = sim::sim(); s.nf = n; for i in 0..n { s.fgone[i] = 0.0; } }
 #[no_mangle] pub extern "C" fn sim_cm(cap: usize) -> *mut f64 { let s = sim::sim(); s.cm.resize(cap * 5, 0.0); s.cm_id.resize(cap, 0.0); s.cm.as_mut_ptr() }
+#[no_mangle] pub extern "C" fn sim_cm_ptr() -> *const f64 { sim::sim().cm.as_ptr() }
+#[no_mangle] pub extern "C" fn sim_cm_len() -> usize { sim::sim().cm_id.len() }
 #[no_mangle] pub extern "C" fn sim_cm_ids() -> *mut f64 { sim::sim().cm_id.as_mut_ptr() }
 #[no_mangle] pub extern "C" fn sim_cm_count(n: usize) { let s = sim::sim(); s.cm_id.truncate(n); }
 #[no_mangle] pub extern "C" fn sim_params() -> *mut f64 { sim::sim().p.as_mut_ptr() }
