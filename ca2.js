@@ -320,11 +320,21 @@
   // the average inter-letter whitespace of the title words, measured from advance widths and ink boxes, never hardcoded
   // (owner 21 Oct: the three-line title's line gap equals the letter spacing)
   var tmCache = { fs: 0, trk: 0, inkTL: 0, inkTR: 0 };
+  // Ca2-Thin is bundled, so the title words' true geometry is known exactly. Units per 1 em, read from Ca2-Thin.ttf
+  // (hmtx advances, glyf xMin/xMax, unitsPerEm 1000, no kerning/GPOS): CELYLAR advance 4857 ink 4746, AUTOMW advance 5111
+  // ink 4987. The measured ink box is only trusted when the measured advance proves the font loaded AND the ink agrees
+  // with the font within a small tolerance; a browser whose ink box is padded or rounded fails that and the font's own
+  // numbers are used instead (the letter gap, advance minus ink per letter, is only ~2% of the size, so a bad box makes
+  // the three-line spacing trk*titleLead collapse while the layout still works). Sane browsers keep their measurement.
+  var TFONT = { TL: [4.857, 4.746], TR: [5.111, 4.987] };
   function titleMetrics(fs) {
     if (tmCache.fs === fs) return tmCache;
     var w1 = ctx.measureText(TL).width, i1 = inkLR(TL), w2 = ctx.measureText(TR).width, i2 = inkLR(TR);
-    tmCache = { fs: fs, inkTL: i1[1] - i1[0], inkTR: i2[1] - i2[0],
-      trk: ((w1 - (i1[1] - i1[0])) / (TL.length - 1) + (w2 - (i2[1] - i2[0])) / (TR.length - 1)) / 2 };
+    var k1 = i1[1] - i1[0], k2 = i2[1] - i2[0], tol = 0.004 * fs + 1;
+    var fontOk = Math.abs(w1 - TFONT.TL[0] * fs) <= tol && Math.abs(w2 - TFONT.TR[0] * fs) <= tol; // Ca2-Thin really in use
+    var inkOk = Math.abs(k1 - TFONT.TL[1] * fs) <= tol && Math.abs(k2 - TFONT.TR[1] * fs) <= tol; // false for NaN too
+    if (fontOk && !inkOk) { k1 = TFONT.TL[1] * fs; k2 = TFONT.TR[1] * fs; w1 = TFONT.TL[0] * fs; w2 = TFONT.TR[0] * fs; }
+    tmCache = { fs: fs, inkTL: k1, inkTR: k2, trk: ((w1 - k1) / (TL.length - 1) + (w2 - k2) / (TR.length - 1)) / 2 };
     return tmCache;
   }
   var rsbCache = { key: '', dx: 0, done: false };
