@@ -1,2 +1,0 @@
-Run paused 16:19 by SIGSTOP on bash pid 31563 (/tmp/ffrun2.sh). Current boot child finishes; no further boots start.
-Resume: kill -CONT 31563  (continues loop at next boot; completed lines in /tmp/ff2.out are kept)
