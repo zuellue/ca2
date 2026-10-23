@@ -27,3 +27,12 @@ Everything above is f64 in wasm except the optional metaball f32 field (WC.field
 1. Live same-input parity for the JS-resident stages above is not measured; they are not ported.
 2. Live event distribution: wasm vs JS shows a ~12% death/eaten pooled difference in uncontrolled runs (t140) and +9% death at n=1 in matched-dt run (t142 seed 1). Unexplained; controlled no-random diagnostic pending.
 3. Per-stage cost of the JS-resident stages is unmeasured.
+
+## Work breakdown (23 Oct 18:08, proposed order; each step = small commit on a wasm branch, own parity test, JS fallback kept, no main/deploy until ready)
+0. Live wiring shadow diagnostic: real simW pack/unpack vs JS fallback with the same mirrored sim.rs PRNG, per-frame state compare, stop at first difference. (Chrome, <1 min)
+1. wallPull + stepAging + stepHabitat + reseedFood: small, per-frame, pure number crunching. Port to wasm, node lockstep test against the JS functions on the same inputs.
+2. Food-ink compute: foodSpot/foodOnInk/foodPushOut/foodInkGuard/foodFreeIdx + applyKey foodDensity spawn (mask is a byte image; port needs the mask in wasm memory). Parity vs the landed JS on the same masks (tests t-food-spot-unit, t-pushout-unit, t-guard-allink-unit, t-density-setter-unit exist).
+3. parasiteCircles overlay and wing geometry: after the parasite core, glyph-circle belief; parity vs t-parasite-circle-unit cases.
+4. separatorPass (+ sepDiskHit/sepBodyHit/sepSources): largest remaining JS compute loop (8 loops). Port the collision/push computation; the DOM/canvas parts stay JS.
+5. emitCell/colorAt/shapeStat/tally/hover: smaller, after the above.
+Disjoint scopes if specialists help: (1), (2)+(3) food/parasite, (4) separator. Each only touches its own function plus a thin hook, so they can run in parallel branches; ca2.js hook edits must rebase on current main.
