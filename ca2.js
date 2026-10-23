@@ -216,6 +216,24 @@
     if (press > 0 && c.radius > P.CELL_RADIUS) c.radius = Math.max(P.CELL_RADIUS, c.radius - F * press * 0.5);
     wallPull(c, r, true); // the shared boundary-morph rule; cells add velocity reflection
   }
+  // post.rs wallPull batch: bodies are blobs, worms, and food that is neither (same set, same arithmetic as the JS loops; bodies are independent so order is immaterial).
+  // Returns false (nothing mutated: x/y are only written back after a successful call) so the JS loops run.
+  function postOffW() { var E = WC.e; return !(E && E.post_wall && WC.ok && !WC.off && !WC.simOff && !WC.postOff && !/[?&](nosim|nopostw)=1/.test(location.search)); }
+  function postWallW() {
+    if (postOffW()) return false;
+    try {
+      var E = WC.e, nb = blobs.length, nw = worms.length, i, f, k = 0, n = nb + nw, hf = P.foodSize / 2;
+      for (i = 0; i < food.length; i++) { f = food[i]; if (!f.blob && !f.worm) n++; }
+      var bp = E.post_wall_buf(n), buf = new Float64Array(WC.mem.buffer, bp, n * 3), arr = new Array(n);
+      for (i = 0; i < nb; i++) { arr[k] = blobs[i]; buf[k * 3] = blobs[i].x; buf[k * 3 + 1] = blobs[i].y; buf[k * 3 + 2] = blobs[i].r; k++; }
+      for (i = 0; i < nw; i++) { arr[k] = worms[i]; buf[k * 3] = worms[i].x; buf[k * 3 + 1] = worms[i].y; buf[k * 3 + 2] = hf; k++; }
+      for (i = 0; i < food.length; i++) { f = food[i]; if (f.blob || f.worm) continue; arr[k] = f; buf[k * 3] = f.x; buf[k * 3 + 1] = f.y; buf[k * 3 + 2] = hf; k++; }
+      if (E.post_wall(n, cont.x, cont.y, cont.w, cont.h, P.boundGap || 0) < 0) return false;
+      buf = new Float64Array(WC.mem.buffer, bp, n * 3);
+      for (i = 0; i < n; i++) { arr[i].x = buf[i * 3]; arr[i].y = buf[i * 3 + 1]; }
+      WC.fwPw = (WC.fwPw || 0) + 1; return true;
+    } catch (e) { WC.postOff = true; WC.postErr = String(e); return false; }
+  }
   // the boundary-morph rule for ANY body: a wall that moved past it pulls it back gradually (no teleport);
   // a plain wall hit reflects. Shared by cells (keepIn) and every food kind (owner 21 Oct: one mechanism, no copies)
   function wallPull(p, r, vel) {
@@ -1874,6 +1892,13 @@
   function stepAging(dtf) { // lifespan, the missing death channel: age ticks, and an aged-out cell dies and recycles like any other
     if (!(P.cellLife > 0)) return;
     var dt = dtf / 1000;
+    if (!postOffW()) { // Rust/wasm (post.rs post_age); JS below is the fallback
+      try {
+        var E = WC.e, n = cells.length, ap = E.post_age_buf(n), ab = new Float64Array(WC.mem.buffer, ap, n * 3), j, cj;
+        for (j = 0; j < n; j++) { cj = cells[j]; ab[j * 3] = cj.age || 0; ab[j * 3 + 1] = cj.life || 0; ab[j * 3 + 2] = cj.alive ? 1 : 0; }
+        if (E.post_age(n, dt) >= 0) { ab = new Float64Array(WC.mem.buffer, ap, n * 3); for (j = 0; j < n; j++) { cj = cells[j]; if (!cj.alive) continue; cj.age = ab[j * 3]; if (ab[j * 3 + 2] === 0) cj.alive = false; } WC.fwAg = (WC.fwAg || 0) + 1; return; }
+      } catch (e) { WC.postOff = true; WC.postErr = String(e); }
+    }
     for (var i = 0; i < cells.length; i++) { var c = cells[i]; if (!c.alive) continue; c.age = (c.age || 0) + dt; if (c.life && c.age >= c.life) c.alive = false; }
   }
 
@@ -2053,9 +2078,11 @@
     }
     // food rides the same boundary morph as cells (owner 21 Oct): dots/spores directly, blobs and worms by their owner
     if (P.boundAware) {
-      for (i = 0; i < blobs.length; i++) wallPull(blobs[i], blobs[i].r, false);
-      for (i = 0; i < worms.length; i++) wallPull(worms[i], P.foodSize / 2, false);
-      for (i = 0; i < food.length; i++) { var ff = food[i]; if (!ff.blob && !ff.worm) wallPull(ff, P.foodSize / 2, false); }
+      if (!postWallW()) { // Rust/wasm batch (post.rs); JS below is the fallback (?nowasm=1, ?nosim=1, ?nopostw=1)
+        for (i = 0; i < blobs.length; i++) wallPull(blobs[i], blobs[i].r, false);
+        for (i = 0; i < worms.length; i++) wallPull(worms[i], P.foodSize / 2, false);
+        for (i = 0; i < food.length; i++) { var ff = food[i]; if (!ff.blob && !ff.worm) wallPull(ff, P.foodSize / 2, false); }
+      }
     }
     foodInkGuard(); // the boundary carry above can move dots onto ink: re-resolve before the dots are drawn
     if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 4) drawWorms(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 5) drawSpores(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) { var fd2 = food[i]; if (fd2.r < P.foodShow && introOn(CELL_END + fd2.r * (FOOD_END - CELL_END))) { var fs2 = fd2.fed > 0 && P.habitatFedShow > 0 ? fs * (1 + Math.min(3, fd2.fed * P.habitatFedShow)) : fs, fh2 = fs2 / 2; ctx.fillRect(fd2.x - fh2, fd2.y - fh2, fs2, fs2); } } ctx.globalAlpha = 1; } // food first: it sits under the cells
