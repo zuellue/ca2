@@ -15,7 +15,7 @@ static mut MASK: Vec<u8> = Vec::new();
  3=>{let v=&mut *std::ptr::addr_of_mut!(BODY);v.resize(n,0.);v.as_mut_ptr() as *mut u8}
  _=>{let v=&mut *std::ptr::addr_of_mut!(MASK);v.resize(n,0);v.as_mut_ptr()}}}}
 // V8 Math.hypot (two args): scale by max, Kahan-compensated sum of squares, sqrt, rescale. Plain sqrt(a*a+b*b) was not bit-equal to Math.hypot.
-fn hyp(a:f64,b:f64)->f64{
+pub(crate) fn hyp(a:f64,b:f64)->f64{
  if a.is_infinite()||b.is_infinite(){return f64::INFINITY}
  if a.is_nan()||b.is_nan(){return f64::NAN}
  let m=a.abs().max(b.abs());if m==0.{return 0.}
@@ -27,6 +27,7 @@ fn hyp_plain(a:f64,b:f64)->f64{(a*a+b*b).sqrt()}
 #[no_mangle] pub extern "C" fn sep2_dbg(op:usize,x:f64,y:f64)->f64{match op{0=>hyp(x,y),1=>hyp_plain(x,y),2=>x.cos(),_=>x.sin()}}
 fn clamp(v:f64,a:f64,b:f64)->f64{if v<a{a}else if v>b{b}else{v}}
 unsafe fn p(i:usize)->f64{(&*std::ptr::addr_of!(PRM))[i]}
+pub(crate) unsafe fn set_body(x:&[f64],y:&[f64],r:&[f64],bound:f64){let b=&mut *std::ptr::addr_of_mut!(BODY);let n=x.len();b.resize(2+3*n,0.);b[0]=n as f64;b[1]=bound;for k in 0..n{b[2+k]=x[k];b[2+n+k]=y[k];b[2+2*n+k]=r[k];}}
 unsafe fn disk_hit(x:f64,y:f64,r:f64)->bool{
  if p(13)==0.{return false}
  let m=&*std::ptr::addr_of!(MASK);let mw=p(11);let mh=p(12);

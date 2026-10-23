@@ -1150,6 +1150,13 @@
       var need = E.sep2_phase_a(); cv = new Float64Array(WC.mem.buffer, cp, 16);
       c.x = cv[0]; c.y = cv[1]; c.vx = cv[2]; c.vy = cv[3]; c.radius = cv[4];
       if (!need) continue;
+      if (E.post_sepbody && !WC.sbOff && !/[?&]nosepbody=1/.test(location.search)) { // Rust/wasm sepBody (post.rs: emitCell f64 + shift + bound -> sep2 body buffer); a throw falls through to the JS body
+        try {
+          var sbp = E.post_sepbody_in(), sbv = new Float64Array(WC.mem.buffer, sbp, 24), sh9 = c.shp;
+          sbv.set([c.x, c.y, c.radius, sh9 ? 1 : 0, sh9 ? sh9.t : 0, sh9 ? sh9.asp : 0, sh9 ? sh9.th : 0, sh9 ? sh9.dir : 0, sh9 ? sh9.wsp : 0, sh9 ? sh9.ph : 0, sh9 ? sh9.wig : 0, sh9 ? sh9.sat : 0, sh9 ? sh9.ph2 : 0, frameT, SRC_MAX, cont.x, cont.y, cont.w, cont.h, P.cellShapes ? 1 : 0, P.boundGap || 0, P.metaballStrength, P.THRESHOLD]);
+          if (E.post_sepbody() >= 0) { cp = E.sep2_alloc(2, 16); WC.fwSb = (WC.fwSb || 0) + 1; E.sep2_phase_b(); cv = new Float64Array(WC.mem.buffer, cp, 16); c.x = cv[0]; c.y = cv[1]; c.vx = cv[2]; c.vy = cv[3]; continue; }
+        } catch (e2) { WC.sbOff = true; WC.sbErr = String(e2); throw e2; }
+      }
       var body = sepBody(c), bn = body.n, bp = E.sep2_alloc(3, 2 + 3 * bn); cp = E.sep2_alloc(2, 16);
       var bv = new Float64Array(WC.mem.buffer, bp, 2 + 3 * bn); bv[0] = bn; bv[1] = body.bound;
       for (k = 0; k < bn; k++) { bv[2 + k] = body.x[k]; bv[2 + bn + k] = body.y[k]; bv[2 + 2 * bn + k] = body.r[k]; }

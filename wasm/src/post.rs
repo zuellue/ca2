@@ -206,3 +206,57 @@ pub extern "C" fn post_guard(n: usize, w: f64, h: f64, r: f64) -> i32 {
         0
     }
 }
+
+// ---- sepBody(c) = emitCell(c, frameT, SRC_MAX, o) in f64 + plate-relative shift + bound, written straight into the separator module's body buffer (sep2 BODY).
+// in (f64[24]): 0 x,1 y,2 radius,3 hasShape,4 t,5 asp,6 th,7 dir,8 wsp,9 ph,10 wig,11 sat,12 ph2,13 t0,14 allowance,15 cont.x,16 cont.y,17 cont.w,18 cont.h,19 cellShapes,20 boundGap,21 metaballStrength,22 THRESHOLD
+static mut SBI: Vec<f64> = Vec::new();
+#[no_mangle]
+pub extern "C" fn post_sepbody_in() -> *mut f64 { unsafe { let b = &mut *std::ptr::addr_of_mut!(SBI); b.resize(24, 0.0); b.as_mut_ptr() } }
+fn js_round(x: f64) -> f64 { let r = x.floor(); if x - r >= 0.5 { r + 1.0 } else { r } }
+fn clampf(v: f64, a: f64, b: f64) -> f64 { if v < a { a } else if v > b { b } else { v } }
+#[no_mangle]
+pub extern "C" fn post_sepbody() -> i32 {
+    unsafe {
+        let i = &*std::ptr::addr_of!(SBI);
+        if i.len() < 24 { return -1; }
+        let (cxx, cyy, rad, has_sh, st, asp, th, dir, wsp, ph, wig, sat, ph2, t0, allow) = (i[0], i[1], i[2], i[3] != 0.0, i[4], i[5], i[6], i[7], i[8], i[9], i[10], i[11], i[12], i[13], i[14]);
+        let (cox, coy, cow, coh, shapes, bgap, ms, thr) = (i[15], i[16], i[17], i[18], i[19] != 0.0, i[20], i[21], i[22]);
+        let (mut xs, mut ys, mut rs_): (Vec<f64>, Vec<f64>, Vec<f64>) = (Vec::new(), Vec::new(), Vec::new());
+        let bx = cxx - cox; let by = cyy - coy;
+        let g = if bgap > 0.0 { bgap } else { 0.0 };
+        let mut push = |sx: f64, sy: f64, sr: f64| {
+            let d = f64::min(f64::min(sx - g, cow - g - sx), f64::min(sy - g, coh - g - sy));
+            xs.push(sx); ys.push(sy); rs_.push(f64::min(sr, f64::max(0.4, d)));
+        };
+        let gap2 = if bgap > 0.0 { bgap } else { 0.0 };
+        let r_free = f64::max(1.0, f64::min(f64::min(bx - gap2, cow - gap2 - bx), f64::min(by - gap2, coh - gap2 - by)));
+        let cr = f64::min(rad, f64::max(1.0, r_free)) * (1.0 - 0.18 * clampf(1.0 - f64::max(0.0, r_free - rad) / 8.0, 0.0, 1.0));
+        let mut done = false;
+        if shapes && has_sh && st == 1.0 && allow > 1.0 {
+            let rs = cr * th; let span = 2.0 * cr * th * (asp - 1.0);
+            let want = f64::min(9.0, f64::max(2.0, js_round(span / (1.15 * rs)) + 1.0)); let nn = f64::min(want, allow);
+            if nn >= 2.0 {
+                let ux = dir.cos(); let uy = dir.sin(); let px = -uy; let py = ux; let ds = span / (nn - 1.0); let tq = t0 / 850.0 * (1.0 + wsp) + ph;
+                let mut k = 0.0f64;
+                while k < nn { let d0 = -span / 2.0 + ds * k; let off2 = wig * rs * (tq + k * 0.85).sin(); push(bx + ux * d0 + px * off2, by + uy * d0 + py * off2, rs); k += 1.0; }
+                done = true;
+            }
+        } else if shapes && has_sh && st == 2.0 && allow > 2.0 {
+            let r0 = cr * 0.78; let rot = t0 / 4200.0 * wsp + ph;
+            push(bx, by, r0);
+            let mut q2 = 0.0f64;
+            while q2 < sat {
+                let aa = rot + q2 * 2.4 + ph2; let dd = cr * (0.42 + 0.24 * ((q2 * 0.731 + ph) % 1.0)); let rr2 = cr * (0.3 + 0.22 * ((q2 * 0.377 + ph2) % 1.0));
+                push(bx + aa.cos() * dd, by + aa.sin() * dd, rr2); q2 += 1.0;
+            }
+            done = true;
+        }
+        if !done { push(bx, by, cr); }
+        let n = xs.len();
+        let scale = (f64::max(0.0, ms) * f64::max(1.0, n as f64) / f64::max(0.001, thr * 0.96)).sqrt();
+        let mut bound = 0.0f64;
+        for k in 0..n { xs[k] += cox - cxx; ys[k] += coy - cyy; bound = f64::max(bound, crate::sep2::hyp(xs[k], ys[k]) + rs_[k] * scale); }
+        crate::sep2::set_body(&xs, &ys, &rs_, bound);
+        n as i32
+    }
+}
