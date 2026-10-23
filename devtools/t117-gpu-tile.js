@@ -12,6 +12,8 @@ for(const N of [250,1000]){
   await b.ev(`window.__ca2.setKey('UNIVERSE_SIZE',${N})`);
   await b.sleep(4000);
   console.log(tag,'N='+N,'state',await b.ev('JSON.stringify({n:window.__ca2.cells,res:window.__ca2.res,src:window.__ca2.srcStat()})'));
+  console.log(tag,'N='+N,'gmaxAB',await b.ev('window.__ca2.cmpGmax384?window.__ca2.cmpGmax384():"nohook"'));
+  console.log(tag,'N='+N,'gpuOn',await b.ev('JSON.stringify(window.__ca2.gpuState())'));
   console.log(tag,'N='+N,'cmp',await b.ev('window.__ca2.cmp()'));
   console.log(tag,'N='+N,'gpuPF',await b.ev(`JSON.stringify({d:+(window.__ca2.PF['gpu:draw+field']||0).toFixed(1),i:+(window.__ca2.PF['gpu:drawImage']||0).toFixed(1),mf:+(window.__ca2.PF['mb:field']||0).toFixed(1)})`));
 }
