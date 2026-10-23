@@ -1101,11 +1101,34 @@
     var d = SEP.img, n = SEP.mw * SEP.mh, c = 0; for (var i = 3; i < d.length; i += 4) if (d[i] > 40) c++;
     inkFrac.img = d; inkFrac.p = n ? c / n : 0; return inkFrac.p;
   }
-  function foodSpot(x, y, w, h) { // random point in the rect that is not on ink. Draws: enough that a spawn fails only ~1 in 1000 for the current ink share
-    var ink = foodInkOn(), p = ink ? foodInkFrac() : 0, tries = p <= 0 ? 1 : p >= 1 ? 0 : Math.max(1, Math.ceil(Math.log(0.001) / Math.log(p)));
-    for (var t = 0; t < tries; t++) { var px = x + Math.random() * w, py = y + Math.random() * h; if (!ink || !foodOnInk(px, py)) return { x: px, y: py }; }
+  var inkFree = { img: null, idx: null };
+  function foodFreeIdx() { // free (non-ink) mask pixels, row-major, built once per rebuilt mask
+    if (inkFree.img === SEP.img) return inkFree.idx;
+    var d = SEP.img, n = SEP.mw * SEP.mh, c = 0, i, k = 0, a;
+    for (i = 0; i < n; i++) if (d[i * 4 + 3] <= 40) c++;
+    a = new Uint32Array(c); for (i = 0; i < n; i++) if (d[i * 4 + 3] <= 40) a[k++] = i;
+    inkFree.img = d; inkFree.idx = a; return a;
+  }
+  function foodSpot(x, y, w, h) { // random point in the rect that is not on ink; work is bounded by the mask itself
+    var ink = foodInkOn(), px, py, t;
+    if (!ink) return { x: x + Math.random() * w, y: y + Math.random() * h };
+    var p = foodInkFrac();
+    if (p >= 1) return null;
+    if (p <= 0.5) { // mostly free: plain draws, at most ceil(ln .001 / ln .5) = 10
+      for (t = 0; t < 10; t++) { px = x + Math.random() * w; py = y + Math.random() * h; if (!foodOnInk(px, py)) return { x: px, y: py }; }
+      return null;
+    }
+    // mostly ink: choose among the free mask pixels of the rows the rect covers (sorted index, binary search); tries never exceed that slice
+    var idx = foodFreeIdx(), mw = SEP.mw, st = foodMaskPx(), r0 = Math.max(0, Math.floor(y / st)), r1 = Math.min(SEP.mh - 1, Math.floor((y + h) / st));
+    var lo = lowerBound(idx, r0 * mw), hi = lowerBound(idx, (r1 + 1) * mw), n = hi - lo;
+    for (t = 0; t < n; t++) {
+      var q = idx[lo + Math.floor(Math.random() * n)], cx = q % mw, cy = (q - cx) / mw;
+      px = (cx + Math.random()) * st; py = (cy + Math.random()) * st;
+      if (px >= x && px <= x + w && py >= y && py <= y + h && !foodOnInk(px, py)) return { x: px, y: py };
+    }
     return null; // no free space left (or bad luck): the spawn is skipped, nothing is forced onto ink
   }
+  function lowerBound(a, v) { var lo = 0, hi = a.length; while (lo < hi) { var m = (lo + hi) >> 1; if (a[m] < v) lo = m + 1; else hi = m; } return lo; }
   function foodMaskPx() { return SEP.mw ? W / SEP.mw : 2; } // one mask pixel in page px: the exact resolution of the ink geometry
   function foodPushOut(f) { // carried along the shortest way out (first free mask pixel on each of 8 rays, bounded by the page)
     var st = foodMaskPx(), bk = -1, bl = 1e9;
@@ -1659,13 +1682,13 @@
   // the ordinary starvation rule (parasiteHardMs / parasiteHard) decides how long a parasite can keep believing.
   function circleInPlate(c) { var nx = clamp(c.x, cont.x, cont.x + cont.w), ny = clamp(c.y, cont.y, cont.y + cont.h); return Math.hypot(c.x - nx, c.y - ny) < c.r; }
   function parasiteCircles() {
-    if (!P.parasiteOn || !P.showHud || !P.titleCircles || !circlesNow.length || !parasites.length) { for (var z = 0; z < parasites.length; z++) parasites[z].circ = null; return; }
+    if (!P.parasiteOn || !P.showHud || !P.titleCircles || !circlesNow.length || !parasites.length) { for (var z = 0; z < parasites.length; z++) { parasites[z].circ = null; parasites[z]._ox = undefined; } return; }
     var cand = [], i, j, p, c;
     for (i = 0; i < circlesNow.length; i++) if (circleInPlate(circlesNow[i])) cand.push(circlesNow[i]);
     var tt = performance.now() / 1000, nv = P.parasiteNerv, sight2 = P.parasiteSight * P.parasiteSight;
     for (i = 0; i < parasites.length; i++) {
       p = parasites[i];
-      if (p.host) { p.circ = null; continue; }
+      if (p.host) { p.circ = null; p._ox = undefined; continue; }
       if (p.circ) { var cur = null; for (j = 0; j < cand.length; j++) if (cand[j].key === p.circ.key) { cur = cand[j]; break; } p.circ = cur; } // follows the live circle (it moves with the layout) or loses it
       var bd = sight2, best = null, bc = null;
       for (j = 0; j < cells.length; j++) { c = cells[j]; if (!c.alive) continue; var d = (c.x - p.x) * (c.x - p.x) + (c.y - p.y) * (c.y - p.y); if (c.cl) d *= 0.5; if (d < bd) { bd = d; best = c; } }
@@ -1673,7 +1696,7 @@
       for (j = 0; j < cand.length; j++) { var dd = (cand[j].x - p.x) * (cand[j].x - p.x) + (cand[j].y - p.y) * (cand[j].y - p.y); if (dd < bcd) { bcd = dd; bc = cand[j]; } }
       if (!p.circ && bc && bcd < bd) p.circ = bc; // closest candidate is a circle: believed
       else if (p.circ && best && bd < (p.circ.x - p.x) * (p.circ.x - p.x) + (p.circ.y - p.y) * (p.circ.y - p.y)) p.circ = null; // a real cell is nearer: the illusion breaks
-      if (!p.circ) continue;
+      if (!p.circ) { p._ox = undefined; continue; }
       if (p._ox !== undefined) { p.x = p._ox; p.y = p._oy; } // the core step also nudged it toward a real cell: the believed circle owns its motion
       var ph = p.ph || (p.ph = Math.random() * 6.28), osc = Math.sin(tt * (2 + 2 * nv) + ph), dd2 = Math.hypot(p.circ.x - p.x, p.circ.y - p.y) || 1;
       var want = p.circ.r * (1.1 + 0.5 * nv * (1 + osc)), dir = dd2 > want ? 1 : -0.6 * nv, sp = Math.min(6, Math.max(1.2, dd2 * 0.08)) * (1 + 0.5 * nv * osc); // the cell-chase law of the hostless branch

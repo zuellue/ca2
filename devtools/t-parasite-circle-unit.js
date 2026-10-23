@@ -20,4 +20,18 @@ t.env.cells.push({x:152,y:150,alive:1,radius:20});t.f.parasiteCircles();ok('cell
 t=mk({circlesNow:[{key:'a',x:90,y:150,r:30}],parasites:[{x:150,y:150,e:5,host:null}]});t.f.parasiteCircles();t.env.cont.x=300;t.f.parasiteCircles();ok('circle leaves plate: belief ends',!t.env.parasites[0].circ);
 // 7 no HUD: no circles
 t=mk({circlesNow:[{key:'a',x:90,y:150,r:30}],parasites:[{x:150,y:150,e:5,host:null}]});t.env.P.showHud=0;t.f.parasiteCircles();ok('HUD off: no belief',!t.env.parasites[0].circ);
+// 8 episode origin: after any belief exit, a fresh second belief starts from the parasite's CURRENT position (no snap back to the old episode)
+function snap(name,exit){
+  const t=mk({circlesNow:[{key:'a',x:90,y:150,r:30}],parasites:[{x:150,y:150,e:5,host:null}]});const p=t.env.parasites[0];
+  t.f.parasiteCircles();t.f.parasiteCircles();const old=[p._ox,p._oy];
+  exit(t,p); t.f.parasiteCircles(); // exit frame
+  p.x=480;p.y=380; // the core step moves it far away meanwhile (rehost/other wander)
+  t.env.cont.x=100;t.env.cont.w=400;t.env.circlesNow[0]={key:'b',x:90,y:150,r:30};t.env.cells.length=0;p.host=null;
+  const bx=p.x,by=p.y;t.f.parasiteCircles();
+  ok('no snap after exit: '+name,Math.hypot(p.x-bx,p.y-by)<10);
+}
+snap('host acquired',(t,p)=>{p.host={alive:1};});
+snap('plate left circle',(t)=>{t.env.cont.x=300;});
+snap('nearer real cell',(t)=>{t.env.cells.push({x:152,y:150,alive:1,radius:20});});
+snap('hud off',(t)=>{t.env.P.showHud=0;});
 process.exit(fail?1:0);
