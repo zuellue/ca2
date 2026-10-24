@@ -1,0 +1,36 @@
+{
+  "card": "20261024-373-ca",
+  "generator": "devtools/capture-boot-corpus.js",
+  "repo": "zuellue/ca2",
+  "branch": "ca-method-measure",
+  "commit": "f3dd18b8c1617f5ccb52f26fe35b93794ccfca26",
+  "frames": 120,
+  "bootFramesA": 5,
+  "bootFramesB": 5,
+  "viewport": "1300x800",
+  "seed": "0x9e3779b9 (splitmix32 Math.random override, DET of t-jsrnd-batch-live.js)",
+  "world": "stubbed clock from __now=1000 +16.6667/step, manually stepped raf, network-off fetch stub, autoQuality pinned off, local fonts 404, wasm settled before frame 1",
+  "captured_utc": "2026-10-24T18:54:15.975Z",
+  "chrome": "Google Chrome 155.0.8059.84",
+  "node": "v22.23.3",
+  "files": {
+    "legA-jsrnd1.jsonl.gz": "685e63ad1c7fe19293d62c697d6e3efcf39f831a8d986c2146a4d587b46bd715",
+    "legB-jsrnd2.jsonl.gz": "9ef89d45e2a44ed76556d15caa611c57a9604caf3267124cbe85361143009a27"
+  },
+  "capture_verdict": "BYTE-EQUAL",
+  "final": {
+    "hA": 3546837131,
+    "hB": 3546837131,
+    "consumedA": 1134017,
+    "consumedB": 1134017,
+    "cellsA": 222,
+    "cellsB": 222,
+    "foodA": 0,
+    "foodB": 0,
+    "fillsB": 139,
+    "rndNA": 69543,
+    "rndNB": 0,
+    "diagFbA": 8,
+    "diagFbB": 9
+  }
+}
