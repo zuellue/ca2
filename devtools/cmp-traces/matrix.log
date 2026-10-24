@@ -1,0 +1,11 @@
+main-a seed 12345: 1 trace; "merge":38,"fuse":11,"pair":15,"eaten":37,"birth":111,"death":76,"divide":46
+mainjs-a seed 12345: 1 trace; "merge":6,"fuse":2,"pair":4,"eaten":10,"birth":35,"death":26,"divide":34
+cand-a seed 12345: 1 trace; "merge":14,"fuse":5,"pair":4,"eaten":11,"birth":53,"death":37,"divide":52
+candjs-a seed 12345: 1 trace; "merge":80,"fuse":26,"pair":33,"eaten":31,"birth":179,"death":123,"divide":125
+main-b seed 12345: 1 trace; "merge":38,"fuse":11,"pair":15,"eaten":37,"birth":111,"death":76,"divide":46
+mainjs-b seed 12345: 1 trace; "merge":6,"fuse":2,"pair":4,"eaten":10,"birth":35,"death":26,"divide":34
+cand-b seed 12345: 1 trace; "merge":14,"fuse":5,"pair":4,"eaten":11,"birth":53,"death":37,"divide":52
+candjs-b seed 12345: 1 trace; "merge":80,"fuse":26,"pair":33,"eaten":31,"birth":179,"death":123,"divide":125
+main-a seed 7: 1 trace; "merge":14,"fuse":12,"pair":10,"eaten":36,"birth":162,"death":79,"divide":78
+mainjs-a seed 7: 1 trace; "merge":13,"fuse":2,"pair":5,"eaten":21,"birth":123,"death":52,"divide":43
+cand-a seed 7: 1 trace; "merge":8,"fuse":3,"pair":1,"eaten":24,"birth":161,"death":90,"divide":72

@@ -120,3 +120,20 @@ NOT done: hab/wing/circles large-argument parity against JS (only sepbody checke
 - Origin is my own early observation, not a user-stated number: 2 paired live runs per mode (70 s each, frozen params UNIVERSE_SIZE 56, CELL_RADIUS 34, interactionRadius 12, baseMutationRate 9.6, mutationRateRange 2.6; JS = ?nosim=1 vs wasm), real-time rAF frames as denominator (729/775 and 720/778 frames). Metric: event counts per 1000 frames.
 - merge per 1000 frames: JS 3820.3, 3790.3; wasm 3273.5, 3394.6 (wasm -14.3%, -10.4%). fuse per 1000 frames: JS 1187.9, 1163.9; wasm 996.1, 1041.1 (-16.1%, -10.6%). Births/deaths: no consistent direction (b: JS 6006.9/7668.1 vs W 5540.6/6137.5; d: 9142.7/10740.3 vs 8591.0/9295.6).
 - So "12%" = wasm lower than JS in merge and fuse per 1000 live frames, n=2 pairs, uncontrolled dt/RNG (unmirrored), no repeat baseline. It is a hypothesis-generating observation, not a validated effect. The fixed-step matrix reports raw per-10 s counters at an equal 120 engine frames (so the denominator is identical by construction) plus per-1000-engine-frame values.
+
+## 2026-10-24 06:59 comparison matrix PARTIAL results (seed 12345 complete; seeds 7/21/99 in progress)
+Pins: main = origin/main da2fbd0e19836c7aa441fbd48a81bfa681350056 (own ca2.js+binaries); cand = wasm-jsrnd-spike (commit of this file), default binaries a94dbf3f/bdd56ede. Raw artifacts: devtools/cmp-traces/ (TRACE + result line per run, matrix.log).
+Counter and denominator definitions (from devtools/t143-fixedstep.js source):
+- steps (__fn) = fake-clock rAF steps in the page: single steps until body.rdy + padding to 12, then __step(120) (warm-up, before the swap), then 600 sample steps (NF = round(10000/16.667)). 12+120+600 = 732 (matches).
+- frames (__fc) = rAF callbacks of the test's own counter loop, started at the cell swap: 600 sample steps (+1 from the initial call) = 601. sdt = sum of min(100, dt) of those callbacks = 10000 ms fake clock.
+- Event counters (merge, fuse, pair, eaten, birth, death, divide) = __ca2 counters at the end minus the baseline __b0 taken at the cell swap. They count the 600 sample steps (10 s fake time) only; the pre-swap steps and the 120 warm-up steps are excluded. At the swap: 24 seeded cells replace cells, food is cleared, Math.random is replaced by the seeded generator (seed from SEED env).
+- Engine frames: the engine's frame() runs on a 12 fps gate (engine dt 83.335 ms). The number "120 engine frames" is arithmetic (fleeT delta 10000.2 / 83.335) and was NOT counted: DTLOG was off (engFrames 0), and origin/main has no fleeT variable (engFleeT_delta reads 0 there), so engine frames on main are ölçülmedi.
+- The old +12% metric (per 1000 live rAF frames) is not this denominator.
+Seed 12345, 10 s, a and b per condition (counters and whole-trace sha256 identical in a and b for all four):
+| condition | merge | fuse | pair | eaten | birth | death | divide | n_end |
+| main wasm | 38 | 11 | 15 | 37 | 111 | 76 | 46 | 59 |
+| main nowasm | 6 | 2 | 4 | 10 | 35 | 26 | 34 | 35 |
+| cand wasm | 14 | 5 | 4 | 11 | 53 | 37 | 52 | 43 |
+| cand nowasm | 80 | 26 | 33 | 31 | 179 | 123 | 125 | 92 |
+Seed 7 so far (a only): main wasm 14/12/10/36/162/79/78; main nowasm 13/2/5/21/123/52/43.
+Reading: no consistent wasm-vs-JS direction (cand wasm < cand JS, main wasm > main JS), and main JS vs cand JS differs by 6 vs 80 merges, so ca2.js differences or unmirrored RNG start dominate; no isolated wasm effect, no percentage, no parity claim. One seed so far.
