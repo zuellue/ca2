@@ -1,0 +1,12 @@
+// t-swfresh-jsrnd: Rust sw_fresh (jsrnd binary) vs the JS food vx/vy init loop of stepSwarmW (reference copy), same seeded Math.random. Compares vx/vy of every food (Object.is) and draw count. Fault: throw at draw k.
+const fs=require('fs');const bin=process.argv[2]||'wasm/target-jsrnd/wasm32-unknown-unknown/release/ca2core.wasm';
+(async()=>{const mk=async(thr)=>{let n=0;const E=(await WebAssembly.instantiate(fs.readFileSync(bin),{env:{js_rnd:()=>{n++;if(thr&&n>thr)throw new Error('f');return Math.random()}}})).instance.exports;return{E,cnt:()=>n}};
+const {E}=await mk(0);
+function w(seed,f){let st=seed,n=0;const o=Math.random;Math.random=function(){n++;st=(st*1664525+1013904223)>>>0;return st/4294967296;};try{return{v:f(),n};}finally{Math.random=o;}}
+let s=11;const r0=()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};let tot=0,bad=0,drawBad=0,fresh=0;
+for(let t=0;t<30000;t++){const n=Math.floor(r0()*300),pf=[0,0.1,0.5,1][t%4];const food=[];for(let i=0;i<n;i++){const f={x:r0()*800,y:r0()*500,r:r0()};if(r0()>=pf){f.vx=(r0()-0.5)*0.4;f.vy=(r0()-0.5)*0.4}food.push(f)}
+ const a=w(t*3+1,()=>{const o=food.map(f=>({vx:f.vx,vy:f.vy}));for(let i=0;i<n;i++){const f=o[i];if(f.vx===undefined){f.vx=(Math.random()-0.5)*0.4;f.vy=(Math.random()-0.5)*0.4}}return o});
+ const b=w(t*3+1,()=>{const pp=E.sw_in(n);const buf=new Float64Array(E.memory.buffer,pp,n*6+6);for(let i=0;i<n;i++){buf[i*6+2]=food[i].vx===undefined?NaN:food[i].vx;buf[i*6+3]=food[i].vy===undefined?0:food[i].vy}const c=E.sw_fresh(n);const o=[];for(let i=0;i<n;i++){const fr=food[i].vx===undefined;o.push({vx:fr?buf[i*6+2]:food[i].vx,vy:fr?buf[i*6+3]:food[i].vy})}return o});
+ tot++;fresh+=food.filter(f=>f.vx===undefined).length;let ok=a.n===b.n;if(!ok)drawBad++;for(let i=0;i<n&&ok;i++)if(!(Object.is(a.v[i].vx,b.v[i].vx)&&Object.is(a.v[i].vy,b.v[i].vy)))ok=false;if(!ok){bad++;if(bad<4)console.log('MISMATCH',t,a.n,b.n)}}
+let fT=0,fB=0;for(let k=1;k<=40;k++){const f=await mk(k);let th=false;try{w(9,()=>{const pp=f.E.sw_in(30);const buf=new Float64Array(f.E.memory.buffer,pp,186);for(let i=0;i<30;i++)buf[i*6+2]=NaN;return f.E.sw_fresh(30)})}catch(e){th=true}fT++;if(!(th&&f.cnt()===k+1)){fB++;if(fB<4)console.log("F",k,th,f.cnt())}}
+console.log(JSON.stringify({scenarios:tot,freshFood:fresh,mismatch:bad,drawCountMismatch:drawBad,faultCases:fT,faultBad:fB,binary:bin}));process.exit(bad||fB?1:0)})();

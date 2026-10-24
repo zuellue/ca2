@@ -1606,7 +1606,13 @@
     try {
       var n = food.length, i, f, b, x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h, ar = cont.w * cont.h * P.foodDensity;
       var ip = E.sw_in(n), buf = new Float64Array(WC.mem.buffer, ip, n * 6 + 6);
-      for (i = 0; i < n; i++) { f = food[i]; if (f.vx === undefined) { f.vx = (Math.random() - 0.5) * 0.4; f.vy = (Math.random() - 0.5) * 0.4; } b = i * 6; buf[b] = f.x; buf[b + 1] = f.y; buf[b + 2] = f.vx; buf[b + 3] = f.vy; buf[b + 4] = f.r; }
+      var swf = WC.jsrnd && E.sw_fresh && !WC.swFOff, swn0 = WC.rndN || 0, swFd = false;
+      if (swf) { // jsrnd spike: Rust draws vx/vy of fresh food (NaN-packed) through env.js_rnd in index order. Fault: draws consumed -> no redraw, the not-yet-initialised food keeps vx = vy = 0 (degraded, WC.swDeg); none consumed -> JS init below.
+        for (i = 0; i < n; i++) { f = food[i]; b = i * 6; buf[b] = f.x; buf[b + 1] = f.y; buf[b + 2] = f.vx === undefined ? NaN : f.vx; buf[b + 3] = f.vy; buf[b + 4] = f.r; }
+        try { E.sw_fresh(n); swFd = true; WC.swF = (WC.swF || 0) + 1; } catch (e2) { WC.swFOff = true; WC.swFErr = String(e2); if ((WC.rndN || 0) !== swn0) { swFd = true; WC.swDeg = (WC.swDeg || 0) + 1; } }
+        if (swFd) { buf = new Float64Array(WC.mem.buffer, ip, n * 6 + 6); for (i = 0; i < n; i++) { f = food[i]; b = i * 6; if (f.vx === undefined) { f.vx = buf[b + 2] === buf[b + 2] ? buf[b + 2] : 0; f.vy = buf[b + 3] === buf[b + 3] && buf[b + 2] === buf[b + 2] ? buf[b + 3] : 0; } buf[b + 2] = f.vx; buf[b + 3] = f.vy; } }
+      }
+      if (!swFd) for (i = 0; i < n; i++) { f = food[i]; if (f.vx === undefined) { f.vx = (Math.random() - 0.5) * 0.4; f.vy = (Math.random() - 0.5) * 0.4; } b = i * 6; buf[b] = f.x; buf[b + 1] = f.y; buf[b + 2] = f.vx; buf[b + 3] = f.vy; buf[b + 4] = f.r; }
       var life = performance.now() - swT >= P.foodLifeMs * 2;
       var m = E.sw_run(n, x0, x1, y0, y1, life ? 1 : 0, n < ar ? 1 : 0, ar * 0.1, Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
       if (m < 0) return false;
