@@ -823,7 +823,7 @@
         var rv = function () { if (!rm || rm.buffer.byteLength === 0) { rb = new Float64Array(WC.mem.buffer, rbp, rcap); rm = new Uint32Array(WC.mem.buffer, rmp, 2); } }; // re-view after memory growth detaches
         WC.rndFill = function () { rv(); for (var i = 0; i < rcap; i++) rb[i] = rndH.base(); rm[0] = 0; rm[1] = rcap; WC.rndFills = (WC.rndFills || 0) + 1; };
         rndH.base = Math.random.bind(Math); // the real (or harness-seeded) stream; the override below routes every consumer through the buffer
-        Math.random = function () { rv(); if (rm[0] === rm[1]) { WC.rndFill(); rv(); } return rb[rm[0]++]; };
+        Math.random = function () { rv(); if (rm[0] === rm[1]) { WC.rndFill(); rv(); } window.__popsJS = (window.__popsJS || 0) + 1; return rb[rm[0]++]; };
       }
       WC.ok = true; // set last: a jsrnd2 glue/binary mismatch throws above and stays on the JS fallback
     }).catch(function (e) { WC.err = String(e); });

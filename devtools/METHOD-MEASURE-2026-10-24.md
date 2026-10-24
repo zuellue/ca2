@@ -47,31 +47,36 @@ Derived (within-process deltas):
 - Live gate (t-jsrnd-batch-live.js): seeded Math.random, stubbed clock, manually stepped raf,
   network-off, autoQuality=0, 120 frames each, boot aligned (wasm pre-loaded before frame 1):
   A=?jsrnd=1 vs B=?jsrnd=2 projected state (cells+food primitives + P + event counters + consumed draws).
-  Result 2026-10-24: MISMATCH, systematic and under diagnosis, NOT a transport failure signature:
-  identical serialization length (147587), identical cell/food counts, but B consumed exactly 2160
-  FEWER draws than A in two independent boots (different worlds, same delta), and the state hash
-  differs. Decomposition: the delta is on the JS side (A JS draws 1,064,474 vs B 1,062,314 at
-  120 frames = 18/frame). rndN A=69,543 vs 0 (by design), fills B=139, no page errors either leg.
-  A constant per-frame JS-draw class behaves differently under the Math.random override; suspect
-  is a JS draw site whose call pattern changes when Math.random is replaced (under investigation:
-  pop-by-origin counter + raw-state diff). The node gate above (fixed packed state, aligned
-  streams) is byte-equal over 120 steps on both SIMD and nonSIMD, so the transport itself is
-  proven; the live mismatch is in the page-integration layer (override interaction), not in
-  rndbatch::next.
+  Result 2026-10-24 (final): LIVE-BYTE-EQUAL. Hash 3546837131 both legs, serialization length
+  147587 both, cells 222/222, food 0/0, consumed 1,134,017 both, fills B=139, rndN A=69,543 vs
+  B=0 (by design), fb=9 both (blocked font/net fetches), no page errors.
+  The earlier "mismatch" was a METRIC artifact in the gate, not a world fork: B's pre-override
+  boot draws (2,160: grain texture init etc. drawn directly from the seeded stub before the
+  Math.random override installs) were not counted in the first consumed formula. Per-frame
+  diagnosis (t-jsrnd-diag.js): wasmA==wasmB draw-for-draw every frame, cells/food equal every
+  frame, and the JS-side delta constant from frame 0 (boot-only). Corrected metric:
+  consumed = pops + (__draws - fills*cap), i.e. buffer pops plus pre-override direct draws
+  (base/fill draws are transport, not consumption). With that, the live page is byte-equal too.
 
-## Live frame numbers (headless SwiftShader, NOT device numbers)
+## Live frame numbers (headless SwiftShader, NOT device numbers; relative within-run only)
 Not measurable under the determinism fixture: the stubbed clock makes intra-frame deltas 0 by
-construction. A free-running (unstubbed) live stat run is a separate follow-up; not measured.
+construction. Measured free-running instead (t-jsrnd-perf-live.js: real clock/raf, autoQuality=0,
+~20 s per leg, page's own exp-avg stage stats, ms/frame):
+  A ?jsrnd=1:  pack 0.566  step 0.505  js 3.172  SIMW.ms 2.117  (rndN 15,921, fills 0)
+  B ?jsrnd=2:  pack 0.086  step 0.278  js 3.702  SIMW.ms 0.444  (rndN 0, fills 2)
+  C default:   pack 0.099  step 0.286  (SIMW.js not populated on the no-jsrnd path; world not
+               comparable: no determinism fixture, real Math.random, worlds diverge)
+M2 cuts the wasm-adjacent stage costs vs M1 (pack -85%, step -45%, SIMW.ms -79% in this run);
+the B js-stage number includes the Math.random-override dispatch. Headless software raster,
+single sandbox box: direction is the evidence, not the absolute ms. Device numbers: not measured (headless sandbox only).
 
 ## Choice
-M2 (rndbatch, ?jsrnd=2), with one open integration item: the live-page Math.random-override
-interaction above must be understood (and the live gate made byte-equal) before jsrnd=2 is
-treated as behavior-preserving on the live page. The measurement choice itself stands on the
-node numbers. Exact global Math.random order preserved (byte-proven node + live),
-strictly faster than M1 at both measured scales, no per-draw crossings for present or future
-kernels, JS fallback path untouched, default binaries untouched (all changes are
-cfg(feature jsrnd/jsrndbatch)-gated; no-feature build of this source measures 43.0-43.5 us =
-shipped default within noise).
+M2 (rndbatch, ?jsrnd=2). Exact global Math.random order preserved, byte-proven on node (120
+steps, SIMD + nonSIMD) AND on the live page (120 frames, projected world state + consumed-draw
+count identical). Strictly faster than M1 at both measured node scales and on the free-running
+live stage stats. No per-draw crossings for present or future kernels. JS fallback path
+untouched, default binaries untouched (all changes cfg(feature jsrnd/jsrndbatch)-gated;
+no-feature build of this source measures 43.0-43.5 us = shipped default within noise).
 
 ## Not changed / not claimed
 - M0 (kernel PRNG) remains the production default; this branch changes no default binary.
