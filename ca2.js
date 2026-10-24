@@ -1625,7 +1625,7 @@
   function newBlob(x, y) { var b = { x: x, y: y, vx: 0, vy: 0, r: 8 + Math.random() * 10, ph: Math.random() * 6.28, w: 0.3 + Math.random() * 0.6, d: [] }; for (var k = 0; k < 4; k++) addBlobDot(b); blobs.push(b); blobStat.born++; return b; }
   function addBlobDot(b) { var f = { x: b.x, y: b.y, r: Math.random(), a: Math.random() * 6.28, f: 0.5 + Math.random() * 1.5, q: Math.random() * 6.28, blob: b }; b.d.push(f); food.push(f); }
   function stepBlobsPassW(tt, x0, y0, x1, y1) { // Rust/wasm blob per-frame pass (fd2.rs); returns false so the JS loop below runs (?nowasm=1, ?nosim=1)
-    var E = WC.e; if (!E || !E.fb_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
+    var E = WC.e; if (!E || !E.fb_run || WC.fbRunOff || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
     try {
       var nb = blobs.length, nd = 0, i, k, b, f;
       for (i = 0; i < nb; i++) nd += blobs[i].d.length;
@@ -1634,7 +1634,10 @@
       var j = 0;
       for (i = 0; i < nb; i++) { b = blobs[i]; bb[i * 7] = b.x; bb[i * 7 + 1] = b.y; bb[i * 7 + 2] = b.vx; bb[i * 7 + 3] = b.vy; bb[i * 7 + 4] = b.r; bb[i * 7 + 5] = b.ph; bb[i * 7 + 6] = b.w;
         for (k = 0; k < b.d.length; k++) { f = b.d[k]; db[j * 6] = f.a; db[j * 6 + 1] = f.f; db[j * 6 + 2] = f.q; db[j * 6 + 3] = i; j++; } }
-      if (E.fb_run(nb, nd, tt, x0, y0, x1, y1, Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296)) < 0) return false;
+      var fbJ = !!(WC.jsrnd && E.fb_run_jsrnd), fbn0 = WC.rndN || 0, fbrc; // jsrnd spike: the kernel draws through env.js_rnd (real Math.random) in kernel order; no seed draws
+      try { fbrc = E.fb_run(nb, nd, tt, x0, y0, x1, y1, fbJ ? 0 : Math.floor(Math.random() * 4294967296), fbJ ? 0 : Math.floor(Math.random() * 4294967296)); }
+      catch (e3) { if (fbJ && (WC.rndN || 0) !== fbn0) { WC.fbRunOff = true; WC.fbRunDeg = (WC.fbRunDeg || 0) + 1; return true; } throw e3; } // fault after consumed draws: no redraw, this pass is skipped (degraded, WC.fbRunDeg); none consumed: rethrown -> JS loop
+      if (fbrc < 0) return false;
       j = 0;
       for (i = 0; i < nb; i++) { b = blobs[i]; b.x = bb[i * 7]; b.y = bb[i * 7 + 1]; b.vx = bb[i * 7 + 2]; b.vy = bb[i * 7 + 3];
         for (k = 0; k < b.d.length; k++) { f = b.d[k]; f.x = db[j * 6 + 4]; f.y = db[j * 6 + 5]; j++; } }

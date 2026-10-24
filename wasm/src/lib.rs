@@ -292,6 +292,7 @@ static mut SHT: [f64; 28] = [0.0; 28];
 #[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn sp_run_jsrnd() -> u32 { 1 }
 #[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn wm_run_jsrnd() -> u32 { 1 }
 #[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn sw_run_jsrnd() -> u32 { 1 }
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn fb_run_jsrnd() -> u32 { 1 }
 #[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn sw_fresh_flags(n: usize) -> *mut u8 { unsafe { let b = &mut *std::ptr::addr_of_mut!(SWFL); b.clear(); b.resize(n + 1, 0); b.as_mut_ptr() } }
 #[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn sw_fresh(n: usize) -> i32 {
     let s = swarm::sw(); let fl = unsafe { &*std::ptr::addr_of!(SWFL) }; let mut c = 0;
