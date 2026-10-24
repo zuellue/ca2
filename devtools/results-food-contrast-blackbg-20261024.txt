@@ -1,0 +1,3 @@
+{"test":"food-contrast-blackbg","scenario":"live-config_blackfood-on-blackbg","expected":"FAIL (bug reproduced: shipped ink == bg)","verdict":"FAIL","assertionFails":["dm.med 0 < 8","cr.med 1 < 1.2","below-threshold dots 98% > 50%"],"measured":{"n":2436,"dmMed":0,"crMed":1,"belowDm8Pct":97.4,"belowCr12Pct":97.6},"bar":{"dmMedMin":8,"crMedMin":1.2,"maxBelowThresholdFrac":0.5}}
+{"test":"food-contrast-blackbg","scenario":"fallback_f0f0f0-on-blackbg","expected":"PASS (measured visible pick, dm 240 / cr 18.43)","verdict":"PASS","assertionFails":[],"measured":{"n":4578,"dmMed":240,"crMed":18.427,"belowDm8Pct":0.1,"belowCr12Pct":0.2},"bar":{"dmMedMin":8,"crMedMin":1.2,"maxBelowThresholdFrac":0.5}}
+EXIT=1
