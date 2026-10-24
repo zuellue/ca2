@@ -593,9 +593,16 @@
     var pend = trans.pending, n = cells.length, i;
     if (pend.length && n > 0) {
       var kb = 1 - Math.exp(-dt * 3 / trans.dur), cnt = Math.min(pend.length, 1 + Math.floor(pend.length * kb * 2));
+      var cpr = WC.jsrnd && WC.e && WC.e.post_comp_parent && !postOffW(), cpb = null;
+      if (cpr) { var cpp = WC.e.post_cpar_buf(n); cpb = new Float64Array(WC.mem.buffer, cpp, n * 3); for (var ci = 0; ci < n; ci++) { var cq = cells[ci]; cpb[ci * 3] = cq.x; cpb[ci * 3 + 1] = cq.y; cpb[ci * 3 + 2] = cq.alive ? 1 : 0; } } // snapshot of the n cells existing now (the loop only probes indices < n; x/y/alive do not change inside it)
       for (i = 0; i < cnt; i++) {
-        var pt = pend.pop(), par = null, bd = 1e18;
-        for (var m = 0; m < 12; m++) { var q = cells[Math.floor(Math.random() * n)]; if (!q.alive) continue; var dd = (q.x - pt[0]) * (q.x - pt[0]) + (q.y - pt[1]) * (q.y - pt[1]); if (dd < bd) { bd = dd; par = q; } }
+        var pt = pend.pop(), par = null, bd = 1e18, cps = false;
+        if (cpr && !postOffW()) { // jsrnd spike: Rust decides + draws the 12 probes. Fault: draws consumed -> no redraw, this spawn is skipped (degraded); none consumed -> JS probe below.
+          var cpn0 = WC.rndN || 0;
+          try { var pi = WC.e.post_comp_parent(n, pt[0], pt[1]); par = pi >= 0 ? cells[pi] : null; cps = true; WC.cpP = (WC.cpP || 0) + 1; }
+          catch (e) { WC.postOff = true; WC.postErr = String(e); if ((WC.rndN || 0) !== cpn0) { WC.cpPDeg = (WC.cpPDeg || 0) + 1; continue; } }
+        }
+        if (!cps) for (var m = 0; m < 12; m++) { var q = cells[Math.floor(Math.random() * n)]; if (!q.alive) continue; var dd = (q.x - pt[0]) * (q.x - pt[0]) + (q.y - pt[1]) * (q.y - pt[1]); if (dd < bd) { bd = dd; par = q; } }
         if (!par) continue;
         var ch = new Cell(par.x + rnd(-2, 2), par.y + rnd(-2, 2), mutateGene(par.gene), clamp(par.mutationRate + rnd(-P.mutationRateRange, P.mutationRateRange), 0.5, 20));
         ch.g = mutGenome(par.g, P.genomeMut); ch.shp = newShape(par.shp); ch.maxSpeed = speedOf(ch); ch.radius = par.radius * 0.5; ch.dst = pt; ch.pace = rnd(0.5, 1.5); ch.dl = 0; ch.durK = rnd(0.5, 1); ch.bend = Math.random() < 0.25 ? 0 : rnd(-1, 1); cells.push(ch); ev.birth++;

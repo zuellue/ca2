@@ -401,3 +401,22 @@ pub extern "C" fn post_comp_points(gx: f64, gy: f64, tw: f64, th: f64, u: f64) -
         np as i32
     }
 }
+
+// compSpawns parent probe (jsrnd spike only): 12 draws floor(r*n) over a packed (x, y, alive) snapshot of the n cells that existed when the loop began; nearest alive to (px, py) by strict '<' from 1e18.
+// Returns the parent index, or -1 when no alive cell was hit. Snapshot buffer: post_cpar_buf(n) -> 3*n f64. The Cell ctor / newShape / mutGenome draws stay JS (body plan) and follow in the JS order.
+#[cfg(feature = "jsrnd")] static mut CPAR: Vec<f64> = Vec::new();
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn post_cpar_buf(n: usize) -> *mut f64 { unsafe { let b = &mut *std::ptr::addr_of_mut!(CPAR); b.resize(n * 3 + 1, 0.0); b.as_mut_ptr() } }
+#[cfg(feature = "jsrnd")] #[no_mangle]
+pub extern "C" fn post_comp_parent(n: usize, px: f64, py: f64) -> i32 {
+    unsafe {
+        let b = &*std::ptr::addr_of!(CPAR);
+        let nf = n as f64; let mut bd = 1e18f64; let mut par: i32 = -1;
+        for _ in 0..12 {
+            let k = (js_rnd(0) * nf).floor() as usize;
+            if b[k * 3 + 2] == 0.0 { continue; }
+            let dx = b[k * 3] - px; let dy = b[k * 3 + 1] - py; let dd = dx * dx + dy * dy;
+            if dd < bd { bd = dd; par = k as i32; }
+        }
+        par
+    }
+}
