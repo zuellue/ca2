@@ -17,18 +17,26 @@ pub fn pa() -> &'static mut Pa {
         s.as_mut().unwrap()
     }
 }
-fn hyp(x: f64, y: f64) -> f64 { (x * x + y * y).sqrt() }
+#[cfg(not(feature = "jsrnd"))] fn hyp(x: f64, y: f64) -> f64 { (x * x + y * y).sqrt() }
+#[cfg(feature = "jsrnd")] fn hyp(x: f64, y: f64) -> f64 { crate::circles::hypot2(x, y) } // JS Math.hypot
+#[cfg(not(feature = "jsrnd"))] fn fsin(x: f64) -> f64 { x.sin() }
+#[cfg(feature = "jsrnd")] fn fsin(x: f64) -> f64 { crate::fdm::sin(x) } // V8 fdlibm sin
+#[cfg(not(feature = "jsrnd"))] fn fcos(x: f64) -> f64 { x.cos() }
+#[cfg(feature = "jsrnd")] fn fcos(x: f64) -> f64 { crate::fdm::cos(x) }
+#[cfg(feature = "jsrnd")] #[link(wasm_import_module = "env")] extern "C" { fn js_rnd(line: u32) -> f64; }
 fn lerp(a: f64, b: f64, t: f64) -> f64 { a + (b - a) * t }
 impl Pa {
     fn r01(&mut self) -> f64 {
+        #[cfg(feature = "jsrnd")] { return unsafe { js_rnd(7) }; } // jsrnd spike: the real Math.random stream
+        #[allow(unreachable_code)]
         let (mut x, y) = (self.s0, self.s1);
         self.s0 = y; x ^= x << 23; self.s1 = x ^ y ^ (x >> 17) ^ (y >> 26);
         ((self.s1.wrapping_add(y)) >> 11) as f64 * (1.0 / 9007199254740992.0)
     }
     #[allow(clippy::too_many_arguments)]
     pub fn step(&mut self, n: usize, m: usize, now: f64, on: bool, frac: f64, sight: f64, nerv: f64, drain: f64, eff: f64, hard: f64, hard_ms: f64, s0: f64, s1: f64) -> i64 {
-        self.s0 = ((s0 as u64) << 32) | 0x9E3779B9; self.s1 = ((s1 as u64) << 32) | 0x85EBCA6B;
-        for _ in 0..8 { self.r01(); }
+        #[cfg(not(feature = "jsrnd"))] { self.s0 = ((s0 as u64) << 32) | 0x9E3779B9; self.s1 = ((s1 as u64) << 32) | 0x85EBCA6B; for _ in 0..8 { self.r01(); } }
+        #[cfg(feature = "jsrnd")] { let _ = (s0, s1); }
         self.stat = [0.0; 4]; self.po.clear();
         if self.ci.len() < n * 5 || self.en.len() < n || self.pi.len() < m * 9 + 14 { return -1; }
         if !on || n == 0 { return 0; } // JS: parasites.length = 0
@@ -113,7 +121,7 @@ impl Pa {
                 if !(a <= -1e9 && a > -2e9) && best >= 0 { // cooling parasites behave normally, only the cursor is off-limits
                     let b = best as usize * 5;
                     let dd = bd.sqrt().max(1e-9); let dd = if bd.sqrt() == 0.0 { 1.0 } else { dd };
-                    let osc = (tt * (2.0 + 2.0 * nerv) + ph).sin();
+                    let osc = fsin(tt * (2.0 + 2.0 * nerv) + ph);
                     let want = self.ci[b + 2] * (1.1 + 0.5 * nerv * (1.0 + osc));
                     let dir = if dd > want { 1.0 } else { -0.6 * nerv };
                     let sp = (6.0f64).min((1.2f64).max(dd * 0.08)) * (1.0 + 0.5 * nerv * osc);
@@ -127,10 +135,10 @@ impl Pa {
                 if e > 12.0 && (ps.len() as f64) < n as f64 * 0.8 + 3.0 { ps[i as usize][2] /= 2.0; ps.push([x, y, e / 2.0, host, self.r01() * 6.2832, 0.0, 0.0, -1e18, -1e18, -1.0]); self.stat[1] += 1.0; }
             } else {
                 let h = host as usize; let b = h * 5;
-                let nvr = 0.85 + 0.2 * nerv * (now / 400.0 + ph0).sin();
-                let tx = self.ci[b] + a.cos() * self.ci[b + 2] * nvr;
-                let ty = self.ci[b + 1] + a.sin() * self.ci[b + 2] * nvr;
-                a += 0.01 + 0.03 * nerv * (now / 700.0 + ph0).sin();
+                let nvr = 0.85 + 0.2 * nerv * fsin(now / 400.0 + ph0);
+                let tx = self.ci[b] + fcos(a) * self.ci[b + 2] * nvr;
+                let ty = self.ci[b + 1] + fsin(a) * self.ci[b + 2] * nvr;
+                a += 0.01 + 0.03 * nerv * fsin(now / 700.0 + ph0);
                 x = lerp(x, tx, 0.5); y = lerp(y, ty, 0.5);
                 let crowd = (pc[h] - 1.0).max(0.0);
                 let dr = drain * (0.4 + self.en[h].min(20.0) * 0.03) / (1.0 + 0.4 * crowd);

@@ -1949,7 +1949,7 @@
   }
   var parStat = { rehost: 0 };
   function stepParasitesW() { // Rust/wasm parasite step (parasites.rs); returns false when unavailable so the JS body below runs (?nowasm=1, ?nosim=1, ?nofoodwasm=1)
-    var E = WC.e; if (!E || !E.pa_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1|nofoodwasm=1/.test(location.search)) return false;
+    var E = WC.e; if (!E || !E.pa_run || WC.paRunOff || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1|nofoodwasm=1/.test(location.search)) return false;
     try {
       if (!P.parasiteOn || !cells.length) { parasites.length = 0; return true; }
       var n = cells.length, m = parasites.length, i, c, p, b;
@@ -1958,7 +1958,7 @@
       var hidx = {};
       for (i = 0; i < n; i++) { c = cells[i]; c._pi = i; b = i * 5; ci[b] = c.x; ci[b + 1] = c.y; ci[b + 2] = c.radius; ci[b + 3] = c.cl || 0; ci[b + 4] = c.alive ? 1 : 0; en[i] = c.energy; }
       for (i = 0; i < m; i++) { p = parasites[i]; b = i * 9; pi[b] = p.x; pi[b + 1] = p.y; pi[b + 2] = p.e; // a spliced host keeps a stale _pi: validate identity before packing
-      pi[b + 3] = (p.host && p.host.alive && cells[p.host._pi] === p.host) ? p.host._pi : -1; pi[b + 4] = p.a; pi[b + 5] = p.ph || 0; pi[b + 6] = p.lost || 0;
+      pi[b + 3] = (p.host && p.host.alive && cells[p.host._pi] === p.host) ? p.host._pi : -1; pi[b + 4] = p.a; pi[b + 5] = p.ph || 0; pi[b + 6] = (WC.jsrnd && E.pa_run_jsrnd && p.host && !p.host.alive) ? performance.now() : (p.lost || 0); // jsrnd: JS body sets lost = now when the host died (the kernel only sees host -1)
       pi[b + 7] = p.clx == null ? -1e18 : p.clx; pi[b + 8] = p.cly == null ? -1e18 : p.cly; }
       var tb2 = m * 9; // cursor-mistake tail (parasites.rs): mouse, params, plate rect
       pi[tb2] = mouse.x; pi[tb2 + 1] = mouse.y; pi[tb2 + 2] = mouse.over ? 1 : 0; pi[tb2 + 3] = P.parasiteCursorOn ? 1 : 0;
@@ -1966,7 +1966,9 @@
       pi[tb2 + 7] = cont.x; pi[tb2 + 8] = cont.y; pi[tb2 + 9] = cont.w; pi[tb2 + 10] = cont.h; pi[tb2 + 11] = P.parasiteCursorR; pi[tb2 + 12] = P.parasiteCursorCooldown || 0;
       pi[tb2 + 13] = P.parasiteCursorRearm == null ? 60 : P.parasiteCursorRearm;
       var now = performance.now();
-      var q = E.pa_run(n, m, now, 1, P.parasiteFrac, P.parasiteSight, P.parasiteNerv, P.parasiteDrain, P.parasiteEff, P.parasiteHard, P.parasiteHardMs, Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
+      var paJ = !!(WC.jsrnd && E.pa_run_jsrnd), pan0 = WC.rndN || 0, q; // jsrnd spike: the kernel draws through env.js_rnd (real Math.random) in kernel order; no seed draws
+      try { q = E.pa_run(n, m, now, 1, P.parasiteFrac, P.parasiteSight, P.parasiteNerv, P.parasiteDrain, P.parasiteEff, P.parasiteHard, P.parasiteHardMs, paJ ? 0 : Math.floor(Math.random() * 4294967296), paJ ? 0 : Math.floor(Math.random() * 4294967296)); }
+      catch (e7) { if (paJ && (WC.rndN || 0) !== pan0) { WC.paRunOff = true; WC.paRunDeg = (WC.paRunDeg || 0) + 1; return true; } throw e7; } // fault after consumed draws: no redraw, step skipped (degraded, WC.paRunDeg; cell energies not written back); none consumed: rethrown -> JS body
       if (q < 0) return false;
       for (i = 0; i < n; i++) cells[i].energy = en[i];
       var po = new Float64Array(WC.mem.buffer, E.pa_out(), q * 10), st = new Float64Array(WC.mem.buffer, E.pa_stat(), 4), out = new Array(q);
