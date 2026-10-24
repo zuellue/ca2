@@ -137,3 +137,10 @@ Seed 12345, 10 s, a and b per condition (counters and whole-trace sha256 identic
 | cand nowasm | 80 | 26 | 33 | 31 | 179 | 123 | 125 | 92 |
 Seed 7 so far (a only): main wasm 14/12/10/36/162/79/78; main nowasm 13/2/5/21/123/52/43.
 Reading: no consistent wasm-vs-JS direction (cand wasm < cand JS, main wasm > main JS), and main JS vs cand JS differs by 6 vs 80 merges, so ca2.js differences or unmirrored RNG start dominate; no isolated wasm effect, no percentage, no parity claim. One seed so far.
+
+## 2026-10-24 07:14 matrix update (a runs only for seeds 7/21/99; seed 99 candjs pending)
+merge/fuse/pair/eaten/birth/death/divide, 600 sample steps, 10 s fake clock:
+seed 7: main wasm 14/12/10/36/162/79/78; main nowasm 13/2/5/21/123/52/43; cand wasm 8/3/1/24/161/90/72; cand nowasm 81/39/29/23/156/124/85
+seed 21: main wasm 9/2/7/9/32/24/32; main nowasm 20/6/4/9/61/32/54; cand wasm 78/21/29/33/152/120/102; cand nowasm 57/18/22/40/158/104/60
+seed 99: main wasm 26/5/7/19/86/44/60; main nowasm 33/14/19/41/117/83/45; cand wasm 15/5/10/12/83/83/81; cand nowasm pending
+No repeat (b) for seeds 7/21/99. No consistent wasm-vs-JS direction across seeds or builds; whole-build confound; no parity or causal claim.
