@@ -83,3 +83,32 @@ no-feature build of this source measures 43.0-43.5 us = shipped default within n
 - M2 is a transport change only; world evolution given the same stream is byte-identical to M1
   (proven), NOT to a JS-fallback world (the known ulp-drift of the wasm port is unchanged, separate lane).
 - Device (real iPhone/desktop GPU) frame numbers: not measured here (headless sandbox only).
+
+## MULT=8 follow-up (card 20261024-372-ca, measured 2026-10-24)
+Same script (devtools/t-cost-fixture2.js), same captured fixture, same method as the table above:
+medians of 3 interleaved reps x 3000 steps in ONE process, node v22.23.3, this sandbox CPU.
+MULT=8 = 440 cells, ~3413 draws/step (synthetic scale-up; rndbatch fills/step 0.4167 on the
+8192-entry buffer, matching 3413/8192). Branch ca-method-measure @ f3dd18b8, binaries as
+committed on that branch.
+
+| method | MULT=8 (440 cells, ~3413 draws/step, synthetic scale-up) |
+|---|---|
+| M0 default nonSIMD | 1509.9 |
+| M1 jsrnd nonSIMD | 1609.2 |
+| M2 rndbatch nonSIMD | 1633.3 |
+| M0 default SIMD | 1620.2 |
+| M1 jsrnd SIMD | 1611.5 |
+| M2 rndbatch SIMD | 1647.3 |
+
+Derived (within-process deltas):
+- M1 crossing overhead vs M0: +99 us (nonSIMD). The M0 SIMD row was bimodal in this run
+  (p10 1504-1515 vs medians 1616-1621 across reps), so the SIMD M1-vs-M0 delta (-9 us) is
+  not reliable and is not used.
+- M2 vs M1: +24 us (nonSIMD), +36 us (SIMD) - M2 is SLOWER than M1 at 440 cells. The
+  MULT=1..MULT=4 trend (M2 advantage growing with draw count) does NOT continue to MULT=8;
+  the crossover sits somewhere between 220 and 440 cells. Not further attributed.
+- Parity at this scale still exact: 120 steps, 0 mismatch steps, cell arrays + out arrays
+  byte-equal, draw counts equal per step, both SIMD and nonSIMD (t-cost-fixture2.js parity
+  gate at MULT=8).
+- Same process-drift caveat as above: only within-process comparisons are used; this run's
+  absolute numbers are ~1.5 ms/step class on this sandbox CPU, not device numbers.

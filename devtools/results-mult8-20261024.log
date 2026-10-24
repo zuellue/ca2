@@ -1,0 +1,21 @@
+{"rep":0,"name":"default-shipped-nonSIMD","usMed":1509.897,"usP10":1501.697,"usP90":1531.4,"jsRndCalls":0,"fillsPerStep":0,"callsPerStep":0,"n":440}
+{"rep":0,"name":"jsrnd-nonSIMD","usMed":1611.663,"usP10":1597.198,"usP90":1640.339,"jsRndCalls":3405,"fillsPerStep":0,"callsPerStep":3413.3,"n":440}
+{"rep":0,"name":"jsrndbatch-nonSIMD","usMed":1629.767,"usP10":1607.78,"usP90":1656.185,"jsRndCalls":0,"fillsPerStep":0.4167,"callsPerStep":0,"n":440}
+{"rep":0,"name":"default-shipped-SIMD","usMed":1616.536,"usP10":1515.293,"usP90":1628.485,"jsRndCalls":0,"fillsPerStep":0,"callsPerStep":0,"n":440}
+{"rep":0,"name":"jsrnd-SIMD","usMed":1617.068,"usP10":1602.276,"usP90":1644.877,"jsRndCalls":3366,"fillsPerStep":0,"callsPerStep":3413.5,"n":440}
+{"rep":0,"name":"jsrndbatch-SIMD","usMed":1638.02,"usP10":1615.327,"usP90":1663.693,"jsRndCalls":0,"fillsPerStep":0.4167,"callsPerStep":0,"n":440}
+{"rep":1,"name":"default-shipped-nonSIMD","usMed":1515.683,"usP10":1503.392,"usP90":1526.035,"jsRndCalls":0,"fillsPerStep":0,"callsPerStep":0,"n":440}
+{"rep":1,"name":"jsrnd-nonSIMD","usMed":1607.039,"usP10":1593.091,"usP90":1636.054,"jsRndCalls":3448,"fillsPerStep":0,"callsPerStep":3413.1,"n":440}
+{"rep":1,"name":"jsrndbatch-nonSIMD","usMed":1633.276,"usP10":1612.221,"usP90":1660.913,"jsRndCalls":0,"fillsPerStep":0.4167,"callsPerStep":0,"n":440}
+{"rep":1,"name":"default-shipped-SIMD","usMed":1620.188,"usP10":1505.783,"usP90":1633.02,"jsRndCalls":0,"fillsPerStep":0,"callsPerStep":0,"n":440}
+{"rep":1,"name":"jsrnd-SIMD","usMed":1611.5,"usP10":1596.498,"usP90":1654.098,"jsRndCalls":3500,"fillsPerStep":0,"callsPerStep":3413.4,"n":440}
+{"rep":1,"name":"jsrndbatch-SIMD","usMed":1660.834,"usP10":1632.465,"usP90":1703.769,"jsRndCalls":0,"fillsPerStep":0.4167,"callsPerStep":0,"n":440}
+{"rep":2,"name":"default-shipped-nonSIMD","usMed":1505.873,"usP10":1498.013,"usP90":1601.197,"jsRndCalls":0,"fillsPerStep":0,"callsPerStep":0,"n":440}
+{"rep":2,"name":"jsrnd-nonSIMD","usMed":1609.21,"usP10":1594.192,"usP90":1634.152,"jsRndCalls":3442,"fillsPerStep":0,"callsPerStep":3413.2,"n":440}
+{"rep":2,"name":"jsrndbatch-nonSIMD","usMed":1635.48,"usP10":1613.419,"usP90":1663.781,"jsRndCalls":0,"fillsPerStep":0.4167,"callsPerStep":0,"n":440}
+{"rep":2,"name":"default-shipped-SIMD","usMed":1621.441,"usP10":1504.414,"usP90":1633.453,"jsRndCalls":0,"fillsPerStep":0,"callsPerStep":0,"n":440}
+{"rep":2,"name":"jsrnd-SIMD","usMed":1605.581,"usP10":1592.385,"usP90":1624.183,"jsRndCalls":3336,"fillsPerStep":0,"callsPerStep":3413.3,"n":440}
+{"rep":2,"name":"jsrndbatch-SIMD","usMed":1647.328,"usP10":1621.793,"usP90":1677.06,"jsRndCalls":0,"fillsPerStep":0.4167,"callsPerStep":0,"n":440}
+PARITY-nonSIMD {"steps":120,"mismatchSteps":0,"firstDiffStep":-1}
+PARITY-SIMD {"steps":120,"mismatchSteps":0,"firstDiffStep":-1}
+DONE
