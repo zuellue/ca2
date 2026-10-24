@@ -17,3 +17,5 @@ candjs-a seed 21: 1 trace; "merge":57,"fuse":18,"pair":22,"eaten":40,"birth":158
 main-a seed 99: 1 trace; "merge":26,"fuse":5,"pair":7,"eaten":19,"birth":86,"death":44,"divide":60
 mainjs-a seed 99: 1 trace; "merge":33,"fuse":14,"pair":19,"eaten":41,"birth":117,"death":83,"divide":45
 cand-a seed 99: 1 trace; "merge":15,"fuse":5,"pair":10,"eaten":12,"birth":83,"death":83,"divide":81
+candjs-a seed 99: 1 trace; "merge":84,"fuse":47,"pair":54,"eaten":28,"birth":148,"death":117,"divide":65
+DONE

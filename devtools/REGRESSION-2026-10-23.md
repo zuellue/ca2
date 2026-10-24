@@ -144,3 +144,7 @@ seed 7: main wasm 14/12/10/36/162/79/78; main nowasm 13/2/5/21/123/52/43; cand w
 seed 21: main wasm 9/2/7/9/32/24/32; main nowasm 20/6/4/9/61/32/54; cand wasm 78/21/29/33/152/120/102; cand nowasm 57/18/22/40/158/104/60
 seed 99: main wasm 26/5/7/19/86/44/60; main nowasm 33/14/19/41/117/83/45; cand wasm 15/5/10/12/83/83/81; cand nowasm pending
 No repeat (b) for seeds 7/21/99. No consistent wasm-vs-JS direction across seeds or builds; whole-build confound; no parity or causal claim.
+
+## 2026-10-24 07:15 matrix complete (a runs, seeds 7/21/99) + binary-vintage isolation
+seed 99 cand nowasm: 84/47/54/28/148/117/65 (merge/fuse/pair/eaten/birth/death/divide). Seed 99 repeat (b): not run.
+Isolation: identical candidate ca2.js, wasm mode, binaries swapped from default a94dbf3f/bdd56ede (commit dda3ac5) to the previous commit ef11298 binaries c0cbec4f/09ff540e (pre fdm-full-range-default). Seeds 12345 and 7, 10 s, one run each: counters identical to cand wasm (14/5/4/11/53/37/52; 8/3/1/24/161/90/72) and TRACE sha256 identical (49f3a1be7c40, bef370498db6). So those two binary vintages do not differ in this fixture. This is NOT the main binary (da211141), and does not isolate a wasm-vs-JS effect. Raw: cmp-traces/cmp-old-a-*.
