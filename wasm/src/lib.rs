@@ -291,3 +291,9 @@ static mut SHT: [f64; 28] = [0.0; 28];
     for i in 0..n { if fl[i] != 0 { let b = i * 6; let vx = (unsafe { js_rnd(0) } - 0.5) * 0.4; let vy = (unsafe { js_rnd(0) } - 0.5) * 0.4; s.inb[b + 2] = vx; s.inb[b + 3] = vy; c += 1; } }
     c
 }
+
+#[cfg(feature = "jsrnd")] static mut CCI: [f64; 32] = [0.0; 32];
+#[cfg(feature = "jsrnd")] static mut CCO: [f64; 34] = [0.0; 34];
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn sim_cc_in() -> *mut f64 { unsafe { std::ptr::addr_of_mut!(CCI) as *mut f64 } }
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn sim_cc_out() -> *const f64 { unsafe { std::ptr::addr_of!(CCO) as *const f64 } }
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn sim_comp_child() -> i32 { unsafe { let a = *std::ptr::addr_of!(CCI); *std::ptr::addr_of_mut!(CCO) = sim::sim().comp_child(&a); } 1 }

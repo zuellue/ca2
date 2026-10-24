@@ -558,6 +558,40 @@ impl Sim {
         let rad = (a[13] * a[6]).max(1.0);
         [a[0], a[1], vx, vy, rad, 12.0, gene, sv, ms, spm, host, mr, gspd, gapp, gbnd, col[0], col[1], col[2], popd, life, sh[0], sh[1], sh[2], sh[3], sh[4], sh[5], sh[6], sh[7], sh[8]]
     }
+    /// compSpawns child: new Cell(par.x + rnd(-2,2), par.y + rnd(-2,2), mutateGene(par.gene), clamp(par.mr + rnd(-mrr,mrr), 0.5, 20)) + mutGenome(par.g) + newShape(par.shp) + pace/durK/bend,
+    /// exact JS draw order, draws through js_rnd (jsrnd only). Input a (see ca2.js hook): 0 px, 1 py, 2 pgene, 3 pmr, 4..9 pg[spd,app,bnd,c0,c1,c2], 10..18 pshape[9], 19 pradius, 21 GENE_MIN, 22 GENE_MAX, 23 genomeMut,
+    /// 24 mutationRateRange, 25 baseMaxSpeed, 26 maxSpeedVariation, 27 CELL_RADIUS (unused: radius = par.radius*0.5), 28 genomeOn, 29 cellLife, 30 cellLifeVar. Returns 34 fields.
+    #[cfg(feature = "jsrnd")]
+    pub fn comp_child(&mut self, a: &[f64]) -> [f64; 34] {
+        let (sg, sa, sb) = (self.p[P_GMUT], self.p[P_GMIN], self.p[P_GMAX]);
+        self.p[P_GMUT] = a[23]; self.p[P_GMIN] = a[21]; self.p[P_GMAX] = a[22];
+        let x = a[0] + self.rnd(-2.0, 2.0); let y = a[1] + self.rnd(-2.0, 2.0);
+        let gene = self.mutate_gene(a[2]);
+        let mr = clamp(a[3] + self.rnd(-a[24], a[24]), 0.5, 20.0);
+        // Cell(x, y, gene, mr) body, same order as hab_seed
+        let ang = self.rnd01() * 6.283185307; let (vx0, vy0) = (crate::fdm::cos(ang), crate::fdm::sin(ang));
+        let popd = 800.0 + self.rnd01() * (1300.0 - 800.0);
+        let sv = self.rnd(-1.0, 1.0);
+        let ms0 = (a[25] + sv * a[26]).max(0.0);
+        let (vx, vy) = (vx0 * ms0, vy0 * ms0);
+        let host = self.rnd01(); let spm = self.rnd(0.7, 2.3);
+        let kk = if gene > 2.0 { 0 } else if gene < -2.0 { 1 } else { 2 };
+        let mut cv = [0.12, 0.12, 0.12]; cv[kk] = 0.76;
+        let _gspd = 1.0 + self.rnd(-0.3, 0.3); let _gapp = self.rnd(0.05, 0.95); let _gbnd = 1.0 + self.rnd(-0.4, 0.4);
+        for k in 0..3 { let _ = cv[k] + self.rnd(0.0, 0.1); }
+        let _sh0 = self.new_shape(None);
+        let life = if a[29] > 0.0 { (a[29] * (1.0 + self.rnd(-a[30], a[30]))).max(1.0) } else { 0.0 };
+        // ch.g = mutGenome(par.g, P.genomeMut); ch.shp = newShape(par.shp); ch.maxSpeed = speedOf(ch)
+        let g2 = self.mut_genome([a[4], a[5], a[6], a[7], a[8], a[9]]);
+        let mut ps = [0.0f64; 9]; ps.copy_from_slice(&a[10..19]);
+        let sh = self.new_shape(Some(ps));
+        let ms = (a[25] + sv * a[26]).max(0.0) * if a[28] != 0.0 { g2[0] } else { 1.0 };
+        let rad = a[19] * 0.5;
+        let pace = self.rnd(0.5, 1.5); let dk = self.rnd(0.5, 1.0);
+        let bend = if self.rnd01() < 0.25 { 0.0 } else { self.rnd(-1.0, 1.0) };
+        self.p[P_GMUT] = sg; self.p[P_GMIN] = sa; self.p[P_GMAX] = sb;
+        [x, y, vx, vy, rad, 12.0, gene, sv, ms, spm, host, mr, g2[0], g2[1], g2[2], g2[3], g2[4], g2[5], popd, life, sh[0], sh[1], sh[2], sh[3], sh[4], sh[5], sh[6], sh[7], sh[8], pace, dk, bend, 0.0, 0.0]
+    }
     pub fn mix_shape_pub(&mut self, a: Option<Shp>, b: Option<Shp>) -> Shp { self.mix_shape(a, b) }
 }
 

@@ -622,6 +622,28 @@
     compSpawns(now, dt);
     return open;
   }
+  // compSpawns child: compChildJs = the original constructor sequence; compChildW (jsrnd spike) runs it in Rust (sim.comp_child) with draws through env.js_rnd in the same order.
+  // Fault: draws consumed -> null (no child, no redraw; degraded, WC.ccDeg); none consumed -> compChildJs. A parent whose shp is not a full shape object (wasm-born cell shell) uses the JS path.
+  function compChildJs(par, pt) {
+    var ch = new Cell(par.x + rnd(-2, 2), par.y + rnd(-2, 2), mutateGene(par.gene), clamp(par.mutationRate + rnd(-P.mutationRateRange, P.mutationRateRange), 0.5, 20));
+    ch.g = mutGenome(par.g, P.genomeMut); ch.shp = newShape(par.shp); ch.maxSpeed = speedOf(ch); ch.radius = par.radius * 0.5; ch.dst = pt; ch.pace = rnd(0.5, 1.5); ch.dl = 0; ch.durK = rnd(0.5, 1); ch.bend = Math.random() < 0.25 ? 0 : rnd(-1, 1);
+    return ch;
+  }
+  function compChildW(par, pt) {
+    var s = par.shp;
+    if (!(WC.jsrnd && !WC.cchOff && WC.e && WC.e.sim_comp_child && WC.ok && !WC.off && !WC.simOff && !/[?&]nosim=1/.test(location.search) && s && par.g && par.g.col && [s.t, s.asp, s.th, s.wig, s.wsp, s.sat, s.ph, s.ph2, s.dir, par.x, par.y, par.gene, par.mutationRate, par.radius, par.g.spd, par.g.app, par.g.bnd, par.g.col[0], par.g.col[1], par.g.col[2]].every(function (v) { return typeof v === 'number'; }))) return compChildJs(par, pt); // every input must be a number (undefined/NaN-from-undefined would diverge from the JS body)
+    var n0 = WC.rndN || 0;
+    try {
+      var hi = new Float64Array(WC.mem.buffer, WC.e.sim_cc_in(), 32);
+      hi.set([par.x, par.y, par.gene, par.mutationRate, par.g.spd, par.g.app, par.g.bnd, par.g.col[0], par.g.col[1], par.g.col[2], s.t, s.asp, s.th, s.wig, s.wsp, s.sat, s.ph, s.ph2, s.dir, par.radius, 0, P.GENE_MIN, P.GENE_MAX, P.genomeMut, P.mutationRateRange, P.baseMaxSpeed, P.maxSpeedVariation, P.CELL_RADIUS, P.genomeOn ? 1 : 0, P.cellLife, P.cellLifeVar]);
+      WC.e.sim_comp_child(); var o = new Float64Array(WC.mem.buffer, WC.e.sim_cc_out(), 34), ch = Object.create(Cell.prototype);
+      ch.x = o[0]; ch.y = o[1]; ch.vx = o[2]; ch.vy = o[3]; ch.radius = o[4]; ch.energy = o[5]; ch.gene = o[6]; ch.sv = o[7]; ch.maxSpeed = o[8]; ch.speedModifier = o[9]; ch.hostility = o[10]; ch.mutationRate = o[11]; ch.alive = true;
+      ch.g = { spd: o[12], app: o[13], bnd: o[14], col: [o[15], o[16], o[17]] }; ch.popD = o[18]; ch.life = o[19]; ch.cl = 0;
+      ch.shp = { t: o[20], asp: o[21], th: o[22], wig: o[23], wsp: o[24], sat: o[25], ph: o[26], ph2: o[27], dir: o[28] }; ch.bornAt = frameT || 0; ch.age = 0;
+      ch.dst = pt; ch.pace = o[29]; ch.dl = 0; ch.durK = o[30]; ch.bend = o[31];
+      WC.ccN = (WC.ccN || 0) + 1; return ch;
+    } catch (e) { WC.cchOff = true; WC.cchErr = String(e); if ((WC.rndN || 0) !== n0) { WC.ccDeg = (WC.ccDeg || 0) + 1; return null; } return compChildJs(par, pt); }
+  }
   function compSpawns(now, dt) { // pending composition births: parent search + Cell ctor stay JS (newShape/mutGenome are body-plan)
     var pend = trans.pending, n = cells.length, i;
     if (pend.length && n > 0) {
@@ -637,8 +659,7 @@
         }
         if (!cps) for (var m = 0; m < 12; m++) { var q = cells[Math.floor(Math.random() * n)]; if (!q.alive) continue; var dd = (q.x - pt[0]) * (q.x - pt[0]) + (q.y - pt[1]) * (q.y - pt[1]); if (dd < bd) { bd = dd; par = q; } }
         if (!par) continue;
-        var ch = new Cell(par.x + rnd(-2, 2), par.y + rnd(-2, 2), mutateGene(par.gene), clamp(par.mutationRate + rnd(-P.mutationRateRange, P.mutationRateRange), 0.5, 20));
-        ch.g = mutGenome(par.g, P.genomeMut); ch.shp = newShape(par.shp); ch.maxSpeed = speedOf(ch); ch.radius = par.radius * 0.5; ch.dst = pt; ch.pace = rnd(0.5, 1.5); ch.dl = 0; ch.durK = rnd(0.5, 1); ch.bend = Math.random() < 0.25 ? 0 : rnd(-1, 1); cells.push(ch); ev.birth++;
+        var ch = compChildW(par, pt); if (!ch) continue; cells.push(ch); ev.birth++;
       }
     }
   }
