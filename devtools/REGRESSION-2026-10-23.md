@@ -81,3 +81,8 @@ NOT done: hab/wing/circles large-argument parity against JS (only sepbody checke
 - foodSpot hook fault rule (03:58): env.js_rnd counted in WC.rndN; exception after >=1 consumed draw -> return null (no JS redraw), before any draw -> JS body. t-foodspot-fault: 1600 checks (588 faults after consumed draws, 400 before any draw), 0 mismatch, both jsrnd binaries. Real page not tested.
 - Fault rows are a separate class from parity: after consumed draws the hook skips the spawn (null) and sets postOff, NOT pure-JS semantics (cost: one skipped spawn + wasm food path off for the session). Next call after any fault: 988 checks, runs JS body, 0 wasm draws, equals pure JS, 0 bad.
 - reseedFood blob loop in Rust (post_reseed_blobs, jsrnd only, hook in ca2.js reseedFood). t-reseed-jsrnd: 600 scenarios, 63498 food dots, 0 mismatch (x,y,r Object.is, budget, born, total draw count) on both jsrnd binaries. FAULT=1 is a separate degraded class (not parity). Real page not run. Default binaries unchanged.
+- Same-page hook exercise (t-hook-page.js, headless Chrome, 30 s, 2026-10-24 04:26-04:28), NOT a behavior comparison:
+  - ?jsrnd=1&nosimd=1 default world: rsN=4, fsN=0 (foodSpot not called in default foodMode 2), postOff false, no page errors.
+  - ?jsrnd=1 SIMD default: rsN=5, fsN=0, postOff false, no errors.
+  - ?jsrnd=1&nosimd=1 with setKey foodMode=0, foodReseed=1: fsN=2448, rsN=5, postOff false, no errors.
+  - Pixel/behavior/statistics vs JS: ölçülmedi.
