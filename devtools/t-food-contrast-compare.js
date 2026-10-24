@@ -52,17 +52,22 @@ const MEAS=`
  const srv=await serve(port);
  let h=null,tag='';
  try{
-  h=await launch(port+1,'http://127.0.0.1:'+port+'/index.html',['--host-resolver-rules=MAP ca2-presets.middots.workers.dev 127.0.0.1']); // block the live global preset: it would override seeded P mid-run (applyG)
-  const seed={v:6,P:Object.assign({grain:grain?1.22:0,pixelRatio:1,autoQuality:0},Pov),bgTarget:bgT,bgIndex:0};
+  h=await launch(port+1,'http://127.0.0.1:'+port+'/index.html?nosim=1',['--host-resolver-rules=MAP ca2-presets.middots.workers.dev 127.0.0.1']); // nosim: force the JS food step so the seeded foodLifeMs gate applies (the wasm swarm runs its own life cadence); block the live global preset (async applyG overrides seeded P)
+  const seed={v:6,P:Object.assign({grain:grain?1.22:0,pixelRatio:1,autoQuality:0},Pov),bgTarget:bgT,bgIndex:0,autoRefresh:false}; // re-roll off: population is refilled deterministically below instead
   await h.send('Page.addScriptToEvaluateOnNewDocument',{source:"try{localStorage.removeItem('ca2.global');localStorage.setItem('ca2.config',"+JSON.stringify(JSON.stringify(seed))+");localStorage.setItem('ca2.config.m',"+JSON.stringify(JSON.stringify(seed))+")}catch(e){} // both stores: headless can boot in mobile store mode (pointer:coarse)"});
   await h.send('Page.reload');await h.sleep(1500);
   let up=false;
   for(let i=0;i<45&&!up;i++){up=await h.ev('!!window.__ca2');if(!up)await h.sleep(1000);}
   if(!up){console.log(JSON.stringify({scenario:name,status:'INVALID',why:'boot timeout (no __ca2 in 45s)'}));process.exit(3);}
   await h.sleep(10000); // intro + spawn settle (bg is seeded directly: bg=bgTarget at load)
+  await h.ev('window.__ca2.setKey("foodDensity",window.__ca2.P.foodDensity)'); // deterministic full refill: applyKey('foodDensity') tops food up to the density target NOW that the ink mask is ready (the boot refill runs before it and yields ~0 dots). Eating stays live; sampling finishes before grazing matters.
+  await h.sleep(800);
+
   const intro=await h.ev('window.__ca2.INTRO');
   const frames=[];
-  for(let f=0;f<3;f++){if(f)await h.sleep(600);const r=await h.ev(MEAS);frames.push(JSON.parse(r));}
+  // 6 frames over 3s: the accelerated re-roll (1-2s) guarantees a just-refilled full-population frame; the boot refill runs before the ink mask exists and yields ~0 dots
+  for(let f=0;f<6;f++){if(f)await h.sleep(600);const r=await h.ev(MEAS);frames.push(JSON.parse(r));}
+   
   const bgInfo=await h.ev('JSON.stringify({errs:window.__ca2?0:1})');
   const shot=require('path').join(__dirname,'evidence','food-contrast',name+'.png');await h.shot(shot);
   console.log(JSON.stringify({scenario:name,status:'OK',seed:{P:Pov,bgTarget:bgT,grain:grain},introMs:intro,frames:frames,pageErrs:h.errs.length,shot:shot}));
