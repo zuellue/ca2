@@ -1550,6 +1550,26 @@
     }
     reseedBudget -= spawned; foodStat.born += spawned;
   }
+  // food-life births: lifeBirthsJs is the original loop; lifeBirthsW (jsrnd spike) lets Rust decide the bounds and draw r through env.js_rnd, same candidate order.
+  // Fault: draws consumed -> keep the births already written, no redraw (degraded, WC.lbDeg); none consumed -> JS loop runs.
+  function lifeBirthsJs(counts, map, M, ox, oy, gs, x0, x1, y0, y1, out) {
+    var born = 0;
+    counts.forEach(function (n, kk) {
+      if (n === 3 && !map.has(kk)) { var ix2 = Math.floor(kk / M) - 20000, iy2 = (kk % M) - 20000, nx = ox + (ix2 + 0.5) * gs, ny = oy + (iy2 + 0.5) * gs; if (nx > x0 && nx < x1 && ny > y0 && ny < y1) { out.push({ x: nx, y: ny, r: Math.random() }); born++; } }
+    });
+    return born;
+  }
+  function lifeBirths(counts, map, M, ox, oy, gs, x0, x1, y0, y1, out) {
+    if (!(WC.jsrnd && WC.e && WC.e.post_life_births && !WC.lbOff && !postOffW() && ox === 0 && oy === 0)) return lifeBirthsJs(counts, map, M, ox, oy, gs, x0, x1, y0, y1, out);
+    var cand = [];
+    counts.forEach(function (n, kk) { if (n === 3 && !map.has(kk)) cand.push(Math.floor(kk / M) - 20000, (kk % M) - 20000); });
+    var m = cand.length / 2, n0 = WC.rndN || 0, E = WC.e, k = 0, deg = false;
+    try { var ip = E.post_lb_buf(m), ib = new Float64Array(WC.mem.buffer, ip, m * 2 + 2); for (var j = 0; j < cand.length; j++) ib[j] = cand[j]; k = E.post_life_births(m, gs, x0, x1, y0, y1); WC.lbN = (WC.lbN || 0) + 1; }
+    catch (e) { WC.lbOff = true; WC.lbErr = String(e); if ((WC.rndN || 0) === n0) return lifeBirthsJs(counts, map, M, ox, oy, gs, x0, x1, y0, y1, out); deg = true; WC.lbDeg = (WC.lbDeg || 0) + 1; k = E.post_lb_n(); }
+    var ob = new Float64Array(WC.mem.buffer, E.post_lb_out(), k * 3 + 3); // read after the calls that can grow memory
+    for (var q = 0; q < k; q++) out.push({ x: ob[q * 3], y: ob[q * 3 + 1], r: ob[q * 3 + 2] });
+    return k;
+  }
   function stepFood() {
     if (stepFoodW()) return;
     var i, f, x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h;
@@ -1565,9 +1585,7 @@
     map.forEach(function (ff) { for (dx = -1; dx <= 1; dx++) for (dy = -1; dy <= 1; dy++) if (dx || dy) { var kk = (ff.ix + dx + 20000) * M + (ff.iy + dy + 20000); counts.set(kk, (counts.get(kk) || 0) + 1); } });
     var out = [], died = 0, born = 0;
     map.forEach(function (ff, kk) { var n = counts.get(kk) || 0; if (n === 2 || n === 3) out.push(ff); else died++; });
-    counts.forEach(function (n, kk) {
-      if (n === 3 && !map.has(kk)) { var ix2 = Math.floor(kk / M) - 20000, iy2 = (kk % M) - 20000, nx = ox + (ix2 + 0.5) * gs, ny = oy + (iy2 + 0.5) * gs; if (nx > x0 && nx < x1 && ny > y0 && ny < y1) { out.push({ x: nx, y: ny, r: Math.random() }); born++; } }
-    });
+    var lbRes = lifeBirths(counts, map, M, ox, oy, gs, x0, x1, y0, y1, out); born += lbRes;
     // reseeding is the shared driver (reseedFood), run from the frame dispatch for every dot mode
     food = out; foodStat.born += born; foodStat.died += died; foodStat.steps++;
   }
@@ -1759,6 +1777,34 @@
       worms = outW; WC.fwWm = (WC.fwWm || 0) + 1; return true;
     } catch (e) { WC.fwWmErr = String(e && e.stack || e); return false; }
   }
+  // worm growth + fission: wormGrowSplitJs is the original loop; wormGrowSplit (jsrnd spike) lets Rust decide and draw (env.js_rnd) in the same worm order, JS applies the pushes/splices.
+  // Fault: draws consumed -> worms completed before the fault are applied, the rest skipped, no redraw (degraded, WC.wmDeg); none consumed -> JS loop runs.
+  function wormGrowSplitJs() {
+    var i, w;
+    for (i = worms.length - 1; i >= 0; i--) {
+        w = worms[i];
+        if (w.d.length < 16 && Math.random() < 0.45) { var tl = w.d[w.d.length - 1], nf = { x: tl.x, y: tl.y, r: Math.random(), worm: w }; w.d.push(nf); food.push(nf); }
+        if (w.d.length >= 9 && Math.random() < 0.3 && worms.length < 120) { // binary fission: the tail half walks away as its own worm
+          var half = Math.ceil(w.d.length / 2), tail = w.d.splice(half), nw2 = { x: tail[0].x, y: tail[0].y, a: rnd(6.2832), sp: rnd(0.25, 0.8), fr: rnd(0.6, 1.6), ph: rnd(6.2832), d: tail };
+          tail.forEach(function (f) { f.worm = nw2; }); worms.push(nw2); wormStat.split++; wormStat.born++;
+        }
+      }
+  }
+  function wormGrowSplit() {
+    if (!(WC.jsrnd && WC.e && WC.e.post_worm_step && !WC.wmOff && !postOffW())) return wormGrowSplitJs();
+    var E = WC.e, nw = worms.length, n0 = WC.rndN || 0, k = -1;
+    try { var ip = E.post_wm_buf(nw), ib = new Float64Array(WC.mem.buffer, ip, nw + 1); for (var j = 0; j < nw; j++) ib[j] = worms[j].d.length; k = E.post_worm_step(nw, nw); WC.wmN = (WC.wmN || 0) + 1; }
+    catch (e) { WC.wmOff = true; WC.wmErr = String(e); if ((WC.rndN || 0) === n0) return wormGrowSplitJs(); WC.wmDeg = (WC.wmDeg || 0) + 1; k = E.post_wm_n(); }
+    var ob = new Float64Array(WC.mem.buffer, E.post_wm_out(), nw * 7 + 7); // read after the calls that can grow memory
+    for (var c = 0; c < k; c++) {
+      var w = worms[nw - 1 - c], b = c * 7;
+      if (ob[b] === 1) { var tl = w.d[w.d.length - 1], nf = { x: tl.x, y: tl.y, r: ob[b + 1], worm: w }; w.d.push(nf); food.push(nf); }
+      if (ob[b + 2] === 1) {
+        var half = Math.ceil(w.d.length / 2), tail = w.d.splice(half), nw2 = { x: tail[0].x, y: tail[0].y, a: ob[b + 3], sp: ob[b + 4], fr: ob[b + 5], ph: ob[b + 6], d: tail };
+        tail.forEach(function (f) { f.worm = nw2; }); worms.push(nw2); wormStat.split++; wormStat.born++;
+      }
+    }
+  }
   function stepWorms() {
     if (stepWormsW()) return;
     var i, k, w, now = performance.now(), tt = now / 1000, x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h;
@@ -1780,14 +1826,7 @@
     }
     if (now - wormT >= P.foodLifeMs * 2) {
       wormT = now;
-      for (i = worms.length - 1; i >= 0; i--) {
-        w = worms[i];
-        if (w.d.length < 16 && Math.random() < 0.45) { var tl = w.d[w.d.length - 1], nf = { x: tl.x, y: tl.y, r: Math.random(), worm: w }; w.d.push(nf); food.push(nf); }
-        if (w.d.length >= 9 && Math.random() < 0.3 && worms.length < 120) { // binary fission: the tail half walks away as its own worm
-          var half = Math.ceil(w.d.length / 2), tail = w.d.splice(half), nw2 = { x: tail[0].x, y: tail[0].y, a: rnd(6.2832), sp: rnd(0.25, 0.8), fr: rnd(0.6, 1.6), ph: rnd(6.2832), d: tail };
-          tail.forEach(function (f) { f.worm = nw2; }); worms.push(nw2); wormStat.split++; wormStat.born++;
-        }
-      }
+      wormGrowSplit();
       var want = Math.round(cont.w * cont.h * P.foodDensity / 2 / 14), kk = Math.min(5, want - worms.length);
       for (k = 0; k < kk; k++) newWorm(x0 + Math.random() * cont.w, y0 + Math.random() * cont.h, 3 + Math.floor(Math.random() * 4));
     }

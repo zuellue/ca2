@@ -480,3 +480,47 @@ pub extern "C" fn post_cell_attrs(m: usize, dur: f64) -> i32 {
         m as i32
     }
 }
+// food-life birth step (jsrnd spike only): candidates (ix2, iy2) in JS counts.forEach order, already filtered n===3 && !map.has by JS (transport of the Map).
+// Rust decides (nx > x0 && nx < x1 && ny > y0 && ny < y1, nx = (ix+0.5)*gs) and draws r through env.js_rnd, one draw per accepted candidate, in candidate order. Output (x, y, r) triples; post_lb_n() = number written so far (valid after a fault too).
+#[cfg(feature = "jsrnd")] static mut LBI: Vec<f64> = Vec::new();
+#[cfg(feature = "jsrnd")] static mut LBO: Vec<f64> = Vec::new();
+#[cfg(feature = "jsrnd")] static mut LBN: usize = 0;
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn post_lb_buf(n: usize) -> *mut f64 { unsafe { let b = &mut *std::ptr::addr_of_mut!(LBI); b.clear(); b.resize(n * 2 + 2, 0.0); b.as_mut_ptr() } }
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn post_lb_out() -> *const f64 { unsafe { (*std::ptr::addr_of!(LBO)).as_ptr() } }
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn post_lb_n() -> usize { unsafe { LBN } }
+#[cfg(feature = "jsrnd")] #[no_mangle]
+pub extern "C" fn post_life_births(n: usize, gs: f64, x0: f64, x1: f64, y0: f64, y1: f64) -> i32 {
+    unsafe {
+        let i = &*std::ptr::addr_of!(LBI); let o = &mut *std::ptr::addr_of_mut!(LBO); o.clear(); o.resize(n * 3 + 3, 0.0); LBN = 0;
+        for k in 0..n {
+            let nx = 0.0 + (i[k * 2] + 0.5) * gs; let ny = 0.0 + (i[k * 2 + 1] + 0.5) * gs;
+            if nx > x0 && nx < x1 && ny > y0 && ny < y1 { let r = js_rnd(0); o[LBN * 3] = nx; o[LBN * 3 + 1] = ny; o[LBN * 3 + 2] = r; LBN += 1; }
+        }
+        LBN as i32
+    }
+}
+// worm growth + binary fission decisions (jsrnd spike only). Input: current segment count per worm, in worms[] index order (JS loops i from n-1 down to 0) and worms.length.
+// Per worm, JS order: if len<16 && draw<0.45 -> draw r, len+=1; then if len>=9 && draw<0.3 && wl<120 -> draws a(6.2832), sp(0.25..0.8), fr(0.6..1.6), ph(6.2832), wl+=1.
+// Output per visited worm (7 f64): grow, r, split, a, sp, fr, ph. post_wm_n() = completed worm records (valid after a fault too).
+#[cfg(feature = "jsrnd")] static mut WMI: Vec<f64> = Vec::new();
+#[cfg(feature = "jsrnd")] static mut WMO: Vec<f64> = Vec::new();
+#[cfg(feature = "jsrnd")] static mut WMN: usize = 0;
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn post_wm_buf(n: usize) -> *mut f64 { unsafe { let b = &mut *std::ptr::addr_of_mut!(WMI); b.clear(); b.resize(n + 1, 0.0); b.as_mut_ptr() } }
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn post_wm_out() -> *const f64 { unsafe { (*std::ptr::addr_of!(WMO)).as_ptr() } }
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn post_wm_n() -> usize { unsafe { WMN } }
+#[cfg(feature = "jsrnd")] #[no_mangle]
+pub extern "C" fn post_worm_step(n: usize, wl0: f64) -> i32 {
+    unsafe {
+        let inp = &*std::ptr::addr_of!(WMI); let o = &mut *std::ptr::addr_of_mut!(WMO); o.clear(); o.resize(n * 7 + 7, 0.0); WMN = 0;
+        let mut wl = wl0; let mut c = 0usize;
+        let mut i = n; while i > 0 { i -= 1;
+            let mut len = inp[i]; let b = c * 7;
+            if len < 16.0 && js_rnd(0) < 0.45 { o[b] = 1.0; o[b + 1] = js_rnd(0); len += 1.0; }
+            if len >= 9.0 && js_rnd(0) < 0.3 && wl < 120.0 {
+                o[b + 2] = 1.0; o[b + 3] = 0.0 + js_rnd(0) * (6.2832 - 0.0); o[b + 4] = 0.25 + js_rnd(0) * (0.8 - 0.25); o[b + 5] = 0.6 + js_rnd(0) * (1.6 - 0.6); o[b + 6] = 0.0 + js_rnd(0) * (6.2832 - 0.0); wl += 1.0;
+            }
+            c += 1; WMN = c;
+        }
+        c as i32
+    }
+}
