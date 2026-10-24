@@ -78,3 +78,4 @@ NOT done: hab/wing/circles large-argument parity against JS (only sepbody checke
 - Fix B (fake-clock timers): page main thread blocks after __step(120), Profiler.enable times out; cause not isolated (hypothesis only: sync spin on fake performance.now).
 - Fix C (real timers gated off after rdy, in t143-fixedstep.js): UNVALIDATED. Two TRACE runs gave 0 B and 767 B traces (devtools/failed-traces/). No repeatability proof. No comparative claim.
 - t-foodspot-jsrnd: 30000 checks, 0 mismatch, 0 draw-count mismatch (non-SIMD+SIMD jsrnd). Browser integration of the ca2.js hook: not run (ölçülmedi). Default binaries unchanged (a94dbf3f, bdd56ede).
+- foodSpot hook fault rule (03:58): env.js_rnd counted in WC.rndN; exception after >=1 consumed draw -> return null (no JS redraw), before any draw -> JS body. t-foodspot-fault: 1600 checks (588 faults after consumed draws, 400 before any draw), 0 mismatch, both jsrnd binaries. Real page not tested.
