@@ -287,6 +287,7 @@ static mut SHT: [f64; 28] = [0.0; 28];
 // in index order, exactly the JS loop order. Returns the number initialised. Packed layout = sw_in (6 f64 per food, vx at +2, vy at +3); flags buffer from sw_fresh_flags(n).
 #[cfg(feature = "jsrnd")] #[link(wasm_import_module = "env")] extern "C" { fn js_rnd(line: u32) -> f64; }
 #[cfg(feature = "jsrnd")] static mut SWFL: Vec<u8> = Vec::new();
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn sp_run_jsrnd() -> u32 { 1 }
 #[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn wm_run_jsrnd() -> u32 { 1 }
 #[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn sw_run_jsrnd() -> u32 { 1 }
 #[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn sw_fresh_flags(n: usize) -> *mut u8 { unsafe { let b = &mut *std::ptr::addr_of_mut!(SWFL); b.clear(); b.resize(n + 1, 0); b.as_mut_ptr() } }

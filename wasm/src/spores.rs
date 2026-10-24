@@ -13,17 +13,21 @@ pub fn sp() -> &'static mut Sp {
     }
 }
 fn clamp(v: f64, a: f64, b: f64) -> f64 { v.max(a).min(b) }
+#[cfg(feature = "jsrnd")] #[link(wasm_import_module = "env")] extern "C" { fn js_rnd(line: u32) -> f64; }
 impl Sp {
     fn r01(&mut self) -> f64 {
+        #[cfg(feature = "jsrnd")] { return unsafe { js_rnd(5) }; } // jsrnd spike: the real Math.random stream
+        #[allow(unreachable_code)]
         let (mut x, y) = (self.s0, self.s1);
         self.s0 = y; x ^= x << 23; self.s1 = x ^ y ^ (x >> 17) ^ (y >> 26);
         ((self.s1.wrapping_add(y)) >> 11) as f64 * (1.0 / 9007199254740992.0)
     }
     pub fn step(&mut self, n: usize, x0: f64, x1: f64, y0: f64, y1: f64, dtms: f64, cap: f64, s0: f64, s1: f64) -> i64 {
-        self.s0 = ((s0 as u64) << 32) | 0x9E3779B9; self.s1 = ((s1 as u64) << 32) | 0x85EBCA6B;
-        for _ in 0..8 { self.r01(); }
+        #[cfg(not(feature = "jsrnd"))] { self.s0 = ((s0 as u64) << 32) | 0x9E3779B9; self.s1 = ((s1 as u64) << 32) | 0x85EBCA6B; for _ in 0..8 { self.r01(); } }
+        #[cfg(feature = "jsrnd")] { let _ = (s0, s1); }
         self.stat = [0.0; 8]; self.out.clear();
         if self.inb.len() < n * 9 { return -1; }
+        #[cfg(feature = "jsrnd")] { for i in 0..n { let b = i * 9; if !(self.inb[b].is_finite() && self.inb[b + 1].is_finite()) { return -1; } } } // jsrnd: refuse BEFORE any draw so the JS-body fallback sees an unshifted stream
         let mut kept: Vec<[f64; 10]> = Vec::with_capacity(n);
         let mut born_rows: Vec<[f64; 10]> = vec![];
         let mut cur_len = n as f64; // mirrors spores.length mid-loop in the JS backward pass
@@ -42,10 +46,11 @@ impl Sp {
                         self.stat[1] += 1.0; self.stat[2] += 1.0; cur_len -= 1.0;
                         let nm = 4 + (self.r01() * 4.0).floor() as usize;
                         for _ in 0..nm {
-                            let a2 = self.r01() * 6.2832; let v = 0.6 + self.r01() * 1.2;
+                            let a2 = self.r01() * 6.2832; #[cfg(feature = "jsrnd")] let v = 0.6 + self.r01() * (1.8 - 0.6); #[cfg(not(feature = "jsrnd"))] let v = 0.6 + self.r01() * 1.2; // JS: rnd(0.6, 1.8) = 0.6 + r * (1.8 - 0.6), and 1.8 - 0.6 is 1.2000000000000002
                             born_rows.push([x, y, self.r01(), 1.0, 0.0, self.r01() * 6.2832, a2.cos() * v, a2.sin() * v, -1.0, 0.0]);
                             self.stat[4] += 1.0;
                         }
+                        #[cfg(feature = "jsrnd")] { cur_len += nm as f64; } // JS newSpore pushes onto spores, so spores.length (the cap gate) includes the new motes
                         continue;
                     } else if self.r01() < 0.4 { self.stat[2] += 1.0; cur_len -= 1.0; continue; } // crowded: retire
                     else { age = 0.0; } // crowded: wait another cycle

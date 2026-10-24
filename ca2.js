@@ -1862,15 +1862,17 @@
   function newSpore(x, y, st) { var s = { x: x, y: y, r: Math.random(), st: st || 0, age: 0, ph: Math.random() * 6.2832, vx: 0, vy: 0, spore: 1 }; spores.push(s); food.push(s); sporeStat.born++; return s; }
   function wipeSpores() { for (var i = food.length - 1; i >= 0; i--) if (food[i].spore) food.splice(i, 1); spores = []; }
   function stepSporesW() { // Rust/wasm spore step (spores.rs); returns false when unavailable so the JS body below runs (?nowasm=1, ?nosim=1, ?nofoodwasm=1)
-    var E = WC.e; if (!E || !E.sp_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1|nofoodwasm=1/.test(location.search)) return false;
+    var E = WC.e; if (!E || !E.sp_run || WC.spRunOff || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1|nofoodwasm=1/.test(location.search)) return false;
     try {
       var n = spores.length, i, s, b, k, src;
       var ip = E.sp_in(n), buf = new Float64Array(WC.mem.buffer, ip, n * 9 + 9);
       for (i = 0; i < n; i++) { s = spores[i]; b = i * 9; buf[b] = s.x; buf[b + 1] = s.y; buf[b + 2] = s.r; buf[b + 3] = s.st; buf[b + 4] = s.age; buf[b + 5] = s.ph; buf[b + 6] = s.vx; buf[b + 7] = s.vy; buf[b + 8] = s.gone ? 1 : 0; }
-      var now = performance.now(), dtms = sporeLast ? Math.min(200, now - sporeLast) : 16; sporeLast = now;
+      var now = performance.now(), dtms = sporeLast ? Math.min(200, now - sporeLast) : 16, spLast0 = sporeLast; sporeLast = now;
       var cap = Math.max(60, Math.round(cont.w * cont.h * P.foodDensity / 2 / 8));
-      var m = E.sp_run(n, cont.x, cont.x + cont.w, cont.y, cont.y + cont.h, dtms, cap, Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
-      if (m < 0) return false;
+      var spJ = !!(WC.jsrnd && E.sp_run_jsrnd), spn0 = WC.rndN || 0, m; // jsrnd spike: the kernel draws through env.js_rnd (real Math.random) in kernel order; no seed draws
+      try { m = E.sp_run(n, cont.x, cont.x + cont.w, cont.y, cont.y + cont.h, dtms, cap, spJ ? 0 : Math.floor(Math.random() * 4294967296), spJ ? 0 : Math.floor(Math.random() * 4294967296)); }
+      catch (e5) { if (spJ && (WC.rndN || 0) !== spn0) { WC.spRunOff = true; WC.spRunDeg = (WC.spRunDeg || 0) + 1; return true; } throw e5; } // fault after consumed draws: no redraw, step skipped (degraded, WC.spRunDeg); none consumed: rethrown -> JS body
+      if (m < 0) { if (spJ) sporeLast = spLast0; return false; } // jsrnd: the JS-body fallback must see the unchanged sporeLast (else its dtms is 0)
       var o = new Float64Array(WC.mem.buffer, E.sp_out(), m * 10), st = new Float64Array(WC.mem.buffer, E.sp_stat(), 8), out = new Array(m), kept = new Uint8Array(n);
       sporeStat.eaten += st[0]; sporeStat.burst += st[1]; sporeStat.died += st[2]; sporeStat.settled += st[3]; sporeStat.born += st[4];
       for (k = 0; k < m; k++) {
