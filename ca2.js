@@ -1223,6 +1223,7 @@
   }
   function foodSpot(x, y, w, h) { // random point in the rect that is not on ink; work is bounded by the mask itself
     var ink = foodInkOn(), px, py, t;
+    if (WC.jsrnd && WC.e && WC.e.post_food_spot && !postOffW() && (!ink || inkW())) { try { var fsr = WC.e.post_food_spot(x, y, w, h, Math.max(0.5, P.foodSize / 2), foodMaskPx(), ink ? 1 : 0); if (fsr) { var fso = new Float64Array(WC.mem.buffer, WC.e.post_spot_out(), 2); WC.fsN = (WC.fsN || 0) + 1; return { x: fso[0], y: fso[1] }; } WC.fsN = (WC.fsN || 0) + 1; return null; } catch (e) { WC.postOff = true; WC.postErr = String(e); } } // jsrnd spike: Rust decides, draws through env.js_rnd (the real Math.random) in the JS order
     if (!ink) return { x: x + Math.random() * w, y: y + Math.random() * h };
     var p = foodInkFrac();
     if (p >= 1) return null;

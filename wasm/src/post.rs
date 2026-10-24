@@ -298,3 +298,37 @@ pub extern "C" fn post_sepbody() -> i32 {
         n as i32
     }
 }
+// foodSpot with its Math.random draws (jsrnd spike only): decide -> draw (env.js_rnd = the real Math.random) -> apply, in the exact JS order.
+// Returns 1 and writes (x, y) to post_spot_out(), or 0 for null. Inputs: rect, ink radius r = max(0.5, foodSize/2), st = foodMaskPx(), ink = foodInkOn && mask uploaded.
+#[cfg(feature = "jsrnd")] #[link(wasm_import_module = "env")] extern "C" { fn js_rnd(line: u32) -> f64; }
+#[cfg(feature = "jsrnd")] static mut SPOT: [f64; 2] = [0.0; 2];
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn post_spot_out() -> *const f64 { unsafe { std::ptr::addr_of!(SPOT) as *const f64 } }
+#[cfg(feature = "jsrnd")] #[no_mangle]
+pub extern "C" fn post_food_spot(x: f64, y: f64, w: f64, h: f64, r: f64, st: f64, ink: i32) -> i32 {
+    unsafe {
+        let rn = || js_rnd(0);
+        let out = &mut *std::ptr::addr_of_mut!(SPOT);
+        if ink == 0 { let a = x + rn() * w; let b = y + rn() * h; out[0] = a; out[1] = b; return 1; }
+        let p = INKP;
+        if p >= 1.0 { return 0; }
+        if p <= 0.5 {
+            for _ in 0..10 { let px = x + rn() * w; let py = y + rn() * h; if !disk_hit(px, py, r) { out[0] = px; out[1] = py; return 1; } }
+            return 0;
+        }
+        let mw = MKW; let mh = MKH;
+        let r0 = f64::max(0.0, (y / st).floor()); let r1 = f64::min(mh - 1.0, ((y + h) / st).floor());
+        let fr = &*std::ptr::addr_of!(FREE);
+        let lb = |v: f64| -> usize { let (mut lo, mut hi) = (0usize, fr.len()); while lo < hi { let m = (lo + hi) >> 1; if (fr[m] as f64) < v { lo = m + 1; } else { hi = m; } } lo };
+        let lo = lb(r0 * mw); let hi = lb((r1 + 1.0) * mw); let n = hi as f64 - lo as f64;
+        let mut t = 0.0;
+        while t < n {
+            let k = (lo as f64 + (rn() * n).floor()) as usize;
+            let q = if k < fr.len() { fr[k] as f64 } else { -1.0 };
+            let cx = q % mw; let cy = (q - cx) / mw;
+            let px = (cx + rn()) * st; let py = (cy + rn()) * st;
+            if px >= x && px <= x + w && py >= y && py <= y + h && !disk_hit(px, py, r) { out[0] = px; out[1] = py; return 1; }
+            t += 1.0;
+        }
+        0
+    }
+}
