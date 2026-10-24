@@ -378,12 +378,22 @@
     return tmCache;
   }
   var rsbCache = { key: '', dx: 0, done: false };
+  // text-measure cache (mobile perf): measureText over growing prefixes was O(n^2) per string per frame.
+  // Metrics are deterministic for a fixed font string + text, so cached prefix widths render bit-identically;
+  // the cache flushes on layout-key change and on webfont loadingdone (post-load metric swap).
+  var mtCache = new Map();
+  function mtPrefix(cx, txt) { // mtPrefix(cx, txt)[ci] === cx.measureText(txt.slice(0, ci)).width
+    var k = cx.font + '|' + txt, e = mtCache.get(k);
+    if (!e) { e = [0]; for (var ci = 1; ci <= txt.length; ci++) e.push(cx.measureText(txt.slice(0, ci)).width); if (mtCache.size > 400) mtCache.clear(); mtCache.set(k, e); }
+    return e;
+  }
+  if (typeof document !== 'undefined' && document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', function () { mtCache.clear(); });
   function rsbKey(fs, M, ex) { return fs.toFixed(2) + '|' + M + '|' + ex.toFixed(2) + '|' + (bg ? bg.map(Math.round).join(',') : ''); }
   // isolated pixel measure of the rendered title word on an offscreen canvas: same font, size, scale and letter
   // spacing, but no simulation ink - scanning the live canvas caught wandering cells and food dots as "title ink",
   // which shifted the word past the right margin and off the frame and made the margin look dead (owner 21 Oct)
   var rsbCv = null;
-  function drawSpaced(c, txt, x0, y, ex) { for (var ci = 0; ci < txt.length; ci++) c.fillText(txt[ci], x0 + c.measureText(txt.slice(0, ci)).width + ci * ex, y); }
+  function drawSpaced(c, txt, x0, y, ex) { var mp = mtPrefix(c, txt); for (var ci = 0; ci < txt.length; ci++) c.fillText(txt[ci], x0 + mp[ci] + ci * ex, y); }
   // the last glyph's dot ink reaches past the metrics' bounding box: measured once per platform at 100px, scaled
   // linearly - the fit cap counts this overshoot so the visible dots (not just the metrics) stay inside the margins
   var ovsCache = -1;
@@ -1143,8 +1153,12 @@
   // Margins are measured from real ink, so the font's side bearings (lsb/rsb) cannot skew them.
   function inkLR(s) {
     if (!s || !s.length) return [0, 0];
+    var lr = mtCache.get(ctx.font + '|ink|' + s);
+    if (lr) return lr;
     var f = ctx.measureText(s[0]), pre = s.length > 1 ? ctx.measureText(s.slice(0, -1)).width : 0, l = ctx.measureText(s[s.length - 1]);
-    return [f.actualBoundingBoxLeft, pre + l.actualBoundingBoxRight];
+    lr = [f.actualBoundingBoxLeft, pre + l.actualBoundingBoxRight];
+    if (mtCache.size > 400) mtCache.clear(); mtCache.set(ctx.font + '|ink|' + s, lr);
+    return lr;
   }
 
   // ---- axis lines: width, center gap and diagonal length are parameters ----
@@ -2355,14 +2369,14 @@
         var hk = hi++;
         ctx.fillStyle = css(col); ctx.textAlign = 'left';
         var lr = inkLR(txt), wEx = (txt.length - 1) * ex, x0 = align === 'right' ? x - lr[1] - wEx : align === 'center' ? x - (lr[0] + lr[1]) / 2 - wEx / 2 : x - lr[0];
-        for (var ci = 0; ci < txt.length; ci++) if (fadeA('c' + hk + ':' + ci)) { var gx = x0 + ctx.measureText(txt.slice(0, ci)).width + ci * ex; ctx.fillText(txt[ci], gx, y); if (SEP.mc) SEP.mc.fillText(txt[ci], gx, y); }
+        var mp = mtPrefix(ctx, txt); for (var ci = 0; ci < txt.length; ci++) if (fadeA('c' + hk + ':' + ci)) { var gx = x0 + mp[ci] + ci * ex; ctx.fillText(txt[ci], gx, y); if (SEP.mc) SEP.mc.fillText(txt[ci], gx, y); }
       };
       // ink-aligned margins: every edge has the same margin M
       // right-edge compensation (owner 21 Oct, font file untouched): on some platforms the final glyph's rsb leaves the
       // word's true ink short of the right margin. Pixel-measure the rendered title line once per layout and shift the
       // word by the residual so the right distance equals the top one. One frame of lag, invisible; margins/font sizes
       // re-measure themselves because they are part of the key.
-      if (rsbCache.key !== rsbKey(fs, M, L.ex)) rsbCache = { key: rsbKey(fs, M, L.ex), dx: 0, done: false };
+      if (rsbCache.key !== rsbKey(fs, M, L.ex)) { rsbCache = { key: rsbKey(fs, M, L.ex), dx: 0, done: false }; mtCache.clear(); }
       if (!L.three) rsbScan(fs, dh, M, L.ex); // offscreen and synchronous: the compensation applies in this same frame
       // conditional (owner 21 Oct): only when the three-line title's 3rd line (the mouse-y row) vertically OVERLAPS
       // the left/right numbers on the middle axis - measured ink bands, not a fixed threshold - the numbers leave the
