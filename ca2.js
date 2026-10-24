@@ -1693,14 +1693,16 @@
     return true;
   }
   function stepSwarmW() { // Rust/wasm swarm step (swarm.rs); returns false when unavailable so the JS body below runs (?nowasm=1, ?nosim=1)
-    var E = WC.e; if (!E || !E.sw_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
+    var E = WC.e; if (!E || !E.sw_run || WC.swRunOff || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
     try {
       var n = food.length, i, f, b, x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h, ar = cont.w * cont.h * P.foodDensity;
       var ip = E.sw_in(n), buf = new Float64Array(WC.mem.buffer, ip, n * 6 + 6);
       var swFd = swPackRust(E, n, ip);
       buf = new Float64Array(WC.mem.buffer, ip, n * 6 + 6); if (!swFd) swPackJs(n, buf); // re-read: the flag-buffer call can grow memory
       var life = performance.now() - swT >= P.foodLifeMs * 2;
-      var m = E.sw_run(n, x0, x1, y0, y1, life ? 1 : 0, n < ar ? 1 : 0, ar * 0.1, Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
+      var swJ = !!(WC.jsrnd && E.sw_run_jsrnd), swn0 = WC.rndN || 0, m; // jsrnd spike: the kernel draws through env.js_rnd (real Math.random) in kernel order; no seed draws
+      try { m = E.sw_run(n, x0, x1, y0, y1, life ? 1 : 0, n < ar ? 1 : 0, ar * 0.1, swJ ? 0 : Math.floor(Math.random() * 4294967296), swJ ? 0 : Math.floor(Math.random() * 4294967296)); }
+      catch (e3) { if (swJ && (WC.rndN || 0) !== swn0) { WC.swRunOff = true; WC.swRunDeg = (WC.swRunDeg || 0) + 1; return true; } throw e3; } // fault after consumed draws: no redraw, this step is skipped (degraded, WC.swRunDeg); none consumed: rethrown -> JS body
       if (m < 0) return false;
       if (life) swT = performance.now();
       var o = new Float64Array(WC.mem.buffer, E.sw_out(), m * 7), st = new Float64Array(WC.mem.buffer, E.sw_stat(), 4), out = new Array(m), kept = new Uint8Array(n), k, src;

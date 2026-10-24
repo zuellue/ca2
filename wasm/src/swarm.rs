@@ -9,8 +9,11 @@ pub fn sw() -> &'static mut Sw {
         s.as_mut().unwrap()
     }
 }
+#[cfg(feature = "jsrnd")] #[link(wasm_import_module = "env")] extern "C" { fn js_rnd(line: u32) -> f64; }
 impl Sw {
     fn r01(&mut self) -> f64 {
+        #[cfg(feature = "jsrnd")] { return unsafe { js_rnd(2) }; } // jsrnd spike: the real Math.random stream
+        #[allow(unreachable_code)]
         let (mut x, y) = (self.s0, self.s1);
         self.s0 = y; x ^= x << 23; self.s1 = x ^ y ^ (x >> 17) ^ (y >> 26);
         ((self.s1.wrapping_add(y)) >> 11) as f64 * (1.0 / 9007199254740992.0)
@@ -18,8 +21,8 @@ impl Sw {
     // returns output count, or -1 when the grid would be too large (JS fallback)
     pub fn step(&mut self, n: usize, x0: f64, x1: f64, y0: f64, y1: f64, life: bool, can_birth: bool, low_cap: f64, s0: f64, s1: f64) -> i64 {
         const G: f64 = 18.0;
-        self.s0 = ((s0 as u64) << 32) | 0x9E3779B9; self.s1 = ((s1 as u64) << 32) | 0x85EBCA6B;
-        for _ in 0..8 { self.r01(); }
+        #[cfg(not(feature = "jsrnd"))] { self.s0 = ((s0 as u64) << 32) | 0x9E3779B9; self.s1 = ((s1 as u64) << 32) | 0x85EBCA6B; for _ in 0..8 { self.r01(); } }
+        #[cfg(feature = "jsrnd")] { let _ = (s0, s1); } // jsrnd: no seed, no warm-up draws
         self.stat = [0.0; 4]; self.out.clear();
         if self.inb.len() < n * 6 { return -1; }
         let mut gx = vec![0i32; n]; let mut gy = vec![0i32; n];
