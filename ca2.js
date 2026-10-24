@@ -664,13 +664,15 @@
     }
   }
   function transPassW(now, dt, plan) { // Rust/wasm transition pass (tr.rs): radius drift + composition chase. Returns open count, or -1 so the JS loops below run (?nowasm=1, ?nosim=1)
-    var E = WC.e; if (!E || !E.tr_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return -1;
+    var E = WC.e; if (!E || !E.tr_run || WC.trRunOff || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return -1;
     try {
       var n = cells.length, i, c, b;
       var cp = E.tr_cells(n), cf = new Float64Array(WC.mem.buffer, cp, n * 13 + 13);
       for (i = 0; i < n; i++) { c = cells[i]; b = i * 13; cf[b] = c.x; cf[b + 1] = c.y; cf[b + 2] = c.radius; cf[b + 3] = c.mutationRate; cf[b + 4] = c.alive ? 1 : 0;
         if (plan && c.dst && c.alive) { cf[b + 5] = c.dst[0]; cf[b + 6] = c.dst[1]; cf[b + 7] = c.dl || 0; cf[b + 8] = c.durK || 1; cf[b + 9] = c.pace; cf[b + 10] = c.bend || 0; cf[b + 11] = c.dying ? 1 : 0; cf[b + 12] = 1; } else cf[b + 12] = 0; }
-      var open = E.tr_run(n, now, dt, trans.t0, trans.dur, P.CELL_RADIUS, plan ? 1 : 0, Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
+      var trJ = !!(WC.jsrnd && E.tr_run_jsrnd), trn0 = WC.rndN || 0, open; // jsrnd spike: the kernel draws through env.js_rnd (real Math.random) in kernel order; no seed draws
+      try { open = E.tr_run(n, now, dt, trans.t0, trans.dur, P.CELL_RADIUS, plan ? 1 : 0, trJ ? 0 : Math.floor(Math.random() * 4294967296), trJ ? 0 : Math.floor(Math.random() * 4294967296)); }
+      catch (e6) { if (trJ && (WC.rndN || 0) !== trn0) { WC.trRunOff = true; WC.trRunDeg = (WC.trRunDeg || 0) + 1; return -2; } throw e6; } // fault after consumed draws: no redraw; this pass is skipped (-2, degraded, WC.trRunDeg); none consumed: rethrown -> JS loops
       if (open < 0) return -1;
       var st = new Float64Array(WC.mem.buffer, E.tr_stat(), 4); ev.death += st[0];
       for (i = 0; i < n; i++) { c = cells[i]; b = i * 13; c.x = cf[b]; c.y = cf[b + 1]; c.radius = cf[b + 2]; c.alive = cf[b + 4] !== 0; }
@@ -683,7 +685,8 @@
       P.baseMutationRate = lerp(P.baseMutationRate, tg2.mut, kk); P.mutationRateRange = lerp(P.mutationRateRange, tg2.mr, kk);
       P.interactionRadius = lerp(P.interactionRadius, tg2.ir, kk); P.CELL_RADIUS = lerp(P.CELL_RADIUS, tg2.cr, kk); P.UNIVERSE_SIZE = lerp(P.UNIVERSE_SIZE, tg2.U, kk);
       var open = transPassW(now, dt, true);
-      if (open < 0) {
+      if (open === -2) open = trans.open || 0; // jsrnd fault after consumed draws: this pass is skipped (degraded, WC.trRunDeg), no redraw, no JS loops, no spawns
+      else if (open < 0) {
         for (var ii = 0; ii < cells.length; ii++) { var cc = cells[ii]; cc.radius += (P.CELL_RADIUS - cc.radius) * Math.min(1, 0.004 * cc.mutationRate); }
         open = stepComposition(now, dt);
       } else compSpawns(now, dt);
@@ -710,7 +713,7 @@
       if (w) w.alive = false;
     }
     // each cell's radius drifts to the new trait at its own mutation pace
-    if (transPassW(now, dt, false) < 0) for (i = 0; i < cells.length; i++) { var c = cells[i]; c.radius += (P.CELL_RADIUS - c.radius) * Math.min(1, 0.004 * c.mutationRate); }
+    var trp = transPassW(now, dt, false); if (trp < 0 && trp !== -2) for (i = 0; i < cells.length; i++) { var c = cells[i]; c.radius += (P.CELL_RADIUS - c.radius) * Math.min(1, 0.004 * c.mutationRate); }
     if (now - trans.t0 > trans.dur * 4 || (now - trans.t0 > trans.dur && Math.abs(n - target) <= Math.max(2, target * 0.05) && Math.abs(cont.ew - cont.tw) < 1 && Math.abs(cont.eh - cont.th) < 1 && Math.abs(P.CELL_RADIUS - tg.cr) < 0.5)) {
       P.UNIVERSE_SIZE = tg.U; P.CELL_RADIUS = tg.cr; P.baseMutationRate = tg.mut; P.mutationRateRange = tg.mr; P.interactionRadius = tg.ir; trans = null;
     }
@@ -1869,6 +1872,7 @@
       for (i = 0; i < n; i++) { s = spores[i]; b = i * 9; buf[b] = s.x; buf[b + 1] = s.y; buf[b + 2] = s.r; buf[b + 3] = s.st; buf[b + 4] = s.age; buf[b + 5] = s.ph; buf[b + 6] = s.vx; buf[b + 7] = s.vy; buf[b + 8] = s.gone ? 1 : 0; }
       var now = performance.now(), dtms = sporeLast ? Math.min(200, now - sporeLast) : 16, spLast0 = sporeLast; sporeLast = now;
       var cap = Math.max(60, Math.round(cont.w * cont.h * P.foodDensity / 2 / 8));
+      var wasGone = new Uint8Array(n); for (i = 0; i < n; i++) wasGone[i] = spores[i].gone ? 1 : 0;
       var spJ = !!(WC.jsrnd && E.sp_run_jsrnd), spn0 = WC.rndN || 0, m; // jsrnd spike: the kernel draws through env.js_rnd (real Math.random) in kernel order; no seed draws
       try { m = E.sp_run(n, cont.x, cont.x + cont.w, cont.y, cont.y + cont.h, dtms, cap, spJ ? 0 : Math.floor(Math.random() * 4294967296), spJ ? 0 : Math.floor(Math.random() * 4294967296)); }
       catch (e5) { if (spJ && (WC.rndN || 0) !== spn0) { WC.spRunOff = true; WC.spRunDeg = (WC.spRunDeg || 0) + 1; return true; } throw e5; } // fault after consumed draws: no redraw, step skipped (degraded, WC.spRunDeg); none consumed: rethrown -> JS body
@@ -1880,9 +1884,14 @@
         if (src >= 0) { s = spores[src]; kept[src] = 1; s.x = o[b]; s.y = o[b + 1]; s.r = o[b + 2]; s.st = o[b + 3]; s.age = o[b + 4]; s.ph = o[b + 5]; s.vx = o[b + 6]; s.vy = o[b + 7]; out[k] = s; }
         else { s = { x: o[b], y: o[b + 1], r: o[b + 2], st: o[b + 3], age: o[b + 4], ph: o[b + 5], vx: o[b + 6], vy: o[b + 7], spore: 1 }; food.push(s); out[k] = s; }
       }
+      if (spJ) { // jsrnd: only spores the body itself retires leave food[] (JS: gone-on-entry spores are dropped from spores[] only; their food entry belongs to whoever set gone)
+        var ret = new Set(); for (i = 0; i < n; i++) if (!kept[i] && !wasGone[i]) { spores[i].gone = 1; ret.add(spores[i]); }
+        spores = out; if (ret.size) food = food.filter(function (f) { return !ret.has(f); });
+      } else {
       for (i = 0; i < n; i++) if (!kept[i]) spores[i].gone = 1;
       spores = out;
       for (i = food.length - 1; i >= 0; i--) if (food[i].gone) food.splice(i, 1);
+      }
       WC.fwSp = (WC.fwSp || 0) + 1; return true;
     } catch (e) { WC.fwSpErr = String(e && e.stack || e); return false; }
   }
