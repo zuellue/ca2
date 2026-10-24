@@ -10,7 +10,7 @@ const PC_PF: usize = 10; // in: x y host curKid ox oy ph r0 r1 r2 ; out: x y cir
 const WG_IN: usize = 14; // x y hostAlive hx hy h px py fx fy sp fp ph (+pad)
 const WG_OUT: usize = 14;
 
-fn hypot2(a: f64, b: f64) -> f64 {
+pub(crate) fn hypot2(a: f64, b: f64) -> f64 {
     let (x, y) = (a.abs(), b.abs());
     if x.is_nan() || y.is_nan() { if x.is_infinite() || y.is_infinite() { return f64::INFINITY; } return f64::NAN; }
     let max = if x > y { x } else { y };

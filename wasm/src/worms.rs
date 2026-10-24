@@ -14,17 +14,20 @@ pub fn wm() -> &'static mut Wm {
         s.as_mut().unwrap()
     }
 }
+#[cfg(feature = "jsrnd")] #[link(wasm_import_module = "env")] extern "C" { fn js_rnd(line: u32) -> f64; }
 fn hyp(x: f64, y: f64) -> f64 { (x * x + y * y).sqrt() }
 impl Wm {
     fn r01(&mut self) -> f64 {
+        #[cfg(feature = "jsrnd")] { return unsafe { js_rnd(3) }; } // jsrnd spike: the real Math.random stream
+        #[allow(unreachable_code)]
         let (mut x, y) = (self.s0, self.s1);
         self.s0 = y; x ^= x << 23; self.s1 = x ^ y ^ (x >> 17) ^ (y >> 26);
         ((self.s1.wrapping_add(y)) >> 11) as f64 * (1.0 / 9007199254740992.0)
     }
     fn rnd(&mut self, a: f64, b: f64) -> f64 { a + self.r01() * (b - a) }
     pub fn step(&mut self, nw: usize, nl: usize, x0: f64, x1: f64, y0: f64, y1: f64, tt: f64, sp_gap: f64, life: bool, want: f64, s0: f64, s1: f64) -> i64 {
-        self.s0 = ((s0 as u64) << 32) | 0x9E3779B9; self.s1 = ((s1 as u64) << 32) | 0x85EBCA6B;
-        for _ in 0..8 { self.r01(); }
+        #[cfg(not(feature = "jsrnd"))] { self.s0 = ((s0 as u64) << 32) | 0x9E3779B9; self.s1 = ((s1 as u64) << 32) | 0x85EBCA6B; for _ in 0..8 { self.r01(); } }
+        #[cfg(feature = "jsrnd")] { let _ = (s0, s1); } // jsrnd: no seed, no warm-up draws
         self.stat = [0.0; 4]; self.oh.clear(); self.ol.clear();
         if self.hdr.len() < nw * 6 || self.lnk.len() < nl * 4 { return -1; }
         // per-worm link ranges (links packed worm-major)
@@ -54,7 +57,8 @@ impl Wm {
             for &li in chains[w].iter() {
                 let l = &mut lxy[li];
                 let (dx, dy) = (hx - l[0], hy - l[1]);
-                let dd = hyp(dx, dy).max(1e-9); let dd = if dd == 0.0 { 1.0 } else { dd };
+                #[cfg(not(feature = "jsrnd"))] let dd = { let d = hyp(dx, dy).max(1e-9); if d == 0.0 { 1.0 } else { d } };
+                #[cfg(feature = "jsrnd")] let dd = { let d = crate::circles::hypot2(dx, dy); if d == 0.0 || d.is_nan() { 1.0 } else { d } }; // JS: Math.hypot(dx, dy) || 1
                 let mv = dd - sp_gap;
                 if mv > 0.0 { l[0] += dx / dd * mv; l[1] += dy / dd * mv; }
                 hx = l[0]; hy = l[1];
@@ -65,6 +69,7 @@ impl Wm {
         let mut out_src: Vec<f64> = (0..nw).map(|w| w as f64).collect();
         let mut new_links: Vec<[f64; 5]> = vec![]; // x, y, r, out worm, src(-1)
         if life {
+            #[cfg(not(feature = "jsrnd"))] {
             for w in 0..nw {
                 let dl = chains[w].len();
                 if dl < 16 && self.r01() < 0.45 {
@@ -83,6 +88,25 @@ impl Wm {
                     let _ = nwidx;
                 }
             }
+            }
+            // jsrnd-only behaviour fix (separate from the PRNG migration): the JS wormGrowSplit order and semantics: worms descending, the grown link is part of the chain before the fission test (length after growth), tail = chain.splice(ceil(len/2)).
+            #[cfg(feature = "jsrnd")] {
+                for w in (0..nw).rev() {
+                    let dl = chains[w].len(); let mut len = dl;
+                    if dl < 16 && self.r01() < 0.45 {
+                        let tl = lxy[*chains[w].last().unwrap()];
+                        let r = self.r01(); lxy.push([tl[0], tl[1], r]); chains[w].push(lxy.len() - 1); len += 1;
+                    }
+                    if len >= 9 && self.r01() < 0.3 && out_src.len() < 120 {
+                        let half = (len + 1) / 2;
+                        let tail: Vec<usize> = chains[w].split_off(half);
+                        let t0 = lxy[tail[0]];
+                        hs.push([t0[0], t0[1], self.rnd(0.0, 6.2832), self.rnd(0.25, 0.8), self.rnd(0.6, 1.6), self.rnd(0.0, 6.2832)]);
+                        out_src.push(-1.0); chains.push(tail);
+                        self.stat[0] += 1.0; self.stat[1] += 1.0;
+                    }
+                }
+            }
             let kk = (5f64).min(want - out_src.len() as f64) as i64;
             for _ in 0..kk.max(0) {
                 let (x, y) = (x0 + self.r01() * (x1 - x0), y0 + self.r01() * (y1 - y0));
@@ -98,8 +122,11 @@ impl Wm {
         // 3) emit: headers worm-major, then links grouped by out worm in chain order, then new links in place
         for (w, h) in hs.iter().enumerate() { self.oh.extend_from_slice(&[h[0], h[1], h[2], h[3], h[4], h[5], out_src[w]]); }
         for (w, ch) in chains.iter().enumerate() {
-            for &li in ch.iter() { let l = lxy[li]; self.ol.extend_from_slice(&[l[0], l[1], l[2], w as f64, li as f64]); }
-            for nlr in new_links.iter() { if nlr[3] as usize == w { self.ol.extend_from_slice(nlr); } }
+            #[cfg(not(feature = "jsrnd"))] { for &li in ch.iter() { let l = lxy[li]; self.ol.extend_from_slice(&[l[0], l[1], l[2], w as f64, li as f64]); } }
+            // jsrnd: grown links (index >= nl) are new food objects; src = -1 - creation sequence so the glue can push them to food[] in JS order (growth in loop order, then spawns)
+            #[cfg(feature = "jsrnd")] { for &li in ch.iter() { let l = lxy[li]; let src = if li >= nl { -1.0 - (li - nl) as f64 } else { li as f64 }; self.ol.extend_from_slice(&[l[0], l[1], l[2], w as f64, src]); } }
+            #[cfg(not(feature = "jsrnd"))] { for nlr in new_links.iter() { if nlr[3] as usize == w { self.ol.extend_from_slice(nlr); } } }
+            #[cfg(feature = "jsrnd")] { for (k, nlr) in new_links.iter().enumerate() { if nlr[3] as usize == w { self.ol.extend_from_slice(&[nlr[0], nlr[1], nlr[2], nlr[3], -1.0 - (lxy.len() - nl + k) as f64]); } } }
         }
         self.stat[2] = (self.ol.len() / 5) as f64;
         hs.len() as i64

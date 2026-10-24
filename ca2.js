@@ -1750,7 +1750,7 @@
   }
   function wipeWorms() { for (var i = food.length - 1; i >= 0; i--) if (food[i].worm) food.splice(i, 1); worms = []; }
   function stepWormsW() { // Rust/wasm worm step (worms.rs); returns false when unavailable so the JS body below runs (?nowasm=1, ?nosim=1, ?nofoodwasm=1)
-    var E = WC.e; if (!E || !E.wm_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1|nofoodwasm=1/.test(location.search)) return false;
+    var E = WC.e; if (!E || !E.wm_run || WC.wmRunOff || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1|nofoodwasm=1/.test(location.search)) return false;
     try {
       var i, k, w, f, now = performance.now();
       for (i = worms.length - 1; i >= 0; i--) { // eaten links drop out; a worm with too little body left dissolves
@@ -1766,7 +1766,9 @@
         for (k = 0; k < w.d.length; k++) { f = w.d[k]; all.push(f); q = li * 4; lb[q] = f.x; lb[q + 1] = f.y; lb[q + 2] = f.r; lb[q + 3] = i; li++; } }
       var life = now - wormT >= P.foodLifeMs * 2;
       var want = Math.round(cont.w * cont.h * P.foodDensity / 2 / 14);
-      var m = E.wm_run(nw, nl, cont.x, cont.x + cont.w, cont.y, cont.y + cont.h, now / 1000, Math.max(3, P.foodSize * 1.6), life ? 1 : 0, want, Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
+      var wmJ = !!(WC.jsrnd && E.wm_run_jsrnd), wmn0 = WC.rndN || 0, m; // jsrnd spike: the kernel draws through env.js_rnd (real Math.random) in kernel order; no seed draws
+      try { m = E.wm_run(nw, nl, cont.x, cont.x + cont.w, cont.y, cont.y + cont.h, now / 1000, Math.max(3, P.foodSize * 1.6), life ? 1 : 0, want, wmJ ? 0 : Math.floor(Math.random() * 4294967296), wmJ ? 0 : Math.floor(Math.random() * 4294967296)); }
+      catch (e4) { if (wmJ && (WC.rndN || 0) !== wmn0) { WC.wmRunOff = true; WC.wmRunDeg = (WC.wmRunDeg || 0) + 1; return true; } throw e4; } // fault after consumed draws: no redraw, this step is skipped (degraded, WC.wmRunDeg); none consumed: rethrown -> JS body (the dissolve pre-pass already ran and is idempotent)
       if (m < 0) return false;
       if (life) wormT = now;
       var oh = new Float64Array(WC.mem.buffer, E.wm_ohdr(), m * 7), st = new Float64Array(WC.mem.buffer, E.wm_stat(), 4);
@@ -1777,10 +1779,12 @@
         if (src >= 0) { w = worms[src]; w.x = oh[b]; w.y = oh[b + 1]; w.a = oh[b + 2]; w.sp = oh[b + 3]; w.fr = oh[b + 4]; w.ph = oh[b + 5]; w.d = []; }
         else w = { x: oh[b], y: oh[b + 1], a: oh[b + 2], sp: oh[b + 3], fr: oh[b + 4], ph: oh[b + 5], d: [] };
         outW[i] = w; }
+      var wmNew = [];
       for (k = 0; k < lq; k++) { b = k * 5; var widx = ol[b + 3], lsrc = ol[b + 4]; w = outW[widx];
         if (lsrc >= 0) { f = all[lsrc]; f.x = ol[b]; f.y = ol[b + 1]; f.r = ol[b + 2]; f.worm = w; }
-        else { f = { x: ol[b], y: ol[b + 1], r: ol[b + 2], worm: w }; food.push(f); }
+        else { f = { x: ol[b], y: ol[b + 1], r: ol[b + 2], worm: w }; if (wmJ) wmNew.push([-1 - lsrc, f]); else food.push(f); }
         w.d.push(f); }
+      if (wmJ) { wmNew.sort(function (p, q) { return p[0] - q[0]; }); for (k = 0; k < wmNew.length; k++) food.push(wmNew[k][1]); } // jsrnd: new links enter food[] in the JS creation order
       worms = outW; WC.fwWm = (WC.fwWm || 0) + 1; return true;
     } catch (e) { WC.fwWmErr = String(e && e.stack || e); return false; }
   }
