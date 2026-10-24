@@ -90,3 +90,4 @@ NOT done: hab/wing/circles large-argument parity against JS (only sepbody checke
   t-habseed-jsrnd: 20000 scenarios, 580000 fields Object.is, total draw count, 0 mismatch, both jsrnd binaries.
   Page: hook NOT exercised (hsN=0 in two 30 s runs with habitatOn/Floor/FedMin/Conv/Sun/UNIVERSE_SIZE keys; cause of no seeding not diagnosed). Real-page habSeed: ölçülmedi.
   Default binaries NOT updated this commit (shipped a94dbf3f/bdd56ede stay). A default rebuild of the changed sim.rs hashes differently (3cbeba22...), cause unverified (suspect line-number metadata); Rust sources under cfg(jsrnd) only.
+  t-habseed-fault (degraded class, not parity): 2500 checks (500 fault before any draw, 1825 after consumed draws, 2325 next-call-after-fault -> JS, 0 draws in wasm), 0 mismatch, both jsrnd binaries. t-habseed-jsrnd harness fixed (3bab5746 pushed a test that crashed on the new hook, ReferenceError WC; fixed here).

@@ -18,7 +18,7 @@ for(let t=0;t<20000;t++){
  const P={habitatMut:r0()*0.3,habitatSeedR:0.3+r0(),GENE_MIN:-6+Math.floor(r0()*3),GENE_MAX:4+Math.floor(r0()*4),baseMutationRate:r0()*10,mutationRateRange:r0()*5,baseMaxSpeed:r0()*3,maxSpeedVariation:r0()*1.5,CELL_RADIUS:2+r0()*8,genomeOn:t%2,cellLife:t%3?0:1000+r0()*5000,cellLifeVar:r0()*0.5,genomeMut:0.1};
  const f={x:r0()*800,y:r0()*600};if(t%4){f.hr=r0();f.hg=r0();f.hb=r0();}
  const ate=t%5==0?null:[r0(),r0(),r0()];
- const H=new Function('P',body)(P);H.setAte(ate);
+ const H=new Function('P','WC','location',body)(P,{},{search:''});H.setAte(ate);
  const hue=f.hr!==undefined?[f.hr,f.hg,f.hb]:(ate||[1/3,1/3,1/3]);
  const seed=t*31+7;
  const a=w(()=>{H.habSeed(f);return H.cells[H.cells.length-1];},seed);
