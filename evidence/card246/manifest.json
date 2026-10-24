@@ -1,0 +1,50 @@
+{
+  "baseCommit": "1ee8a5cc771ad1f1970241fbbaacdc7adfa0a023",
+  "files": [
+    {
+      "path": "grain.js",
+      "bytes": 24096,
+      "sha256": "1dd0c30f18249c4f6a179f750d740d84a68b97ac503565f82772c26f8709e097"
+    },
+    {
+      "path": "devtools/card246/blue-noise.json",
+      "bytes": 8195,
+      "sha256": "7f7389c7ec0f8be9802db1fb2ac03e11c86c09763e08a5a33f00185b3cb3f60b"
+    },
+    {
+      "path": "devtools/card246/grain-cpu.js",
+      "bytes": 4293,
+      "sha256": "29e3875ce830a5c6478a1bf1fe8f0b29887fee55c92d9f5cfad4d21b902a37da"
+    },
+    {
+      "path": "devtools/card246/compare.html",
+      "bytes": 3931,
+      "sha256": "8ad77f768d02e6addc3ca592c7acf65a785eafda1e3ea19fcb2329f38a4aae1d"
+    },
+    {
+      "path": "devtools/card246/run.py",
+      "bytes": 1533,
+      "sha256": "4d047ae73f2fb6e755fe42f7536288f36d7645c1fabcf5dd9f94d87c2cb7c7d2"
+    },
+    {
+      "path": "evidence/card246/comparison.json",
+      "bytes": 523419,
+      "sha256": "d97f6aa122082723a36e029fdeda619e464162251542fc508b893609ab8dd4c2"
+    },
+    {
+      "path": "evidence/card246/comparison-initial.json",
+      "bytes": 523315,
+      "sha256": "6cbfc94854dbed9dee3b5f68501d42a6913a489665870e72588f631353b5763e"
+    },
+    {
+      "path": "evidence/card246/comparison.png",
+      "bytes": 107053,
+      "sha256": "e836e854d6c567358429c75675f175f92da5cf35002f15cd59144090275c881d"
+    },
+    {
+      "path": "evidence/card246/README.md",
+      "bytes": 3342,
+      "sha256": "02323d9878e0c6dfc69b14ce2586408d914f9337e83f12dde978026ac1db6a12"
+    }
+  ]
+}

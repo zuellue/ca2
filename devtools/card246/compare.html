@@ -1,0 +1,30 @@
+<!doctype html><meta charset="utf-8"><title>Card246 identical-input grain comparison</title>
+<style>body{background:#222;color:#eee;font:14px monospace}canvas{width:256px;height:256px;image-rendering:pixelated;margin:6px}section{display:inline-block;vertical-align:top}pre{white-space:pre-wrap}</style>
+<h1>Card246: actual WebGL2 vs CPU reference</h1><p>Same RGBA input, parameters and bucket. Left GPU, right CPU. Not device acceptance.</p>
+<canvas id="g" hidden></canvas><div id="images"></div><pre id="result">running</pre>
+<script src="../../grain.js"></script><script src="grain-cpu.js"></script>
+<script>
+(async()=>{
+const hex=await (await fetch('blue-noise.json')).json(),w=48,h=48;
+const base={amount:1,strength:3,size:1.2,softness:.4,chroma:.2,development:1,fine:1,crystal:1,cloud:1};
+const specs=[['zero', {amount:0}],['color',{}],['mono',{mono:true,skew:.1}],['soft',{softness:1}],['debug',{debug:true}],['overlay',{},true],['res-adapt',{resAdapt:true}],['bucket-257',{},false,257]];
+const cases=[];
+for(const [name,extra,overlay=false,bucket=7] of specs){
+ const src=document.createElement('canvas');src.width=w;src.height=h;const c=src.getContext('2d');const im=c.createImageData(w,h);
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4;im.data.set([Math.round(x/(w-1)*255),Math.round(y/(h-1)*255),((x>>3)+(y>>3))%2?190:60,255],i);}c.putImageData(im,0,0);
+ const params={...base,...extra};
+ const start=performance.now();CA2Grain.render(src,params,bucket,1,overlay);const gl=document.getElementById('g').getContext('webgl2');const raw=new Uint8Array(w*h*4);gl.readPixels(0,0,w,h,gl.RGBA,gl.UNSIGNED_BYTE,raw);const gpuMs=performance.now()-start;
+ const gpu=new Uint8ClampedArray(raw.length);for(let y=0;y<h;y++)gpu.set(raw.subarray((h-y-1)*w*4,(h-y)*w*4),y*w*4);
+ const t=performance.now(),cpu=CA2GrainCPU.render(im.data,w,h,params,bucket,1,overlay,hex),cpuMs=performance.now()-t;
+ let diff=0,max=0,sum=0,bad8=0;for(let i=0;i<gpu.length;i++){const d=Math.abs(gpu[i]-cpu[i]);if(d)diff++;if(d>8)bad8++;max=Math.max(max,d);sum+=d;}
+ const repeated=CA2GrainCPU.render(im.data,w,h,params,bucket,1,overlay,hex);if(cpu.some((v,i)=>v!==repeated[i]))throw new Error('CPU nondeterministic');
+ cases.push({name,w,h,bucket,overlay,params,cpuRepeatIdentical:true,diffBytes:diff,maxByteError:max,meanByteError:sum/raw.length,bytesOver8:bad8,gpu:Array.from(gpu),cpu:Array.from(cpu)});
+ if(['color','mono','overlay'].includes(name)){const section=document.createElement('section');section.innerHTML='<h2>'+name+'</h2>';for(const data of [gpu,cpu]){const el=document.createElement('canvas');el.width=w;el.height=h;el.getContext('2d').putImageData(new ImageData(data,w,h),0,0);section.appendChild(el);}document.getElementById('images').appendChild(section);}
+}
+const ext=document.getElementById('g').getContext('webgl2').getExtension('WEBGL_debug_renderer_info');const gl=document.getElementById('g').getContext('webgl2');
+const zero=cases.find(c=>c.name==='zero'),active=cases.find(c=>c.name==='color');if(zero.diffBytes!==0)throw new Error('zero control failed');if(!active.gpu.some((v,i)=>v!==zero.gpu[i])||!active.cpu.some((v,i)=>v!==zero.cpu[i]))throw new Error('grain enable negative control failed');
+window.RESULT={timing:'not measured: virtual clock',gate:'comparison executed; byte parity NOT passed',scope:'actual WebGL2 shader versus opt-in JavaScript CPU reference; no WASM claim',renderer:ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER),cases};
+document.getElementById('result').textContent=JSON.stringify({...RESULT,cases:cases.map(({gpu,cpu,...rest})=>rest)},null,2);
+const evidence=document.createElement('script');evidence.type='application/json';evidence.id='evidence';evidence.textContent=JSON.stringify(RESULT);document.body.appendChild(evidence);document.title='DONE';
+})().catch(e=>{document.getElementById('result').textContent=e.stack;document.title='ERROR';});
+</script>
