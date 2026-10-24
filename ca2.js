@@ -2134,6 +2134,20 @@
     for (var i = 0; i < cells.length; i++) { var c = cells[i]; if (!c.alive) continue; c.age = (c.age || 0) + dt; if (c.life && c.age >= c.life) c.alive = false; }
   }
 
+  // frame() ambient food policy. Decision + draws in Rust under jsrnd (Stage A/C), object mutation stays JS. Fault: draws consumed -> no redraw, the action is skipped (degraded, WC.afDeg); none consumed -> JS policy.
+  function ambientFoodSpawn() {
+    var go = -1, n0 = WC.rndN || 0;
+    if (WC.jsrnd && WC.e && WC.e.post_food_spawn_decide && !postOffW()) { try { go = WC.e.post_food_spawn_decide(P.foodDensity, food.length, cont.w * cont.h * P.foodDensity * 2); WC.afN = (WC.afN || 0) + 1; } catch (e) { WC.postOff = true; WC.postErr = String(e); if ((WC.rndN || 0) !== n0) { WC.afDeg = (WC.afDeg || 0) + 1; return; } go = -1; } }
+    else go = -1;
+    if (go < 0) go = (Math.random() < P.foodDensity && food.length < cont.w * cont.h * P.foodDensity * 2) ? 1 : 0;
+    if (go) { var fp3 = foodSpot(cont.x, cont.y, cont.w, cont.h); if (fp3) food.push({ x: fp3.x, y: fp3.y, r: Math.random() }); }
+  }
+  function ambientFoodCull() {
+    var ix = -2, n0 = WC.rndN || 0;
+    if (WC.jsrnd && WC.e && WC.e.post_food_cull_decide && !postOffW()) { try { ix = WC.e.post_food_cull_decide(food.length); WC.afN = (WC.afN || 0) + 1; } catch (e) { WC.postOff = true; WC.postErr = String(e); if ((WC.rndN || 0) !== n0) { WC.afDeg = (WC.afDeg || 0) + 1; return; } ix = -2; } }
+    if (ix === -2) ix = (Math.random() < 0.001 && food.length) ? Math.floor(rnd(food.length)) : -1;
+    if (ix >= 0) food.splice(ix, 1);
+  }
   // ---- frame ----
   var res = 1, frameMs = 0;
   var lastFrameT = performance.now(), frameDtf = 16.7;
@@ -2164,8 +2178,8 @@
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     ctx.fillStyle = css(bg, 1); ctx.fillRect(0, 0, W, H);
 
-    if (Math.random() < P.foodDensity && food.length < cont.w * cont.h * P.foodDensity * 2) { var fp3 = foodSpot(cont.x, cont.y, cont.w, cont.h); if (fp3) food.push({ x: fp3.x, y: fp3.y, r: Math.random() }); }
-    if (Math.random() < 0.001 && food.length) food.splice(Math.floor(rnd(food.length)), 1);
+    ambientFoodSpawn();
+    ambientFoodCull();
     pfm('setup');
     if (P.foodMode === 1 || (P.foodMode === undefined && P.foodLife)) stepFood(); else if (P.foodMode === 2) stepBlobs(); else if (P.foodMode === 3) stepSwarm(); else if (P.foodMode === 4) stepWorms(); else if (P.foodMode === 5) stepSpores();
     if (P.foodMode !== 2 && P.foodMode !== 4 && P.foodMode !== 5) reseedFood(dtf); // structured modes keep their own populations

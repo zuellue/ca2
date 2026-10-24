@@ -450,3 +450,10 @@ pub extern "C" fn post_comp_match(m: usize, np: usize) -> i32 {
         free.len() as i32
     }
 }
+
+// frame() ambient food policy (jsrnd spike only). Stage A: draw r, spawn iff r < density && len < cap (cap = w*h*density*2 computed by the caller as in JS); returns 1/0. JS then runs foodSpot (own hook) and draws the new food's r.
+// Stage C: with the food count after the push, draw r, cull iff r < 0.001 && len > 0, then draw floor(r2 * len) (JS: Math.floor(rnd(len)) = floor(0 + r2 * (len - 0))); returns the index or -1. The conditional && short-circuits exactly as in JS: the first draw is always consumed, the density/cap test follows it.
+#[cfg(feature = "jsrnd")] #[no_mangle]
+pub extern "C" fn post_food_spawn_decide(density: f64, len: f64, cap: f64) -> i32 { unsafe { let r = js_rnd(0); if r < density && len < cap { 1 } else { 0 } } }
+#[cfg(feature = "jsrnd")] #[no_mangle]
+pub extern "C" fn post_food_cull_decide(len: f64) -> i32 { unsafe { let r = js_rnd(0); if r < 0.001 && len > 0.0 { let a = 0.0f64; let b = len; let x = a + js_rnd(0) * (b - a); x.floor() as i32 } else { -1 } } }
