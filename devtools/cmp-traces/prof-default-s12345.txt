@@ -1,0 +1,26 @@
+PROF total_us 6932554
+PROF 3048ms 44.0% mb_field_f32@ca2core.wasm-000d5416:0
+PROF 1823ms 26.3% drawImage@:-1
+PROF 565ms 8.2% paintKnobs@ca2.js:2980
+PROF 475ms 6.9% getBoundingClientRect@:-1
+PROF 173ms 2.5% (garbage collector)@:-1
+PROF 169ms 2.4% drawMetaballsCPU@ca2.js:895
+PROF 123ms 1.8% putImageData@:-1
+PROF 91ms 1.3% (program)@:-1
+PROF 52ms 0.8% syncUI@ca2.js:3584
+PROF 47ms 0.7% measureText@:-1
+PROF 44ms 0.6% frame@ca2.js:2089
+PROF 42ms 0.6% (anon)@ca2.js:3620
+PROF 34ms 0.5% getPropertyValue@:-1
+PROF 32ms 0.5% remove@:-1
+PROF 27ms 0.4% swLoop@ca2.js:3009
+PROF 19ms 0.3% applyDof@ca2.js:3367
+PROF 16ms 0.2% (idle)@:-1
+PROF 10ms 0.2% simW@ca2.js:836
+PROF 10ms 0.1% fmt@ca2.js:2758
+PROF 10ms 0.1% setProperty@:-1
+PROF 9ms 0.1% loop@ca2.js:3720
+PROF 8ms 0.1% fillText@:-1
+PROF 8ms 0.1% buildSourcesW@ca2.js:771
+PROF 8ms 0.1% pfm@ca2.js:2088
+PROF 7ms 0.1% habFedW@ca2.js:2037
