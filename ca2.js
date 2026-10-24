@@ -2488,7 +2488,7 @@
       if (eHit.h && eHit.v) { // corner: the edge icon rotated onto the diagonal, vertex outside the corner, tip facing the plate
         // owner 22 Oct: the screen-edge ceiling rule must NOT flip corner icons - they keep their mid-page form
         // (vertex outside, tip to the plate). Only an active drag's direction rule may flip them. Edge icons unchanged.
-        var flipC = resizeDrag ? (flipW || flipH) : false; // a corner drag grows both axes, so one capped axis flips the pair
+        var flipC = false; // corner resize keeps every icon OUTSIDE the plate in both drag directions (user 24 Oct, phonemsg-01M5PFWBYFF2JK826HKA78DQHW: corner shrink pulled the icon inside). Edge icons keep their direction/ceiling flips; only the corner branch is pinned.
         var a0 = rightE ? (downE ? 45 : -45) : (downE ? 135 : -135), r0 = a0 * Math.PI / 180;
         var gC = gE * 1.8, offC = 4.5; // wider gap between the two arms; arms lengthened by the same amount so the visible strokes keep their length; vertex hugs the corner
         dE = anglePath(flipC ? a0 : a0 + 180, Le + (gC - gE), gC, bxE + (flipC ? -1 : 1) * Math.cos(r0) * offC, byE + (flipC ? -1 : 1) * Math.sin(r0) * offC);
