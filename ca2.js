@@ -1465,7 +1465,9 @@
     reseedBudget = Math.min(P.foodReseedMax, reseedBudget + P.foodReseedMax * dtf / 1000);
     var rcw = false; if (!postOffW()) { try { var rp0 = WC.e.post_rc_buf(cells.length), rb0 = new Float64Array(WC.mem.buffer, rp0, cells.length * 3 + 1); for (var rj = 0; rj < cells.length; rj++) { rb0[rj * 3] = cells[rj].x; rb0[rj * 3 + 1] = cells[rj].y; rb0[rj * 3 + 2] = cells[rj].radius; } rcw = true; } catch (e) { WC.postOff = true; WC.postErr = String(e); } }
     var nb = Math.min(Math.ceil((want - food.length) / 5), Math.floor(reseedBudget / 5)), spawned = 0; // ~5 dots per 3x3 blob; isolated dots die at once under Conway's rules
-    for (var b = 0; b < nb; b++) {
+    var rsd = false; // jsrnd spike: Rust runs the whole blob loop, draws through env.js_rnd in the JS order. Fault rule as foodSpot: draws consumed -> nothing pushed, no JS redraw (degraded, not parity); none consumed -> JS loop below
+    if (rcw && WC.jsrnd && WC.e.post_reseed_blobs && nb > 0 && (!foodInkOn() || inkW())) { var rsn0 = WC.rndN || 0; try { var rsk = WC.e.post_reseed_blobs(nb, x0, y0, gs, cont.w, cont.h, P.foodEatR, P.foodReseedTries, Math.max(0.5, P.foodSize / 2), foodInkOn() ? 1 : 0), rso = new Float64Array(WC.mem.buffer, WC.e.post_rs_out(), rsk * 3); for (var rsi = 0; rsi < rsk; rsi++) food.push({ x: rso[rsi * 3], y: rso[rsi * 3 + 1], r: rso[rsi * 3 + 2] }); spawned = rsk; rsd = true; WC.rsN = (WC.rsN || 0) + 1; } catch (e) { WC.postOff = true; WC.postErr = String(e); if ((WC.rndN || 0) !== rsn0) rsd = true; } }
+    for (var b = 0; !rsd && b < nb; b++) {
       var bx = 0, by = 0, ok = false;
       for (var tr = 0; tr < P.foodReseedTries && !ok; tr++) { // a seed dropped inside a cell's eat reach is eaten the same frame; look for a gap
         bx = Math.floor((x0 + rnd(Math.max(1, cont.w - 4 * gs))) / gs); by = Math.floor((y0 + rnd(Math.max(1, cont.h - 4 * gs))) / gs);

@@ -332,3 +332,36 @@ pub extern "C" fn post_food_spot(x: f64, y: f64, w: f64, h: f64, r: f64, st: f64
         0
     }
 }
+// reseedFood blob loop (jsrnd spike only): per blob up to `tries` seed positions (2 draws each) until one is outside every cell's eat reach (RC buffer from post_rc_buf),
+// then 9 cells of the 3x3 blob: draw<0.55 && !onInk -> draw r, push (x, y, r). Exact JS draw order. Returns the number of food dots written to post_rs_out().
+#[cfg(feature = "jsrnd")] static mut RSO: Vec<f64> = Vec::new();
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn post_rs_out() -> *const f64 { unsafe { (*std::ptr::addr_of!(RSO)).as_ptr() } }
+#[cfg(feature = "jsrnd")] #[no_mangle]
+pub extern "C" fn post_reseed_blobs(nb: f64, x0: f64, y0: f64, gs: f64, cw: f64, ch: f64, eat_r: f64, tries: f64, r_ink: f64, ink: i32) -> i32 {
+    unsafe {
+        let rn = || js_rnd(0);
+        let o = &mut *std::ptr::addr_of_mut!(RSO); o.clear();
+        let mut b = 0.0;
+        while b < nb {
+            let (mut bx, mut by, mut ok) = (0.0f64, 0.0f64, false);
+            let mut tr = 0.0;
+            while tr < tries && !ok {
+                bx = ((x0 + rn() * f64::max(1.0, cw - 4.0 * gs)) / gs).floor();
+                by = ((y0 + rn() * f64::max(1.0, ch - 4.0 * gs)) / gs).floor();
+                let cx = (bx + 1.5) * gs; let cy = (by + 1.5) * gs;
+                ok = post_rc_near(cx, cy, eat_r, gs) == 0;
+                tr += 1.0;
+            }
+            if ok {
+                for dx in 0..3 { for dy in 0..3 {
+                    if rn() < 0.55 {
+                        let px = (bx + dx as f64 + 0.5) * gs; let py = (by + dy as f64 + 0.5) * gs;
+                        if ink == 0 || !disk_hit(px, py, r_ink) { let r = rn(); o.push(px); o.push(py); o.push(r); }
+                    }
+                } }
+            }
+            b += 1.0;
+        }
+        (o.len() / 3) as i32
+    }
+}
