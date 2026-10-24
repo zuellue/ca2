@@ -1,0 +1,179 @@
+{
+ "verdict": "PARITY-BYTE-EQUAL",
+ "negativeControlDiffBytes": 6635,
+ "cases": [
+  {
+   "case": "zero",
+   "w": 48,
+   "h": 48,
+   "bucket": 1,
+   "dpr": 1,
+   "overlay": 0,
+   "jsVsWasm": {
+    "diff": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "jsStable": true,
+   "wStable": true,
+   "jsSha": "0eb8ef60276b1377",
+   "wasmSha": "0eb8ef60276b1377"
+  },
+  {
+   "case": "color",
+   "w": 48,
+   "h": 48,
+   "bucket": 1,
+   "dpr": 1,
+   "overlay": 0,
+   "jsVsWasm": {
+    "diff": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "jsStable": true,
+   "wStable": true,
+   "jsSha": "ea04e51d17cf2829",
+   "wasmSha": "ea04e51d17cf2829"
+  },
+  {
+   "case": "mono-skew",
+   "w": 48,
+   "h": 48,
+   "bucket": 1,
+   "dpr": 1,
+   "overlay": 0,
+   "jsVsWasm": {
+    "diff": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "jsStable": true,
+   "wStable": true,
+   "jsSha": "4d5747baed866658",
+   "wasmSha": "4d5747baed866658"
+  },
+  {
+   "case": "soft",
+   "w": 48,
+   "h": 48,
+   "bucket": 1,
+   "dpr": 1,
+   "overlay": 0,
+   "jsVsWasm": {
+    "diff": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "jsStable": true,
+   "wStable": true,
+   "jsSha": "6eb1173d56ebf158",
+   "wasmSha": "6eb1173d56ebf158"
+  },
+  {
+   "case": "debug",
+   "w": 48,
+   "h": 48,
+   "bucket": 1,
+   "dpr": 1,
+   "overlay": 0,
+   "jsVsWasm": {
+    "diff": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "jsStable": true,
+   "wStable": true,
+   "jsSha": "fbe455fa460bdb32",
+   "wasmSha": "fbe455fa460bdb32"
+  },
+  {
+   "case": "overlay",
+   "w": 48,
+   "h": 48,
+   "bucket": 1,
+   "dpr": 1,
+   "overlay": 1,
+   "jsVsWasm": {
+    "diff": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "jsStable": true,
+   "wStable": true,
+   "jsSha": "831d8097b145e00f",
+   "wasmSha": "831d8097b145e00f"
+  },
+  {
+   "case": "resadapt-low",
+   "w": 48,
+   "h": 600,
+   "bucket": 1,
+   "dpr": 1,
+   "overlay": 0,
+   "jsVsWasm": {
+    "diff": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "jsStable": true,
+   "wStable": true,
+   "jsSha": "d440b8a6313238c5",
+   "wasmSha": "d440b8a6313238c5"
+  },
+  {
+   "case": "resadapt-high",
+   "w": 48,
+   "h": 1200,
+   "bucket": 1,
+   "dpr": 1,
+   "overlay": 0,
+   "jsVsWasm": {
+    "diff": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "jsStable": true,
+   "wStable": true,
+   "jsSha": "5bd4eaba76dc68b3",
+   "wasmSha": "5bd4eaba76dc68b3"
+  },
+  {
+   "case": "bucket257",
+   "w": 48,
+   "h": 48,
+   "bucket": 257,
+   "dpr": 1,
+   "overlay": 0,
+   "jsVsWasm": {
+    "diff": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "jsStable": true,
+   "wStable": true,
+   "jsSha": "ea04e51d17cf2829",
+   "wasmSha": "ea04e51d17cf2829"
+  },
+  {
+   "case": "dpr2",
+   "w": 48,
+   "h": 48,
+   "bucket": 1,
+   "dpr": 2,
+   "overlay": 0,
+   "jsVsWasm": {
+    "diff": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "jsStable": true,
+   "wStable": true,
+   "jsSha": "f96143a7aa1e9ea1",
+   "wasmSha": "f96143a7aa1e9ea1"
+  }
+ ],
+ "node": "v22.23.3",
+ "wasmSha256": "a30aff1b1865b80984e082b51e97ac9e1208e83e7668abf39be9003253df22a3",
+ "note": "identical inputs; both sides deterministic CPU; 0 differing bytes per case required"
+}
