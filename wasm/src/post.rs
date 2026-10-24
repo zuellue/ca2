@@ -420,3 +420,33 @@ pub extern "C" fn post_comp_parent(n: usize, px: f64, py: f64) -> i32 {
         par
     }
 }
+
+// planComposition greedy matching (jsrnd spike only): cells in the (already sorted, JS) order take the nearest free point (strict '<' from 1e18, first minimum wins, free list keeps its order after each splice);
+// when no free point is left, the cell draws floor(r * np) via env.js_rnd (JS: pts[Math.floor(Math.random() * pts.length)]). The dying flag stays JS (depends on userAdded/spawnProtect).
+// Buffers: post_cm_cells(m) -> 2*m f64 (x, y in order), post_cm_pts(np) -> 2*np f64. Output post_cm_out(): [dst index per cell (m), nfree, free indices in remaining order...]. Returns nfree.
+#[cfg(feature = "jsrnd")] static mut CMC: Vec<f64> = Vec::new();
+#[cfg(feature = "jsrnd")] static mut CMP: Vec<f64> = Vec::new();
+#[cfg(feature = "jsrnd")] static mut CMO: Vec<f64> = Vec::new();
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn post_cm_cells(m: usize) -> *mut f64 { unsafe { let b = &mut *std::ptr::addr_of_mut!(CMC); b.resize(m * 2 + 1, 0.0); b.as_mut_ptr() } }
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn post_cm_pts(np: usize) -> *mut f64 { unsafe { let b = &mut *std::ptr::addr_of_mut!(CMP); b.resize(np * 2 + 1, 0.0); b.as_mut_ptr() } }
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn post_cm_out() -> *const f64 { unsafe { (*std::ptr::addr_of!(CMO)).as_ptr() } }
+#[cfg(feature = "jsrnd")] #[no_mangle]
+pub extern "C" fn post_comp_match(m: usize, np: usize) -> i32 {
+    unsafe {
+        let c = &*std::ptr::addr_of!(CMC); let p = &*std::ptr::addr_of!(CMP);
+        let o = &mut *std::ptr::addr_of_mut!(CMO);
+        o.clear(); o.resize(m, 0.0);
+        let mut free: Vec<usize> = (0..np).collect();
+        for i in 0..m {
+            let (cx, cy) = (c[i * 2], c[i * 2 + 1]);
+            if !free.is_empty() {
+                let (mut bi, mut bd) = (0usize, 1e18f64);
+                for j in 0..free.len() { let q = free[j]; let dx = p[q * 2] - cx; let dy = p[q * 2 + 1] - cy; let d = dx * dx + dy * dy; if d < bd { bd = d; bi = j; } }
+                o[i] = free.remove(bi) as f64;
+            } else { o[i] = (js_rnd(0) * np as f64).floor(); }
+        }
+        o.push(free.len() as f64);
+        for q in &free { o.push(*q as f64); }
+        free.len() as i32
+    }
+}

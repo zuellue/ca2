@@ -1601,19 +1601,27 @@
   }
   // mode 3 swarm: continuous dots that flock; Life-like thinning: isolated dots fade away, dots with 2-3 near neighbours may bud a child, crowded ones die
   var swT = 0, swStat = { born: 0, died: 0 };
+  // food -> sw_in packing with the vx/vy init of fresh food (f.vx === undefined). swPackJs is the original loop; swPackRust (jsrnd spike) lets Rust draw vx/vy through env.js_rnd in index order.
+  // Fault: draws consumed -> no redraw, the not-yet-initialised food keeps vx = vy = 0 (degraded, WC.swDeg); none consumed -> returns false and the JS loop runs.
+  function swPackJs(n, buf) { var i, f, b; for (i = 0; i < n; i++) { f = food[i]; if (f.vx === undefined) { f.vx = (Math.random() - 0.5) * 0.4; f.vy = (Math.random() - 0.5) * 0.4; } b = i * 6; buf[b] = f.x; buf[b + 1] = f.y; buf[b + 2] = f.vx; buf[b + 3] = f.vy; buf[b + 4] = f.r; } }
+  function swPackRust(E, n, ip) {
+    if (!(WC.jsrnd && E.sw_fresh && !WC.swFOff)) return false;
+    var i, f, b, n0 = WC.rndN || 0, fp = E.sw_fresh_flags(n), fl = new Uint8Array(WC.mem.buffer, fp, n + 1), buf = new Float64Array(WC.mem.buffer, ip, n * 6 + 6); // buffers re-read after the call that can grow memory
+    for (i = 0; i < n; i++) { f = food[i]; b = i * 6; fl[i] = f.vx === undefined ? 1 : 0; buf[b] = f.x; buf[b + 1] = f.y; buf[b + 2] = f.vx === undefined ? 0 : f.vx; buf[b + 3] = f.vx === undefined ? 0 : f.vy; buf[b + 4] = f.r; }
+    var done = false;
+    try { E.sw_fresh(n); done = true; WC.swF = (WC.swF || 0) + 1; } catch (e2) { WC.swFOff = true; WC.swFErr = String(e2); if ((WC.rndN || 0) !== n0) { done = true; WC.swDeg = (WC.swDeg || 0) + 1; } }
+    if (!done) return false;
+    buf = new Float64Array(WC.mem.buffer, ip, n * 6 + 6);
+    for (i = 0; i < n; i++) { f = food[i]; b = i * 6; if (fl[i]) { f.vx = buf[b + 2]; f.vy = buf[b + 3]; } buf[b + 2] = f.vx; buf[b + 3] = f.vy; }
+    return true;
+  }
   function stepSwarmW() { // Rust/wasm swarm step (swarm.rs); returns false when unavailable so the JS body below runs (?nowasm=1, ?nosim=1)
     var E = WC.e; if (!E || !E.sw_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
     try {
       var n = food.length, i, f, b, x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h, ar = cont.w * cont.h * P.foodDensity;
       var ip = E.sw_in(n), buf = new Float64Array(WC.mem.buffer, ip, n * 6 + 6);
-      var swf = WC.jsrnd && E.sw_fresh && !WC.swFOff, swn0 = WC.rndN || 0, swFd = false;
-      if (swf) { // jsrnd spike: Rust draws vx/vy of fresh food (flag byte = vx === undefined; explicit NaN/null vx is NOT fresh) through env.js_rnd in index order. Fault: draws consumed -> no redraw, the not-yet-initialised food keeps vx = vy = 0 (degraded, WC.swDeg); none consumed -> JS init below.
-        var swfp = E.sw_fresh_flags(n), swfl = new Uint8Array(WC.mem.buffer, swfp, n + 1); buf = new Float64Array(WC.mem.buffer, ip, n * 6 + 6); // buffers re-read after the call that can grow memory
-        for (i = 0; i < n; i++) { f = food[i]; b = i * 6; swfl[i] = f.vx === undefined ? 1 : 0; buf[b] = f.x; buf[b + 1] = f.y; buf[b + 2] = f.vx === undefined ? 0 : f.vx; buf[b + 3] = f.vx === undefined ? 0 : f.vy; buf[b + 4] = f.r; }
-        try { E.sw_fresh(n); swFd = true; WC.swF = (WC.swF || 0) + 1; } catch (e2) { WC.swFOff = true; WC.swFErr = String(e2); if ((WC.rndN || 0) !== swn0) { swFd = true; WC.swDeg = (WC.swDeg || 0) + 1; } }
-        if (swFd) { buf = new Float64Array(WC.mem.buffer, ip, n * 6 + 6); for (i = 0; i < n; i++) { f = food[i]; b = i * 6; if (swfl[i]) { f.vx = buf[b + 2]; f.vy = buf[b + 3]; } buf[b + 2] = f.vx; buf[b + 3] = f.vy; } }
-      }
-      if (!swFd) for (i = 0; i < n; i++) { f = food[i]; if (f.vx === undefined) { f.vx = (Math.random() - 0.5) * 0.4; f.vy = (Math.random() - 0.5) * 0.4; } b = i * 6; buf[b] = f.x; buf[b + 1] = f.y; buf[b + 2] = f.vx; buf[b + 3] = f.vy; buf[b + 4] = f.r; }
+      var swFd = swPackRust(E, n, ip);
+      buf = new Float64Array(WC.mem.buffer, ip, n * 6 + 6); if (!swFd) swPackJs(n, buf); // re-read: the flag-buffer call can grow memory
       var life = performance.now() - swT >= P.foodLifeMs * 2;
       var m = E.sw_run(n, x0, x1, y0, y1, life ? 1 : 0, n < ar ? 1 : 0, ar * 0.1, Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
       if (m < 0) return false;
