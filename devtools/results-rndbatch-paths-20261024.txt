@@ -1,0 +1,70 @@
+# rndbatch (M2) path tests - card 20261024-371-ca - 2026-10-24
+# host: node v22.23.3, sandbox CPU; binaries at ca-method-measure f3dd18b8c1617f5ccb52f26fe35b93794ccfca26
+
+## node devtools/t-rndbatch-paths.js   (nonSIMD ca2core-jsrnd2.wasm)
+{"case":"A0 cap=8192","ok":true,"detail":"cap=8192"}
+{"case":"A1 initial meta [0,0]","ok":true,"detail":"0,0"}
+{"case":"A2 values 0..16384 stream-exact","ok":true,"detail":""}
+{"case":"A4 at cur==end no refill yet","ok":true,"detail":"meta=8192,8192 fills=1"}
+{"case":"A5 draw cap+1: exactly one refill, value=stream[cap], meta [1,cap]","ok":true,"detail":"fills=2 meta=1,8192"}
+{"case":"A6 second fill wrote full window stream[cap..2cap-1]","ok":true,"detail":""}
+{"case":"B1 interleaved wasm+JS draws globally stream-exact","ok":true,"detail":"draws=22000 (wasm 16000, js 6000)"}
+{"case":"B2 refills triggered from BOTH sides","ok":true,"detail":"rustFills=2 jsFills=1"}
+{"case":"B3 popsJS counts every JS draw","ok":true,"detail":"6000 vs 6000"}
+{"case":"B4 stream consumption == fills*cap (no leak/double-draw)","ok":true,"detail":"k=24576 fills=3"}
+{"case":"C1 cap-1 draws: meta [cap-1,cap], fills=1","ok":true,"detail":"8191,8192"}
+{"case":"C2 draw cap: value stream[cap-1], cursor at [cap,cap]","ok":true,"detail":"8192,8192"}
+{"case":"C3 wrap: refill then cur 0->1, value stream[cap]","ok":true,"detail":"fills=2 meta=1,8192"}
+{"case":"C4 post-wrap buffer window","ok":true,"detail":""}
+{"case":"D1 straddle 8100..8299 contiguous stream-exact (92 old + 108 new)","ok":true,"detail":"meta=108,8192 fills=2"}
+{"case":"D2 refill exactly at the boundary inside the sequence","ok":true,"detail":"108,8192"}
+{"case":"E1 end==0 traps","ok":true,"detail":"RuntimeError: unreachable"}
+{"case":"E2 end>N traps","ok":true,"detail":"RuntimeError: unreachable"}
+{"case":"E3 cur>=end after fill traps","ok":true,"detail":"RuntimeError: unreachable"}
+{"case":"E4 good fill does not trap (control)","ok":true,"detail":""}
+RNDBATCH-PATHS PASS
+
+## RNDBIN=ca2core-jsrnd2-simd.wasm node devtools/t-rndbatch-paths.js   (SIMD)
+{"case":"A0 cap=8192","ok":true,"detail":"cap=8192"}
+{"case":"A1 initial meta [0,0]","ok":true,"detail":"0,0"}
+{"case":"A2 values 0..16384 stream-exact","ok":true,"detail":""}
+{"case":"A4 at cur==end no refill yet","ok":true,"detail":"meta=8192,8192 fills=1"}
+{"case":"A5 draw cap+1: exactly one refill, value=stream[cap], meta [1,cap]","ok":true,"detail":"fills=2 meta=1,8192"}
+{"case":"A6 second fill wrote full window stream[cap..2cap-1]","ok":true,"detail":""}
+{"case":"B1 interleaved wasm+JS draws globally stream-exact","ok":true,"detail":"draws=22000 (wasm 16000, js 6000)"}
+{"case":"B2 refills triggered from BOTH sides","ok":true,"detail":"rustFills=2 jsFills=1"}
+{"case":"B3 popsJS counts every JS draw","ok":true,"detail":"6000 vs 6000"}
+{"case":"B4 stream consumption == fills*cap (no leak/double-draw)","ok":true,"detail":"k=24576 fills=3"}
+{"case":"C1 cap-1 draws: meta [cap-1,cap], fills=1","ok":true,"detail":"8191,8192"}
+{"case":"C2 draw cap: value stream[cap-1], cursor at [cap,cap]","ok":true,"detail":"8192,8192"}
+{"case":"C3 wrap: refill then cur 0->1, value stream[cap]","ok":true,"detail":"fills=2 meta=1,8192"}
+{"case":"C4 post-wrap buffer window","ok":true,"detail":""}
+{"case":"D1 straddle 8100..8299 contiguous stream-exact (92 old + 108 new)","ok":true,"detail":"meta=108,8192 fills=2"}
+{"case":"D2 refill exactly at the boundary inside the sequence","ok":true,"detail":"108,8192"}
+{"case":"E1 end==0 traps","ok":true,"detail":"RuntimeError: unreachable"}
+{"case":"E2 end>N traps","ok":true,"detail":"RuntimeError: unreachable"}
+{"case":"E3 cur>=end after fill traps","ok":true,"detail":"RuntimeError: unreachable"}
+{"case":"E4 good fill does not trap (control)","ok":true,"detail":""}
+RNDBATCH-PATHS PASS
+
+## node devtools/t-cost-fixture2.js 10   (existing gate, small K; parity lines are the byte-parity gate)
+{"rep":0,"name":"default-shipped-nonSIMD","usMed":43.25,"usP10":43.18,"usP90":43.42,"jsRndCalls":0,"fillsPerStep":0,"callsPerStep":0,"n":55}
+{"rep":0,"name":"jsrnd-nonSIMD","usMed":48.75,"usP10":47.08,"usP90":55.47,"jsRndCalls":434,"fillsPerStep":0,"callsPerStep":413.5,"n":55}
+{"rep":0,"name":"jsrndbatch-nonSIMD","usMed":36.72,"usP10":34.24,"usP90":47.36,"jsRndCalls":0,"fillsPerStep":0.1,"callsPerStep":0,"n":55}
+{"rep":0,"name":"default-shipped-SIMD","usMed":38.92,"usP10":38.76,"usP90":44.34,"jsRndCalls":0,"fillsPerStep":0,"callsPerStep":0,"n":55}
+{"rep":0,"name":"jsrnd-SIMD","usMed":48.75,"usP10":48.32,"usP90":763.679,"jsRndCalls":397,"fillsPerStep":0,"callsPerStep":413.1,"n":55}
+{"rep":0,"name":"jsrndbatch-SIMD","usMed":32.36,"usP10":30.32,"usP90":42.23,"jsRndCalls":0,"fillsPerStep":0.1,"callsPerStep":0,"n":55}
+{"rep":1,"name":"default-shipped-nonSIMD","usMed":25.1,"usP10":24.66,"usP90":37.12,"jsRndCalls":0,"fillsPerStep":0,"callsPerStep":0,"n":55}
+{"rep":1,"name":"jsrnd-nonSIMD","usMed":32.19,"usP10":31.33,"usP90":51.71,"jsRndCalls":364,"fillsPerStep":0,"callsPerStep":384,"n":55}
+{"rep":1,"name":"jsrndbatch-nonSIMD","usMed":39.16,"usP10":38.14,"usP90":49.82,"jsRndCalls":0,"fillsPerStep":0.1,"callsPerStep":0,"n":55}
+{"rep":1,"name":"default-shipped-SIMD","usMed":39.33,"usP10":39.2,"usP90":39.5,"jsRndCalls":0,"fillsPerStep":0,"callsPerStep":0,"n":55}
+{"rep":1,"name":"jsrnd-SIMD","usMed":49.08,"usP10":46.09,"usP90":58.09,"jsRndCalls":423,"fillsPerStep":0,"callsPerStep":412.1,"n":55}
+{"rep":1,"name":"jsrndbatch-SIMD","usMed":29.64,"usP10":28.68,"usP90":48.85,"jsRndCalls":0,"fillsPerStep":0.1,"callsPerStep":0,"n":55}
+{"rep":2,"name":"default-shipped-nonSIMD","usMed":25.13,"usP10":25.1,"usP90":25.179,"jsRndCalls":0,"fillsPerStep":0,"callsPerStep":0,"n":55}
+{"rep":2,"name":"jsrnd-nonSIMD","usMed":33.95,"usP10":32.96,"usP90":121.58,"jsRndCalls":417,"fillsPerStep":0,"callsPerStep":419,"n":55}
+{"rep":2,"name":"jsrndbatch-nonSIMD","usMed":31.66,"usP10":30.15,"usP90":43.37,"jsRndCalls":0,"fillsPerStep":0.1,"callsPerStep":0,"n":55}
+{"rep":2,"name":"default-shipped-SIMD","usMed":25.47,"usP10":25.38,"usP90":35.58,"jsRndCalls":0,"fillsPerStep":0,"callsPerStep":0,"n":55}
+{"rep":2,"name":"jsrnd-SIMD","usMed":34.49,"usP10":32.5,"usP90":168.65,"jsRndCalls":480,"fillsPerStep":0,"callsPerStep":416.4,"n":55}
+{"rep":2,"name":"jsrndbatch-SIMD","usMed":30.49,"usP10":29.71,"usP90":38.91,"jsRndCalls":0,"fillsPerStep":0.1,"callsPerStep":0,"n":55}
+PARITY-nonSIMD {"steps":120,"mismatchSteps":0,"firstDiffStep":-1}
+PARITY-SIMD {"steps":120,"mismatchSteps":0,"firstDiffStep":-1}
