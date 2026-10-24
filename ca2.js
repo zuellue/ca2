@@ -533,6 +533,17 @@
   }
   // ---- respawn morph: a new life cycle (new environment, fresh energy, fresh food) with a new random composition.
   // Every cell gets a place in the new composition and flows there at its own pace; surplus cells die on arrival, missing ones are born from the nearest parent.
+  // planComposition per-cell morph attributes. compCellAttrsJs = the original loop; compCellAttrs (jsrnd spike) lets Rust draw pace/dl/durK/bend in the same order.
+  // Fault: draws consumed -> no redraw; cells past the last fully drawn one get neutral pace=1, dl=0, durK=1, bend=0 (degraded, WC.caDeg); none consumed -> JS loop.
+  function compCellAttrsJs() { for (var i = 0; i < cells.length; i++) { if (P.refreshResetEnergy) cells[i].energy = 12; cells[i].cl = 0; cells[i].dst = null; cells[i].dying = false; cells[i].pace = rnd(0.5, 1.5); cells[i].dl = rnd(0, 0.45) * trans.dur; cells[i].durK = rnd(0.55, 1); cells[i].bend = Math.random() < 0.25 ? 0 : rnd(-1, 1); cells[i].sym = null; } }
+  function compCellAttrs() {
+    if (!(WC.jsrnd && WC.e && WC.e.post_cell_attrs && !postOffW())) return compCellAttrsJs();
+    var m = cells.length, n0 = WC.rndN || 0, E = WC.e, i, c, done = m;
+    try { E.post_cell_attrs(m, trans.dur); WC.caN = (WC.caN || 0) + 1; }
+    catch (e) { WC.postOff = true; WC.postErr = String(e); if ((WC.rndN || 0) === n0) return compCellAttrsJs(); WC.caDeg = (WC.caDeg || 0) + 1; done = E.post_ca_done(); }
+    var o = new Float64Array(WC.mem.buffer, E.post_ca_out(), m * 4 + 1);
+    for (i = 0; i < m; i++) { c = cells[i]; if (P.refreshResetEnergy) c.energy = 12; c.cl = 0; c.dst = null; c.dying = false; if (i < done) { c.pace = o[i * 4]; c.dl = o[i * 4 + 1]; c.durK = o[i * 4 + 2]; c.bend = o[i * 4 + 3]; } else { c.pace = 1; c.dl = 0; c.durK = 1; c.bend = 0; } c.sym = null; }
+  }
   // greedy matching of the (JS-sorted) cell order to composition points. compMatchJs = original loop; compMatchRust (jsrnd spike) = Rust nearest-free search + overflow draws floor(r * np) through env.js_rnd.
   // Returns the remaining free list. Fault: draws consumed -> no redraw; cells whose draw never completed get pts[0] (degraded, WC.cmDeg); none consumed -> JS loop.
   function compMatchJs(order, pts, free) {
@@ -582,7 +593,7 @@
       pts.push([px, py]);
     }
     }
-    for (i = 0; i < cells.length; i++) { if (P.refreshResetEnergy) cells[i].energy = 12; cells[i].cl = 0; cells[i].dst = null; cells[i].dying = false; cells[i].pace = rnd(0.5, 1.5); cells[i].dl = rnd(0, 0.45) * trans.dur; cells[i].durK = rnd(0.55, 1); cells[i].bend = Math.random() < 0.25 ? 0 : rnd(-1, 1); cells[i].sym = null; }
+    compCellAttrs();
     // greedy matching, cells in random order take the nearest free place
     var free = pts.slice(), order = cells.slice().sort(function (a, b2) { return ((b2.userAdded && P.spawnProtect) ? 1 : 0) - ((a.userAdded && P.spawnProtect) ? 1 : 0) || Math.random() - 0.5; }), spawnN = 0;
     // user-added cells take places first (owner 21 Oct: added cells must join the life, not be culled): the surplus cull falls on natural-born cells only

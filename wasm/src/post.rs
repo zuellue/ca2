@@ -457,3 +457,26 @@ pub extern "C" fn post_comp_match(m: usize, np: usize) -> i32 {
 pub extern "C" fn post_food_spawn_decide(density: f64, len: f64, cap: f64) -> i32 { unsafe { let r = js_rnd(0); if r < density && len < cap { 1 } else { 0 } } }
 #[cfg(feature = "jsrnd")] #[no_mangle]
 pub extern "C" fn post_food_cull_decide(len: f64) -> i32 { unsafe { let r = js_rnd(0); if r < 0.001 && len > 0.0 { let a = 0.0f64; let b = len; let x = a + js_rnd(0) * (b - a); x.floor() as i32 } else { -1 } } }
+
+// planComposition per-cell morph attributes (jsrnd spike only): per cell, in order: pace = rnd(.5,1.5); dl = rnd(0,.45) * dur; durK = rnd(.55,1); bend = r < .25 ? 0 : rnd(-1,1). Draw order identical to the JS statement order.
+// Output post_ca_out(): 4 f64 per cell (pace, dl, durK, bend). post_ca_done() = number of cells fully written (survives a fault thrown from env.js_rnd).
+#[cfg(feature = "jsrnd")] static mut CAO: Vec<f64> = Vec::new();
+#[cfg(feature = "jsrnd")] static mut CAD: usize = 0;
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn post_ca_out() -> *const f64 { unsafe { (*std::ptr::addr_of!(CAO)).as_ptr() } }
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn post_ca_done() -> usize { unsafe { CAD } }
+#[cfg(feature = "jsrnd")] #[no_mangle]
+pub extern "C" fn post_cell_attrs(m: usize, dur: f64) -> i32 {
+    unsafe {
+        let o = &mut *std::ptr::addr_of_mut!(CAO); CAD = 0;
+        o.clear(); o.resize(m * 4, 0.0);
+        for i in 0..m {
+            let pace = 0.5 + js_rnd(0) * (1.5 - 0.5);
+            let dl = (0.0 + js_rnd(0) * (0.45 - 0.0)) * dur;
+            let dk = 0.55 + js_rnd(0) * (1.0 - 0.55);
+            let bend = if js_rnd(0) < 0.25 { 0.0 } else { -1.0 + js_rnd(0) * (1.0 - (-1.0)) };
+            o[i * 4] = pace; o[i * 4 + 1] = dl; o[i * 4 + 2] = dk; o[i * 4 + 3] = bend;
+            CAD = i + 1;
+        }
+        m as i32
+    }
+}
