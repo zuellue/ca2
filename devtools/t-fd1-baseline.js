@@ -13,12 +13,16 @@ function mk(WC,P,cont,clk){return new Function('WC','P','cont','location','perfo
 function w(seed,f){let st=seed,n=0;const o=Math.random;Math.random=function(){n++;st=(st*1664525+1013904223)>>>0;return st/4294967296;};try{return{v:f(),n};}finally{Math.random=o;}}
 let s=77;const r0=()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};
 (async()=>{const WCb={};await inst(WCb);
-const byOut={in:{n:0,bad:0},out:{n:0,bad:0}};let tot=0,posBad=0,cntBad=0,statBad=0,drawBad=0,rBad=0,born=0,due=0,flowCases=0,firstPos=null;const kinds={};
+const byOut={in:{n:0,bad:0},out:{n:0,bad:0}},byClass={};let tot=0,posBad=0,cntBad=0,statBad=0,drawBad=0,rBad=0,born=0,due=0,flowCases=0,firstPos=null;const kinds={};
 for(let t=0;t<6000;t++){
  const gs=1+Math.floor(r0()*10),P={foodLifeMs:300,foodLifeCell:gs,foodSize:2+r0()*6,boundGap:r0()<0.5?0:r0()*10};
- const cont={x:r0()*40,y:r0()*40,w:60+r0()*300,h:60+r0()*200};
- const n=Math.floor(r0()*r0()*400),food=[];const mode=t%4; // 0 inside only,1 some outside,2 clustered dense,3 empty
+ let cont={x:r0()*40,y:r0()*40,w:60+r0()*300,h:60+r0()*200};
+ const m8=t%8; if(m8===5){cont={x:r0()*40,y:r0()*40,w:r0()*14,h:r0()*14};P.boundGap=r0()*20;} // degenerate plate: x1<x0 midpoint branch
+ if(m8===6){const q=Math.floor(r0()*6);if(q===0)P.boundGap=undefined;else if(q===1)P.boundGap=NaN;else if(q===2)P.boundGap=-5;else if(q===3)P.foodSize=NaN;else if(q===4)P.foodSize=-3;else P.foodSize=500;}
+ if(m8===7){cont={x:1e6+r0()*40,y:-1e6+r0()*40,w:60+r0()*300,h:60+r0()*200};}
+ const n=Math.floor(r0()*r0()*400),food=[];const mode=t%8; // 0 inside only,1 some outside,2 clustered dense,3 empty
  for(let i=0;i<(mode==3?0:n);i++){let x,y;if(mode==2){const cx=cont.x+50,cy=cont.y+40;x=cx+Math.floor(r0()*12)*gs+r0()*gs*0.9;y=cy+Math.floor(r0()*12)*gs+r0()*gs*0.9;}else{const out=mode==1&&r0()<0.15;x=cont.x+(out?-30+r0()*(cont.w+60):r0()*cont.w);y=cont.y+(out?-30+r0()*(cont.h+60):r0()*cont.h);}food.push({x,y,r:r0()});}
+ if(m8===4||m8===6){const bad=[NaN,Infinity,-Infinity];for(let q=0;q<1+Math.floor(r0()*3);q++){const f={x:cont.x+r0()*cont.w,y:cont.y+r0()*cont.h,r:r0()};const v=bad[Math.floor(r0()*3)];if(r0()<0.5)f.x=v;else f.y=v;food.splice(Math.floor(r0()*(food.length+1)),0,f);}}
  const dueC=t%3!==0,clk={t:1000},foodT=dueC?0:999.9;
  const mkS=()=>({food:food.map(f=>({...f})),foodT,stat:{born:0,died:0,steps:0,inflow:0}});
  const WCa={},A=mk(WCa,P,cont,clk),Bw={...{}},WCbb={};const E=await inst(WCbb);const B=mk(WCbb,P,cont,clk);
@@ -32,5 +36,6 @@ for(let t=0;t<6000;t++){
  if(JSON.stringify(Ra.stat)!==JSON.stringify(Rb.stat)){statBad++;kind.push('stat')}
  if(a.n!==b.n){drawBad++;kind.push('draws')}
  {const ho=food.some(f=>f.x<cont.x||f.x>cont.x+cont.w||f.y<cont.y||f.y>cont.y+cont.h)?'out':'in';byOut[ho].n++;if(kind.some(k=>k!=='draws'&&k!=='r'))byOut[ho].bad++;if(cand&&kind.some(k=>k==='draws'||k==='r'))byOut[ho].streamBad=(byOut[ho].streamBad||0)+1;}
+ {const nf=food.some(f=>!Number.isFinite(f.x)||!Number.isFinite(f.y));const key='m'+(t%8)+(nf?'+nonfinite':'');const c=byClass[key]=byClass[key]||{n:0,bad:0};c.n++;if(kind.length&&!(kind.length===1&&kind[0]==='draws'&&!cand))c.bad++;}
  born+=Ra.stat.born;for(const k of kind)kinds[k]=(kinds[k]||0)+1;}
-console.log(JSON.stringify({mode:cand?'candidate':'baseline',binary:bin,scenarios:tot,dueScenarios:due,born,countMismatch:cntBad,posMismatch:posBad,statMismatch:statBad,drawCountMismatch:drawBad,rMismatchOrRange:rBad,kinds,byOutsideFood:byOut,firstPos}));process.exit(0)})();
+console.log(JSON.stringify({mode:cand?'candidate':'baseline',binary:bin,scenarios:tot,dueScenarios:due,born,countMismatch:cntBad,posMismatch:posBad,statMismatch:statBad,drawCountMismatch:drawBad,rMismatchOrRange:rBad,kinds,byOutsideFood:byOut,byClass,firstPos}));process.exit(0)})();

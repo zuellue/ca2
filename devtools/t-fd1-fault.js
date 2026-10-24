@@ -19,7 +19,7 @@ const sig=R=>JSON.stringify([R.food.map(f=>[f.x,f.y,f.r]),R.stat]);
  for(const [name,food] of [['empty',[]],['one',[{x:50,y:50,r:.5}]]]){const WC={};await inst(WC,0);const A=mk({},P,cont,clk),B=mk(WC,P,cont,clk);A.st(mkS(food));B.st(mkS(food));const a=w(5,()=>A.step()),b=w(5,()=>B.step());const ok=a.n===b.n&&sig(A.st())===sig(B.st());res[name]=ok;if(!ok)bad++;}
  // (2) NaN / Infinity
  for(const [name,v] of [['NaN',NaN],['Inf',Infinity]]){const food=inside([{x:v,y:5,r:.5}]);const WC={};await inst(WC,0);const A=mk({},P,cont,clk),B=mk(WC,P,cont,clk);A.st(mkS(food));B.st(mkS(food));let a,b,ea,eb;try{a=w(5,()=>A.step())}catch(e){ea=String(e)}try{b=w(5,()=>B.step())}catch(e){eb=String(e)}
-  const ok=ea===eb&&b&&b.n===0&&B.st().food.length===food.length&&B.st().stat.steps===0;/* measured pre-existing behaviour: fd1_tick returns -1 after foodT=now, so the JS body sees the timer already set and skips the tick (candidate AND default); NOT JS-route parity */res[name]={ok,ea,eb,drawsJS:a&&a.n,drawsCand:b&&b.n,kernelDraws:WC.rndN||0};if(!ok)bad++;}
+  const ok=ea===eb&&a&&b&&a.n===b.n&&sig(A.st())===sig(B.st())&&B.st().stat.steps===1;/* fixed (jsrnd): the -1 fallback leaves the timer alone, so the JS body runs the tick: JS-route parity incl. draws */res[name]={ok,ea,eb,drawsJS:a&&a.n,drawsCand:b&&b.n,kernelDraws:WC.rndN||0};if(!ok)bad++;}
  // (3) fault at draw k
  const full=await (async()=>{const WC={};await inst(WC,0);const B=mk(WC,P,cont,clk);B.st(mkS(inside()));return w(9,()=>{B.step();return B.st().stat.born})})();
  let fT=0,fB=0;for(let k=1;k<Math.min(full.n,40);k++){const WC={};await inst(WC,k);const B=mk(WC,P,cont,clk);const S=mkS(inside());B.st(S);const r=w(9,()=>B.step());fT++;

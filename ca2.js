@@ -1514,13 +1514,16 @@
       if (!due) { for (i = 0; i < n; i++) { f = food[i]; if (f.x < x0 || f.x > x1 || f.y < y0 || f.y > y1) { needsFlow = true; break; } } if (!needsFlow) return true; } // nothing to do: no marshal at all
       var ip = E.fd1_in(n), buf = new Float64Array(WC.mem.buffer, ip, n * 3 + 3);
       for (i = 0; i < n; i++) { f = food[i]; b = i * 3; buf[b] = f.x; buf[b + 1] = f.y; buf[b + 2] = f.r; }
-      foodStat.inflow += E.fd1_flow(n, x0, y0, x1, y1);
-      if (!due) { for (i = 0; i < n; i++) { f = food[i]; b = i * 3; f.x = buf[b]; f.y = buf[b + 1]; } WC.fwFd = (WC.fwFd || 0) + 1; return true; }
+      var fdJ = !!(WC.jsrnd && E.fd1_jsrnd && E.fd1_flow_wp), fdFl = 0, foodT0 = foodT; // jsrnd spike behaviour fixes (separate from the PRNG migration): wallPull-exact inset clamp, and a -1 fallback that leaves the timer alone so the JS body really runs the tick
+      if (fdJ) { fdFl = E.fd1_flow_wp(n, cont.x, cont.y, cont.w, cont.h, P.foodSize / 2, P.boundGap || 0); if (fdFl < 0) return false; }
+      else foodStat.inflow += E.fd1_flow(n, x0, y0, x1, y1);
+      if (!due) { if (fdJ) foodStat.inflow += fdFl; for (i = 0; i < n; i++) { f = food[i]; b = i * 3; f.x = buf[b]; f.y = buf[b + 1]; } WC.fwFd = (WC.fwFd || 0) + 1; return true; }
       foodT = now;
-      var fdJ = !!(WC.jsrnd && E.fd1_jsrnd), fdn0 = WC.rndN || 0; // jsrnd spike: the kernel draws r through env.js_rnd (the real Math.random) in kernel order; no seed draws
+      var fdn0 = WC.rndN || 0; // jsrnd spike: the kernel draws r through env.js_rnd (the real Math.random) in kernel order; no seed draws
       try { var m = E.fd1_tick(n, Math.max(1, P.foodLifeCell), x0, y0, x1, y1, cont.w, cont.h, P.foodDensity, fdJ ? 0 : Math.floor(Math.random() * 4294967296), fdJ ? 0 : Math.floor(Math.random() * 4294967296)); }
       catch (e2) { if (fdJ && (WC.rndN || 0) !== fdn0) { WC.fd1Off = true; WC.fdDeg = (WC.fdDeg || 0) + 1; return true; } throw e2; } // fault after consumed draws: no redraw, this tick is skipped (degraded, WC.fdDeg); none consumed: rethrown -> JS body
-      if (m < 0) return false;
+      if (m < 0) { if (fdJ) foodT = foodT0; return false; } // jsrnd: no draws were consumed (checked below by the caller's rule); restore the timer so the JS body ticks
+      if (fdJ) foodStat.inflow += fdFl;
       var o = new Float64Array(WC.mem.buffer, E.fd1_out(), m * 3), st = new Float64Array(WC.mem.buffer, E.fd1_stat(), 4);
       foodStat.died += st[0]; foodStat.born += st[1]; foodStat.steps++;
       var out = new Array(m);

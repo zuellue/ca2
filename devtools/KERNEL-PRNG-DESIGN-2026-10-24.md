@@ -57,3 +57,11 @@ Recommended: B, one kernel at a time, order fd1_tick, sw_run, wm_run, sp_run, tr
 - Mode 2/4/5 counts from the first table must be read with that: only the kernels listed after the mode set were not separated by timestamp except sw_run (other kernels ölçülmedi after-set).
 ### 5e. Wording clarification (per main)
 - The source JS fallback body can be the parity reference for an active Rust kernel (e.g. sw_run); only the separate fallback-hook port (lifeBirths, wormGrowSplit) is degraded-only scope and not active-path progress.
+
+## 6. fd1 behaviour fixes (jsrnd-only, separate from the PRNG migration; commit after e93a08c3)
+- Fix 1: fd1_flow_wp = exact port of wallPull(f, foodSize/2, false) for out-of-plate dots (inset box, gap, rFit, midpoint branch, JS min/max NaN semantics). Glue uses it only when WC.jsrnd && E.fd1_flow_wp.
+- Fix 2: when fd1_flow_wp or fd1_tick returns -1 (no draw consumed), the timer is restored (foodT = foodT0) and inflow is not counted, so the JS body runs the whole step; before this, the tick was dropped.
+- Consumed-draw fault behaviour unchanged (no redraw, tick skipped, WC.fdDeg, WC.fd1Off); inflow is not counted in that degraded case.
+- Evidence: t-fd1-baseline.js, 6000 scenarios (8 classes x 750: inside, outside, dense lattice, empty, non-finite NaN/+-Inf, degenerate plate x1<x0, odd P (boundGap undefined/NaN/negative, foodSize NaN/negative/500), far plate 1e6): candidate vs JS body: 0 mismatch in count/x/y/stat/draws/r on BOTH jsrnd binaries. Same harness on the DEFAULT binary: mismatches in outside, dense-with-outside and non-finite classes (kept as the default's measured behaviour, untouched).
+- t-fd1-fault.js: NaN/Inf now equal the JS route (192 draws each, steps 1); fault at draw k: 39 cases, 0 bad.
+- Limits: far plates beyond ~1e9 (float key aliasing vs Rust i64 keys) not covered; Math.random stream is the seeded harness stream, not the browser's.

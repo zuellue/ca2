@@ -15,6 +15,34 @@ pub fn fd1() -> &'static mut Fd1 {
 #[cfg(feature = "jsrnd")] #[link(wasm_import_module = "env")] extern "C" { fn js_rnd(line: u32) -> f64; }
 const M: i64 = 100003;
 fn key(ix: i64, iy: i64) -> i64 { (ix + 20000) * M + (iy + 20000) }
+// jsrnd-only behaviour fix (NOT part of the PRNG migration): exact port of the JS body's per-dot `wallPull(f, foodSize/2, false)` for dots outside the plate box.
+// JS min/max semantics (NaN propagates). Positions that are NaN compare false and are left alone; +-Inf is outside and gets clamped. Returns the inflow count, or -1 when rows are short.
+#[cfg(feature = "jsrnd")]
+fn jmin(a: f64, b: f64) -> f64 { if a.is_nan() || b.is_nan() { f64::NAN } else if a < b { a } else { b } }
+#[cfg(feature = "jsrnd")]
+fn jmax(a: f64, b: f64) -> f64 { if a.is_nan() || b.is_nan() { f64::NAN } else if a > b { a } else { b } }
+#[cfg(feature = "jsrnd")]
+impl Fd1 {
+    pub fn flow_wp(&mut self, n: usize, cx: f64, cy: f64, cw: f64, ch: f64, r: f64, gap0: f64) -> i64 {
+        if self.rows.len() < n * 3 { return -1; }
+        let (px0, px1, py0, py1) = (cx, cx + cw, cy, cy + ch);
+        let gap = jmax(0.0, gap0); let rfit = jmax(8.0, jmin(cw, ch) / 2.0 - gap); let rr = jmin(r, rfit);
+        let (mut x0, mut x1, mut y0, mut y1) = (cx + rr + gap, cx + cw - rr - gap, cy + rr + gap, cy + ch - rr - gap);
+        if x1 < x0 { let m = (x0 + x1) / 2.0; x0 = m; x1 = m; }
+        if y1 < y0 { let m = (y0 + y1) / 2.0; y0 = m; y1 = m; }
+        let mut infl = 0i64;
+        for i in 0..n {
+            let b = i * 3; let (mut x, mut y) = (self.rows[b], self.rows[b + 1]);
+            if x < px0 || x > px1 || y < py0 || y > py1 {
+                if x < x0 { x = x0; } else if x > x1 { x = x1; }
+                if y < y0 { y = y0; } else if y > y1 { y = y1; }
+                infl += 1; self.rows[b] = x; self.rows[b + 1] = y;
+            }
+        }
+        infl
+    }
+}
+
 impl Fd1 {
     fn r01(&mut self) -> f64 {
         #[cfg(feature = "jsrnd")] { return unsafe { js_rnd(1) }; } // jsrnd spike: the real Math.random stream, no kernel PRNG

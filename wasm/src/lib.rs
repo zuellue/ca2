@@ -214,6 +214,7 @@ pub extern "C" fn mb_field_f32(n: usize, bw: usize, bh: usize, s: f64, ms: f64, 
 #[no_mangle] pub extern "C" fn fd1_flow(n: usize, x0: f64, y0: f64, x1: f64, y1: f64) -> f64 { fd1::fd1().flow(n, x0, y0, x1, y1) as f64 }
 #[no_mangle] pub extern "C" fn fd1_tick(n: usize, gs: f64, x0: f64, y0: f64, x1: f64, y1: f64, cw: f64, ch: f64, density: f64, s0: f64, s1: f64) -> f64 { fd1::fd1().tick(n, gs, x0, y0, x1, y1, cw, ch, density, s0, s1) as f64 }
 #[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn fd1_jsrnd() -> u32 { 1 }
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn fd1_flow_wp(n: usize, cx: f64, cy: f64, cw: f64, ch: f64, r: f64, gap: f64) -> f64 { fd1::fd1().flow_wp(n, cx, cy, cw, ch, r, gap) as f64 }
 #[no_mangle] pub extern "C" fn fd1_out() -> *const f64 { fd1::fd1().out.as_ptr() }
 #[no_mangle] pub extern "C" fn fd1_stat() -> *const f64 { fd1::fd1().stat.as_ptr() }
 
