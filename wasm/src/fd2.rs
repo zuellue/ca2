@@ -4,6 +4,10 @@
 // (x, y, vx, vy, r, ph, w). Dot row: 6 f64 (a, f, q, blobIdx, x out, y out).
 pub struct Fd2 { pub blobs: Vec<f64>, pub dots: Vec<f64>, s0: u64, s1: u64 }
 #[cfg(feature = "jsrnd")] #[link(wasm_import_module = "env")] extern "C" { fn js_rnd(line: u32) -> f64; }
+#[cfg(not(feature = "jsrnd"))] fn fsin(x: f64) -> f64 { x.sin() }
+#[cfg(feature = "jsrnd")] fn fsin(x: f64) -> f64 { crate::fdm::sin(x) } // V8 fdlibm sin, bit-equal to Math.sin
+#[cfg(not(feature = "jsrnd"))] fn fcos(x: f64) -> f64 { x.cos() }
+#[cfg(feature = "jsrnd")] fn fcos(x: f64) -> f64 { crate::fdm::cos(x) }
 pub static mut FD2: Option<Fd2> = None;
 pub fn fd2() -> &'static mut Fd2 {
     unsafe {
@@ -51,11 +55,11 @@ impl Fd2 {
         for j in 0..nd {
             let d = j * 6; let bi = self.dots[d + 3] as usize; if bi >= nb { return -1; }
             let b = bi * 7;
-            let rr = self.blobs[b + 4] * (1.0 + 0.25 * (tt * self.blobs[b + 6] + self.blobs[b + 5]).sin()) * (0.6 + 0.08 * ndots[bi]);
+            let rr = self.blobs[b + 4] * (1.0 + 0.25 * fsin(tt * self.blobs[b + 6] + self.blobs[b + 5])) * (0.6 + 0.08 * ndots[bi]);
             let ang = self.dots[d] + tt * 0.25 * self.blobs[b + 6];
-            let rad = rr * (0.45 + 0.55 * (tt * self.dots[d + 1] + self.dots[d + 2]).sin().abs());
-            self.dots[d + 4] = self.blobs[b] + ang.cos() * rad;
-            self.dots[d + 5] = self.blobs[b + 1] + ang.sin() * rad;
+            let rad = rr * (0.45 + 0.55 * fsin(tt * self.dots[d + 1] + self.dots[d + 2]).abs());
+            self.dots[d + 4] = self.blobs[b] + fcos(ang) * rad;
+            self.dots[d + 5] = self.blobs[b + 1] + fsin(ang) * rad;
         }
         0
     }
