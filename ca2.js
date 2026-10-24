@@ -1507,7 +1507,7 @@
   // ---- food life: the dots follow the plate like cells do, and live a Conway life (B3/S23) on a lattice anchored to the plate
   var foodT = 0, foodStat = { born: 0, died: 0, steps: 0, inflow: 0 };
   function stepFoodW() { // Rust/wasm mode-1 food step (fd1.rs); returns false when unavailable so the JS body below runs (?nowasm=1, ?nosim=1)
-    var E = WC.e; if (!E || !E.fd1_tick || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
+    var E = WC.e; if (!E || !E.fd1_tick || WC.fd1Off || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
     try {
       var n = food.length, i, f, b, x0 = cont.x, x1 = cont.x + cont.w, y0 = cont.y, y1 = cont.y + cont.h;
       var now = performance.now(), due = now - foodT >= P.foodLifeMs, needsFlow = false;
@@ -1517,7 +1517,9 @@
       foodStat.inflow += E.fd1_flow(n, x0, y0, x1, y1);
       if (!due) { for (i = 0; i < n; i++) { f = food[i]; b = i * 3; f.x = buf[b]; f.y = buf[b + 1]; } WC.fwFd = (WC.fwFd || 0) + 1; return true; }
       foodT = now;
-      var m = E.fd1_tick(n, Math.max(1, P.foodLifeCell), x0, y0, x1, y1, cont.w, cont.h, P.foodDensity, Math.floor(Math.random() * 4294967296), Math.floor(Math.random() * 4294967296));
+      var fdJ = !!(WC.jsrnd && E.fd1_jsrnd), fdn0 = WC.rndN || 0; // jsrnd spike: the kernel draws r through env.js_rnd (the real Math.random) in kernel order; no seed draws
+      try { var m = E.fd1_tick(n, Math.max(1, P.foodLifeCell), x0, y0, x1, y1, cont.w, cont.h, P.foodDensity, fdJ ? 0 : Math.floor(Math.random() * 4294967296), fdJ ? 0 : Math.floor(Math.random() * 4294967296)); }
+      catch (e2) { if (fdJ && (WC.rndN || 0) !== fdn0) { WC.fd1Off = true; WC.fdDeg = (WC.fdDeg || 0) + 1; return true; } throw e2; } // fault after consumed draws: no redraw, this tick is skipped (degraded, WC.fdDeg); none consumed: rethrown -> JS body
       if (m < 0) return false;
       var o = new Float64Array(WC.mem.buffer, E.fd1_out(), m * 3), st = new Float64Array(WC.mem.buffer, E.fd1_stat(), 4);
       foodStat.died += st[0]; foodStat.born += st[1]; foodStat.steps++;

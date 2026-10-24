@@ -12,10 +12,13 @@ pub fn fd1() -> &'static mut Fd1 {
         s.as_mut().unwrap()
     }
 }
+#[cfg(feature = "jsrnd")] #[link(wasm_import_module = "env")] extern "C" { fn js_rnd(line: u32) -> f64; }
 const M: i64 = 100003;
 fn key(ix: i64, iy: i64) -> i64 { (ix + 20000) * M + (iy + 20000) }
 impl Fd1 {
     fn r01(&mut self) -> f64 {
+        #[cfg(feature = "jsrnd")] { return unsafe { js_rnd(1) }; } // jsrnd spike: the real Math.random stream, no kernel PRNG
+        #[allow(unreachable_code)]
         let (mut x, y) = (self.s0, self.s1);
         self.s0 = y; x ^= x << 23; self.s1 = x ^ y ^ (x >> 17) ^ (y >> 26);
         ((self.s1.wrapping_add(y)) >> 11) as f64 * (1.0 / 9007199254740992.0)
@@ -39,8 +42,8 @@ impl Fd1 {
     }
     #[allow(clippy::too_many_arguments)]
     pub fn tick(&mut self, n: usize, gs: f64, x0: f64, y0: f64, x1: f64, y1: f64, cw: f64, ch: f64, density: f64, s0: f64, s1: f64) -> i64 {
-        self.s0 = ((s0 as u64) << 32) | 0x9E3779B9; self.s1 = ((s1 as u64) << 32) | 0x85EBCA6B;
-        for _ in 0..8 { self.r01(); }
+        #[cfg(not(feature = "jsrnd"))] { self.s0 = ((s0 as u64) << 32) | 0x9E3779B9; self.s1 = ((s1 as u64) << 32) | 0x85EBCA6B; for _ in 0..8 { self.r01(); } }
+        #[cfg(feature = "jsrnd")] { let _ = (s0, s1); } // jsrnd: no seed, no warm-up draws
         self.stat = [0.0; 4];
         if self.rows.len() < n * 3 { return -1; }
         // dedup lattice map, first dot per cell, insertion order preserved

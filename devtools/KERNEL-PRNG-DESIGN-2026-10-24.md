@@ -36,3 +36,24 @@ Recommended: B, one kernel at a time, order fd1_tick, sw_run, wm_run, sp_run, tr
 - 1711/1715 (swarm life JS body): its degraded-only behaviour is its own scope. Under B it becomes the parity reference for sw_run, not an active-path port.
 - Random-comparator sort (line ~598) and unhit callers are untouched.
 - f32/f64 metaball and stepLive default remain main's decisions.
+
+## 5. Results 2026-10-24 (after main's go for B on fd1 only)
+### 5a. fd1 baseline (t-fd1-baseline.js: REAL stepFood/stepFoodW/wallPull/lifeBirthsJs; JS body vs current default kernel; 6000 scenarios, seeded Math.random, identical full state)
+- Food all inside the plate (4241 scenarios): count, x, y, foodStat identical to the JS body; 0 mismatches. Draw count differs by design (kernel: 2 seed draws; JS: one per birth). r values only range-checked.
+- Food outside the plate (1759 scenarios): 1370 mismatch in count/position/stat. Cause (source-derived, matches the failing class): fd1_flow clamps to the raw plate box [cont.x, cont.x+w], while the JS body's wallPull clamps to the inset box (foodSize/2 and boundGap). The default kernel therefore differs from the JS body for out-of-plate food, independent of the PRNG. Not fixed (default kernel stays; writers own behavior fixes).
+- fd1_tick returns -1 for non-finite positions, but stepFoodW has already set foodT = now, so the JS fallback body sees the timer set and skips the tick: the tick is dropped, not recomputed in JS (measured in t-fd1-fault.js NaN/Inf cases, for candidate; same glue in default).
+### 5b. fd1 candidate (jsrnd feature only): r01 -> js_rnd, no warm-up, no seed draws (fd1_jsrnd export; glue passes 0 seeds); fault after consumed draws = no redraw, tick skipped, WC.fdDeg, WC.fd1Off.
+- t-fd1-baseline candidate: all-inside 4241 scenarios: 0 mismatch in count/x/y/stat AND 0 draw-count and 0 r mismatch against the JS body (same seeded stream). Outside class: stream mismatch 506 follows from the flow clamp discrepancy above (different positions -> different births), not from the PRNG change.
+- t-fd1-fault.js: empty and 1-dot food equal the JS route; NaN/Inf: tick dropped, 0 draws (JS route would draw 192); fault at draw k=1..39: 39 cases, 0 bad (draws consumed = k+1, no JS redraw, food unchanged, kernel disabled afterwards).
+- Page exercise (jsrnd=1, foodMode=1, 25 s, one run): fwFd=6, fdDeg=0, fd1Off=false, postOff=false. Hook-exercise only.
+- Both jsrnd binaries tested; default binaries untouched and not rebuilt.
+### 5c. Other four kernels, source draw-order read (no harness yet)
+- worms.rs vs JS: wander draw, gates, r, fission draws (a,sp,fr,ph), spawn x,y,len, a,sp,fr,ph, link r: same site sequence. DISCREPANCY: the growth/fission loop runs worms ascending in the kernel (`for w in 0..nw`) but descending in the JS body (`for (i = worms.length - 1; i >= 0; i--)`), so with one shared stream the per-worm draws land on different worms. Incompatible until the order is aligned (writer fix) and a harness confirms.
+- spores.rs vs JS: site sequence matches by reading (nm, a2, v, r, ph per mote; retire gate 0.4; vx, vy jitter; settle 0.75; spawn gate 0.35 then x,y,r,ph); both loops run descending. Unverified by harness.
+- tr.rs vs JS (line ~617): x jitter, y jitter, then the (late && 0.08) gate after the d<14 test: matches by reading. Loop direction not compared.
+- parasites.rs vs JS: spawn gate 0.08, cell pick, a; ph; cursor-follow x,y jitter; retreat jitter; host-follow jitter; birth a. The kernel has TWO birth sites (127, 140) vs ONE in the JS body (2089), and the cursor path is owned by the cursor writer (slots 82..87). Not comparable without a harness and the writer's input.
+### 5d. sw_run calls in non-swarm modes (measured with timestamps, patched copy, mode 2, one run)
+- 4 sw_run calls, all BEFORE the foodMode set (performance.now before: P.foodMode was 3 in those calls); 0 calls after the set. So the earlier sw_run counts in modes 1,2,4,5 were pre-switch calls of the default swarm mode, not initialization and not an active kernel in the set mode.
+- Mode 2/4/5 counts from the first table must be read with that: only the kernels listed after the mode set were not separated by timestamp except sw_run (other kernels ölçülmedi after-set).
+### 5e. Wording clarification (per main)
+- The source JS fallback body can be the parity reference for an active Rust kernel (e.g. sw_run); only the separate fallback-hook port (lifeBirths, wormGrowSplit) is degraded-only scope and not active-path progress.
