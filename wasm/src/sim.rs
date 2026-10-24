@@ -532,6 +532,32 @@ impl Sim {
 impl Sim {
     pub fn seed_for_test(&mut self, seed: f64) { self.s0 = (seed as u64).wrapping_mul(0x9E3779B97F4A7C15) | 1; self.s1 = (seed as u64) ^ 0xD1B54A32D192ED03; for _ in 0..4 { self.rnd01(); } }
     pub fn new_shape_pub(&mut self, p: Option<Shp>) -> Shp { self.new_shape(p) }
+    /// habSeed(f) + the Cell constructor, exact JS draw order, draws through js_rnd (jsrnd only). a = params (see ca2.js hook), returns the 29-field row.
+    #[cfg(feature = "jsrnd")]
+    pub fn hab_seed(&mut self, a: &[f64]) -> [f64; 29] {
+        let am = a[5];
+        let c0 = (a[2] + self.rnd(-am, am)).max(0.001); let c1 = (a[3] + self.rnd(-am, am)).max(0.001); let c2 = (a[4] + self.rnd(-am, am)).max(0.001);
+        let col = norm_col([c0, c1, c2]);
+        let k0 = if col[0] >= col[1] && col[0] >= col[2] { 0 } else if col[1] >= col[2] { 1 } else { 2 };
+        let gene = if k0 == 0 { self.rnd(3.0, a[8] + 1.0).floor() } else if k0 == 1 { self.rnd(a[7], -1.0).floor() } else { self.rnd(-2.0, 3.0).floor() };
+        let mr = a[9] + self.rnd(-a[10], a[10]);
+        // Cell(x, y, gene, mr)
+        let ang = self.rnd01() * 6.283185307; let (vx0, vy0) = (crate::fdm::cos(ang), crate::fdm::sin(ang));
+        let popd = 800.0 + self.rnd01() * (1300.0 - 800.0);
+        let sv = self.rnd(-1.0, 1.0);
+        let mut ms = (a[11] + sv * a[12]).max(0.0);
+        let (vx, vy) = (vx0 * ms, vy0 * ms);
+        let host = self.rnd01(); let spm = self.rnd(0.7, 2.3);
+        let kk = if gene > 2.0 { 0 } else if gene < -2.0 { 1 } else { 2 };
+        let mut cv = [0.12, 0.12, 0.12]; cv[kk] = 0.76;
+        let gspd = 1.0 + self.rnd(-0.3, 0.3); let gapp = self.rnd(0.05, 0.95); let gbnd = 1.0 + self.rnd(-0.4, 0.4);
+        for k in 0..3 { let _ = cv[k] + self.rnd(0.0, 0.1); } // ctor colour (overridden by habSeed): 3 draws consumed
+        if a[14] != 0.0 { ms *= gspd; }
+        let sh = self.new_shape(None);
+        let life = if a[15] > 0.0 { (a[15] * (1.0 + self.rnd(-a[16], a[16]))).max(1.0) } else { 0.0 };
+        let rad = (a[13] * a[6]).max(1.0);
+        [a[0], a[1], vx, vy, rad, 12.0, gene, sv, ms, spm, host, mr, gspd, gapp, gbnd, col[0], col[1], col[2], popd, life, sh[0], sh[1], sh[2], sh[3], sh[4], sh[5], sh[6], sh[7], sh[8]]
+    }
     pub fn mix_shape_pub(&mut self, a: Option<Shp>, b: Option<Shp>) -> Shp { self.mix_shape(a, b) }
 }
 

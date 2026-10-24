@@ -274,3 +274,9 @@ static mut SHT: [f64; 28] = [0.0; 28];
 #[no_mangle] pub extern "C" fn sim_jsrnd() -> u32 { sim::JSRND as u32 }
 #[no_mangle] pub extern "C" fn sim_birth_ptr() -> *mut f64 { sim::sim().birth.as_mut_ptr() }
 #[no_mangle] pub extern "C" fn sim_dbg_ptr() -> *mut f64 { sim::sim().dbg.as_mut_ptr() }
+
+#[cfg(feature = "jsrnd")] static mut HSO: [f64; 29] = [0.0; 29];
+#[cfg(feature = "jsrnd")] static mut HSI: [f64; 32] = [0.0; 32];
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn sim_hab_in() -> *mut f64 { unsafe { std::ptr::addr_of_mut!(HSI) as *mut f64 } }
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn sim_hab_out() -> *const f64 { unsafe { std::ptr::addr_of!(HSO) as *const f64 } }
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn sim_hab_seed() -> i32 { unsafe { let a = *std::ptr::addr_of!(HSI); *std::ptr::addr_of_mut!(HSO) = sim::sim().hab_seed(&a); } 1 }

@@ -2014,6 +2014,18 @@
     habStat.ate++;
   }
   function habSeed(f) { // a fed dot becomes a small cell: its acquired colour (or the dominant eaten colour) + mutation
+    if (WC.jsrnd && !WC.hsOff && WC.e && WC.e.sim_hab_seed && WC.ok && !WC.off && !WC.simOff && !/[?&]nosim=1/.test(location.search)) { // jsrnd spike: Rust runs habSeed + the Cell ctor, draws through env.js_rnd in the JS order. Fault rule: draws consumed -> no cell, no JS redraw (degraded, not parity); none consumed -> JS body
+      var hn0 = WC.rndN || 0;
+      try {
+        var hh = f.hr !== undefined ? [f.hr, f.hg, f.hb] : (ateHueV || [1 / 3, 1 / 3, 1 / 3]), hi = new Float64Array(WC.mem.buffer, WC.e.sim_hab_in(), 32);
+        hi.set([f.x, f.y, hh[0], hh[1], hh[2], P.habitatMut, P.habitatSeedR, P.GENE_MIN, P.GENE_MAX, P.baseMutationRate, P.mutationRateRange, P.baseMaxSpeed, P.maxSpeedVariation, P.CELL_RADIUS, P.genomeOn ? 1 : 0, P.cellLife, P.cellLifeVar]);
+        WC.e.sim_hab_seed(); var ho = new Float64Array(WC.mem.buffer, WC.e.sim_hab_out(), 29), hc = Object.create(Cell.prototype);
+        hc.x = ho[0]; hc.y = ho[1]; hc.vx = ho[2]; hc.vy = ho[3]; hc.radius = ho[4]; hc.energy = ho[5]; hc.gene = ho[6]; hc.sv = ho[7]; hc.maxSpeed = ho[8]; hc.speedModifier = ho[9]; hc.hostility = ho[10]; hc.mutationRate = ho[11]; hc.alive = true;
+        hc.g = { spd: ho[12], app: ho[13], bnd: ho[14], col: [ho[15], ho[16], ho[17]] }; hc.popD = ho[18]; hc.life = ho[19]; hc.cl = 0;
+        hc.shp = { t: ho[20], asp: ho[21], th: ho[22], wig: ho[23], wsp: ho[24], sat: ho[25], ph: ho[26], ph2: ho[27], dir: ho[28] }; hc.bornAt = frameT || 0; hc.age = 0;
+        cells.push(hc); habStat.seed++; WC.hsN = (WC.hsN || 0) + 1; return;
+      } catch (e) { WC.hsOff = true; WC.hsErr = String(e); if ((WC.rndN || 0) !== hn0) return; }
+    }
     var hue = f.hr !== undefined ? [f.hr, f.hg, f.hb] : (ateHueV || [1 / 3, 1 / 3, 1 / 3]), a = P.habitatMut;
     var col = normCol([Math.max(0.001, hue[0] + rnd(-a, a)), Math.max(0.001, hue[1] + rnd(-a, a)), Math.max(0.001, hue[2] + rnd(-a, a))]);
     var k0 = col[0] >= col[1] && col[0] >= col[2] ? 0 : col[1] >= col[2] ? 1 : 2; // dominant channel picks the gene range, same convention as the ctor

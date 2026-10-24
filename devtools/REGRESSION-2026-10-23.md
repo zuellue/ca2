@@ -86,3 +86,7 @@ NOT done: hab/wing/circles large-argument parity against JS (only sepbody checke
   - ?jsrnd=1 SIMD default: rsN=5, fsN=0, postOff false, no errors.
   - ?jsrnd=1&nosimd=1 with setKey foodMode=0, foodReseed=1: fsN=2448, rsN=5, postOff false, no errors.
   - Pixel/behavior/statistics vs JS: ölçülmedi.
+- habSeed + Cell ctor in Rust (sim.rs Sim::hab_seed, lib.rs sim_hab_in/out/seed, jsrnd only; hook in ca2.js habSeed, ?jsrnd=1). Uses fdm cos/sin for rand2D (V8-exact). Fault rule as foodSpot (consumed draws -> no cell, degraded, own WC.hsOff flag; not simOff).
+  t-habseed-jsrnd: 20000 scenarios, 580000 fields Object.is, total draw count, 0 mismatch, both jsrnd binaries.
+  Page: hook NOT exercised (hsN=0 in two 30 s runs with habitatOn/Floor/FedMin/Conv/Sun/UNIVERSE_SIZE keys; cause of no seeding not diagnosed). Real-page habSeed: ölçülmedi.
+  Default binaries NOT updated this commit (shipped a94dbf3f/bdd56ede stay). A default rebuild of the changed sim.rs hashes differently (3cbeba22...), cause unverified (suspect line-number metadata); Rust sources under cfg(jsrnd) only.
