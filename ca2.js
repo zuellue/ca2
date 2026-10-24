@@ -534,9 +534,17 @@
   // ---- respawn morph: a new life cycle (new environment, fresh energy, fresh food) with a new random composition.
   // Every cell gets a place in the new composition and flows there at its own pace; surplus cells die on arrival, missing ones are born from the nearest parent.
   function planComposition(tg) {
-    var gx = (W - cont.tw) / 2, gy = (H - cont.th) / 2, nC = 2 + Math.floor(Math.random() * 4), ctr = [], i, j2;
+    var gx = (W - cont.tw) / 2, gy = (H - cont.th) / 2, nC, ctr = [], i, j2, sg, pts = [], cpDone = false;
+    if (WC.jsrnd && WC.e && WC.e.post_comp_points && !postOffW()) { // jsrnd spike: Rust draws centres/sg/points through env.js_rnd in the JS order (staged: decide, draw, apply). Fault: draws already consumed -> no redraw, degraded plan (points at the plate centre); no draw consumed -> JS body below.
+      var cpn0 = WC.rndN || 0;
+      try { var cpn = WC.e.post_comp_points(gx, gy, cont.tw, cont.th, Math.max(1, tg.U)), cpo = new Float64Array(WC.mem.buffer, WC.e.post_cp_out(), cpn * 2); for (i = 0; i < cpn; i++) pts.push([cpo[i * 2], cpo[i * 2 + 1]]); cpDone = true; WC.cpN = (WC.cpN || 0) + 1; }
+      catch (e) { WC.postOff = true; WC.postErr = String(e); if ((WC.rndN || 0) !== cpn0) { pts = []; for (i = 0; i < Math.max(1, tg.U); i++) pts.push([gx + cont.tw / 2, gy + cont.th / 2]); cpDone = true; WC.cpDeg = (WC.cpDeg || 0) + 1; } }
+    }
+    if (!cpDone) {
+      pts = [];
+      nC = 2 + Math.floor(Math.random() * 4);
     for (i = 0; i < nC; i++) ctr.push([gx + cont.tw * rnd(0.12, 0.88), gy + cont.th * rnd(0.12, 0.88)]);
-    var sg = Math.min(cont.tw, cont.th) * rnd(0.08, 0.2), pts = [];
+    sg = Math.min(cont.tw, cont.th) * rnd(0.08, 0.2);
     for (i = 0; i < Math.max(1, tg.U); i++) { // resample instead of hard-clamping: a clamp piles points onto the plate edges, and on a wide plate that is the top/bottom edges -> visible horizontal rows when a crowd chases them
       var cc = ctr[i % nC], px = 0, py = 0, okp = false;
       for (j2 = 0; j2 < 12; j2++) {
@@ -546,6 +554,7 @@
       }
       if (!okp) { px = clamp(px, gx + 8, gx + cont.tw - 8); py = clamp(py, gy + 8, gy + cont.th - 8); } // pathologically tiny plate: keep the old clamp as a floor
       pts.push([px, py]);
+    }
     }
     for (i = 0; i < cells.length; i++) { if (P.refreshResetEnergy) cells[i].energy = 12; cells[i].cl = 0; cells[i].dst = null; cells[i].dying = false; cells[i].pace = rnd(0.5, 1.5); cells[i].dl = rnd(0, 0.45) * trans.dur; cells[i].durK = rnd(0.55, 1); cells[i].bend = Math.random() < 0.25 ? 0 : rnd(-1, 1); cells[i].sym = null; }
     // greedy matching, cells in random order take the nearest free place

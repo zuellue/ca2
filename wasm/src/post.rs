@@ -365,3 +365,39 @@ pub extern "C" fn post_reseed_blobs(nb: f64, x0: f64, y0: f64, gs: f64, cw: f64,
         (o.len() / 3) as i32
     }
 }
+
+// planComposition points (jsrnd spike only): nC centres, sg, and the resampled composition points, with the exact JS draw order via env.js_rnd.
+// Inputs: gx, gy, tw, th, u (= max(1, tg.U)). Returns the point count; the (x,y) pairs are at post_cp_out(). Draw order: floor(r*4); per centre rnd(.12,.88) x, y; rnd(.08,.2);
+// per point up to 12 tries of 6 draws (x: three, y: three), accept when inside (gx+8..gx+tw-8, gy+8..gy+th-8), else clamp. The per-cell loop, the random-comparator sort and the greedy matching stay in JS (sort order not ported).
+#[cfg(feature = "jsrnd")] static mut CPO: Vec<f64> = Vec::new();
+#[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn post_cp_out() -> *const f64 { unsafe { (*std::ptr::addr_of!(CPO)).as_ptr() } }
+#[cfg(feature = "jsrnd")] #[no_mangle]
+pub extern "C" fn post_comp_points(gx: f64, gy: f64, tw: f64, th: f64, u: f64) -> i32 {
+    unsafe {
+        let rn = || js_rnd(0);
+        let rr = |a: f64, b: f64| -> f64 { a + rn() * (b - a) };
+        let nc = 2 + (rn() * 4.0).floor() as usize;
+        let mut ctr: Vec<(f64, f64)> = Vec::with_capacity(nc);
+        for _ in 0..nc { let cx = gx + tw * rr(0.12, 0.88); let cy = gy + th * rr(0.12, 0.88); ctr.push((cx, cy)); }
+        let sg = f64::min(tw, th) * rr(0.08, 0.2);
+        let np = if u > 1.0 { u as usize } else { 1 };
+        let o = &mut *std::ptr::addr_of_mut!(CPO);
+        o.clear(); o.reserve(np * 2);
+        for i in 0..np {
+            let cc = ctr[i % nc];
+            let (mut px, mut py, mut okp) = (0.0f64, 0.0f64, false);
+            for _ in 0..12 {
+                px = cc.0 + (rn() + rn() + rn() - 1.5) * 2.0 * sg;
+                py = cc.1 + (rn() + rn() + rn() - 1.5) * 2.0 * sg;
+                if px > gx + 8.0 && px < gx + tw - 8.0 && py > gy + 8.0 && py < gy + th - 8.0 { okp = true; break; }
+            }
+            if !okp {
+                let cl = |v: f64, a: f64, b: f64| -> f64 { if v < a { a } else if v > b { b } else { v } }; // JS clamp (checks the lower bound first; a > b on tiny plates)
+                px = cl(px, gx + 8.0, gx + tw - 8.0);
+                py = cl(py, gy + 8.0, gy + th - 8.0);
+            }
+            o.push(px); o.push(py);
+        }
+        np as i32
+    }
+}
