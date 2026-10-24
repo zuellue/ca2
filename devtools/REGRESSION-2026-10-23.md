@@ -72,3 +72,8 @@ NOT done: hab/wing/circles large-argument parity against JS (only sepbody checke
 ### Wing + non-SIMD hab large-arg parity (24 Oct 03:11, ca2core.wasm a94dbf3f...)
 - t-circles-wings-parity with PHBIG (parasite ph += rnd*PHBIG before the wing pass, identical in JS and wasm states) = 1e7, 1e10, 1e100: 162540 checks, mismatch 0, stateMismatchFrames 0, maxAbsCoordDiff 0, rng count mismatch 0, usedWasmWings 36000 (every wing frame ran in Rust, none fell back). (Harness compares recorded ctx args with its stated tolerance 1e-9; maxAbsCoordDiff 0.)
 - non-SIMD t-post-parity TMAX 1e10 and 1e150: hab 72198/0 ulp 0, wall 80894/0, age 61262/0.
+
+## 2026-10-24 03:32 t143 fixture work state (NOT an accepted fix)
+- Fix A (seeded Math.random, rdy-synced steps): measured, 4 samples identical then diverged.
+- Fix B (fake-clock timers): page main thread blocks after __step(120), Profiler.enable times out; cause not isolated (hypothesis only: sync spin on fake performance.now).
+- Fix C (real timers gated off after rdy, in t143-fixedstep.js): UNVALIDATED. Two TRACE runs gave 0 B and 767 B traces (devtools/failed-traces/). No repeatability proof. No comparative claim.
