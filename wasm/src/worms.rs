@@ -16,6 +16,10 @@ pub fn wm() -> &'static mut Wm {
 }
 #[cfg(feature = "jsrnd")] #[link(wasm_import_module = "env")] extern "C" { fn js_rnd(line: u32) -> f64; }
 fn hyp(x: f64, y: f64) -> f64 { (x * x + y * y).sqrt() }
+#[cfg(not(feature = "jsrnd"))] fn fsin(x: f64) -> f64 { x.sin() }
+#[cfg(feature = "jsrnd")] fn fsin(x: f64) -> f64 { crate::fdm::sin(x) } // V8 fdlibm sin, bit-equal to Math.sin
+#[cfg(not(feature = "jsrnd"))] fn fcos(x: f64) -> f64 { x.cos() }
+#[cfg(feature = "jsrnd")] fn fcos(x: f64) -> f64 { crate::fdm::cos(x) }
 impl Wm {
     fn r01(&mut self) -> f64 {
         #[cfg(feature = "jsrnd")] { return unsafe { js_rnd(3) }; } // jsrnd spike: the real Math.random stream
@@ -45,14 +49,14 @@ impl Wm {
         let m = 26.0; let ccx = (x0 + x1) / 2.0; let ccy = (y0 + y1) / 2.0;
         for w in 0..nw {
             let h = &mut hs[w];
-            h[2] += (self.r01() - 0.5) * 0.35 + (tt * h[4] + h[5]).sin() * 0.06;
+            h[2] += (self.r01() - 0.5) * 0.35 + fsin(tt * h[4] + h[5]) * 0.06;
             if h[0] < x0 + m || h[0] > x1 - m || h[1] < y0 + m || h[1] > y1 - m {
                 let ca = (ccy - h[1]).atan2(ccx - h[0]); let mut da = ca - h[2];
                 while da > 3.1416 { da -= 6.2832; } while da < -3.1416 { da += 6.2832; }
                 h[2] += da * 0.04;
             }
-            let spd = h[3] * (1.0 + 0.35 * (tt * h[4] * 2.0 + h[5]).sin());
-            h[0] += h[2].cos() * spd; h[1] += h[2].sin() * spd;
+            let spd = h[3] * (1.0 + 0.35 * fsin(tt * h[4] * 2.0 + h[5]));
+            h[0] += fcos(h[2]) * spd; h[1] += fsin(h[2]) * spd;
             let (mut hx, mut hy) = (h[0], h[1]);
             for &li in chains[w].iter() {
                 let l = &mut lxy[li];

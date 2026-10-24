@@ -20,6 +20,10 @@ pub fn tr() -> &'static mut Tr {
 #[cfg(feature = "jsrnd")] fn fmax(a: f64, b: f64) -> f64 { if a.is_nan() || b.is_nan() { f64::NAN } else { a.max(b) } }
 fn hyp(x: f64, y: f64) -> f64 { (x * x + y * y).sqrt() }
 #[cfg(feature = "jsrnd")] #[link(wasm_import_module = "env")] extern "C" { fn js_rnd(line: u32) -> f64; }
+#[cfg(not(feature = "jsrnd"))] fn fsin(x: f64) -> f64 { x.sin() }
+#[cfg(feature = "jsrnd")] fn fsin(x: f64) -> f64 { crate::fdm::sin(x) } // V8 fdlibm sin, bit-equal to Math.sin
+#[cfg(not(feature = "jsrnd"))] fn fcos(x: f64) -> f64 { x.cos() }
+#[cfg(feature = "jsrnd")] fn fcos(x: f64) -> f64 { crate::fdm::cos(x) }
 impl Tr {
     fn r01(&mut self) -> f64 {
         #[cfg(feature = "jsrnd")] { return unsafe { js_rnd(6) }; } // jsrnd spike: the real Math.random stream
@@ -52,11 +56,11 @@ impl Tr {
                     let win = fmax(80.0, dur * self.cells[b + 8]);
                     let pr = clamp(el / win, 0.0, 1.0);
                     let kc = 1.0 - (-dt * 3.0 / win).exp();
-                    let ease = 0.35 + 0.65 * (pr * std::f64::consts::PI).sin();
+                    let ease = 0.35 + 0.65 * fsin(pr * std::f64::consts::PI);
                     let k = fmin(1.0, kc * self.cells[b + 9] * ease * 1.31);
                     x += dx * k + (self.r01() - 0.5) * 0.6; y += dy * k + (self.r01() - 0.5) * 0.6;
                     let bend = self.cells[b + 10];
-                    if bend != 0.0 { let lat = k * fmin(d, 200.0) * bend * 0.35 * (pr * std::f64::consts::PI).sin();
+                    if bend != 0.0 { let lat = k * fmin(d, 200.0) * bend * 0.35 * fsin(pr * std::f64::consts::PI);
                         #[cfg(not(feature = "jsrnd"))] let il = 1.0 / if d == 0.0 { 1.0 } else { d };
                         #[cfg(feature = "jsrnd")] let il = 1.0 / if d == 0.0 || d.is_nan() { 1.0 } else { d }; // JS: 1 / (d || 1)
                         x += -dy * il * lat; y += dx * il * lat; }

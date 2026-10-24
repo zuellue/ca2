@@ -14,6 +14,10 @@ pub fn sp() -> &'static mut Sp {
 }
 fn clamp(v: f64, a: f64, b: f64) -> f64 { v.max(a).min(b) }
 #[cfg(feature = "jsrnd")] #[link(wasm_import_module = "env")] extern "C" { fn js_rnd(line: u32) -> f64; }
+#[cfg(not(feature = "jsrnd"))] fn fsin(x: f64) -> f64 { x.sin() }
+#[cfg(feature = "jsrnd")] fn fsin(x: f64) -> f64 { crate::fdm::sin(x) } // V8 fdlibm sin, bit-equal to Math.sin
+#[cfg(not(feature = "jsrnd"))] fn fcos(x: f64) -> f64 { x.cos() }
+#[cfg(feature = "jsrnd")] fn fcos(x: f64) -> f64 { crate::fdm::cos(x) }
 impl Sp {
     fn r01(&mut self) -> f64 {
         #[cfg(feature = "jsrnd")] { return unsafe { js_rnd(5) }; } // jsrnd spike: the real Math.random stream
@@ -47,7 +51,7 @@ impl Sp {
                         let nm = 4 + (self.r01() * 4.0).floor() as usize;
                         for _ in 0..nm {
                             let a2 = self.r01() * 6.2832; #[cfg(feature = "jsrnd")] let v = 0.6 + self.r01() * (1.8 - 0.6); #[cfg(not(feature = "jsrnd"))] let v = 0.6 + self.r01() * 1.2; // JS: rnd(0.6, 1.8) = 0.6 + r * (1.8 - 0.6), and 1.8 - 0.6 is 1.2000000000000002
-                            born_rows.push([x, y, self.r01(), 1.0, 0.0, self.r01() * 6.2832, a2.cos() * v, a2.sin() * v, -1.0, 0.0]);
+                            born_rows.push([x, y, self.r01(), 1.0, 0.0, self.r01() * 6.2832, fcos(a2) * v, fsin(a2) * v, -1.0, 0.0]);
                             self.stat[4] += 1.0;
                         }
                         #[cfg(feature = "jsrnd")] { cur_len += nm as f64; } // JS newSpore pushes onto spores, so spores.length (the cap gate) includes the new motes
