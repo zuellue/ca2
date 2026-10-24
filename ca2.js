@@ -1672,7 +1672,7 @@
     }
   }
   function drawBlobs() {
-    var ol = P.blobOutline; if (ol && !(P.axisWidth > 0)) return; ctx.fillStyle = P.foodColor; ctx.strokeStyle = P.foodColor; ctx.lineWidth = LW(); ctx.lineCap = 'round'; ctx.globalAlpha = P.foodAlpha;
+    var ol = P.blobOutline; if (ol && !(P.axisWidth > 0)) return; var fi1 = foodInkCss(); ctx.fillStyle = fi1; ctx.strokeStyle = fi1; ctx.lineWidth = LW(); ctx.lineCap = 'round'; ctx.globalAlpha = P.foodAlpha;
     for (var i = 0; i < blobs.length; i++) {
       var b = blobs[i], d = b.d; if (!introOn(CELL_END + ((i * 0.6180339) % 1) * (FOOD_END - CELL_END))) continue; if (d.length < 3) { for (var q = 0; q < d.length; q++) { if (ol) ctx.strokeRect(d[q].x - P.foodSize / 2, d[q].y - P.foodSize / 2, P.foodSize, P.foodSize); else ctx.fillRect(d[q].x - P.foodSize / 2, d[q].y - P.foodSize / 2, P.foodSize, P.foodSize); } continue; }
       var pts = d.slice().sort(function (u, v) { return Math.atan2(u.y - b.y, u.x - b.x) - Math.atan2(v.y - b.y, v.x - b.x); }), n = pts.length;
@@ -1850,7 +1850,7 @@
   }
   function drawWorms() {
     var ol = P.blobOutline; if (ol && !(P.axisWidth > 0)) return;
-    ctx.strokeStyle = P.foodColor; ctx.fillStyle = P.foodColor; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = P.foodAlpha;
+    var fi2 = foodInkCss(); ctx.strokeStyle = fi2; ctx.fillStyle = fi2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = P.foodAlpha;
     ctx.lineWidth = ol ? LW() : Math.max(1.5, P.foodSize * 1.1);
     for (var i = 0; i < worms.length; i++) {
       var w = worms[i], d = w.d; if (d.length < 2) continue;
@@ -1933,7 +1933,7 @@
   }
   function drawSpores() {
     var ol = P.blobOutline; if (ol && !(P.axisWidth > 0)) return;
-    var now = performance.now(); ctx.strokeStyle = P.foodColor; ctx.fillStyle = P.foodColor; ctx.lineWidth = Math.max(1, LW());
+    var now = performance.now(); var fi3 = foodInkCss(); ctx.strokeStyle = fi3; ctx.fillStyle = fi3; ctx.lineWidth = Math.max(1, LW());
     ctx.globalAlpha = P.foodAlpha;
     for (var i = 0; i < spores.length; i++) {
       var s = spores[i]; if (s.r >= P.foodShow) continue;
@@ -2429,7 +2429,7 @@
       }
     }
     foodInkGuard(); // the boundary carry above can move dots onto ink: re-resolve before the dots are drawn
-    if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 4) drawWorms(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 5) drawSpores(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) { var fd2 = food[i]; if (fd2.r < P.foodShow && introOn(CELL_END + fd2.r * (FOOD_END - CELL_END))) { var fs2 = fd2.fed > 0 && P.habitatFedShow > 0 ? fs * (1 + Math.min(3, fd2.fed * P.habitatFedShow)) : fs, fh2 = fs2 / 2; ctx.fillRect(fd2.x - fh2, fd2.y - fh2, fs2, fs2); } } ctx.globalAlpha = 1; } // food first: it sits under the cells
+    if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 4) drawWorms(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 5) drawSpores(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = foodInkCss(); var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) { var fd2 = food[i]; if (fd2.r < P.foodShow && introOn(CELL_END + fd2.r * (FOOD_END - CELL_END))) { var fs2 = fd2.fed > 0 && P.habitatFedShow > 0 ? fs * (1 + Math.min(3, fd2.fed * P.habitatFedShow)) : fs, fh2 = fs2 / 2; ctx.fillRect(fd2.x - fh2, fd2.y - fh2, fs2, fs2); } } ctx.globalAlpha = 1; } // food first: it sits under the cells
     pfm('sim+ui draw'); curS = DPR * res; if (cells.length || t0 - fadeT0 > INTRO_MS) { var tmb = performance.now(); drawMetaballs(curS); MB.ms = MB.ms * 0.9 + (performance.now() - tmb) * 0.1; MB.path = gOn ? 'GPU' : (WC.ok && !WC.off ? (WC.simd ? 'wasm-simd' : 'wasm') : 'JS'); } pfm('metaballs total'); // an empty intro plate skips the full-buffer pass
     if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.fillStyle = pc; var wvis = [], wg = null; for (i = 0; i < parasites.length; i++) wvis[i] = fadeA('pa' + i); wg = wingGeomW(wvis, dtf);
       for (i = 0; i < parasites.length; i++) { var pp2 = parasites[i]; if (!wvis[i]) continue;
@@ -3441,6 +3441,11 @@
   // ---- colour swatches: knob-size circle switches in their own lane, one per colour. OFF is hollow (default colour),
   // ON fills with a random R/G/B and applies it; hover paints the circle black; the name shows briefly on every toggle. (owner 21 Oct)
   function hex2rgb(h) { return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)]; }
+  function foodInkCss() { // food ink (nearly) identical to the live plate colour is invisible (owner report 24 Oct: black food on black bg). Only then fall back to the same dark/light pick the UI uses for --fg; every distinguishable colour keeps the chosen value verbatim.
+    var h2 = /^#[0-9a-fA-F]{6}$/.test(P.foodColor) ? P.foodColor : '#000000', fc = hex2rgb(h2);
+    if (Math.max(Math.abs(fc[0] - bg[0]), Math.abs(fc[1] - bg[1]), Math.abs(fc[2] - bg[2])) >= 64) return h2;
+    return (0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2]) > 128 ? '#111111' : '#f0f0f0';
+  }
   function syncBgFromP() { // owner 22 Oct: the saved/synced background colour wins over the local cycle
     if (P.swBg && P.bgColor && /^#[0-9a-fA-F]{6}$/.test(P.bgColor)) bgTarget = hex2rgb(P.bgColor);
   }
