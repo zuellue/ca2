@@ -1,0 +1,553 @@
+{
+  "schema": 1,
+  "scope": "card017 current wasm-bodyplan grain implementation inventory",
+  "baseCommit": "1ee8a5cc771ad1f1970241fbbaacdc7adfa0a023",
+  "inputs": [
+    {
+      "path": "grain.js",
+      "sha256": "1dd0c30f18249c4f6a179f750d740d84a68b97ac503565f82772c26f8709e097"
+    },
+    {
+      "path": "ca2.js",
+      "sha256": "14e9e88d5266fbc56ddf9effb9bb9b3ef6c5c898cfdc00e3d1508a2ca2b11ffe"
+    },
+    {
+      "path": "wasm/src/lib.rs",
+      "sha256": "a81e2affe1f1844711ebf3f8e2e840732e2e1541fca1d2b50d8d78e3a9f3ee17"
+    }
+  ],
+  "grainPath": {
+    "webgl2Context": true,
+    "shaderSource": true,
+    "drawCall": true,
+    "callerUsesCA2Grain": true
+  },
+  "rustGrainHits": [],
+  "binaries": [
+    {
+      "path": "ca2core.wasm",
+      "sha256": "67982a32d7ed36bdd483dca9e7d3e88d18dd171eaec89304693075daaac17dc1",
+      "exportCount": 63,
+      "grainExports": [],
+      "exports": [
+        {
+          "name": "memory",
+          "kind": "memory"
+        },
+        {
+          "name": "bs_alloc",
+          "kind": "function"
+        },
+        {
+          "name": "bs_out",
+          "kind": "function"
+        },
+        {
+          "name": "bs_run",
+          "kind": "function"
+        },
+        {
+          "name": "bs_stat",
+          "kind": "function"
+        },
+        {
+          "name": "cells_ptr",
+          "kind": "function"
+        },
+        {
+          "name": "fb_blobs",
+          "kind": "function"
+        },
+        {
+          "name": "fb_dots",
+          "kind": "function"
+        },
+        {
+          "name": "fb_run",
+          "kind": "function"
+        },
+        {
+          "name": "fd1_flow",
+          "kind": "function"
+        },
+        {
+          "name": "fd1_in",
+          "kind": "function"
+        },
+        {
+          "name": "fd1_out",
+          "kind": "function"
+        },
+        {
+          "name": "fd1_stat",
+          "kind": "function"
+        },
+        {
+          "name": "fd1_tick",
+          "kind": "function"
+        },
+        {
+          "name": "fk_in",
+          "kind": "function"
+        },
+        {
+          "name": "fk_run",
+          "kind": "function"
+        },
+        {
+          "name": "mb_field",
+          "kind": "function"
+        },
+        {
+          "name": "mb_field_f32",
+          "kind": "function"
+        },
+        {
+          "name": "out_ptr",
+          "kind": "function"
+        },
+        {
+          "name": "pa_cells",
+          "kind": "function"
+        },
+        {
+          "name": "pa_energy",
+          "kind": "function"
+        },
+        {
+          "name": "pa_in",
+          "kind": "function"
+        },
+        {
+          "name": "pa_out",
+          "kind": "function"
+        },
+        {
+          "name": "pa_run",
+          "kind": "function"
+        },
+        {
+          "name": "pa_stat",
+          "kind": "function"
+        },
+        {
+          "name": "sep_alloc",
+          "kind": "function"
+        },
+        {
+          "name": "sep_moves",
+          "kind": "function"
+        },
+        {
+          "name": "sep_run",
+          "kind": "function"
+        },
+        {
+          "name": "sh_buf",
+          "kind": "function"
+        },
+        {
+          "name": "sh_run",
+          "kind": "function"
+        },
+        {
+          "name": "sim_cap",
+          "kind": "function"
+        },
+        {
+          "name": "sim_cells",
+          "kind": "function"
+        },
+        {
+          "name": "sim_cells_ptr",
+          "kind": "function"
+        },
+        {
+          "name": "sim_cm",
+          "kind": "function"
+        },
+        {
+          "name": "sim_cm_count",
+          "kind": "function"
+        },
+        {
+          "name": "sim_cm_ids",
+          "kind": "function"
+        },
+        {
+          "name": "sim_food",
+          "kind": "function"
+        },
+        {
+          "name": "sim_food_gone",
+          "kind": "function"
+        },
+        {
+          "name": "sim_food_y",
+          "kind": "function"
+        },
+        {
+          "name": "sim_log",
+          "kind": "function"
+        },
+        {
+          "name": "sim_out",
+          "kind": "function"
+        },
+        {
+          "name": "sim_params",
+          "kind": "function"
+        },
+        {
+          "name": "sim_set_n",
+          "kind": "function"
+        },
+        {
+          "name": "sim_set_nf",
+          "kind": "function"
+        },
+        {
+          "name": "sim_shp_ptr",
+          "kind": "function"
+        },
+        {
+          "name": "sim_step",
+          "kind": "function"
+        },
+        {
+          "name": "sp_in",
+          "kind": "function"
+        },
+        {
+          "name": "sp_out",
+          "kind": "function"
+        },
+        {
+          "name": "sp_run",
+          "kind": "function"
+        },
+        {
+          "name": "sp_stat",
+          "kind": "function"
+        },
+        {
+          "name": "sw_in",
+          "kind": "function"
+        },
+        {
+          "name": "sw_out",
+          "kind": "function"
+        },
+        {
+          "name": "sw_run",
+          "kind": "function"
+        },
+        {
+          "name": "sw_stat",
+          "kind": "function"
+        },
+        {
+          "name": "tr_cells",
+          "kind": "function"
+        },
+        {
+          "name": "tr_run",
+          "kind": "function"
+        },
+        {
+          "name": "tr_stat",
+          "kind": "function"
+        },
+        {
+          "name": "wm_hdr",
+          "kind": "function"
+        },
+        {
+          "name": "wm_lnk",
+          "kind": "function"
+        },
+        {
+          "name": "wm_ohdr",
+          "kind": "function"
+        },
+        {
+          "name": "wm_olnk",
+          "kind": "function"
+        },
+        {
+          "name": "wm_run",
+          "kind": "function"
+        },
+        {
+          "name": "wm_stat",
+          "kind": "function"
+        }
+      ]
+    },
+    {
+      "path": "ca2core-simd.wasm",
+      "sha256": "197310232983c0b5ef9a272ec728608248d12a35b2a4e57dd18a39eaa1907b34",
+      "exportCount": 63,
+      "grainExports": [],
+      "exports": [
+        {
+          "name": "memory",
+          "kind": "memory"
+        },
+        {
+          "name": "bs_alloc",
+          "kind": "function"
+        },
+        {
+          "name": "bs_out",
+          "kind": "function"
+        },
+        {
+          "name": "bs_run",
+          "kind": "function"
+        },
+        {
+          "name": "bs_stat",
+          "kind": "function"
+        },
+        {
+          "name": "cells_ptr",
+          "kind": "function"
+        },
+        {
+          "name": "fb_blobs",
+          "kind": "function"
+        },
+        {
+          "name": "fb_dots",
+          "kind": "function"
+        },
+        {
+          "name": "fb_run",
+          "kind": "function"
+        },
+        {
+          "name": "fd1_flow",
+          "kind": "function"
+        },
+        {
+          "name": "fd1_in",
+          "kind": "function"
+        },
+        {
+          "name": "fd1_out",
+          "kind": "function"
+        },
+        {
+          "name": "fd1_stat",
+          "kind": "function"
+        },
+        {
+          "name": "fd1_tick",
+          "kind": "function"
+        },
+        {
+          "name": "fk_in",
+          "kind": "function"
+        },
+        {
+          "name": "fk_run",
+          "kind": "function"
+        },
+        {
+          "name": "mb_field",
+          "kind": "function"
+        },
+        {
+          "name": "mb_field_f32",
+          "kind": "function"
+        },
+        {
+          "name": "out_ptr",
+          "kind": "function"
+        },
+        {
+          "name": "pa_cells",
+          "kind": "function"
+        },
+        {
+          "name": "pa_energy",
+          "kind": "function"
+        },
+        {
+          "name": "pa_in",
+          "kind": "function"
+        },
+        {
+          "name": "pa_out",
+          "kind": "function"
+        },
+        {
+          "name": "pa_run",
+          "kind": "function"
+        },
+        {
+          "name": "pa_stat",
+          "kind": "function"
+        },
+        {
+          "name": "sep_alloc",
+          "kind": "function"
+        },
+        {
+          "name": "sep_moves",
+          "kind": "function"
+        },
+        {
+          "name": "sep_run",
+          "kind": "function"
+        },
+        {
+          "name": "sh_buf",
+          "kind": "function"
+        },
+        {
+          "name": "sh_run",
+          "kind": "function"
+        },
+        {
+          "name": "sim_cap",
+          "kind": "function"
+        },
+        {
+          "name": "sim_cells",
+          "kind": "function"
+        },
+        {
+          "name": "sim_cells_ptr",
+          "kind": "function"
+        },
+        {
+          "name": "sim_cm",
+          "kind": "function"
+        },
+        {
+          "name": "sim_cm_count",
+          "kind": "function"
+        },
+        {
+          "name": "sim_cm_ids",
+          "kind": "function"
+        },
+        {
+          "name": "sim_food",
+          "kind": "function"
+        },
+        {
+          "name": "sim_food_gone",
+          "kind": "function"
+        },
+        {
+          "name": "sim_food_y",
+          "kind": "function"
+        },
+        {
+          "name": "sim_log",
+          "kind": "function"
+        },
+        {
+          "name": "sim_out",
+          "kind": "function"
+        },
+        {
+          "name": "sim_params",
+          "kind": "function"
+        },
+        {
+          "name": "sim_set_n",
+          "kind": "function"
+        },
+        {
+          "name": "sim_set_nf",
+          "kind": "function"
+        },
+        {
+          "name": "sim_shp_ptr",
+          "kind": "function"
+        },
+        {
+          "name": "sim_step",
+          "kind": "function"
+        },
+        {
+          "name": "sp_in",
+          "kind": "function"
+        },
+        {
+          "name": "sp_out",
+          "kind": "function"
+        },
+        {
+          "name": "sp_run",
+          "kind": "function"
+        },
+        {
+          "name": "sp_stat",
+          "kind": "function"
+        },
+        {
+          "name": "sw_in",
+          "kind": "function"
+        },
+        {
+          "name": "sw_out",
+          "kind": "function"
+        },
+        {
+          "name": "sw_run",
+          "kind": "function"
+        },
+        {
+          "name": "sw_stat",
+          "kind": "function"
+        },
+        {
+          "name": "tr_cells",
+          "kind": "function"
+        },
+        {
+          "name": "tr_run",
+          "kind": "function"
+        },
+        {
+          "name": "tr_stat",
+          "kind": "function"
+        },
+        {
+          "name": "wm_hdr",
+          "kind": "function"
+        },
+        {
+          "name": "wm_lnk",
+          "kind": "function"
+        },
+        {
+          "name": "wm_ohdr",
+          "kind": "function"
+        },
+        {
+          "name": "wm_olnk",
+          "kind": "function"
+        },
+        {
+          "name": "wm_run",
+          "kind": "function"
+        },
+        {
+          "name": "wm_stat",
+          "kind": "function"
+        }
+      ]
+    }
+  ],
+  "parity": {
+    "status": "NOT_RUN_MISSING_COMPARISON_TARGET",
+    "identicalInputComparisons": 0,
+    "reason": "Current grain.js dispatches WebGL2 shader work. No grain-named Rust source or WASM export is present in these checked artifacts. A WASM/JS grain pair is not established; simulation/metaball parity is a different scope."
+  }
+}
