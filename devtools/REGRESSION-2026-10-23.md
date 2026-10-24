@@ -68,3 +68,7 @@ NOT done: hab/wing/circles large-argument parity against JS (only sepbody checke
 - circles pc_move (huge ph 1e9 / huge clock / both, 3200 frames) on ca2core.wasm: pcMoveNegativeReturns 0 (was 2400 with the old OOD fallback), mismatch 0, state and global draw count compared each frame, circOff unset.
 - sepBody: see above (TMAX to 1e150, 20000 each, 0 mismatch).
 - NOT covered: wing (pw_run) huge-argument parity vs JS (only t-ood-domain nonnegative return), parasites.rs huge-ph path beyond pc_move, non-SIMD hab TMAX sweep.
+
+### Wing + non-SIMD hab large-arg parity (24 Oct 03:11, ca2core.wasm a94dbf3f...)
+- t-circles-wings-parity with PHBIG (parasite ph += rnd*PHBIG before the wing pass, identical in JS and wasm states) = 1e7, 1e10, 1e100: 162540 checks, mismatch 0, stateMismatchFrames 0, maxAbsCoordDiff 0, rng count mismatch 0, usedWasmWings 36000 (every wing frame ran in Rust, none fell back). (Harness compares recorded ctx args with its stated tolerance 1e-9; maxAbsCoordDiff 0.)
+- non-SIMD t-post-parity TMAX 1e10 and 1e150: hab 72198/0 ulp 0, wall 80894/0, age 61262/0.

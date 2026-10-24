@@ -50,6 +50,7 @@ for(let t=0;t<3000;t++){
   const mv=sj.parasites.map(()=>[ (rnd()-0.5)*8,(rnd()-0.5)*8]);
   sj.parasites.forEach((p,i)=>{p.x+=mv[i][0];p.y+=mv[i][1];sw.parasites[i].x+=mv[i][0];sw.parasites[i].y+=mv[i][1];});
   const dt=8+rnd()*30;
+  if(process.env.PHBIG){const B=+process.env.PHBIG;sj.parasites.forEach((p,i)=>{const v=(p.ph||0)+B*rnd();p.ph=v;sw.parasites[i].ph=v})} // large-arg wing trig (24 Oct)
   rec.length=0;J.f.wing(sj,dt);const rj=rec.slice();rec.length=0;W.f.wing(sw,dt);const rw=rec.slice();
   tot++;
   let ok=rj.length===rw.length;if(ok)for(let k=0;k<rj.length;k++){if(rj[k].length!==rw[k].length||rj[k].some((v,m)=>!near(v,rw[k][m])))ok=false;}
