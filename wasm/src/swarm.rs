@@ -12,7 +12,8 @@ pub fn sw() -> &'static mut Sw {
 #[cfg(feature = "jsrnd")] #[link(wasm_import_module = "env")] extern "C" { fn js_rnd(line: u32) -> f64; }
 impl Sw {
     fn r01(&mut self) -> f64 {
-        #[cfg(feature = "jsrnd")] { return unsafe { js_rnd(2) }; } // jsrnd spike: the real Math.random stream
+        #[cfg(feature = "jsrndbatch")] { return crate::rndbatch::next(); } // batched real stream, same global assignment
+        #[cfg(all(feature = "jsrnd", not(feature = "jsrndbatch")))] { return unsafe { js_rnd(2) }; } // jsrnd spike: the real Math.random stream
         #[allow(unreachable_code)]
         let (mut x, y) = (self.s0, self.s1);
         self.s0 = y; x ^= x << 23; self.s1 = x ^ y ^ (x >> 17) ^ (y >> 26);

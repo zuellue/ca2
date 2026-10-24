@@ -27,7 +27,8 @@ pub fn pa() -> &'static mut Pa {
 fn lerp(a: f64, b: f64, t: f64) -> f64 { a + (b - a) * t }
 impl Pa {
     fn r01(&mut self) -> f64 {
-        #[cfg(feature = "jsrnd")] { return unsafe { js_rnd(7) }; } // jsrnd spike: the real Math.random stream
+        #[cfg(feature = "jsrndbatch")] { return crate::rndbatch::next(); } // batched real stream, same global assignment
+        #[cfg(all(feature = "jsrnd", not(feature = "jsrndbatch")))] { return unsafe { js_rnd(7) }; } // jsrnd spike: the real Math.random stream
         #[allow(unreachable_code)]
         let (mut x, y) = (self.s0, self.s1);
         self.s0 = y; x ^= x << 23; self.s1 = x ^ y ^ (x >> 17) ^ (y >> 26);

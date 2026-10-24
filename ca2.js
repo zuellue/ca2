@@ -813,10 +813,19 @@
   var WC = { ok: false, off: false }, MB = { ms: 0, path: '-' };
   if (window.WebAssembly && !/[?&]nowasm=1/.test(location.search)) {
     var simd = false; try { simd = WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11])); } catch (e) {} WC.simd = simd && !/[?&]nosimd=1/.test(location.search);
-    WC.jsrnd = /[?&]jsrnd=1/.test(location.search); // SPIKE flag: build with --features jsrnd, Rust draws from the real Math.random stream (import env.js_rnd) incl. births
-    
-    fetch((WC.jsrnd ? (WC.simd ? 'ca2core-jsrnd-simd.wasm' : 'ca2core-jsrnd.wasm') : WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610221624').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, WC.jsrnd ? { env: { js_rnd: function (ln) { WC.rndN = (WC.rndN || 0) + 1; return Math.random(); } } } : {}); }).then(function (m) {
-      var e = m.instance.exports; WC.mem = e.memory; WC.cells = e.cells_ptr; WC.out = e.out_ptr; WC.fieldX = e.mb_field; WC.field = e.mb_field_f32; WC.fieldF = e.mb_field_f32; if (e.sim_step) WC.e = e; WC.ok = true;
+    WC.jsrnd = (/[?&]jsrnd=([12])/.exec(location.search) || [0, '0'])[1] | 0; // SPIKE flag: 1 = per-draw env.js_rnd, 2 = rndbatch (shared buffer, fill-on-exhaust, Math.random override; same real stream, same global draw order)
+    var rndH = { e: null }; // js_rnd_fill reaches the exports through this holder (set right after instantiate, before any draw)
+    var rndImp = WC.jsrnd === 2 ? { env: { js_rnd: function (ln) { WC.rndN = (WC.rndN || 0) + 1; return Math.random(); }, js_rnd_fill: function () { WC.rndFill(); } } } : WC.jsrnd ? { env: { js_rnd: function (ln) { WC.rndN = (WC.rndN || 0) + 1; return Math.random(); } } } : {};
+    fetch((WC.jsrnd === 2 ? (WC.simd ? 'ca2core-jsrnd2-simd.wasm' : 'ca2core-jsrnd2.wasm') : WC.jsrnd ? (WC.simd ? 'ca2core-jsrnd-simd.wasm' : 'ca2core-jsrnd.wasm') : WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610241705').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, rndImp); }).then(function (m) {
+      var e = m.instance.exports; WC.mem = e.memory; WC.cells = e.cells_ptr; WC.out = e.out_ptr; WC.fieldX = e.mb_field; WC.field = e.mb_field_f32; WC.fieldF = e.mb_field_f32; if (e.sim_step) WC.e = e;
+      if (WC.jsrnd === 2 && WC.e) { // rndbatch: one shared buffer + cursor in wasm memory; every draw (Rust or JS) pops the same stream in the same order
+        var rcap = e.sim_rndcap(), rbp = e.sim_rndbuf_ptr(), rmp = e.sim_rndmeta_ptr(), rb = null, rm = null;
+        var rv = function () { if (!rm || rm.buffer.byteLength === 0) { rb = new Float64Array(WC.mem.buffer, rbp, rcap); rm = new Uint32Array(WC.mem.buffer, rmp, 2); } }; // re-view after memory growth detaches
+        WC.rndFill = function () { rv(); for (var i = 0; i < rcap; i++) rb[i] = rndH.base(); rm[0] = 0; rm[1] = rcap; WC.rndFills = (WC.rndFills || 0) + 1; };
+        rndH.base = Math.random.bind(Math); // the real (or harness-seeded) stream; the override below routes every consumer through the buffer
+        Math.random = function () { rv(); if (rm[0] === rm[1]) { WC.rndFill(); rv(); } return rb[rm[0]++]; };
+      }
+      WC.ok = true; // set last: a jsrnd2 glue/binary mismatch throws above and stays on the JS fallback
     }).catch(function (e) { WC.err = String(e); });
   }
   // ---- render sources: a round cell is one source; a string is a chain of discs along its heading; a lobed cell is a

@@ -12,3 +12,4 @@ codegen-units = 1
 
 [features]
 jsrnd = []
+jsrndbatch = ["jsrnd"]

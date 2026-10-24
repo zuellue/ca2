@@ -301,12 +301,14 @@ pub extern "C" fn post_sepbody() -> i32 {
 // foodSpot with its Math.random draws (jsrnd spike only): decide -> draw (env.js_rnd = the real Math.random) -> apply, in the exact JS order.
 // Returns 1 and writes (x, y) to post_spot_out(), or 0 for null. Inputs: rect, ink radius r = max(0.5, foodSize/2), st = foodMaskPx(), ink = foodInkOn && mask uploaded.
 #[cfg(feature = "jsrnd")] #[link(wasm_import_module = "env")] extern "C" { fn js_rnd(line: u32) -> f64; }
+#[cfg(all(feature = "jsrnd", not(feature = "jsrndbatch")))] #[inline(always)] fn jr() -> f64 { unsafe { js_rnd(0) } }
+#[cfg(feature = "jsrndbatch")] #[inline(always)] fn jr() -> f64 { crate::rndbatch::next() }
 #[cfg(feature = "jsrnd")] static mut SPOT: [f64; 2] = [0.0; 2];
 #[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn post_spot_out() -> *const f64 { unsafe { std::ptr::addr_of!(SPOT) as *const f64 } }
 #[cfg(feature = "jsrnd")] #[no_mangle]
 pub extern "C" fn post_food_spot(x: f64, y: f64, w: f64, h: f64, r: f64, st: f64, ink: i32) -> i32 {
     unsafe {
-        let rn = || js_rnd(0);
+        let rn = || jr();
         let out = &mut *std::ptr::addr_of_mut!(SPOT);
         if ink == 0 { let a = x + rn() * w; let b = y + rn() * h; out[0] = a; out[1] = b; return 1; }
         let p = INKP;
@@ -339,7 +341,7 @@ pub extern "C" fn post_food_spot(x: f64, y: f64, w: f64, h: f64, r: f64, st: f64
 #[cfg(feature = "jsrnd")] #[no_mangle]
 pub extern "C" fn post_reseed_blobs(nb: f64, x0: f64, y0: f64, gs: f64, cw: f64, ch: f64, eat_r: f64, tries: f64, r_ink: f64, ink: i32) -> i32 {
     unsafe {
-        let rn = || js_rnd(0);
+        let rn = || jr();
         let o = &mut *std::ptr::addr_of_mut!(RSO); o.clear();
         let mut b = 0.0;
         while b < nb {
@@ -374,7 +376,7 @@ pub extern "C" fn post_reseed_blobs(nb: f64, x0: f64, y0: f64, gs: f64, cw: f64,
 #[cfg(feature = "jsrnd")] #[no_mangle]
 pub extern "C" fn post_comp_points(gx: f64, gy: f64, tw: f64, th: f64, u: f64) -> i32 {
     unsafe {
-        let rn = || js_rnd(0);
+        let rn = || jr();
         let rr = |a: f64, b: f64| -> f64 { a + rn() * (b - a) };
         let nc = 2 + (rn() * 4.0).floor() as usize;
         let mut ctr: Vec<(f64, f64)> = Vec::with_capacity(nc);
@@ -412,7 +414,7 @@ pub extern "C" fn post_comp_parent(n: usize, px: f64, py: f64) -> i32 {
         let b = &*std::ptr::addr_of!(CPAR);
         let nf = n as f64; let mut bd = 1e18f64; let mut par: i32 = -1;
         for _ in 0..12 {
-            let k = (js_rnd(0) * nf).floor() as usize;
+            let k = (jr() * nf).floor() as usize;
             if b[k * 3 + 2] == 0.0 { continue; }
             let dx = b[k * 3] - px; let dy = b[k * 3 + 1] - py; let dd = dx * dx + dy * dy;
             if dd < bd { bd = dd; par = k as i32; }
@@ -443,7 +445,7 @@ pub extern "C" fn post_comp_match(m: usize, np: usize) -> i32 {
                 let (mut bi, mut bd) = (0usize, 1e18f64);
                 for j in 0..free.len() { let q = free[j]; let dx = p[q * 2] - cx; let dy = p[q * 2 + 1] - cy; let d = dx * dx + dy * dy; if d < bd { bd = d; bi = j; } }
                 o[i] = free.remove(bi) as f64;
-            } else { o[i] = (js_rnd(0) * np as f64).floor(); }
+            } else { o[i] = (jr() * np as f64).floor(); }
         }
         o.push(free.len() as f64);
         for q in &free { o.push(*q as f64); }
@@ -454,9 +456,9 @@ pub extern "C" fn post_comp_match(m: usize, np: usize) -> i32 {
 // frame() ambient food policy (jsrnd spike only). Stage A: draw r, spawn iff r < density && len < cap (cap = w*h*density*2 computed by the caller as in JS); returns 1/0. JS then runs foodSpot (own hook) and draws the new food's r.
 // Stage C: with the food count after the push, draw r, cull iff r < 0.001 && len > 0, then draw floor(r2 * len) (JS: Math.floor(rnd(len)) = floor(0 + r2 * (len - 0))); returns the index or -1. The conditional && short-circuits exactly as in JS: the first draw is always consumed, the density/cap test follows it.
 #[cfg(feature = "jsrnd")] #[no_mangle]
-pub extern "C" fn post_food_spawn_decide(density: f64, len: f64, cap: f64) -> i32 { unsafe { let r = js_rnd(0); if r < density && len < cap { 1 } else { 0 } } }
+pub extern "C" fn post_food_spawn_decide(density: f64, len: f64, cap: f64) -> i32 { unsafe { let r = jr(); if r < density && len < cap { 1 } else { 0 } } }
 #[cfg(feature = "jsrnd")] #[no_mangle]
-pub extern "C" fn post_food_cull_decide(len: f64) -> i32 { unsafe { let r = js_rnd(0); if r < 0.001 && len > 0.0 { let a = 0.0f64; let b = len; let x = a + js_rnd(0) * (b - a); x.floor() as i32 } else { -1 } } }
+pub extern "C" fn post_food_cull_decide(len: f64) -> i32 { unsafe { let r = jr(); if r < 0.001 && len > 0.0 { let a = 0.0f64; let b = len; let x = a + jr() * (b - a); x.floor() as i32 } else { -1 } } }
 
 // planComposition per-cell morph attributes (jsrnd spike only): per cell, in order: pace = rnd(.5,1.5); dl = rnd(0,.45) * dur; durK = rnd(.55,1); bend = r < .25 ? 0 : rnd(-1,1). Draw order identical to the JS statement order.
 // Output post_ca_out(): 4 f64 per cell (pace, dl, durK, bend). post_ca_done() = number of cells fully written (survives a fault thrown from env.js_rnd).
@@ -470,10 +472,10 @@ pub extern "C" fn post_cell_attrs(m: usize, dur: f64) -> i32 {
         let o = &mut *std::ptr::addr_of_mut!(CAO); CAD = 0;
         o.clear(); o.resize(m * 4, 0.0);
         for i in 0..m {
-            let pace = 0.5 + js_rnd(0) * (1.5 - 0.5);
-            let dl = (0.0 + js_rnd(0) * (0.45 - 0.0)) * dur;
-            let dk = 0.55 + js_rnd(0) * (1.0 - 0.55);
-            let bend = if js_rnd(0) < 0.25 { 0.0 } else { -1.0 + js_rnd(0) * (1.0 - (-1.0)) };
+            let pace = 0.5 + jr() * (1.5 - 0.5);
+            let dl = (0.0 + jr() * (0.45 - 0.0)) * dur;
+            let dk = 0.55 + jr() * (1.0 - 0.55);
+            let bend = if jr() < 0.25 { 0.0 } else { -1.0 + jr() * (1.0 - (-1.0)) };
             o[i * 4] = pace; o[i * 4 + 1] = dl; o[i * 4 + 2] = dk; o[i * 4 + 3] = bend;
             CAD = i + 1;
         }
@@ -494,7 +496,7 @@ pub extern "C" fn post_life_births(n: usize, gs: f64, x0: f64, x1: f64, y0: f64,
         let i = &*std::ptr::addr_of!(LBI); let o = &mut *std::ptr::addr_of_mut!(LBO); o.clear(); o.resize(n * 3 + 3, 0.0); LBN = 0;
         for k in 0..n {
             let nx = 0.0 + (i[k * 2] + 0.5) * gs; let ny = 0.0 + (i[k * 2 + 1] + 0.5) * gs;
-            if nx > x0 && nx < x1 && ny > y0 && ny < y1 { let r = js_rnd(0); o[LBN * 3] = nx; o[LBN * 3 + 1] = ny; o[LBN * 3 + 2] = r; LBN += 1; }
+            if nx > x0 && nx < x1 && ny > y0 && ny < y1 { let r = jr(); o[LBN * 3] = nx; o[LBN * 3 + 1] = ny; o[LBN * 3 + 2] = r; LBN += 1; }
         }
         LBN as i32
     }
@@ -515,9 +517,9 @@ pub extern "C" fn post_worm_step(n: usize, wl0: f64) -> i32 {
         let mut wl = wl0; let mut c = 0usize;
         let mut i = n; while i > 0 { i -= 1;
             let mut len = inp[i]; let b = c * 7;
-            if len < 16.0 && js_rnd(0) < 0.45 { o[b] = 1.0; o[b + 1] = js_rnd(0); len += 1.0; }
-            if len >= 9.0 && js_rnd(0) < 0.3 && wl < 120.0 {
-                o[b + 2] = 1.0; o[b + 3] = 0.0 + js_rnd(0) * (6.2832 - 0.0); o[b + 4] = 0.25 + js_rnd(0) * (0.8 - 0.25); o[b + 5] = 0.6 + js_rnd(0) * (1.6 - 0.6); o[b + 6] = 0.0 + js_rnd(0) * (6.2832 - 0.0); wl += 1.0;
+            if len < 16.0 && jr() < 0.45 { o[b] = 1.0; o[b + 1] = jr(); len += 1.0; }
+            if len >= 9.0 && jr() < 0.3 && wl < 120.0 {
+                o[b + 2] = 1.0; o[b + 3] = 0.0 + jr() * (6.2832 - 0.0); o[b + 4] = 0.25 + jr() * (0.8 - 0.25); o[b + 5] = 0.6 + jr() * (1.6 - 0.6); o[b + 6] = 0.0 + jr() * (6.2832 - 0.0); wl += 1.0;
             }
             c += 1; WMN = c;
         }

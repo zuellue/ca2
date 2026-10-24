@@ -9,6 +9,7 @@ mod fd2;
 mod bs;
 mod fd3;
 mod parasites;
+#[cfg(feature = "jsrndbatch")] pub mod rndbatch;
 mod sim;
 mod tr;
 mod spores;
@@ -286,6 +287,8 @@ static mut SHT: [f64; 28] = [0.0; 28];
 // swarm food velocity init (jsrnd spike only): for every food flagged fresh (JS: f.vx === undefined; the flag is a separate byte so an explicit NaN/null/0 vx is NOT fresh), draw vx then vy via env.js_rnd, ((r - 0.5) * 0.4),
 // in index order, exactly the JS loop order. Returns the number initialised. Packed layout = sw_in (6 f64 per food, vx at +2, vy at +3); flags buffer from sw_fresh_flags(n).
 #[cfg(feature = "jsrnd")] #[link(wasm_import_module = "env")] extern "C" { fn js_rnd(line: u32) -> f64; }
+#[cfg(all(feature = "jsrnd", not(feature = "jsrndbatch")))] #[inline(always)] fn jr0() -> f64 { unsafe { js_rnd(0) } }
+#[cfg(feature = "jsrndbatch")] #[inline(always)] fn jr0() -> f64 { rndbatch::next() }
 #[cfg(feature = "jsrnd")] static mut SWFL: Vec<u8> = Vec::new();
 #[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn pa_run_jsrnd() -> u32 { 1 }
 #[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn tr_run_jsrnd() -> u32 { 1 }
@@ -296,7 +299,7 @@ static mut SHT: [f64; 28] = [0.0; 28];
 #[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn sw_fresh_flags(n: usize) -> *mut u8 { unsafe { let b = &mut *std::ptr::addr_of_mut!(SWFL); b.clear(); b.resize(n + 1, 0); b.as_mut_ptr() } }
 #[cfg(feature = "jsrnd")] #[no_mangle] pub extern "C" fn sw_fresh(n: usize) -> i32 {
     let s = swarm::sw(); let fl = unsafe { &*std::ptr::addr_of!(SWFL) }; let mut c = 0;
-    for i in 0..n { if fl[i] != 0 { let b = i * 6; let vx = (unsafe { js_rnd(0) } - 0.5) * 0.4; let vy = (unsafe { js_rnd(0) } - 0.5) * 0.4; s.inb[b + 2] = vx; s.inb[b + 3] = vy; c += 1; } }
+    for i in 0..n { if fl[i] != 0 { let b = i * 6; let vx = (jr0() - 0.5) * 0.4; let vy = (jr0() - 0.5) * 0.4; s.inb[b + 2] = vx; s.inb[b + 3] = vy; c += 1; } }
     c
 }
 

@@ -101,7 +101,8 @@ impl Sim {
 impl Sim {
     #[cfg_attr(feature = "jsrnd", track_caller)]
     fn rnd01(&mut self) -> f64 {
-        #[cfg(feature = "jsrnd")] { return unsafe { js_rnd(core::panic::Location::caller().line()) }; }
+        #[cfg(feature = "jsrndbatch")] { return crate::rndbatch::next(); } // batched real stream, same global assignment
+        #[cfg(all(feature = "jsrnd", not(feature = "jsrndbatch")))] { return unsafe { js_rnd(core::panic::Location::caller().line()) }; }
         #[allow(unreachable_code)]
         let (mut x, y) = (self.s0, self.s1);
         self.s0 = y; x ^= x << 23; self.s1 = x ^ y ^ (x >> 17) ^ (y >> 26);
