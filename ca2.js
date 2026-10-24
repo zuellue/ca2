@@ -533,6 +533,32 @@
   }
   // ---- respawn morph: a new life cycle (new environment, fresh energy, fresh food) with a new random composition.
   // Every cell gets a place in the new composition and flows there at its own pace; surplus cells die on arrival, missing ones are born from the nearest parent.
+  // greedy matching of the (JS-sorted) cell order to composition points. compMatchJs = original loop; compMatchRust (jsrnd spike) = Rust nearest-free search + overflow draws floor(r * np) through env.js_rnd.
+  // Returns the remaining free list. Fault: draws consumed -> no redraw; cells whose draw never completed get pts[0] (degraded, WC.cmDeg); none consumed -> JS loop.
+  function compMatchJs(order, pts, free) {
+    var i, j2;
+    for (i = 0; i < order.length; i++) {
+      var c = order[i];
+      if (free.length) { var bi = 0, bd = 1e18; for (j2 = 0; j2 < free.length; j2++) { var d = (free[j2][0] - c.x) * (free[j2][0] - c.x) + (free[j2][1] - c.y) * (free[j2][1] - c.y); if (d < bd) { bd = d; bi = j2; } } c.dst = free.splice(bi, 1)[0]; }
+      else { c.dst = pts[Math.floor(Math.random() * pts.length)]; if (!(P.spawnProtect && c.userAdded)) c.dying = true; }
+    }
+    return free;
+  }
+  function compMatchW(order, pts, free) {
+    if (!(WC.jsrnd && WC.e && WC.e.post_comp_match && !postOffW())) return compMatchJs(order, pts, free);
+    var m = order.length, np = pts.length, i, c, n0 = WC.rndN || 0, E = WC.e, cp = E.post_cm_cells(m), pp = E.post_cm_pts(np), cb = new Float64Array(WC.mem.buffer, cp, m * 2 + 1), pb = new Float64Array(WC.mem.buffer, pp, np * 2 + 1);
+    cb = new Float64Array(WC.mem.buffer, cp, m * 2 + 1); pb = new Float64Array(WC.mem.buffer, pp, np * 2 + 1); // views re-read after both calls (either can grow memory)
+    for (i = 0; i < m; i++) { cb[i * 2] = order[i].x; cb[i * 2 + 1] = order[i].y; }
+    for (i = 0; i < np; i++) { pb[i * 2] = pts[i][0]; pb[i * 2 + 1] = pts[i][1]; }
+    var nf = -1, valid = m;
+    try { nf = E.post_comp_match(m, np); WC.cmN = (WC.cmN || 0) + 1; }
+    catch (e) { WC.postOff = true; WC.postErr = String(e); var dr = (WC.rndN || 0) - n0; if (dr === 0) return compMatchJs(order, pts, free); WC.cmDeg = (WC.cmDeg || 0) + 1; valid = Math.min(m, np + dr - 1); }
+    var o = new Float64Array(WC.mem.buffer, E.post_cm_out(), m + 1 + (nf > 0 ? nf : 0));
+    for (i = 0; i < m; i++) { c = order[i]; c.dst = i < valid ? pts[o[i]] : pts[0]; if (i >= np && !(P.spawnProtect && c.userAdded)) c.dying = true; }
+    var out = [];
+    if (nf > 0) for (i = 0; i < nf; i++) out.push(pts[o[m + 1 + i]]);
+    return out;
+  }
   function planComposition(tg) {
     var gx = (W - cont.tw) / 2, gy = (H - cont.th) / 2, nC, ctr = [], i, j2, sg, pts = [], cpDone = false;
     if (WC.jsrnd && WC.e && WC.e.post_comp_points && !postOffW()) { // jsrnd spike: Rust draws centres/sg/points through env.js_rnd in the JS order (staged: decide, draw, apply). Fault: draws already consumed -> no redraw, degraded plan (points at the plate centre); no draw consumed -> JS body below.
@@ -560,11 +586,7 @@
     // greedy matching, cells in random order take the nearest free place
     var free = pts.slice(), order = cells.slice().sort(function (a, b2) { return ((b2.userAdded && P.spawnProtect) ? 1 : 0) - ((a.userAdded && P.spawnProtect) ? 1 : 0) || Math.random() - 0.5; }), spawnN = 0;
     // user-added cells take places first (owner 21 Oct: added cells must join the life, not be culled): the surplus cull falls on natural-born cells only
-    for (i = 0; i < order.length; i++) {
-      var c = order[i];
-      if (free.length) { var bi = 0, bd = 1e18; for (j2 = 0; j2 < free.length; j2++) { var d = (free[j2][0] - c.x) * (free[j2][0] - c.x) + (free[j2][1] - c.y) * (free[j2][1] - c.y); if (d < bd) { bd = d; bi = j2; } } c.dst = free.splice(bi, 1)[0]; }
-      else { c.dst = pts[Math.floor(Math.random() * pts.length)]; if (!(P.spawnProtect && c.userAdded)) c.dying = true; }
-    }
+    free = compMatchW(order, pts, free);
     trans.pending = free; trans.plan = { points: pts.length, dying: order.filter(function (c) { return c.dying; }).length, birthsDue: free.length, from: cells.length };
     // fresh food for the new cycle
     var nf = cont.tw * cont.th * P.foodDensity / 2; if (!P.foodLife) food = [];
