@@ -26,6 +26,7 @@ for(let t=0;t<4000;t++){
  const lifeOn=cls!==6&&!(cls===8&&t%2), clk={t:1000},swT=lifeOn?0:999.9;
  const mkS=()=>{const m=new Map();const fo=food.map(f=>{const g={...f};m.set(f,g);return g});return {food:fo,swT,stat:{born:0,died:0}}};
  const A=mk({},P,cont,clk,HW),WC={};await inst(WC);const B=mk(WC,P,cont,clk);A.st(mkS());B.st(mkS());
+ const A2=mk({},P,cont,clk,true);A2.st(mkS());const a2=w(t*11+7,()=>A2.step());
  const a=w(t*11+7,()=>A.step()),b=w(t*11+7,()=>B.step());tot++;
  const Ra=A.st(),Rb=B.st();const kind=[];
  if(Ra.food.length!==Rb.food.length)kind.push('count');
@@ -34,6 +35,7 @@ for(let t=0;t<4000;t++){
  if(Ra.swT!==Rb.swT)kind.push('swT');
  if(a.n!==b.n)kind.push('draws');
  if(globalThis.DBG&&t<16&&kind.some(k=>k!=='draws'))console.log('DBG',t,names[cls],kind,Ra.food.length,Rb.food.length,JSON.stringify(Ra.stat),JSON.stringify(Rb.stat),Ra.swT,Rb.swT,'draws',a.n,b.n,'lifeOn',lifeOn);
+ const eng=JSON.stringify(A2.st().food.map(f=>[f.x,f.y,f.vx,f.vy]))!==JSON.stringify(Ra.food.map(f=>[f.x,f.y,f.vx,f.vy]))||A2.st().food.length!==Ra.food.length;const ec=(globalThis.__ec=globalThis.__ec||{wallEngaged:0,wallEngagedBad:0});if(eng){ec.wallEngaged++;if(kind.some(k=>k!=='draws'))ec.wallEngagedBad++;}
  const touch=Rb.food.some(f=>f.x===cont.x||f.x===cont.x+cont.w||f.y===cont.y||f.y===cont.y+cont.h);const bad=kind.some(k=>k!=='draws'),tc=(globalThis.__tc=globalThis.__tc||{touchBad:0,touchOk:0,noTouchBad:0,noTouchOk:0});tc[(touch?'touch':'noTouch')+(bad?'Bad':'Ok')]++;if(!touch&&bad&&globalThis.DBG2&&(globalThis.__n2=(globalThis.__n2||0)+1)<6){let di=-1;for(let i=0;i<Math.min(Ra.food.length,Rb.food.length);i++){for(const k of ['x','y','vx','vy','r'])if(!Object.is(Ra.food[i][k],Rb.food[i][k])){di=i+':'+k+' '+Ra.food[i][k]+' vs '+Rb.food[i][k];break}if(di!==-1)break}const ii=parseInt(di);console.log('NT',t,names[cls],kind,Ra.food.length,Rb.food.length,di,'n',n,JSON.stringify(Ra.food[ii]),JSON.stringify(Rb.food[ii]),'plate',cont.x,cont.y,cont.x+cont.w,cont.y+cont.h)};
  born+=Ra.stat.born;const c=byClass[names[cls]]=byClass[names[cls]]||{n:0,bad:0,draws:0};c.n++;if(kind.some(k=>k!=='draws'))c.bad++;if(kind.includes('draws'))c.draws++;for(const k of kind)kinds[k]=(kinds[k]||0)+1;}
-console.log(JSON.stringify({mode:(cand?'candidate':'baseline')+(HW?'+JSbodyHardWallDiagnostic':''),binary:bin,scenarios:tot,born,kinds,byClass,edgeTouchCrossTab:globalThis.__tc,first}));process.exit(0)})();
+console.log(JSON.stringify({mode:(cand?'candidate':'baseline')+(HW?'+JSbodyHardWallDiagnostic':''),binary:bin,scenarios:tot,born,kinds,byClass,edgeTouchCrossTab:globalThis.__tc,wallRuleEngaged:globalThis.__ec,first}));process.exit(0)})();

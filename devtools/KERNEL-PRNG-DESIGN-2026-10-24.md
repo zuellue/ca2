@@ -77,3 +77,10 @@ Recommended: B, one kernel at a time, order fd1_tick, sw_run, wm_run, sp_run, tr
 - The 16 non-touch mismatches (4 inspected: differences 1e-3..1e-1 in x/y/vx, one count) are consistent with a cascade from a wall-touched dot that is absent from the kernel output (died) altering later neighbours (in-place updates); the hard-wall diagnostic removes all but the nonfinite artifact, which supports but does not prove this.
 - Fault (t-sw-fault.js, both binaries): fault at draw k=1..59 (598 draws per step): 59 cases, 0 bad; grid-too-large (1e9 dot, -1, no kernel draws) falls to the JS body with equal draws (364) and equal result.
 - Not yet: fix choice for the wall rule (kernel -> gradual, or JS body -> absolute wall) ; far/aliased grid keys; default-binary change; sw_run NOT declared compatible until the wall rule is resolved.
+
+## 8. sw_run wall rule aligned to the REAL gradual JS body (jsrnd-only behaviour fix; main's decision: reference stays the unmodified stepSwarm body)
+- swarm.rs under the jsrnd feature: x += (clamp(x, x0+1, x1-1) - x) * 0.25 (same for y), vel *= 0.8, JS clamp semantics (v<a ? a : v>b ? b : v). Default build keeps the hard clamp; real JS body unchanged.
+- t-sw-baseline.js candidate vs the REAL JS body, 4000 scenarios, both jsrnd binaries: 0 mismatch in every class (count, x, y, vx, vy, r, stat, swT, draws). Classes (n): inside 445, outside 445, dense 445, empty 445, nonfinite 444, freshvel 444, lifeoff 444, lowpop 444, interior 444.
+- Wall rule engaged (real JS result differs from the hard-wall diagnostic copy): 1326 scenarios, all 0 mismatch. The earlier 16 non-edge mismatches are gone with the wall rule aligned (cause confirmed by measurement: wall cascade), 0 of 4000 now.
+- Faults (t-sw-fault.js, both binaries): 59 cases, 0 bad; grid-too-large 364 draws equal.
+- Limits: seeded stream, not the browser's; far/aliased grid keys beyond the 1e9 test not covered; hook exercise separate; sw_run compatibility claimed only for these classes.

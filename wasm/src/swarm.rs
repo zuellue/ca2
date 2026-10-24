@@ -63,8 +63,9 @@ impl Sw {
             if x < x0 || x > x1 || y < y0 || y > y1 {
                 // the shared boundary-morph rule (port of ca2.js wallPull, vel=false)
                 // absolute wall (owner 22 Oct), the same rule cells use
-                if x < x0 { x = x0; } else if x > x1 { x = x1; }
-                if y < y0 { y = y0; } else if y > y1 { y = y1; }
+                #[cfg(not(feature = "jsrnd"))] { if x < x0 { x = x0; } else if x > x1 { x = x1; } if y < y0 { y = y0; } else if y > y1 { y = y1; } }
+                // jsrnd-only behaviour fix (separate from the PRNG migration): the JS stepSwarm body's gradual pull, exactly: clamp(v, a, b) = v<a ? a : v>b ? b : v
+                #[cfg(feature = "jsrnd")] { let cl = |v: f64, a: f64, b: f64| -> f64 { if v < a { a } else if v > b { b } else { v } }; x += (cl(x, x0 + 1.0, x1 - 1.0) - x) * 0.25; y += (cl(y, y0 + 1.0, y1 - 1.0) - y) * 0.25; }
                 vx *= 0.8; vy *= 0.8;
             }
             self.inb[i * 6] = x; self.inb[i * 6 + 1] = y; self.inb[i * 6 + 2] = vx; self.inb[i * 6 + 3] = vy;
