@@ -4,11 +4,13 @@ const fs=require('fs'),path=require('path');
 const src=fs.readFileSync(path.join(__dirname,'..','ca2.js'),'utf8');
 function fn(name){const i=src.indexOf('function '+name+'(');if(i<0)throw name;let j=src.indexOf('{',i),d=0,k=j;for(;k<src.length;k++){if(src[k]=='{')d++;else if(src[k]=='}'){d--;if(!d)break;}}return src.slice(i,k+1);}
 function vr(name){const i=src.indexOf('var '+name+' = ');let j=src.indexOf('{',i),d=0,k=j;for(;k<src.length;k++){if(src[k]=='{')d++;else if(src[k]=='}'){d--;if(!d)break;}}return src.slice(i,k+1)+';';}
-const names=['rand2D','normCol','speedOf','mutGenome','mixGenome','newShape','mixShape','mutateGene','Cell','clusterSize','joinCluster','fuseCells','interact','reproduce'];
+const names=['rand2D','normCol','speedOf','mutGenome','mixGenome','newShape','mixShape','mutateGene','Cell','clusterSize','joinCluster','fuseCells','interact','reproduce','effR'];
 const code=`var UI_END=800,CELL_END=1300;
 var rnd=function(a,b){if(b===undefined){b=a;a=0;}return a+Math.random()*(b-a);};var clamp=function(v,a,b){return v<a?a:v>b?b:v;};var lerp=function(a,b,t){return a+(b-a)*t;};var map=function(v,a,b,c,d){return c+(d-c)*(v-a)/(b-a);};
 ${vr('P')}
-var cells=[],ev={birth:0,death:0,hit:0,oob:0},clusterSeq=0;
+var cells=[],ev={birth:0,death:0,hit:0,oob:0},clusterSeq=0,frameT=0,frameDtf=16.67,resizeDrag=false;
+var cont={x:0,y:0,w:400,h:400,wvx0:0,wvx1:0,wvy0:0,wvy1:0},mouse={x:-1e9,y:-1e9,over:false};
+function birthCapF(){return 1;} function habAte(){} function habReap(){} var cmean={};
 ${names.map(fn).join('\n')}
 return {P:P,Cell:Cell,get cells(){return cells;},set cells(v){cells=v;},ev:ev,get seq(){return clusterSeq;},set seq(v){clusterSeq=v;},
  frame:function(){for(var i=cells.length-1;i>=0;i--){var c=cells[i];for(var k=i-1;k>=0;k--)interact(c,cells[k]);if(!c.alive){ev.death++;cells.splice(i,1);}}}};`;
@@ -23,7 +25,7 @@ let SEQ=0;function mkState(){const cs=[];for(let i=0;i<N;i++){const c=new J.Cell
 function clone(cs){return cs.map(c=>{const d=Object.create(Object.getPrototypeOf(c));Object.assign(d,c);d.g=JSON.parse(JSON.stringify(c.g));d.shp=JSON.parse(JSON.stringify(c.shp));d.sym=null;return d;});}
 function pack(cs){const n=cs.length,cap=n+256;E.sim_cells(cap);E.sim_food(2);E.sim_cm(2);const cp=E.sim_cells(cap);E.sim_food(2);const pp=E.sim_params();
  const buf=E.memory.buffer,cf=new Float64Array(buf,cp,cap*26),p=new Float64Array(buf,pp,80);
- cs.forEach((c,i)=>{const b=i*25,g=c.g;cf.set([c.x,c.y,c.vx,c.vy,c.radius,c.energy,c.gene,1,c.maxSpeed,c.speedModifier,c.hostility,c.mutationRate,c.sv,c.cl||0,-1,g.spd,g.app,g.bnd,g.col[0],g.col[1],g.col[2],c.comp||0,0,0,0],b);});
+ cs.forEach((c,i)=>{const b=i*26,g=c.g;cf.set([c.x,c.y,c.vx,c.vy,c.radius,c.energy,c.gene,1,c.maxSpeed,c.speedModifier,c.hostility,c.mutationRate,c.sv,c.cl||0,-1,g.spd,g.app,g.bnd,g.col[0],g.col[1],g.col[2],c.comp||0,0,0,0,0],b);});
  E.sim_set_n(n);E.sim_set_nf(0);E.sim_cm_count(0);
  PI.forEach((k,i)=>{let v=P[k];p[i]=typeof v==='boolean'?(v?1:0):v;});p[39]=1;p[40]=0.5;p[41]=1;p[42]=0;p[46]=-1e9;p[47]=-1e9;p[48]=0;p[49]=0;p[50]=0;p[51]=1e9;p[52]=1e9;p[53]=0;p[54]=SEQ;p[56]=1;}
 const K=['birth','divide','eaten','merge','fuse','pair','hit'];
