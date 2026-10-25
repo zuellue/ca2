@@ -326,6 +326,15 @@
     var x0 = cont.x + rr + gap, x1 = cont.x + cont.w - rr - gap, y0 = cont.y + rr + gap, y1 = cont.y + cont.h - rr - gap;
     if (x1 < x0) { x0 = x1 = (x0 + x1) / 2; }
     if (y1 < y0) { y0 = y1 = (y0 + y1) / 2; }
+    // 73d(1) anticipation: an inward-moving wall pushes each body in its path BEFORE contact - per-cell, local,
+    // ramp over one own-radius to at most the wall's own speed through the decaying env channel; the contact resolve stays as the fallback
+    if (P.wallCarry > 0 && vel) {
+      var antR = rr;
+      if (cont.wvx0 > 0 && p.x >= x0 && p.x - x0 < antR) { var kA = 1 - (p.x - x0) / antR; p.envVx += (Math.abs(cont.wvx0) * P.wallCarry - p.envVx) * kA; }
+      if (cont.wvx1 < 0 && p.x <= x1 && x1 - p.x < antR) { var kB = 1 - (x1 - p.x) / antR; p.envVx += (-Math.abs(cont.wvx1) * P.wallCarry - p.envVx) * kB; }
+      if (cont.wvy0 > 0 && p.y >= y0 && p.y - y0 < antR) { var kC = 1 - (p.y - y0) / antR; p.envVy += (Math.abs(cont.wvy0) * P.wallCarry - p.envVy) * kC; }
+      if (cont.wvy1 < 0 && p.y <= y1 && y1 - p.y < antR) { var kD = 1 - (y1 - p.y) / antR; p.envVy += (-Math.abs(cont.wvy1) * P.wallCarry - p.envVy) * kD; }
+    }
     if (p.x < x0) carrySide(p, 'x', 'vx', p.y, x0, cont.wvx0, 1, vel);
     else if (p.x > x1) carrySide(p, 'x', 'vx', p.y, x1, cont.wvx1, -1, vel);
     if (p.y < y0) carrySide(p, 'y', 'vy', p.x, y0, cont.wvy0, 1, vel);
@@ -362,8 +371,10 @@
     if (P.wallCarry > 0 && wv * side > 0) {
       var pen = side * (line - p[ax]); if (pen < 0) pen = 0; // owner 25 Oct block 73d-1: a moving wall pushes bodies as a FORCE, it does not carry them - position resolves to the contact line only (non-penetration), never placed ahead at wall speed
       p[ax] = line;
-      if (vel) { // impulse proportional to this frame's overrun depth, into the environmental channel that decays in update(): the body is pushed ahead and settles instead of surfing with the wall
-        if (vax === 'vx') p.envVx += side * pen * P.wallCarry; else p.envVy += side * pen * P.wallCarry;
+      if (vel) { // v2 (owner 25 Oct: v1 slingshot rejected): pressure-proportional approach toward at most the wall's own speed - a deep press firms the push, a light brush barely nudges, and the body can never be driven faster than the wall; momentum settles on release via the decaying env channel
+        var sqm3 = P.squashMax === undefined ? 0.18 : P.squashMax, rr3 = p.radius * (1 - sqm3 * (p.sq || 0));
+        var tgt3 = side * Math.abs(wv) * P.wallCarry, k3 = Math.min(1, pen / Math.max(1e-6, rr3));
+        if (vax === 'vx') p.envVx += (tgt3 - p.envVx) * k3; else p.envVy += (tgt3 - p.envVy) * k3;
         var sqm2 = P.squashMax === undefined ? 0.18 : P.squashMax, cp2 = Math.min(1, (p.sq || 0) + Math.abs(wv) / Math.max(1e-6, p.radius * sqm2)); // each frame the wall outruns the body it presses one frame-depth deeper
         if (cp2 > (p.sqS || 0)) p.sqS = cp2;
       }
@@ -1474,7 +1485,10 @@
         // A collective correction must stay on this cell's side of every finite wall.
         for(var j=0;j<segs.length;j++){var sg=segs[j],ex=sg[2]-sg[0],ey=sg[3]-sg[1],d0=(c.x-sg[0])*ey-(c.y-sg[1])*ex,d1=(tx-sg[0])*ey-(ty-sg[1])*ex;
           if(d0*d1<0){var t=d0/(d0-d1),hx=c.x+(tx-c.x)*t,hy=c.y+(ty-c.y)*t,ll=ex*ex+ey*ey,along=ll?((hx-sg[0])*ex+(hy-sg[1])*ey)/ll:-1;if(along>=0&&along<=1)fraction=Math.min(fraction,Math.max(0,t-.001));}}
-        c._sepX=c.x;c._sepY=c.y;c.x+=(tx-c.x)*fraction;c.y+=(ty-c.y)*fraction;
+        c._sepX=c.x;c._sepY=c.y;if(pass===0){c._f5x0=c.x;c._f5y0=c.y;}
+        var q5=(c.maxSpeed||0)+1,rem5=Math.max(0,q5-Math.hypot(c.x-c._f5x0,c.y-c._f5y0)),mx5=(tx-c.x)*fraction,my5=(ty-c.y)*fraction,ml5=Math.hypot(mx5,my5);
+        if(ml5>rem5&&ml5>0){var k5=rem5/ml5;mx5*=k5;my5*=k5;}
+        c.x+=mx5;c.y+=my5; // 73d(2): the TOTAL per-frame collective correction is bounded at the cell's own quantum across all passes, not per pass
         if(pass>=3&&(m[0]||m[1])){
           var pressure=Math.min(1,Math.hypot(m[0],m[1])/Math.max(1,bodies[k].bound));
           // item 64: overload reads as reversible squash, never permanent radius loss (radiusLoss stays 0)
@@ -2966,6 +2980,29 @@
     flip: function (p, c) { p.vx += ((p.b ? 24 : -24) - p.x) * 0.08 + c.jx * 0.3; p.vy += -p.y * 0.05 + c.jy * 0.3; },
     blink: function (p, c) { p.el.style.opacity = p.b ? '1' : '0.3'; p.vx += c.jx * 0.8; p.vy += c.jy * 0.8; }
   };
+  // murmuration for the EVOLUTION button: once the hover cascade has divided down to the floor, the crowd repeats a 9 s flight:
+  // a sudden ragged burst apart, then two sub-flocks that wheel after their own drifting centres (they stretch into streams, pass through
+  // each other, merge and split; each piece follows only its nearest few neighbours), then a slow regather. Velocity steering only.
+  function murmurStep(p, c, parts, m) {
+    var T = 9000, now = performance.now(), u = ((now - m.t0) % T) / T, i, n = parts.length, o, dx, dy, d, tk = now / 1000;
+    if (p.fg === undefined) { p.fg = Math.random() < 0.5 ? 0 : 1; p.mag = 0.5 + Math.random() * 1.5; p.ph = Math.random() * 6.283; p.bx = Math.random() - 0.5; p.by = Math.random() - 0.5; }
+    var near = [], nd = [];
+    for (i = 0; i < n; i++) { o = parts[i]; if (o === p) continue; dx = o.x - p.x; dy = o.y - p.y; d = dx * dx + dy * dy;
+      if (near.length < 6) { near.push(o); nd.push(d); } else { var wi = 0; for (var q = 1; q < 6; q++) if (nd[q] > nd[wi]) wi = q; if (d < nd[wi]) { near[wi] = o; nd[wi] = d; } } }
+    var ax = 0, ay = 0, px = 0, py = 0, sx = 0, sy = 0, k = near.length;
+    for (i = 0; i < k; i++) { o = near[i]; dx = o.x - p.x; dy = o.y - p.y; d = Math.sqrt(nd[i]) || 1; ax += o.vx; ay += o.vy; px += dx; py += dy; if (d < 12) { sx -= dx / d * (12 - d); sy -= dy / d * (12 - d); } }
+    var burst = u < 0.14 ? 1 - u / 0.14 : 0, gather = u > 0.84 ? (u - 0.84) / 0.16 : 0, wheel = 1 - burst - gather;
+    // two drifting centres whose distance breathes: the sub-flocks split apart and come back together
+    var sep = 70 * Math.sin(u * 6.283 * 2 + 0.6), g = p.fg ? 1 : -1;
+    var cxo = Math.max(150 - m.hx, Math.min(W - 150 - m.hx, 0)), cyo = Math.max(150 - m.hy, Math.min(H - 150 - m.hy, 0)); // keep the wheel's centre inside the window (the button sits at the right edge)
+    var wx = cxo + Math.sin(u * 6.283) * 40 + g * sep, wy = cyo + Math.cos(u * 6.283 * 1.3) * 28 + g * sep * 0.4;
+    var rx = p.x - wx, ry = p.y - wy, rd = Math.hypot(rx, ry) || 1, dir = g;
+    if (k) { p.vx += (ax / k - p.vx) * 0.1 + px / k * 0.012 + sx * 0.12; p.vy += (ay / k - p.vy) * 0.1 + py / k * 0.012 + sy * 0.12; }
+    var wave = 0.6 + 0.8 * Math.max(0, Math.sin(tk * 2.2 + (p.x + p.y) * 0.05 + p.ph)); // density waves travelling through the flock
+    p.vx += burst * (rx / rd * 1.6 * p.mag + p.bx * 2.4) + wheel * dir * (-ry / rd) * 0.5 * wave - wheel * rx * 0.004 + gather * (-p.x) * 0.045;
+    p.vy += burst * (ry / rd * 1.6 * p.mag + p.by * 2.4) + wheel * dir * (rx / rd) * 0.5 * wave - wheel * ry * 0.004 + gather * (-p.y) * 0.045;
+    p.vx += (Math.random() - 0.5) * 0.35; p.vy += (Math.random() - 0.5) * 0.35;
+  }
   var SECT_POOL = {
     config: ['grid', 'cohere', 'jitter'], picture: ['frame', 'align', 'drift'], panel: ['rows', 'slide', 'repel', 'grid'], cursor: ['chain', 'swirl', 'jitter'],
     grain: ['flicker', 'repel', 'jitter'], cells: ['cohere', 'repel', 'pulse', 'blink'], evolution: ['mutate', 'drift', 'cohere', 'chain'], life: ['blink', 'pulse', 'cohere', 'swirl'],
@@ -2992,6 +3029,7 @@
     var txt = sec.name.toUpperCase(), spans = [];
     for (var i = 0; i < txt.length; i++) { var sp = document.createElement('span'); sp.textContent = txt[i]; lb.appendChild(sp); spans.push(sp); }
     it.appendChild(c); it.appendChild(lb); secc.appendChild(it); sec.circ = c;
+    var murm = null; // evolution button only: set once the hover division cascade has run out; the pieces then fly as a murmuration
     var caT = null, caSt = null, t1 = null, t2 = null, dividing = false, parts = [], home = null, D0 = 0, ctr = { x: 0, y: 0 }, endTimers = [], endIv = null;
     function put(p) { p.el.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + p.y.toFixed(1) + 'px) scale(' + p.k.toFixed(2) + ')'; }
     // pieces scatter freely; only the browser window bounds them (a piece bounces off the window edges, never leaves the screen)
@@ -3008,7 +3046,7 @@
       if (endIv) { clearInterval(endIv); endIv = null; }
       endTimers.forEach(clearTimeout); endTimers = [];
       parts.forEach(function (p) { if (p.el !== c) p.el.remove(); }); parts = [];
-      dividing = false;
+      dividing = false; murm = null; delete c.dataset.flock;
       c.style.transition = ''; c.style.transform = ''; c.style.opacity = ''; c.style.background = 'transparent'; c.style.borderColor = 'var(--kc, var(--fg))'; c.style.borderWidth = LW() + 'px';
     }
     // hover state comes from the pointer crossing the button's resting box only. The living pieces move under a
@@ -3079,7 +3117,7 @@
           });
         });
         parts = out; parts.forEach(function (p) { inDisc(p); put(p); });
-        if (!did && t2) { clearInterval(t2); t2 = null; }
+        if (!did && t2) { clearInterval(t2); t2 = null; if (sec.name === 'evolution' && !murm) { murm = { t0: performance.now(), hx: ctr.x, hy: ctr.y }; c.dataset.flock = '1'; } } // cascade finished (every piece at the ~4 px floor): the flock begins
       }
       t1 = setTimeout(function () { t1 = null; split(); t2 = setInterval(split, 1300); }, 700);
       // behaviour pool: each section draws from a few local rules that fit its subject; at every hover two are picked at random and every
@@ -3099,14 +3137,14 @@
         for (i = 0; i < n; i++) { parts[i].b = (tick < 2 && parts[i].b === undefined) ? (lcg(caSt) < 0.5 ? 1 : 0) : nb[i]; if (Math.random() < 0.02) parts[i].b ^= 1; }
         parts.forEach(function (p, i) {
           var cc = { jx: lcg(caSt) - 0.5, jy: lcg(caSt) - 0.5, cx: cx, cy: cy, tick: tick, i: i, n: n, nbr: parts[(i + 1 + Math.floor(lcg(caSt) * 5)) % n], prev: parts[(i + n - 1) % n], pd: Math.hypot(p.x, p.y) || 1 };
-          RULES[pick[p.b ? 1 : 0]](p, cc);
+          if (murm) murmurStep(p, cc, parts, murm); else RULES[pick[p.b ? 1 : 0]](p, cc);
           p.vx *= 0.88; p.vy *= 0.88;
-          if (cc.pd > 70) { p.vx -= p.x / cc.pd * (cc.pd - 70) * 0.08; p.vy -= p.y / cc.pd * (cc.pd - 70) * 0.08; } // never far from the button
+          var leash = murm ? 190 : 70; if (cc.pd > leash) { p.vx -= p.x / cc.pd * (cc.pd - leash) * 0.08; p.vy -= p.y / cc.pd * (cc.pd - leash) * 0.08; } // never far from the button
           var nowM = performance.now();
           if (nowM > mUntil) { mrule = MOUSE_KEYS[Math.floor(Math.random() * MOUSE_KEYS.length)]; mUntil = nowM + 2500 + Math.random() * 6000; mGain = 0.4 + Math.random() * 1.2; c.dataset.mouse = mrule; }
           if (p.md === undefined) p.md = Math.random() * 1400; // this piece's own reaction delay (ms) after the pointer starts moving
           if (nowM - PTR.last < 900 && nowM - PTR.start > p.md) { var mdx = PTR.x - (ctr.x + p.x), mdy = PTR.y - (ctr.y + p.y); MOUSE_POOL[mrule](p, { dx: mdx, dy: mdy, d: Math.hypot(mdx, mdy) || 1 }, mGain); }
-          p.vx = clamp(p.vx, -4, 4); p.vy = clamp(p.vy, -4, 4);
+          var vm = murm ? 8 : 4; p.vx = clamp(p.vx, -vm, vm); p.vy = clamp(p.vy, -vm, vm);
           p.x += p.vx; p.y += p.vy; inDisc(p); put(p);
         });
       }, 110);
