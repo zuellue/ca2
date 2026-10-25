@@ -133,7 +133,8 @@ async function runEngine(enginePath, label) {
   // re-seed post-boot so both engines enter the drag with identical PRNG streams (wasm s0/s1 are passed per-step from JS Math.random)
   const rng2 = makeRng(SEED);
   vm.runInContext('Math.random = window.__rng2;', Object.assign(sandbox, { __rng2: rng2 }), { filename: 'reseed.js' });
-  if (sandbox.__ca2KillTrans) { // pair-matched global physics (boundary-finding 25 Oct): morph killed; trans-lerped P keys reset to the frozen preset; env to declaration defaults; clusterSeq past stateB max; live-key drift cleared. Direct probe writes - setKey/applyKey would pin keys and reset radii.
+  if (!sandbox.__ca2KillTrans || !sandbox.__ca2ResetGlobals) throw new Error(label + ': probe hooks missing (ca2KillTrans/ca2ResetGlobals) - instrumented build required, refusing unreset pair (fail-closed, main 25 Oct)');
+  { // pair-matched global physics (boundary-finding 25 Oct): morph killed; trans-lerped P keys reset to the frozen preset; env to declaration defaults; clusterSeq past stateB max; live-key drift cleared. Direct probe writes - setKey/applyKey would pin keys and reset radii.
     sandbox.__ca2KillTrans();
     const GP = JSON.parse(PRESET_TXT);
     const maxCl = INJ.cells.reduce((m, c) => Math.max(m, c.cl || 0), 0);
