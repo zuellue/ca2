@@ -84,6 +84,8 @@ setTimeout(function(){window.__sqz=1;var wh=0;var wiv=setInterval(function(){if(
     for (var b = 0; b < 10; b++) { __ca2.stepN(${FPS}, ${1000 / FPS}); var cs = __ca2.getCells(), cx = __ca2.cont.x, same = 0, zvx = 0, alive = 0, mv = 0; var sqM3 = (__ca2.P && typeof __ca2.P.squashMax === 'number') ? __ca2.P.squashMax : null; // wallD.pen = surface gap to left wall minus eased render radius (negative = clipping); wallD.ev = env-channel speed (main 07:30, additive)
       var zids = [], ageS = 0, wallD = []; for (var i = 0; i < cs.length; i++) { var q = cs[i]; if (!q.alive) continue; alive++; ageS += q.age || 0; if (q.x - cx < 3) { same++; if (Math.abs(q.vx) < 0.05) { zvx++; zids.push(q.__ti === undefined ? -1 : q.__ti); } else mv++; var n12 = 0; for (var n2 = 0; n2 < cs.length; n2++) { var q2 = cs[n2]; if (q2 !== q && q2.alive && Math.hypot(q.x - q2.x, q.y - q2.y) < 12.016) n12++; } var ct2 = __ca2.cont, zz = Math.max(0, Math.min(20 * (q.g ? q.g.bnd : 1), ct2.w / 2.5, ct2.h / 2.5)), dd2 = q.x - ct2.x, tt2 = dd2 < zz ? Math.max(0, Math.min(1, 1 - dd2 / zz)) : 0; wallD.push({ ti: q.__ti === undefined ? -1 : q.__ti, x: +(q.x - cx).toFixed(4), y: +q.y.toFixed(1), r: +q.radius.toFixed(1), bnd: q.g ? +q.g.bnd.toFixed(3) : -1, ms: +q.maxSpeed.toFixed(3), zt: +tt2.toFixed(3), vx: +q.vx.toFixed(4), vy: +q.vy.toFixed(4), cr: +(q.crowd || 0).toFixed(3), sq: +(q.sq || 0).toFixed(3), pen: (sqM3 == null ? null : +((q.x - ct2.x) - q.radius * (1 - sqM3 * (q.sq || 0))).toFixed(3)), ev: +(Math.hypot(typeof q.envVx === 'number' ? q.envVx : 0, typeof q.envVy === 'number' ? q.envVy : 0)).toFixed(3), n: n12 }); } }
       series.push({ step: (b + 1) * ${FPS}, alive: alive, sameAtWall: same, zeroVx: zvx, zids: zids, moving: mv, deaths: (__ca2.deathsLive === undefined ? null : __ca2.deathsLive), trans: (__ca2.transLive === undefined ? null : __ca2.transLive), unavail: (__ca2.deathsLive === undefined ? 'deaths,trans' : undefined), maskT: Math.round(__ca2.sepMaskT || 0), ageMean: alive ? +(ageS / alive).toFixed(2) : 0, wall: wallD, frameT: Math.round(__ca2.frameT || 0) }); } // live getters only - missing capability marks fields null+unavail, never silent stale fallback (main 25 Oct); maskT vs frameT proves per-step mask freshness in mode 2; ageMean proves aging runs in stepped phases
+    var sqT = {}; for (var i5b = 0; i5b < cs.length; i5b++) { var q5b = cs[i5b]; if (q5b.alive && q5b.__ti !== undefined) sqT[q5b.__ti] = +(q5b.sq || 0).toFixed(3); }
+    window.__sqTail = sqT; series.push({ sqTail: sqT, frameT: Math.round(__ca2.frameT || 0) }); // post-expansion squash snapshot per tagged id: the recorder's rAF window ends at mouseup, so release can only be read after the stepped tail (main 25 Oct)
     window.__ca2NoDraw = 0; return JSON.stringify(series); } catch (e9) { window.__ca2NoDraw = 0; return 'STEPPED-ERR: ' + (e9 && e9.stack || e9); } })()`) : '[]'; // sim-stepped long tail (120 steps = 10s sim at 12fps), NOT real rAF timing (main 25 Oct); render skipped, physics path unchanged, separators off
   console.error(el() + 's stepped tail: ' + String(stepped).slice(0, 120));
   if (SHOT) await c.shot(SHOT + '-after.png');
@@ -166,7 +168,7 @@ shrinkRep.sort(function (a, b) { return b.loss - a.loss; }); // attribution: man
 // additive residency/displacement/reaction block (main 07:30): original metrics above stay byte-identical.
 // pen = (nearest-wall centre distance) - eased render radius; <0 = surface through the wall (clipping), |pen|<3 = resting in contact.
 var sqM2 = (__ca2.P && typeof __ca2.P.squashMax === 'number') ? __ca2.P.squashMax : null;
-var minPen = null, minPenSat = null, clipFrames = 0, clipFramesSat = 0, maxContactTail = 0, maxIdDisp = 0, prevById = {}, reactsEnv = {}, penEvents = [], penEventsSat = [];
+var minPen = null, minPenSat = null, clipFrames = 0, clipFramesSat = 0, maxContactTail = 0, maxIdDisp = 0, prevById = {}, reactsEnv = {}, penEvents = [], penEventsSat = []; var maxContactAny = 0, cgIdx = -1;
 for (var i5 = 0; i5 < fr.length; i5++) {
   var f5 = fr[i5], p5 = fr[Math.max(0, i5 - 1)], na5 = f5.a.length / 5, nb5 = f5.b ? f5.b.length / 4 : 0, anyClip = 0, anyClipSat = 0, contactN = 0, curById = {};
   for (var j5 = 0; j5 < na5; j5++) {
@@ -183,7 +185,7 @@ for (var i5 = 0; i5 < fr.length; i5++) {
       var dvxE = (f5.a[j5 * 5 + 2] + evx5) - pvx5, dvyE = (f5.a[j5 * 5 + 3] + evy5) - pvy5;
       if (Math.hypot(dvxE, dvyE) > 0.5) reactsEnv[j5] = { f: i5, dir: Math.atan2(f5.a[j5 * 5 + 3] + evy5, f5.a[j5 * 5 + 2] + evx5) }; }
   }
-  prevById = curById; if (anyClip) clipFrames++; if (anyClipSat) clipFramesSat++; if (i5 >= fr.length - 24 && contactN > maxContactTail) maxContactTail = contactN;
+  prevById = curById; if (anyClip) clipFrames++; if (anyClipSat) clipFramesSat++; if (i5 >= fr.length - 24 && contactN > maxContactTail) maxContactTail = contactN; if (contactN > maxContactAny) { maxContactAny = contactN; cgIdx = i5; }
 }
 var wallTraj = fr.map(function (f6) { return [f6.ft === undefined ? -1 : Math.round(f6.ft), +f6.x.toFixed(1), +f6.y.toFixed(1), +f6.w.toFixed(1), +f6.h.toFixed(1), f6.tw === undefined ? null : +f6.tw.toFixed(1), f6.th === undefined ? null : +f6.th.toFixed(1), f6.rw === undefined ? null : +f6.rw.toFixed(1), f6.rh === undefined ? null : +f6.rh.toFixed(1)]; });
 var rrE = [], rkE; for (rkE in reactsEnv) rrE.push(reactsEnv[rkE]);
@@ -197,11 +199,11 @@ for (var i6 = 0; i6 < fr.length; i6++) { var b6 = fr[i6].b; if (!b6) continue;
   for (var j6 = 0; j6 < b6.length / 4; j6++) { var t6 = b6[j6 * 4], s6 = b6[j6 * 4 + 1]; if (t6 < 0) continue;
     var e6 = sqTr[t6] || (sqTr[t6] = { max: 0, last: 0 }); if (s6 > e6.max) e6.max = s6; e6.last = s6; } }
 var aliveTi2 = {}; __ca2.getCells().forEach(function (q) { if (q.__ti !== undefined && q.alive) aliveTi2[q.__ti] = 1; });
-var sqN = 0, sqRec = 0, sqGiants = [], k6;
-for (k6 in sqTr) { if (sqTr[k6].max > 0.3) { sqN++; if (sqTr[k6].last < 0.1) sqRec++; } }
-for (k6 in sqTr) { var g6 = __rsh[k6]; if (g6 && g6.r0 > 96 && sqTr[k6].max > 0.05) sqGiants.push({ ti: +k6, alive: !!aliveTi2[k6], r0: +g6.r0.toFixed(1), maxSq: +sqTr[k6].max.toFixed(3), tailSq: +sqTr[k6].last.toFixed(3) }); }
+var postTail = window.__sqTail || {}, sqN = 0, sqRec = 0, sqGiants = [], k6;
+for (k6 in sqTr) { if (sqTr[k6].max > 0.3) { sqN++; var ls6 = postTail[k6] !== undefined ? postTail[k6] : sqTr[k6].last; if (ls6 < 0.1) sqRec++; } }
+for (k6 in sqTr) { var g6 = __rsh[k6]; if (g6 && g6.r0 > 96 && sqTr[k6].max > 0.05) sqGiants.push({ ti: +k6, alive: !!aliveTi2[k6], r0: +g6.r0.toFixed(1), maxSq: +sqTr[k6].max.toFixed(3), tailSq: +(postTail[k6] !== undefined ? postTail[k6] : sqTr[k6].last).toFixed(3) }); }
 // crowding geometry on the tail frame (main 25 Oct): central accumulation + row-band regularity on the shifted geometry
-var tailF = fr[fr.length - 1], cg = { tailCells: 0, centroidOffset: null, centerQuarterRatio: null, rowBand: null };
+var tailF = fr[cgIdx >= 0 ? cgIdx : fr.length - 1], cg = { frameIdx: cgIdx, frameNote: 'max-contact frame', tailCells: 0, centroidOffset: null, centerQuarterRatio: null, rowBand: null };
 if (tailF && tailF.a) { var n7 = tailF.a.length / 5, nb7x = tailF.b ? tailF.b.length / 4 : 0, sx7 = 0, sy7 = 0, inC = 0, i7;
   var bands = { l: [], r: [], t: [], b: [] };
   for (i7 = 0; i7 < n7; i7++) { var X7 = tailF.a[i7 * 5], Y7 = tailF.a[i7 * 5 + 1], R7 = tailF.a[i7 * 5 + 4]; sx7 += X7; sy7 += Y7;
@@ -229,7 +231,7 @@ return JSON.stringify({ initFP: window.__initFP, frames: fr.length, transEnd: tr
   for (k in __rsh) { if (!aliveTi[k]) continue; var a2 = __rsh[k]; if (a2.r0 > 1) aliveMax = Math.max(aliveMax, (a2.r0 - a2.rmin) / a2.r0); }
   for (k in __deadR) { var d2 = __deadR[k]; deadN++; if (d2.r0 > 1) { var dr2 = (d2.r0 - d2.rmin) / d2.r0; deadMax = Math.max(deadMax, dr2); if (dr2 > 0.02) { dropN++; if (d2.lastR > d2.rmin * 1.02) recN++; } } }
   return { aliveMaxDrop: +aliveMax.toFixed(4), deadMaxDrop: +deadMax.toFixed(4), deadTagged: deadN, deadWithDrop: dropN, deadRecoveredOfDrop: recN, coverage: { taggedTotal: window.__tn || 0, shadowN: Object.keys(__rsh).length, aliveTagged: Object.keys(aliveTi).length } }; })(),
-  sqRecov: { trackedWithSq: sqN, recoveredTail: sqRec, giants: sqGiants }, crowdGeo: cg, radiusLoss: +radiusLoss.toFixed(4), radiusLossTi: +radiusLossTi.toFixed(4),
+  sqRecov: { trackedWithSq: sqN, recoveredTail: sqRec, postTailN: Object.keys(postTail).length, giants: sqGiants }, crowdGeo: cg, radiusLoss: +radiusLoss.toFixed(4), radiusLossTi: +radiusLossTi.toFixed(4),
   ledgerLoss: +ledgerLoss.toFixed(4), ledgerN: ledgerN, lossByCell: lossByCell.slice(0, 8), shrinkRep: shrinkRep.slice(0, 8), deaths: __ca2.deaths, deadRep: deadRep.slice(0, 12), liveMinLoss: +liveMinLoss.toFixed(4),
   killReasons: (function () { if (!__ca2.killReasons) return null; var k1 = __ca2.killReasons(), k0 = window.__kr0 || { select: 0, energy0: 0, crowd: 0, genebound: 0 }; return { select: k1.select - k0.select, energy0: k1.energy0 - k0.energy0, crowd: k1.crowd - k0.crowd, genebound: k1.genebound - k0.genebound }; })(), deathLog: (__ca2.deathLog || []).slice(-32), transFrames: fr.filter(function (f) { return f.tr; }).length, frameWallSpanMs: fr.length > 1 ? fr[fr.length - 1].t - fr[0].t : 0, sepJitter: sepJit, viol: viol, maxSameTail: maxSameTail, wallTail: wallTail, violFrames: violFrames, reactN: rr.length, reactFrameSd: +rfSd.toFixed(2), reactDirSpread: +dirSpread.toFixed(3), wallTraj: wallTraj, squashMax: sqM2, minPen: minPen == null ? null : +minPen.toFixed(3), minPenSat: minPenSat == null ? null : +minPenSat.toFixed(3), clipFrames: clipFrames, clipFramesSat: clipFramesSat, penEvents: penEvents.sort(function (a9, b9) { return a9.pen - b9.pen; }).slice(0, 8), penEventN: penEvents.length, penEventsSat: penEventsSat.sort(function (a8, b8) { return a8.pen - b8.pen; }).slice(0, 8), penEventSatN: penEventsSat.length, maxContactTail: maxContactTail, maxIdDisp: +maxIdDisp.toFixed(2), reactEnvN: rrE.length, reactEnvFrameSd: +rfSdE.toFixed(2), reactEnvDirSpread: +dirSpreadE.toFixed(3) });})()`);
   const TREE = (process.argv[2] || '').includes('ca2base') ? 'base' : 'branch';
