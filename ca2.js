@@ -243,14 +243,20 @@
       }
       if (ov > 0) for (i = 0; i < cells.length; i++) { var a2 = cells[i]; if (!a2.alive) continue;
         for (j = i + 1; j < cells.length; j++) { var b2 = cells[j]; if (!b2.alive) continue;
-          var ddx = b2.x - a2.x, ddy = b2.y - a2.y, dd = Math.hypot(ddx, ddy), rr = (effR(a2) + effR(b2)) * 1; 
-          if (dd < rr && dd > 0.0001) { var push = (rr - dd) / 2 * ov, ux = ddx / dd, uy = ddy / dd; a2.x -= ux * push; a2.y -= uy * push; b2.x += ux * push; b2.y += uy * push; moved = true; }
+          var ddx = b2.x - a2.x, ddy = b2.y - a2.y, dd = Math.hypot(ddx, ddy), rr = (effR(a2) + effR(b2)) * 1;
+          var over = rr - dd; if (over <= 0 || dd <= 0.0001) continue;
+          var sqm = P.squashMax === undefined ? 0.18 : P.squashMax, allow = rr * sqm; // directive 2: interpenetration up to the squash depth is ABSORBED as eased squash, not flung apart (v3)
+          if (over <= allow) { var sq2 = over / rr / Math.max(0.001, sqm); if (sq2 > (a2.sqS || 0)) a2.sqS = sq2; if (sq2 > (b2.sqS || 0)) b2.sqS = sq2; continue; }
+          var push = (over - allow) / 2 * ov, ux = ddx / dd, uy = ddy / dd; a2.x -= ux * push; a2.y -= uy * push; b2.x += ux * push; b2.y += uy * push; moved = true;
+          if (1 > (a2.sqS || 0)) a2.sqS = 1; if (1 > (b2.sqS || 0)) b2.sqS = 1; // past the squash depth: full press reads as full squash
         }
       }
       for (i = 0; i < cells.length; i++) { // the wall wins last: overlap separation may push a body out of the plate, so the clamp closes every iteration
         c = cells[i]; if (!c.alive) continue;
-        if (c.x < x0) { c.x = x0; moved = true; } else if (c.x > x1) { c.x = x1; moved = true; }
-        if (c.y < y0) { c.y = y0; moved = true; } else if (c.y > y1) { c.y = y1; moved = true; }
+        var pen = 0; // directive 2: wall contact reads as squash pressure, not a silent position write
+        if (c.x < x0) { pen = x0 - c.x; c.x = x0; moved = true; } else if (c.x > x1) { pen = c.x - x1; c.x = x1; moved = true; }
+        if (c.y < y0) { pen = Math.max(pen, y0 - c.y); c.y = y0; moved = true; } else if (c.y > y1) { pen = Math.max(pen, c.y - y1); c.y = y1; moved = true; }
+        if (pen > 0) { var sq3 = Math.min(1, pen / Math.max(1, c.radius)); if (sq3 > (c.sqS || 0)) c.sqS = sq3; }
       }
       if (!moved) break;
     }

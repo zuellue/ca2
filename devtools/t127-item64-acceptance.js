@@ -93,7 +93,7 @@ var wt = {};
 for (var i9 = Math.max(0, fr.length - 24); i9 < fr.length; i9++) { var wb2 = fr[i9].wb || []; for (var wi2 = 0; wi2 < wb2.length; wi2++) { var e9 = wb2[wi2]; if (!wt[e9[0]]) wt[e9[0]] = { alive: 0, frames: 0, vxSum: 0, crowd: e9[4], hab: e9[5], energy: e9[6], x: e9[2] }; var w9 = wt[e9[0]]; w9.frames++; if (e9[1]) w9.alive = 1; w9.vxSum += Math.abs(e9[3]); } }
 var wtIds = Object.keys(wt), liveLocked = 0, deadC = 0, moving = 0;
 wtIds.forEach(function (id) { var w = wt[id]; if (!w.alive) deadC++; else if (w.vxSum / w.frames < 0.05) liveLocked++; else moving++; });
-var wallTail = { unique: wtIds.length, dead: deadC, liveZeroVx: liveLocked, liveMoving: moving, sample: wtIds.slice(0, 8).map(function (id) { return { ti: +id, alive: wt[id].alive, frames: wt[id].frames, meanAbsVx: +(wt[id].vxSum / wt[id].frames).toFixed(3), crowd: wt[id].crowd, hab: wt[id].hab, energy: wt[id].energy, x: wt[id].x }; }) };
+var wallTail = { unique: wtIds.length, dead: deadC, liveZeroVx: liveLocked, liveMoving: moving, sample: wtIds.map(function (id) { return { ti: +id, alive: wt[id].alive, frames: wt[id].frames, meanAbsVx: +(wt[id].vxSum / wt[id].frames).toFixed(3), crowd: wt[id].crowd, hab: wt[id].hab, energy: wt[id].energy, x: wt[id].x }; }) };
 var rr = [], rk; for (rk in reacts) rr.push(reacts[rk]);
 var rf = rr.map(function (r) { return r.f; }), rfm = mean(rf), rfSd = Math.sqrt(mean(rf.map(function (v2) { return (v2 - rfm) * (v2 - rfm); })));
 var sx = 0, sy = 0; rr.forEach(function (r) { sx += Math.cos(r.dir); sy += Math.sin(r.dir); });
