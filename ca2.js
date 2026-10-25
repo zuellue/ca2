@@ -31,7 +31,7 @@
   };
   // owner's chosen defaults (23:04)
   P.audioFadeMs = 5000;
-  P.typeSlider = 1; P.cfgFont = 0; P.cfgFontSize = 13; P.cfgCase = 0; P.lineColor = '#111111'; P.autoInvert = 1; P.axisColor = ''; P.circColor = ''; P.ruleColor = ''; P.dragMargin = 8; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000; P.wallSmoothMs = 60; P.wallCarry = 1; P.wallSpread = 0.5; P.squashMax = 0.18; P.squashIn = 0.45; P.squashOut = 0.08; P.senseR = 1.6; P.senseSlow = 0.25; P.senseTurn = 0.12; P.senseDelay = 0.5;
+  P.typeSlider = 1; P.cfgFont = 0; P.cfgFontSize = 13; P.cfgCase = 0; P.lineColor = '#111111'; P.autoInvert = 1; P.axisColor = ''; P.circColor = ''; P.ruleColor = ''; P.dragMargin = 8; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000; P.wallSmoothMs = 60; P.wallCarry = 1; P.wallSpread = 0.5; P.squashMax = 0.18; P.squashIn = 0.45; P.squashOut = 0.08; P.senseR = 1.6; P.senseSlow = 0.25; P.senseTurn = 0.12; P.senseDelay = 0.5; P.wallSubStep = 0.5; P.wallSubMax = 8;
   P.foodMode = 2; P.foodBlobR = 70; P.foodBlobDots = 8; P.foodLife = 1; P.foodLifeMs = 300; P.foodLifeCell = 4; P.foodEatR = 0.4;
   Object.assign(P, {"UNIVERSE_SIZE": 55.95868745026389, "baseMutationRate": 9.628232288701716, "mutationRateRange": 2.6268439511457253, "interactionRadius": 12.016352372548786, "CELL_RADIUS": 34.57106164334512, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 50, "maxRadius": 150, "baseMaxSpeed": 2, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 2.5, "THRESHOLD": 0.19, "metaballStrength": 0.024, "foodDensity": 0.023801395385356694, "foodEnergyValue": 20, "minRefreshInterval": 2, "maxRefreshInterval": 9, "slowDownRadius": 9, "speedReductionFactor": 37.5, "grain": 1, "grainAmount": 1.22, "grainStrength": 9.2, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 12, "fps": 12, "containerCorner": 29, "resolution": 1, "margin": 10, "gap": 26, "textScale": 0.8, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.74, "morphEase": 0.7, "pixelRatio": 2, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 1, "axisLayer": 0, "genomeOn": 1, "genomeMut": 0.5, "divideOn": 1, "divideAt": 3, "eatMergeOn": 1, "eatRatio": 3, "eatChance": 1, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.35, "clusterMax": 10, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 8, "foodShrink": 0.1, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 2350, "boundAware": 1, "boundZone": 20, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 2.3, "panelAlpha": 0, "panelWidth": 340, "blurWidth": 340, "cursorSens": 0.75, "cursorSize": 0.31, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 0.53, "audioMode": 1, "audioTone": 2120, "audioMod": 1, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#000000", "foodAlpha": 1, "foodSize": 3.5, "foodShow": 0.51, "audioFadeMs": 5000, "dragMargin": 24, "edgeGrab": 20, "restless": 3, "edgeFit": 0.3, "boundZoneR": 0.1, "blobOutline": 1, "plateOverlap": 0.5, "parasiteHard": 39.5, "parasiteSight": 4000, "parasiteNerv": 1, "parasiteHardMs": 20000, "foodMode": 3, "foodBlobR": 70, "foodBlobDots": 8, "foodLife": 1, "foodLifeMs": 300, "foodLifeCell": 4, "foodEatR": 0.26});
   // eating radius is a fixed px distance, independent of cell radius (owner 20 Oct: no factor); migrate the stored factor with the preset radius
@@ -1916,6 +1916,17 @@
     // float wall geometry: physics and drawing share the exact wall; per-frame floor() was the 1px jitter (owner 25 Oct, finding 6)
     cont.w = cont.ew; cont.h = cont.eh; cont.x = (W - cont.w) / 2; cont.y = (H - cont.h) / 2;
     cont.wvx0 = cont.x - px0; cont.wvx1 = cont.x + cont.w - (px0 + pw0); cont.wvy0 = cont.y - py0; cont.wvy1 = cont.y + cont.h - (py0 + ph0); // px/frame edge velocities for the piston carry
+    // item 64 directive 3: a wall that moved more than wallSubStep x the smallest body radius in one frame
+    // gets extra constraint passes along the interpolated wall path (capped by wallSubMax) - a fast drag can
+    // otherwise jump a wall past a small body in a single step. Post-pass after both engines, like the
+    // separator stack: identical enforcement for wasm and JS (1:1 by construction).
+    var subN = 1, subX0 = px0, subY0 = py0, subW0 = pw0, subH0 = ph0;
+    if (P.boundAware) {
+      var maxEdge = Math.max(Math.abs(cont.wvx0), Math.abs(cont.wvx1), Math.abs(cont.wvy0), Math.abs(cont.wvy1)), minR2 = Infinity;
+      for (var si3 = 0; si3 < cells.length; si3++) { var cm3 = cells[si3]; if (cm3.alive && cm3.radius < minR2) minR2 = cm3.radius; }
+      if (!isFinite(minR2)) minR2 = P.CELL_RADIUS;
+      subN = Math.min(P.wallSubMax === undefined ? 8 : P.wallSubMax, Math.ceil(maxEdge / Math.max(1e-6, (P.wallSubStep === undefined ? 0.5 : P.wallSubStep) * minR2)));
+    }
 
     if (pendingSpawn) { // batched first spawn: a few cells per frame after the UI intro, food after the cells
       var el0 = t0 - fadeT0;
@@ -1972,6 +1983,13 @@
       if (!c.alive) { ev.death++; habReap(c); cells.splice(i, 1); }
     }
     if (!simDone) SIMW.js = (SIMW.js || 0) * 0.9 + (performance.now() - tj0) * 0.1;
+    if (subN > 1) {
+      var fx3 = cont.x, fy3 = cont.y, fw3 = cont.w, fh3 = cont.h;
+      for (var sb3 = 1; sb3 <= subN; sb3++) { var st3 = sb3 / subN;
+        cont.x = subX0 + (fx3 - subX0) * st3; cont.y = subY0 + (fy3 - subY0) * st3; cont.w = subW0 + (fw3 - subW0) * st3; cont.h = subH0 + (fh3 - subH0) * st3;
+        for (var ci3 = 0; ci3 < cells.length; ci3++) { var cs3 = cells[ci3]; if (cs3.alive) keepIn(cs3); } }
+      cont.x = fx3; cont.y = fy3; cont.w = fw3; cont.h = fh3;
+    }
     if (P.separatorOn) { ctx.save(); drawAxis(lay(), String(cells.length), String(Math.round(mouse.x)), true); ctx.restore(); separatorPass(); pfm('separator'); } // one mechanism after both engines: identical enforcement for wasm and JS (1:1 by construction)
     hoverCol = hovering ? tmpHover : [255, 255, 255];
     stepParasites(); pfm('sim loop+parasites');
@@ -2493,7 +2511,7 @@
     ['life', [
       ['spawnProtect', 'spawn protect', 0, 1, 1], ['boundGap', 'wall gap', 0, 200, 1], ['boundZone', 'awareness zone', 0, 200, 1], ['dragMargin', 'drag margin', 0, 100, 1], ['edgeGrab', 'border grab', 3, 40, 1], ['restless', 'restlessness', 0, 3, 0.05], ['boundForce', 'push', 0, 3, 0.05], ['cellMorphMs', 'morph time', 100, 6000, 50],
       ['wallSmoothMs', 'wall follow', 0, 400, 5], ['wallCarry', 'wall carry', 0, 2, 0.05], ['wallSpread', 'wall spread', 0, 2, 0.05],
-      ['squashMax', 'squash depth', 0, 0.6, 0.01], ['squashIn', 'squash in', 0, 1, 0.01], ['squashOut', 'squash out', 0, 1, 0.01], ['senseR', 'sensing radius', 0, 4, 0.05], ['senseSlow', 'sensing slow', 0, 1, 0.01], ['senseTurn', 'sensing turn', 0, 1, 0.01], ['senseDelay', 'sensing delay', 0, 1, 0.01]]],
+      ['squashMax', 'squash depth', 0, 0.6, 0.01], ['squashIn', 'squash in', 0, 1, 0.01], ['squashOut', 'squash out', 0, 1, 0.01], ['senseR', 'sensing radius', 0, 4, 0.05], ['senseSlow', 'sensing slow', 0, 1, 0.01], ['senseTurn', 'sensing turn', 0, 1, 0.01], ['senseDelay', 'sensing delay', 0, 1, 0.01], ['wallSubStep', 'wall substep', 0.05, 2, 0.05], ['wallSubMax', 'wall substep max', 1, 16, 1]]],
     ['sound', [
       ['audioVol', 'volume', 0, 1, 0.01], ['audioTone', 'tone', 200, 8000, 10], ['audioMod', 'modulation', 0, 1, 0.01],
       ['audioCrackle', 'micro events', 0, 1, 0.01], ['audioMicroPitch', 'micro pitch', 200, 4000, 10], ['audioMicroDecay', 'micro decay', 10, 400, 1], ['audioMicroRand', 'randomness', 0, 1, 0.01], ['audioWidth', 'stereo width', 0, 1, 0.01]]],
