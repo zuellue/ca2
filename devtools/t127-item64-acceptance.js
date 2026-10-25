@@ -28,9 +28,11 @@ ${ISO ? "__ca2.setKey('foodGrow', 0); __ca2.setKey('foodShrink', 0); __ca2.setKe
 var cv = document.querySelector('canvas');
 window.__fire = function (t, x, y) { cv.dispatchEvent(new MouseEvent(t, { clientX: x, clientY: y, bubbles: true })); };
 window.__fr = []; window.__recOn = 1;
-__ca2.getCells().forEach(function (q) { q.__r0 = q.radius; }); // identity tag: per-cell radius ledger start (main 25 Oct)
+window.__ls = {}; window.__tn = 0;
+__ca2.getCells().forEach(function (q) { q.__r0 = q.radius; q.__ti = window.__tn++; q.__rmin = q.radius; }); // identity tags: per-cell radius ledger + dead-cell tracking (main 25 Oct)
 requestAnimationFrame(function rc() { if (!window.__recOn) return; var c = __ca2.cont, cs = __ca2.getCells(), a = new Float32Array(cs.length * 5), j = 0;
-  for (var i = 0; i < cs.length; i++) { var q = cs[i]; if (q.alive) { a[j++] = q.x; a[j++] = q.y; a[j++] = q.vx; a[j++] = q.vy; a[j++] = q.radius; } }
+  for (var i = 0; i < cs.length; i++) { var q = cs[i]; if (q.alive) { a[j++] = q.x; a[j++] = q.y; a[j++] = q.vx; a[j++] = q.vy; a[j++] = q.radius;
+    if (q.__ti !== undefined) { __ls[q.__ti] = [q.x, q.y, q.radius, q.energy, __fr.length, q.__r0]; if (q.radius < q.__rmin) q.__rmin = q.radius; } } }
   __fr.push({ x: c.x, w: c.w, y: c.y, h: c.h, a: a.subarray(0, j) }); requestAnimationFrame(rc); });
 var c = __ca2.cont; return JSON.stringify({ x: c.x, w: c.w, y: c.y, h: c.h, fr: __fr.length, trans: __ca2.trans });})()`);
   const st = JSON.parse(setup);
@@ -83,6 +85,13 @@ if (${SEP}) { var segs = (__ca2.axisInfo.segs || []).slice(0, 20), flips = 0, nn
           var vn = avx * nx + avy * ny, vp = pb[m1 + 2] * nx + pb[m1 + 3] * ny, vq = pb0[m0 + 2] * nx + pb0[m0 + 3] * ny;
           nn++; if (Math.sign(vn) !== Math.sign(vp) && Math.sign(vp) === Math.sign(vq) && Math.abs(vn) > 0.05) flips++; break; } } } }
   sepJit = nn ? +(flips / nn).toFixed(4) : 0; }
+var deadRep = [], liveMinLoss = 0, contL = fr[fr.length - 1];
+__ca2.getCells().forEach(function (q) { q.__seen = 1; });
+for (var ti = 0; ti < __tn; ti++) { var L = __ls[ti]; if (!L) continue;
+  var live = false; __ca2.getCells().forEach(function (q) { if (q.__ti === ti) live = true; });
+  if (!live) { var atWall = contL ? (Math.min(Math.abs(L[0] - contL.x), Math.abs(L[0] - (contL.x + contL.w)), Math.abs(L[1] - contL.y), Math.abs(L[1] - (contL.y + contL.h))) < 6) : false;
+    deadRep.push({ ti: ti, endRLoss: +(1 - L[2] / L[5]).toFixed(3), lastE: +L[3].toFixed(2), atWall: atWall, frAgo: fr.length - L[4] }); } }
+__ca2.getCells().forEach(function (q) { if (q.__r0 !== undefined && q.__r0 > 1) liveMinLoss = Math.max(liveMinLoss, 1 - (q.__rmin || q.radius) / q.__r0); });
 var ledgerLoss = 0, ledgerN = 0, ledgerGone = 0;
 __ca2.getCells().forEach(function (q) { if (q.__r0 === undefined) return; ledgerN++; if (q.__r0 > 1) ledgerLoss = Math.max(ledgerLoss, 1 - q.radius / q.__r0); });
 var lossByCell = []; __ca2.getCells().forEach(function (q) { if (q.__r0 !== undefined && q.__r0 > 1) { var d = 1 - q.radius / q.__r0; if (d > 0.001) lossByCell.push(+d.toFixed(3)); } });
@@ -90,8 +99,9 @@ lossByCell.sort(function (a, b) { return b - a; });
 document.getElementById('panel').classList.remove('hov');
 var transEnd = __ca2.trans, cellR = __ca2.P.CELL_RADIUS;
 return JSON.stringify({ frames: fr.length, transEnd: transEnd, cellR: +cellR.toFixed(2), maxDisp: +maxDisp.toFixed(2), maxSameCoord: maxSame, radiusLoss: +radiusLoss.toFixed(4),
-  ledgerLoss: +ledgerLoss.toFixed(4), ledgerN: ledgerN, lossByCell: lossByCell.slice(0, 8), deaths: __ca2.deaths,
+  ledgerLoss: +ledgerLoss.toFixed(4), ledgerN: ledgerN, lossByCell: lossByCell.slice(0, 8), deaths: __ca2.deaths, deadRep: deadRep.slice(0, 12), liveMinLoss: +liveMinLoss.toFixed(4),
   sepJitter: sepJit, viol: viol, violFrames: violFrames, reactN: rr.length, reactFrameSd: +rfSd.toFixed(2), reactDirSpread: +dirSpread.toFixed(3) });})()`);
-  console.log(JSON.stringify(Object.assign({ fps: FPS, sep: SEP, iso: ISO, tree: 'unknown', errs: c.errs.length }, JSON.parse(out === 'EV-TIMEOUT' ? '{}' : out))));
+  const TREE = (process.argv[2] || '').includes('ca2base') ? 'base' : 'branch';
+  console.log(JSON.stringify(Object.assign({ fps: FPS, sep: SEP, iso: ISO, tree: TREE, runs: 'independent-bounded (unmatched populations)', errs: c.errs.length }, JSON.parse(out === 'EV-TIMEOUT' ? '{}' : out))));
   c.close(); s.close(); process.exit(0);
 })().catch(e => { console.log('FATAL', e.message); process.exit(1); });
