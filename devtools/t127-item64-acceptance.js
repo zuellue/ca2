@@ -74,8 +74,8 @@ setTimeout(function(){var j=0;var iv2=setInterval(function(){j++;if(j<=steps){__
   console.error(el() + 's drag done');
   const stepped = TAILMS > 0 ? await evG(`(function(){ window.__ca2NoDraw = 1; var series = [];
     for (var b = 0; b < 10; b++) { __ca2.stepN(12, 83.33); var cs = __ca2.getCells(), cx = __ca2.cont.x, same = 0, zvx = 0, alive = 0, mv = 0;
-      for (var i = 0; i < cs.length; i++) { var q = cs[i]; if (!q.alive) continue; alive++; if (q.x - cx < 3) { same++; if (Math.abs(q.vx) < 0.05) zvx++; else mv++; } }
-      series.push({ step: (b + 1) * 12, alive: alive, sameAtWall: same, zeroVx: zvx, moving: mv, deaths: __ca2.deaths, trans: __ca2.trans }); }
+      var zids = []; for (var i = 0; i < cs.length; i++) { var q = cs[i]; if (!q.alive) continue; alive++; if (q.x - cx < 3) { same++; if (Math.abs(q.vx) < 0.05) { zvx++; zids.push(q.__ti === undefined ? -1 : q.__ti); } else mv++; } }
+      series.push({ step: (b + 1) * 12, alive: alive, sameAtWall: same, zeroVx: zvx, zids: zids, moving: mv, deaths: __ca2.deaths, trans: __ca2.trans, frameT: Math.round(__ca2.frameT || 0) }); } // zids+frameT: per-ID persistence and virtual-clock proof (main 25 Oct)
     window.__ca2NoDraw = 0; return JSON.stringify(series); })()`) : '[]'; // sim-stepped long tail (120 steps = 10s sim at 12fps), NOT real rAF timing (main 25 Oct); render skipped, physics path unchanged, separators off
   console.error(el() + 's stepped tail: ' + String(stepped).slice(0, 120));
   if (SHOT) await c.shot(SHOT + '-after.png');
