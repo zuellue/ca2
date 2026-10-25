@@ -90,6 +90,7 @@ var c = __ca2.cont; return JSON.stringify({ x: c.x, w: c.w, y: c.y, h: c.h, fr: 
 var steps=5,d=${half}/5,i=0;var iv=setInterval(function(){i++;if(i<=steps){__fire('mousemove',${x0}+Math.round(i*d),${y});}else{clearInterval(iv);
 setTimeout(function(){window.__sqz=1;var wh=0;var wiv=setInterval(function(){if(window.__shotHold&&!window.__sqzgo&&++wh<50)return;clearInterval(wiv);var j=0;var iv2=setInterval(function(){j++;if(j<=steps){__fire('mousemove',${x0}+Math.round((5-j)*d),${y});}else{clearInterval(iv2);__fire('mouseup',${x0},${y});window.__done=1;}},60);},60);},2000);}},60);})()`);
   console.error(el() + 's drag fired');
+  if (SHOT) { const t0s = Date.now(); for (const ms of [300, 700, 1200, 1800, 2400, 3000, 3600]) { const dt = ms - (Date.now() - t0s); if (dt > 0) await c.sleep(dt); await c.shot(SHOT + '-t' + ms + '.png'); } } // 75e: pure-observer frame strip across the drag script (no hold interference), same wall schedule for the production/test pair
   if (SHOT) { await evG('window.__shotHold=1'); await wait('window.__sqz', 80); await c.shot(SHOT + '-mid.png'); await evG('window.__sqzgo=1'); } // max-squeeze pixel capture inside the hold phase; without SHOT the drag timeline is unchanged (main 07:30: pixels before any no-clipping claim)
   await wait('window.__done', 25);
   if (TAILMS > 0) { const frBase = await evG('window.__fr.length'); for (let tw = 0; tw < 90; tw++) { await c.sleep(2000); const fn2 = await evG('window.__fr.length'); if (fn2 >= frBase + TAILMS) break; } } // bounded: up to 180s for TAILMS extra sim frames
@@ -240,7 +241,8 @@ var radiusLossTi = 0;
 if (f0 && fl && f0.b && fl.b) { var m0 = {}, j9;
   for (j9 = 0; j9 < f0.b.length / 4; j9++) { var t9 = f0.b[j9 * 4]; if (t9 >= 0) m0[t9] = f0.a[j9 * 5 + 4]; }
   for (j9 = 0; j9 < fl.b.length / 4; j9++) { var t9b = fl.b[j9 * 4]; if (t9b >= 0 && m0[t9b] > 1) radiusLossTi = Math.max(radiusLossTi, 1 - fl.a[j9 * 5 + 4] / m0[t9b]); } }
-return JSON.stringify({ initFP: window.__initFP, frames: fr.length, transEnd: transEnd, cellR: +cellR.toFixed(2), maxDisp: +maxDisp.toFixed(2), maxSameCoord: maxSame, lineage: (function () { var aliveTi = {}; __ca2.getCells().forEach(function (q) { if (q.__ti !== undefined && q.alive) aliveTi[q.__ti] = 1; });
+return JSON.stringify({ traj: (function () { var T = {}; for (var i = 0; i < fr.length; i += 4) { var b5 = fr[i].b; for (var j4 = 0; j4 < b5.length / 4; j4++) { var ti5 = b5[j4 * 4]; if (ti5 < 0) continue; (T[ti5] || (T[ti5] = [])).push([+fr[i].a[j4 * 5].toFixed(1), +fr[i].a[j4 * 5 + 1].toFixed(1)]); } } return T; })(), // 75e: per-ti trajectory export for the paired production/test motion comparison
+  initFP: window.__initFP, frames: fr.length, transEnd: transEnd, cellR: +cellR.toFixed(2), maxDisp: +maxDisp.toFixed(2), maxSameCoord: maxSame, lineage: (function () { var aliveTi = {}; __ca2.getCells().forEach(function (q) { if (q.__ti !== undefined && q.alive) aliveTi[q.__ti] = 1; });
   var aliveMax = 0, deadMax = 0, recN = 0, deadN = 0, dropN = 0, k;
   for (k in __rsh) { if (!aliveTi[k]) continue; var a2 = __rsh[k]; if (a2.r0 > 1) aliveMax = Math.max(aliveMax, (a2.r0 - a2.rmin) / a2.r0); }
   for (k in __deadR) { var d2 = __deadR[k]; deadN++; if (d2.r0 > 1) { var dr2 = (d2.r0 - d2.rmin) / d2.r0; deadMax = Math.max(deadMax, dr2); if (dr2 > 0.02) { dropN++; if (d2.lastR > d2.rmin * 1.02) recN++; } } }
