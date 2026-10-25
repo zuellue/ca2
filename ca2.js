@@ -863,11 +863,23 @@
   var frameT = 0;
   var SRC_MAX = 384, SRC = { n: 0, cells: 0, built: -1, x: new Float32Array(512), y: new Float32Array(512), r: new Float32Array(512), wr: new Float32Array(512), wg: new Float32Array(512), wb: new Float32Array(512) };
   function srcGrow(n) { if (n <= SRC.x.length) return; var m = SRC.x.length * 2; while (m < n) m *= 2; ['x', 'y', 'r', 'wr', 'wg', 'wb'].forEach(function (k) { var a2 = new Float32Array(m); a2.set(SRC[k]); SRC[k] = a2; }); }
-  function emitCell(c, t0, allowance, o) { // appends the cell's sources (plate-relative) to o = { x, y, r, n }
+  function emitCell(c, t0, allowance, o, forDraw) { // appends the cell's sources (plate-relative) to o = { x, y, r, n }; forDraw: segment squeeze is draw-only (sepBody collision keeps the unclamped body)
     var bx = c.x - cont.x, by = c.y - cont.y, sh = c.shp;
     // per-source squeeze (owner 22 Oct): string tails and lobed satellites narrow by their OWN distance to the gap
     // line too, so no body part ever inks past the wall (the centre-based cr below only covers the main disc)
-    var pushSrc = function (sx, sy, sr) { var d = Math.min(sx - (P.boundGap > 0 ? P.boundGap : 0), cont.w - (P.boundGap > 0 ? P.boundGap : 0) - sx, sy - (P.boundGap > 0 ? P.boundGap : 0), cont.h - (P.boundGap > 0 ? P.boundGap : 0) - sy); o.x.push(sx); o.y.push(sy); o.r.push(Math.min(sr, Math.max(0.4, d))); o.n++; };
+    // per-source squeeze also against the axis separator segments (same gate as the collision side): a source near a
+    // solid segment narrows by its own point-to-segment distance, so ink never crosses the separator mid-segment.
+    // The opening stays open by construction: the segments themselves stop at the gap, so flow rounding a wall end is untouched.
+    var segCl = (forDraw && P.separatorOn && P.showAxis && axisInfo.segs) ? axisInfo.segs : null;
+    var pushSrc = function (sx, sy, sr) {
+      var bg = P.boundGap > 0 ? P.boundGap : 0, d = Math.min(sx - bg, cont.w - bg - sx, sy - bg, cont.h - bg - sy);
+      if (segCl) for (var sj = 0; sj < segCl.length; sj++) {
+        var sg = segCl[sj], x1 = sg[0] - cont.x, y1 = sg[1] - cont.y, dx = sg[2] - sg[0], dy = sg[3] - sg[1], l2 = dx * dx + dy * dy;
+        var tt = l2 ? Math.max(0, Math.min(1, ((sx - x1) * dx + (sy - y1) * dy) / l2)) : 0, ex = x1 + dx * tt - sx, ey = y1 + dy * tt - sy, dd = Math.sqrt(ex * ex + ey * ey);
+        if (dd < d) d = dd;
+      }
+      o.x.push(sx); o.y.push(sy); o.r.push(Math.min(sr, Math.max(0.4, d))); o.n++;
+    };
     // wall squeeze: the drawn body never crosses the gap line; a cell pressed at the wall compresses a little so the squeeze is felt (owner 21 Oct)
     var gap2 = Math.max(0, P.boundGap || 0), rFree = Math.max(1, Math.min(bx - gap2, cont.w - gap2 - bx, by - gap2, cont.h - gap2 - by));
     var cr = Math.min(c.radius, Math.max(1, rFree)) * (1 - P.squashMax * (c.sq || 0)); // eased squash state, no one-frame deflate/inflate (item 64 directive 2)
@@ -893,7 +905,7 @@
     var E = WC.e; if (!E || !E.bs_run || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) return false;
     try {
       var n = cells.length, i, c, b;
-      var rp = E.bs_alloc(n), rb = new Float64Array(WC.mem.buffer, rp, n * 17 + 17);
+      var rp = E.bs_alloc(n), rb = new Float64Array(WC.mem.buffer, rp, n * 17 + 41);
       var elapsed = performance.now() - fadeT0;
       for (i = 0; i < n; i++) {
         c = cells[i]; b = i * 17; var sh = c.shp || null;
@@ -906,6 +918,8 @@
         else if (c.gene < -2) { rb[b + 14] = 0; rb[b + 15] = 1; rb[b + 16] = 0; }
         else { rb[b + 14] = 0; rb[b + 15] = 0; rb[b + 16] = 1; }
       }
+      var tb = n * 17, sg2 = (P.separatorOn && P.showAxis && axisInfo.segs) ? axisInfo.segs : null, ns2 = sg2 ? Math.min(sg2.length, 9) : 0;
+      rb[tb] = ns2; for (var s2 = 0; s2 < ns2; s2++) { rb[tb + 1 + s2 * 4] = sg2[s2][0] - cont.x; rb[tb + 2 + s2 * 4] = sg2[s2][1] - cont.y; rb[tb + 3 + s2 * 4] = sg2[s2][2] - cont.x; rb[tb + 4 + s2 * 4] = sg2[s2][3] - cont.y; }
       var m = E.bs_run(n, elapsed, t0, cont.x, cont.y, cont.w, cont.h, P.cellShapes ? 1 : 0, SRC_MAX, P.boundGap || 0);
       if (m < 0) return false;
       var st = new Float64Array(WC.mem.buffer, E.bs_stat(), 4), ob = E.bs_out(), c12 = st[2];
@@ -927,7 +941,7 @@
       c = cells[i];
       if (!c.alive || !introOn(c.popD) || c.x < cont.x || c.x > cont.x + cont.w || c.y < cont.y || c.y > cont.y + cont.h) continue;
       var wr = 0, wg = 0, wb = 0, cwv = (P.genomeOn && c.g) ? c.g.col : c.cw; if (cwv) { wr = cwv[0]; wg = cwv[1]; wb = cwv[2]; } else if (c.gene > 2) wr = 1; else if (c.gene < -2) wg = 1; else wb = 1;
-      o.x.length = 0; o.y.length = 0; o.r.length = 0; o.n = 0; emitCell(c, t0, allowance, o);
+      o.x.length = 0; o.y.length = 0; o.r.length = 0; o.n = 0; emitCell(c, t0, allowance, o, true);
       srcGrow(n + o.n + 8);
       for (var k = 0; k < o.n; k++) { SRC.x[n] = o.x[k]; SRC.y[n] = o.y[k]; SRC.r[n] = o.r[k]; SRC.wr[n] = wr; SRC.wg[n] = wg; SRC.wb[n] = wb; n++; }
     }

@@ -14,7 +14,7 @@ pub fn bs() -> &'static mut Bs {
 }
 impl Bs {
     pub fn cap(&mut self, cap: usize) -> (*mut f64, *mut f32) {
-        self.rows.resize(cap * 17 + 17, 0.0);
+        self.rows.resize(cap * 17 + 41, 0.0);
         self.cap12 = cap * 12 + 12;
         self.out.resize(self.cap12 * 6, 0.0);
         (self.rows.as_mut_ptr(), self.out.as_mut_ptr())
@@ -78,8 +78,26 @@ impl Bs {
                 if m >= c12 { return -1; }
                 self.out[m] = bx as f32; self.out[c12 + m] = by as f32; self.out[2 * c12 + m] = cr as f32; m += 1;
             }
-            // per-source squeeze (owner 22 Oct), 1:1 with ca2.js emitCell pushSrc: tails/satellites narrow by their own gap-line distance
-            for k in start..m { let sx = self.out[k] as f64; let sy = self.out[c12 + k] as f64; let d = (sx - gap2).min(cw - gap2 - sx).min(sy - gap2).min(ch - gap2 - sy); let rr = self.out[2 * c12 + k] as f64; self.out[2 * c12 + k] = rr.min(0.4f64.max(d)) as f32; }
+            // per-source squeeze, 1:1 with ca2.js emitCell pushSrc: tails/satellites narrow by their own gap-line
+            // distance, and by their own point-to-segment distance to the axis separator segments (tail rows:
+            // count then 4 f64 each, plate-relative; segments stop at the opening, so legal flow is untouched)
+            let nseg = (self.rows[n * 17] as usize).min(9);
+            for k in start..m {
+                let sx = self.out[k] as f64; let sy = self.out[c12 + k] as f64;
+                let mut d = (sx - gap2).min(cw - gap2 - sx).min(sy - gap2).min(ch - gap2 - sy);
+                for s in 0..nseg {
+                    let b2 = n * 17 + 1 + s * 4;
+                    let (x1, y1) = (self.rows[b2], self.rows[b2 + 1]);
+                    let (dx, dy) = (self.rows[b2 + 2] - x1, self.rows[b2 + 3] - y1);
+                    let l2 = dx * dx + dy * dy;
+                    let t = if l2 > 0.0 { (((sx - x1) * dx + (sy - y1) * dy) / l2).max(0.0).min(1.0) } else { 0.0 };
+                    let (ex, ey) = (x1 + dx * t - sx, y1 + dy * t - sy);
+                    let dd = (ex * ex + ey * ey).sqrt();
+                    if dd < d { d = dd; }
+                }
+                let rr = self.out[2 * c12 + k] as f64;
+                self.out[2 * c12 + k] = rr.min(0.4f64.max(d)) as f32;
+            }
             for k in start..m { self.out[3 * c12 + k] = wr as f32; self.out[4 * c12 + k] = wg as f32; self.out[5 * c12 + k] = wb as f32; }
         }
         self.stat[0] = m as f64; self.stat[1] = alive as f64; self.stat[2] = self.cap12 as f64;
