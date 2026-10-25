@@ -242,16 +242,16 @@ impl Sim {
         let (x0, x1, y0, y1) = (cx + rr + gap, cx + cw - rr - gap, cy + rr + gap, cy + ch - rr - gap);
         let (x0, x1) = if x1 < x0 { let m = (x0 + x1) / 2.0; (m, m) } else { (x0, x1) };
         let (y0, y1) = if y1 < y0 { let m = (y0 + y1) / 2.0; (m, m) } else { (y0, y1) };
-        // piston carry (owner 25 Oct): 1:1 with ca2.js wallPull - an inward-moving wall gives the carried
-        // body the wall's normal velocity (environmental channel: bodies without self-propulsion are carried
-        // too) and a deterministic golden-ratio spread, and presses the squash one frame-depth deeper per
-        // outrunning frame; a static wall reflects at 0.7
-        let (wcar, wspr) = (self.p[P_WCARRY], self.p[P_WSPREAD]);
+        // wall force-push (owner 25 Oct block 73d-1): 1:1 with ca2.js wallPull - an inward-moving wall
+        // resolves the body to the contact line and pushes it with an impulse proportional to the overrun
+        // depth (environmental channel: unpropelled bodies are pushed too), and presses the squash one
+        // frame-depth deeper per outrunning frame; a static wall reflects at 0.7
+        let (wcar, _wspr) = (self.p[P_WCARRY], self.p[P_WSPREAD]);
         let (wvx0, wvx1, wvy0, wvy1) = (self.p[P_WVX0], self.p[P_WVX1], self.p[P_WVY0], self.p[P_WVY1]);
-        if x < x0 { let fr = y * 0.6180339 - (y * 0.6180339).floor(); if wcar > 0.0 && wvx0 > 0.0 { x = x0 + wvx0.abs() * wspr * fr; evx = wvx0 * wcar; let cp = (self.g(c, SQ) + wvx0.abs() / (self.g(c, RAD) * sqm).max(1e-6)).min(1.0); if cp > self.pr[c] { self.pr[c] = cp; } } else { x = x0; vx = vx.abs() * 0.7; } }
-        else if x > x1 { let fr = y * 0.6180339 - (y * 0.6180339).floor(); if wcar > 0.0 && wvx1 < 0.0 { x = x1 - wvx1.abs() * wspr * fr; evx = wvx1 * wcar; let cp = (self.g(c, SQ) + wvx1.abs() / (self.g(c, RAD) * sqm).max(1e-6)).min(1.0); if cp > self.pr[c] { self.pr[c] = cp; } } else { x = x1; vx = -vx.abs() * 0.7; } }
-        if y < y0 { let fr = x * 0.6180339 - (x * 0.6180339).floor(); if wcar > 0.0 && wvy0 > 0.0 { y = y0 + wvy0.abs() * wspr * fr; evy = wvy0 * wcar; let cp = (self.g(c, SQ) + wvy0.abs() / (self.g(c, RAD) * sqm).max(1e-6)).min(1.0); if cp > self.pr[c] { self.pr[c] = cp; } } else { y = y0; vy = vy.abs() * 0.7; } }
-        else if y > y1 { let fr = x * 0.6180339 - (x * 0.6180339).floor(); if wcar > 0.0 && wvy1 < 0.0 { y = y1 - wvy1.abs() * wspr * fr; evy = wvy1 * wcar; let cp = (self.g(c, SQ) + wvy1.abs() / (self.g(c, RAD) * sqm).max(1e-6)).min(1.0); if cp > self.pr[c] { self.pr[c] = cp; } } else { y = y1; vy = -vy.abs() * 0.7; } }
+        if x < x0 { if wcar > 0.0 && wvx0 > 0.0 { let pen = (x0 - x).max(0.0); x = x0; evx += pen * wcar; let cp = (self.g(c, SQ) + wvx0.abs() / (self.g(c, RAD) * sqm).max(1e-6)).min(1.0); if cp > self.pr[c] { self.pr[c] = cp; } } else { x = x0; vx = vx.abs() * 0.7; } }
+        else if x > x1 { if wcar > 0.0 && wvx1 < 0.0 { let pen = (x - x1).max(0.0); x = x1; evx -= pen * wcar; let cp = (self.g(c, SQ) + wvx1.abs() / (self.g(c, RAD) * sqm).max(1e-6)).min(1.0); if cp > self.pr[c] { self.pr[c] = cp; } } else { x = x1; vx = -vx.abs() * 0.7; } }
+        if y < y0 { if wcar > 0.0 && wvy0 > 0.0 { let pen = (y0 - y).max(0.0); y = y0; evy += pen * wcar; let cp = (self.g(c, SQ) + wvy0.abs() / (self.g(c, RAD) * sqm).max(1e-6)).min(1.0); if cp > self.pr[c] { self.pr[c] = cp; } } else { y = y0; vy = vy.abs() * 0.7; } }
+        else if y > y1 { if wcar > 0.0 && wvy1 < 0.0 { let pen = (y - y1).max(0.0); y = y1; evy -= pen * wcar; let cp = (self.g(c, SQ) + wvy1.abs() / (self.g(c, RAD) * sqm).max(1e-6)).min(1.0); if cp > self.pr[c] { self.pr[c] = cp; } } else { y = y1; vy = -vy.abs() * 0.7; } }
         self.set(c, X, x); self.set(c, Y, y); self.set(c, VX, vx); self.set(c, VY, vy);
         self.set(c, ENVX, evx); self.set(c, ENVY, evy);
         self.set(c, SQS, self.pr[c]); // the press signal goes out for the JS post-pass squash ease (item 64 directive 2)

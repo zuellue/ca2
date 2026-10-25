@@ -319,9 +319,9 @@
   function wallPull(p, r, vel) {
     // absolute wall (owner 22 Oct): nothing is ever outside, in any state - a wall that moved past a body
     // carries it (that carry IS the sweep), a plain hit reflects. Supersedes the 21 Oct gradual no-teleport pull.
-    // Piston carry (owner 25 Oct, findings 1+2): a wall that advanced past a body gives it the wall's own
-    // velocity and a deterministic golden-ratio spread off the line (no RNG, wasm-parity safe) instead of
-    // stacking every carried body on one pixel line; a hit with a static wall reflects at 0.7 as before.
+    // Wall push (owner 25 Oct block 73d-1): a wall that advanced past a body resolves it to the contact
+    // line and pushes it as a force (impulse proportional to the overrun depth) - it does not carry the
+    // body with it; a hit with a static wall reflects at 0.7 as before.
     var gap = Math.max(0, P.boundGap || 0), rFit = Math.max(8, Math.min(cont.w, cont.h) / 2 - gap), rr = Math.min(r, rFit);
     var x0 = cont.x + rr + gap, x1 = cont.x + cont.w - rr - gap, y0 = cont.y + rr + gap, y1 = cont.y + cont.h - rr - gap;
     if (x1 < x0) { x0 = x1 = (x0 + x1) / 2; }
@@ -357,13 +357,13 @@
   }
   // the one eased squash state, contact side: bodies feel and draw the same squashed radius (item 64 directive 2)
   function effR(c) { return c.radius * (1 - (P.squashMax === undefined ? 0.18 : P.squashMax) * (c.sq || 0)); }
-  // one wall side of wallPull: piston carry when the wall advanced inward past the body this frame, else reflect
+  // one wall side of wallPull: force-push when the wall advanced inward past the body this frame (block 73d-1), else reflect
   function carrySide(p, ax, vax, along, line, wv, side, vel) {
     if (P.wallCarry > 0 && wv * side > 0) {
-      var frac = along * 0.6180339 - Math.floor(along * 0.6180339);
-      p[ax] = line + side * Math.abs(wv) * P.wallSpread * frac;
-      if (vel) { // a cell the wall reaches takes the wall's normal velocity (item 64 directive 3) - environmental motion, so bodies without self-propulsion are carried too
-        if (vax === 'vx') p.envVx = wv * P.wallCarry; else p.envVy = wv * P.wallCarry;
+      var pen = side * (line - p[ax]); if (pen < 0) pen = 0; // owner 25 Oct block 73d-1: a moving wall pushes bodies as a FORCE, it does not carry them - position resolves to the contact line only (non-penetration), never placed ahead at wall speed
+      p[ax] = line;
+      if (vel) { // impulse proportional to this frame's overrun depth, into the environmental channel that decays in update(): the body is pushed ahead and settles instead of surfing with the wall
+        if (vax === 'vx') p.envVx += side * pen * P.wallCarry; else p.envVy += side * pen * P.wallCarry;
         var sqm2 = P.squashMax === undefined ? 0.18 : P.squashMax, cp2 = Math.min(1, (p.sq || 0) + Math.abs(wv) / Math.max(1e-6, p.radius * sqm2)); // each frame the wall outruns the body it presses one frame-depth deeper
         if (cp2 > (p.sqS || 0)) p.sqS = cp2;
       }
