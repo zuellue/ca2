@@ -1257,6 +1257,25 @@
       // the separator narrows what presses it (same rule as the plate wall, owner 22 Oct): a giant whose body
       // cannot fit between the lines is worn down toward the base radius until it fits
       if (pr > (c.sqS || 0)) c.sqS = Math.min(1, pr); // item 64: reversible squash, zero permanent size loss
+      // item 64 directive 1 (separators): sensing before contact, same rule as the boundary band - slow +
+      // along-line drift in [r, r*senseR*bnd), staggered by a deterministic per-cell hash (no RNG), so no
+      // two cells react identically at the hairline. JS-only like the whole separator stack (no wasm path).
+      var seR = P.senseR === undefined ? 1.6 : P.senseR;
+      if (segs && seR > 1 && (P.senseSlow || P.senseTurn)) {
+        var sh1 = c.gene * 0.6180339887; sh1 -= Math.floor(sh1);
+        var sh2 = c.maxSpeed * 0.7548776662; sh2 -= Math.floor(sh2);
+        var sDel2 = sh1 * (P.senseDelay === undefined ? 0.5 : P.senseDelay), szs = r * (1 + (seR - 1) * (P.genomeOn ? c.g.bnd : 1));
+        for (j = 0; j < segs.length; j++) {
+          var ss = segs[j], sax = ss[2] - ss[0], say = ss[3] - ss[1], sL2 = sax * sax + say * say; if (!sL2) continue;
+          var st2 = clamp(((c.x - ss[0]) * sax + (c.y - ss[1]) * say) / sL2, 0, 1);
+          var spx = ss[0] + sax * st2, spy = ss[1] + say * st2, sdd = Math.hypot(c.x - spx, c.y - spy);
+          if (sdd >= szs || sdd < r) continue;
+          var st0 = 1 - (sdd - r) / Math.max(1e-6, szs - r), sst = clamp((st0 - sDel2) / Math.max(1e-6, 1 - sDel2), 0, 1); if (sst <= 0) continue;
+          var sdamp = 1 - (P.senseSlow === undefined ? 0.25 : P.senseSlow) * sst; c.vx *= sdamp; c.vy *= sdamp;
+          var sl = Math.sqrt(sL2), stdr = (P.senseTurn === undefined ? 0.12 : P.senseTurn) * sst * (c.maxSpeed + 1) * (sh2 < 0.5 ? -1 : 1) * 0.5;
+          c.vx += sax / sl * stdr; c.vy += say / sl * stdr;
+        }
+      }
       // Resolve the lobes against the hairline itself, without replacing it with a broad bounding wall.
       var inkBody = (mask || segs) ? sepBody(c) : null;
       if (segs) for (j=0;j<segs.length;j++) {

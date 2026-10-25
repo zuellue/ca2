@@ -34,7 +34,11 @@ requestAnimationFrame(function rc() { if (!window.__recOn) return; var c = __ca2
   for (var i = 0; i < cs.length; i++) { var q = cs[i]; if (q.alive) { a[j++] = q.x; a[j++] = q.y; a[j++] = q.vx; a[j++] = q.vy; a[j++] = q.radius;
     if (q.__ti !== undefined) { __ls[q.__ti] = [q.x, q.y, q.radius, q.energy, __fr.length, q.__r0]; if (q.radius < q.__rmin) q.__rmin = q.radius;
       var dr = (q.__rprev === undefined ? q.radius : q.__rprev) - q.radius; q.__rprev = q.radius;
-      if (dr > (q.__rmaxdrop || 0)) { q.__rmaxdrop = dr; q.__rdropf = __fr.length; var cc = __ca2.cont; q.__rdropwall = Math.min(Math.abs(q.x - cc.x), Math.abs(cc.x + cc.w - q.x), Math.abs(q.y - cc.y), Math.abs(cc.y + cc.h - q.y)) < 30; } } } }
+      if (dr > (q.__rmaxdrop || 0)) { q.__rmaxdrop = dr; q.__rdropf = __fr.length; var cc = __ca2.cont; q.__rdropwall = Math.min(Math.abs(q.x - cc.x), Math.abs(cc.x + cc.w - q.x), Math.abs(q.y - cc.y), Math.abs(cc.y + cc.h - q.y)) < 30;
+        var sgs = (__ca2.axisInfo && __ca2.axisInfo.segs) || []; q.__rdropsep = false;
+        for (var si2 = 0; si2 < sgs.length; si2++) { var sg2 = sgs[si2], ex2 = sg2[2] - sg2[0], ey2 = sg2[3] - sg2[1], l2b = ex2 * ex2 + ey2 * ey2; if (!l2b) continue;
+          var tt = Math.max(0, Math.min(1, ((q.x - sg2[0]) * ex2 + (q.y - sg2[1]) * ey2) / l2b));
+          if (Math.hypot(q.x - (sg2[0] + ex2 * tt), q.y - (sg2[1] + ey2 * tt)) < 30) { q.__rdropsep = true; break; } } } } } }
   __fr.push({ x: c.x, w: c.w, y: c.y, h: c.h, dv: __ca2.divides, bt: __ca2.births, a: a.subarray(0, j) }); requestAnimationFrame(rc); });
 var c = __ca2.cont; return JSON.stringify({ x: c.x, w: c.w, y: c.y, h: c.h, fr: __fr.length, trans: __ca2.trans });})()`);
   const st = JSON.parse(setup);
@@ -102,7 +106,7 @@ lossByCell.sort(function (a, b) { return b - a; });
 var shrinkRep = []; __ca2.getCells().forEach(function (q) { if (q.__r0 !== undefined && q.__r0 > 1) { var d = 1 - q.radius / q.__r0;
   var fi = q.__rdropf === undefined ? -1 : q.__rdropf - ${fr0}, dvD = -1, btD = -1;
   if (fi > 0 && fi < fr.length) { dvD = (fr[fi].dv || 0) - (fr[fi - 1].dv || 0); btD = (fr[fi].bt || 0) - (fr[fi - 1].bt || 0); }
-  if (d > 0.001) shrinkRep.push({ ti: q.__ti, loss: +d.toFixed(4), maxDrop: +(q.__rmaxdrop || 0).toFixed(4), dropAtWall: !!q.__rdropwall, overCellR: q.__r0 > __ca2.P.CELL_RADIUS, divAtDrop: dvD, birthAtDrop: btD, r0: +q.__r0.toFixed(2), rEnd: +q.radius.toFixed(2) }); } });
+  if (d > 0.001) shrinkRep.push({ ti: q.__ti, loss: +d.toFixed(4), maxDrop: +(q.__rmaxdrop || 0).toFixed(4), dropAtWall: !!q.__rdropwall, dropAtSep: !!q.__rdropsep, overCellR: q.__r0 > __ca2.P.CELL_RADIUS, divAtDrop: dvD, birthAtDrop: btD, r0: +q.__r0.toFixed(2), rEnd: +q.radius.toFixed(2) }); } });
 shrinkRep.sort(function (a, b) { return b.loss - a.loss; }); // attribution: many tiny drops + overCellR = biological foodShrink; a large single drop at wall = constraint (main 25 Oct)
 document.getElementById('panel').classList.remove('hov');
 var transEnd = __ca2.trans, cellR = __ca2.P.CELL_RADIUS;
