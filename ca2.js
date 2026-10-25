@@ -78,7 +78,7 @@
     this.sv = rnd(-1, 1); this.maxSpeed = Math.max(0, P.baseMaxSpeed + this.sv * P.maxSpeedVariation);
     this.vx = v.x * this.maxSpeed; this.vy = v.y * this.maxSpeed;
     this.gene = gene; this.alive = true; this.radius = P.CELL_RADIUS; this.energy = 12; this.mutationRate = mr;
-    this.hostility = Math.random(); this.speedModifier = rnd(0.7, 2.3);
+    this.hostility = Math.random(); this.speedModifier = rnd(0.7, 2.3); this.envVx = 0; this.envVy = 0; // environmental velocity (item 64 directive 3): wall/crowd-imparted motion, not self-propulsion
     var k0 = gene > 2 ? 0 : gene < -2 ? 1 : 2, cv = [0.12, 0.12, 0.12]; cv[k0] = 0.76;
     this.g = { spd: 1 + rnd(-0.3, 0.3), app: rnd(0.05, 0.95), bnd: 1 + rnd(-0.4, 0.4), col: normCol([cv[0] + rnd(0, 0.1), cv[1] + rnd(0, 0.1), cv[2] + rnd(0, 0.1)]) };
     this.cl = 0; this.maxSpeed = this.maxSpeed * (P.genomeOn ? this.g.spd : 1); this.shp = newShape(null); this.bornAt = frameT || 0;
@@ -155,7 +155,8 @@
     var r = rand2D(); c.vx += r.x * 0.2 * sm; c.vy += r.y * 0.2 * sm;
     limit(c, c.maxSpeed * sm * c.speedModifier * (resizeDrag ? 1 + P.restless * 1.5 : 1));
     organic(c);
-    c.x += c.vx; c.y += c.vy;
+    c.x += c.vx + c.envVx; c.y += c.vy + c.envVy; // intrinsic (maxSpeed-limited) + environmental (item 64 directive 3): the wall/crowd-imparted channel bypasses the self-propulsion limit
+    var edk = Math.pow(0.75, frameDtf * 0.06); c.envVx *= edk; c.envVy *= edk; // and the medium absorbs it (60fps-reference easing, 1:1 sim.rs update)
     if (c.shp && c.shp.t === 1) { // a string turns into its drift and swims with a side-to-side wave
       var sh2 = c.shp; sh2.svx = (sh2.svx || 0) * 0.94 + c.vx * 0.06; sh2.svy = (sh2.svy || 0) * 0.94 + c.vy * 0.06;
       var spv = Math.hypot(sh2.svx, sh2.svy);
@@ -267,7 +268,7 @@
   // boundary awareness: a soft push inside the zone turns cells before the wall; the wall itself reflects (flat world, no death at the edge)
   function keepIn(c) {
     // the wall acts on the cell's edge, not its centre: the radius inset is automatic. The zone is the boundary distance knob only, independent of cell radius (owner 20 Oct)
-    var gap = Math.max(0, P.boundGap || 0), r = 0; // centre-wall (owner 22 Oct): no radius inset - pressed bodies squeeze at the wall (draw-side rFree), growth cannot pin cells to the middle
+    var gap = Math.max(0, P.boundGap || 0), r = 0; // zone/sensing geometry stays centre-based and radius-independent (owner 20 Oct); the contact clamp (wallPull below) uses the eased squashed radius effR - architect finding (c)
     var z = Math.max(0, Math.min(P.boundZone * (P.genomeOn ? c.g.bnd : 1), cont.w / 2.5, cont.h / 2.5)), F = P.boundForce, ms = c.maxSpeed + 1;
     var x0 = cont.x + r + gap, x1 = cont.x + cont.w - r - gap, y0 = cont.y + r + gap, y1 = cont.y + cont.h - r - gap, d, t, press = 0;
     d = c.x - x0; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vx += F * t * t * ms * 0.25; if (c.vx < 0) c.vx *= 1 - 0.25 * t; if (t > press) press = t; }
@@ -306,12 +307,12 @@
         c.vx *= csl; c.vy *= csl;
         if (press > 0) {
           var cpush = (P.crowdPush === undefined ? 0.3 : P.crowdPush) * Math.min(1, c.crowd) * ms * 0.5, midX = (x0 + x1) / 2, midY = (y0 + y1) / 2;
-          if (c.x - x0 < z || x1 - c.x < z) c.vy += cpush * (c.y < midY ? 1 : -1);
-          if (c.y - y0 < z || y1 - c.y < z) c.vx += cpush * (c.x < midX ? 1 : -1);
+          if (c.x - x0 < z || x1 - c.x < z) c.envVy += cpush * (c.y < midY ? 1 : -1); // crowd drift is environment-imparted (directive 4): pressed bodies drift even without self-propulsion
+          if (c.y - y0 < z || y1 - c.y < z) c.envVx += cpush * (c.x < midX ? 1 : -1);
         }
       }
     }
-    wallPull(c, r, true); // the shared boundary-morph rule; cells add velocity reflection
+    wallPull(c, effR(c), true); // the shared boundary-morph rule at the ONE eased squashed radius the render draws (architect finding (c): no centre-line clamp, no one-frame deflate/inflate); owner 22 Oct holds - nothing crosses, nothing clips (contact body == drawn body), pressed bodies squeeze at the wall; cells add velocity reflection
   }
   // the boundary-morph rule for ANY body: a wall that moved past it pulls it back gradually (no teleport);
   // a plain wall hit reflects. Shared by cells (keepIn) and every food kind (owner 21 Oct: one mechanism, no copies)
@@ -330,17 +331,27 @@
     if (p.y < y0) carrySide(p, 'y', 'vy', p.x, y0, cont.wvy0, 1, vel);
     else if (p.y > y1) carrySide(p, 'y', 'vy', p.x, y1, cont.wvy1, -1, vel);
   }
-  // item 64 directive 2: one eased squash state per cell. Walls (geometry) and separators (sqS signal)
-  // feed the target; pressure rises fast (squashIn), release restores the body slowly (squashOut)
+  // item 64 directive 2: one eased squash state per cell. The target is PRESSURE SIGNALS ONLY (piston
+  // carry, zone press, separator/solver overload via sqS, the crowding field) - a geometric target
+  // deflates/inflates the body within one frame and freezes squash at a resting wall (architect finding c).
+  // Pressure rises fast (squashIn); when the pressure ends the body regains its pre-squeeze size over time
+  // (squashOut), and the recovered depth pushes it off a touching wall as environmental recoil, not
+  // self-propulsion: when the wall withdraws, squeezed bodies spread back out like a released crowd, not
+  // as a burst (directives 3+4). Runs once per frame in frame() for BOTH engines (post-pass, 1:1 by
+  // construction) - never draw-side.
   function stepSquash() {
-    var g2 = Math.max(0, P.boundGap || 0);
+    var g2 = Math.max(0, P.boundGap || 0), sqm = P.squashMax === undefined ? 0.18 : P.squashMax;
     for (var i = 0; i < cells.length; i++) {
       var c = cells[i]; if (!c.alive) continue;
-      var bx = c.x - cont.x - g2, by = c.y - cont.y - g2, sq0 = c.sq || 0;
-      var rF = Math.max(1, Math.min(bx, cont.w - g2 - bx, by, cont.h - g2 - by));
-      var tg = Math.max(P.boundAware ? clamp(1 - Math.max(0, rF - c.radius) / 8, 0, 1) : 0, c.sqS || 0);
+      var sq0 = c.sq || 0;
+      var tg = Math.max(c.sqS || 0, P.boundAware ? Math.min(1, c.crowd || 0) : 0);
       var ek = frameDtf * 0.06, rate = tg > sq0 ? P.squashIn : P.squashOut; // easing per elapsed time at a 60fps reference: 12fps and 60fps run the same biology (item 64)
       c.sq = sq0 + (tg - sq0) * (1 - Math.pow(1 - rate, ek));
+      if (c.sq < sq0) { // the recovered squash depth is a length: expanding against a touching wall pushes the body off it by exactly that length
+        var bx = c.x - cont.x - g2, by = c.y - cont.y - g2;
+        var dL = bx, dR = cont.w - g2 - bx, dT = by, dB = cont.h - g2 - by, dm = Math.min(dL, dR, dT, dB), push = (sq0 - c.sq) * c.radius * sqm;
+        if (dm < c.radius) { if (dm === dL) c.envVx += push; else if (dm === dR) c.envVx -= push; else if (dm === dT) c.envVy += push; else c.envVy -= push; }
+      }
       c.sqS = 0;
     }
   }
@@ -351,7 +362,11 @@
     if (P.wallCarry > 0 && wv * side > 0) {
       var frac = along * 0.6180339 - Math.floor(along * 0.6180339);
       p[ax] = line + side * Math.abs(wv) * P.wallSpread * frac;
-      if (vel) p[vax] = wv * P.wallCarry;
+      if (vel) { // a cell the wall reaches takes the wall's normal velocity (item 64 directive 3) - environmental motion, so bodies without self-propulsion are carried too
+        if (vax === 'vx') p.envVx = wv * P.wallCarry; else p.envVy = wv * P.wallCarry;
+        var sqm2 = P.squashMax === undefined ? 0.18 : P.squashMax, cp2 = Math.min(1, (p.sq || 0) + Math.abs(wv) / Math.max(1e-6, p.radius * sqm2)); // each frame the wall outruns the body it presses one frame-depth deeper
+        if (cp2 > (p.sqS || 0)) p.sqS = cp2;
+      }
     } else {
       p[ax] = line;
       if (vel) p[vax] = side * Math.abs(p[vax]) * 0.7;
@@ -917,15 +932,15 @@
       var t0 = performance.now(), n = cells.length, cap = n + 256, nf = food.length, cl = Object.keys(cmean), ncm = cl.length, i, c, b;
       E.sim_cells(cap); E.sim_food(nf + 1); E.sim_cm(ncm + 1);
       var cp = E.sim_cells(cap), fxp = E.sim_food(nf + 1), fyp = E.sim_food_y(), fgp = E.sim_food_gone(), cmp = E.sim_cm(ncm + 1), cip = E.sim_cm_ids(), pp = E.sim_params();
-      var buf = WC.mem.buffer, cf = new Float64Array(buf, cp, cap * 26), fx = new Float64Array(buf, fxp, nf + 1), fy = new Float64Array(buf, fyp, nf + 1), cmf = new Float64Array(buf, cmp, (ncm + 1) * 5), cid = new Float64Array(buf, cip, ncm + 1), p = new Float64Array(buf, pp, 97);
+      var buf = WC.mem.buffer, cf = new Float64Array(buf, cp, cap * 29), fx = new Float64Array(buf, fxp, nf + 1), fy = new Float64Array(buf, fyp, nf + 1), cmf = new Float64Array(buf, cmp, (ncm + 1) * 5), cid = new Float64Array(buf, cip, ncm + 1), p = new Float64Array(buf, pp, 97);
       simStamp++;
       for (i = 0; i < n; i++) {
         c = cells[i]; c._i = i; c._f = simStamp;
       }
       for (i = 0; i < n; i++) {
-        c = cells[i]; b = i * 26; var g = c.g;
+        c = cells[i]; b = i * 29; var g = c.g;
         cf[b] = c.x; cf[b + 1] = c.y; cf[b + 2] = c.vx; cf[b + 3] = c.vy; cf[b + 4] = c.radius; cf[b + 5] = c.energy; cf[b + 6] = c.gene; cf[b + 7] = c.alive ? 1 : 0; cf[b + 8] = c.maxSpeed; cf[b + 9] = c.speedModifier; cf[b + 10] = c.hostility; cf[b + 11] = c.mutationRate; cf[b + 12] = c.sv; cf[b + 13] = c.cl || 0;
-        cf[b + 14] = (c.sym && c.sym._f === simStamp) ? c.sym._i : -1; cf[b + 15] = g.spd; cf[b + 16] = g.app; cf[b + 17] = g.bnd; cf[b + 18] = g.col[0]; cf[b + 19] = g.col[1]; cf[b + 20] = g.col[2]; cf[b + 21] = c.comp || 0; cf[b + 22] = 0; cf[b + 23] = frameT - (c.bornAt || 0); cf[b + 24] = c.sq || 0; cf[b + 25] = c.crowd || 0; // slot 23: age ms in, -1 = absorbed out; 22 is the wasm REM flag; 24: eased squash state, 25: crowd field (item 64)
+        cf[b + 14] = (c.sym && c.sym._f === simStamp) ? c.sym._i : -1; cf[b + 15] = g.spd; cf[b + 16] = g.app; cf[b + 17] = g.bnd; cf[b + 18] = g.col[0]; cf[b + 19] = g.col[1]; cf[b + 20] = g.col[2]; cf[b + 21] = c.comp || 0; cf[b + 22] = 0; cf[b + 23] = frameT - (c.bornAt || 0); cf[b + 24] = c.sq || 0; cf[b + 25] = c.crowd || 0; cf[b + 26] = c.envVx || 0; cf[b + 27] = c.envVy || 0; cf[b + 28] = 0; // slot 23: age ms in, -1 = absorbed out; 22 is the wasm REM flag; 24: eased squash state, 25: crowd field (item 64); 26-27: environmental velocity (directive 3); 28: wasm wall-press signal out (the squash ease is a JS post-pass for both engines)
       }
       E.sim_set_n(n); E.sim_set_nf(nf);
       for (i = 0; i < nf; i++) { fx[i] = food[i].x; fy[i] = food[i].y; }
@@ -950,14 +965,14 @@
       var o = new Float64Array(WC.mem.buffer, E.sim_out(), 32), nf2 = o[15];
       var kids = [];
       if (E.sim_cap && E.sim_cap() !== cap) { cap = E.sim_cap(); cp = E.sim_cells_ptr(); } // wasm grew its cell buffer on a birth burst: re-anchor before reading back
-      cf = new Float64Array(WC.mem.buffer, cp, cap * 26);
+      cf = new Float64Array(WC.mem.buffer, cp, cap * 29);
       for (i = 0; i < nf2; i++) {
-        b = i * 26; c = i < n ? cells[i] : new Cell(cf[b], cf[b + 1], cf[b + 6], cf[b + 11]);
+        b = i * 29; c = i < n ? cells[i] : new Cell(cf[b], cf[b + 1], cf[b + 6], cf[b + 11]);
         if (i >= n) { cells.push(c); c._i = i; c._f = simStamp; }
         c.x = cf[b]; c.y = cf[b + 1]; c.vx = cf[b + 2]; c.vy = cf[b + 3]; c.radius = cf[b + 4]; c.energy = cf[b + 5]; c.gene = cf[b + 6]; c.alive = cf[b + 7] !== 0; c.maxSpeed = cf[b + 8]; c.speedModifier = cf[b + 9]; c.hostility = cf[b + 10]; c.mutationRate = cf[b + 11]; c.sv = cf[b + 12]; c.cl = cf[b + 13];
-        var gg = c.g; gg.spd = cf[b + 15]; gg.app = cf[b + 16]; gg.bnd = cf[b + 17]; gg.col = [cf[b + 18], cf[b + 19], cf[b + 20]]; if (cf[b + 21] > 0) c.comp = cf[b + 21]; c.absorbed = cf[b + 23] < 0 ? 1 : 0; c.sq = cf[b + 24]; c.crowd = cf[b + 25];
+        var gg = c.g; gg.spd = cf[b + 15]; gg.app = cf[b + 16]; gg.bnd = cf[b + 17]; gg.col = [cf[b + 18], cf[b + 19], cf[b + 20]]; if (cf[b + 21] > 0) c.comp = cf[b + 21]; c.absorbed = cf[b + 23] < 0 ? 1 : 0; c.sq = cf[b + 24]; c.crowd = cf[b + 25]; c.envVx = cf[b + 26]; c.envVy = cf[b + 27]; c.sqS = Math.max(c.sqS || 0, cf[b + 28]);
       }
-      for (i = 0; i < nf2; i++) { var sy = cf[i * 26 + 14]; cells[i].sym = sy >= 0 ? cells[sy] : null; }
+      for (i = 0; i < nf2; i++) { var sy = cf[i * 29 + 14]; cells[i].sym = sy >= 0 ? cells[sy] : null; }
       var fg = new Float64Array(WC.mem.buffer, fgp, nf + 1);
       var lg = new Float64Array(WC.mem.buffer, E.sim_log(), o[17]); // births / fusions: body plans stay in JS (newShape/mixShape), the wasm core only reports who came from whom
       for (i = 0; i < lg.length; i += 4) { var kd = lg[i + 3], k0 = cells[lg[i]], p0 = cells[lg[i + 1]], p1 = lg[i + 2] >= 0 ? cells[lg[i + 2]] : null; if (kd === 1) k0.shp = newShape(p0.shp); else if (kd === 2) k0.shp = mixShape(p0.shp, p1.shp); else k0.shp = mixShape(k0.shp, p0.shp); }
@@ -978,7 +993,7 @@
       fSum = new Float32Array(bw * bh); fR = new Float32Array(bw * bh); fG = new Float32Array(bw * bh); fB = new Float32Array(bw * bh);
     } else { fSum.fill(0); fR.fill(0); fG.fill(0); fB.fill(0); }
     var ms = P.metaballStrength, TH = P.THRESHOLD, inv = 1 / S;
-    stepSquash(); var src = buildSources(), sn = src.n;
+    var src = buildSources(), sn = src.n; // the squash ease runs once per frame in frame() (both engines): draw never mutates sim state
     if (WC.ok && !WC.off) { // Rust/wasm path (ca2core): same field + pixel pass, JS below stays as the fallback
       try {
         var nw = sn, cp = WC.cells(nw), cf = new Float64Array(WC.mem.buffer, cp, nw * 6);
@@ -2078,6 +2093,7 @@
     if (subN > 1) wallSubPass(subN, subX0, subY0, subW0, subH0);
     if (P.separatorOn) { ctx.save(); drawAxis(lay(), String(cells.length), String(Math.round(mouse.x)), true); ctx.restore(); separatorPass(); pfm('separator'); } // one mechanism after both engines: identical enforcement for wasm and JS (1:1 by construction)
     constraintSolver(); pfm('solver'); // item 64 directive 6: walls+segments+overlap converge in one iteration loop
+    stepSquash(); // item 64 directive 2: one eased squash state per frame for BOTH engines, after every sqS feed (post-pass, 1:1 by construction - the wasm engine exports its press signal via the SQS slot instead of easing internally). Was draw-side (GPU/noDraw paths skipped it) + inside wasm keep_in (double ease on the CPU-draw path)
     hoverCol = hovering ? tmpHover : [255, 255, 255];
     stepParasites(); pfm('sim loop+parasites');
     stepAging(dtf); stepHabitat(dtf); pfm('habitat');

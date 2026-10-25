@@ -29,8 +29,8 @@ const wasm = fs.readFileSync(path.join(__dirname, '..', 'wasm', 'target', 'wasm3
   function packWasm(cs) {
     const n = cs.length, cap = n + 16;
     const cp = E.sim_cells(cap), fxp = E.sim_food(1), cmp = E.sim_cm(1), cip = E.sim_cm_ids(), pp = E.sim_params();
-    const buf = E.memory.buffer, cf = new Float64Array(buf, cp, cap * 26), p = new Float64Array(buf, pp, 97);
-    cs.forEach((c, i) => { const b = i * 26, g = c.g; cf.set([c.x, c.y, c.vx, c.vy, c.radius, c.energy, c.gene, 1, c.maxSpeed, c.speedModifier, c.hostility, c.mutationRate, c.sv, c.cl || 0, -1, g.spd, g.app, g.bnd, g.col[0], g.col[1], g.col[2], c.comp || 0, 0, 0, c.sq || 0], b); });
+    const buf = E.memory.buffer, cf = new Float64Array(buf, cp, cap * 29), p = new Float64Array(buf, pp, 97);
+    cs.forEach((c, i) => { const b = i * 29, g = c.g; cf.set([c.x, c.y, c.vx, c.vy, c.radius, c.energy, c.gene, 1, c.maxSpeed, c.speedModifier, c.hostility, c.mutationRate, c.sv, c.cl || 0, -1, g.spd, g.app, g.bnd, g.col[0], g.col[1], g.col[2], c.comp || 0, 0, 0, c.sq || 0], b); });
     E.sim_set_n(n); E.sim_set_nf(0); E.sim_cm_count(0);
     p[7] = 1; // genomeOn (P_GENOME=7, not 22 - t128 pack leaves it 0, pinning wasm bnd to 1)
     p[0] = J.P.interactionRadius; p[9] = 0; p[12] = 0.001; p[13] = J.P.foodEnergyValue; p[16] = J.P.CELL_RADIUS; p[17] = J.P.foodGrowMax; p[18] = 0; p[20] = J.P.UNIVERSE_SIZE; p[22] = 1; p[23] = 70; p[24] = 0.8; p[25] = J.P.restless; p[28] = J.P.mergeGene; p[29] = 0; p[30] = 0; p[31] = J.P.energyGainFromInteraction; p[32] = J.P.GENE_MIN; p[33] = J.P.GENE_MAX; p[34] = 1e9; p[35] = J.P.clusterMax; p[36] = J.P.genomeMut; p[37] = J.P.mutationRateRange; p[38] = J.P.metaballStrength;
@@ -40,8 +40,8 @@ const wasm = fs.readFileSync(path.join(__dirname, '..', 'wasm', 'target', 'wasm3
     return cp;
   }
   function readWasm(n) {
-    const cf = new Float64Array(E.memory.buffer, E.sim_cells_ptr(), (n + 16) * 26), out = [];
-    for (let i = 0; i < n; i++) { const b = i * 26; out.push({ x: cf[b], y: cf[b + 1], vx: cf[b + 2], vy: cf[b + 3], sq: cf[b + 24] }); }
+    const cf = new Float64Array(E.memory.buffer, E.sim_cells_ptr(), (n + 16) * 29), out = [];
+    for (let i = 0; i < n; i++) { const b = i * 29; out.push({ x: cf[b], y: cf[b + 1], vx: cf[b + 2], vy: cf[b + 3], sq: cf[b + 24] }); }
     return out;
   }
   function mkCell(x, y, vx, vy, bnd, gene, ms) {
@@ -91,7 +91,7 @@ const wasm = fs.readFileSync(path.join(__dirname, '..', 'wasm', 'target', 'wasm3
     J.cont.x += 40; J.cont.w -= 40; // one-frame wall jump
     const pv = new Float64Array(E.memory.buffer, E.sim_params(), 93); pv[49] += 40; pv[51] -= 40;
     Math.random = xorSeed(99, 111); J.frame(); E.sim_step(99, 111); // frame 2, jumped wall
-    const cf2 = new Float64Array(E.memory.buffer, E.sim_cells_ptr(), 41 * 26), b0 = 0;
+    const cf2 = new Float64Array(E.memory.buffer, E.sim_cells_ptr(), 41 * 29), b0 = 0;
     const wc = { x: cf2[b0], y: cf2[b0 + 1], vx: cf2[b0 + 2], vy: cf2[b0 + 3], radius: cf2[b0 + 4], energy: cf2[b0 + 5], gene: cf2[b0 + 6], alive: cf2[b0 + 7], maxSpeed: cf2[b0 + 8], sq: cf2[b0 + 24], sqS: 0, g: { bnd: cf2[b0 + 17] } };
     const jCopy = { x: cj.x, y: cj.y, vx: cj.vx, vy: cj.vy, radius: cj.radius, energy: cj.energy, gene: cj.gene, alive: 1, maxSpeed: cj.maxSpeed, sq: cj.sq || 0, sqS: cj.sqS || 0, g: { bnd: cj.g.bnd } };
     J.cells = [jCopy]; J.wallSubPass(4, J.cont.x - 40, J.cont.y, J.cont.w + 40, J.cont.h); // JS-engine state through the post-pass

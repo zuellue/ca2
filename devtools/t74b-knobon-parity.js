@@ -37,9 +37,9 @@ const E=(await WebAssembly.instantiate(wasm,{})).instance.exports;
 function pack(cs,nf,cmObj,SEQ,cont){
  const n=cs.length,cap=n+256;E.sim_cells(cap);E.sim_food(nf+1);E.sim_cm(Object.keys(cmObj).length+1);
  const cp=E.sim_cells(cap),fxp=E.sim_food(nf+1),fyp=E.sim_food_y(),cmp=E.sim_cm(Object.keys(cmObj).length+1),cip=E.sim_cm_ids(),pp=E.sim_params();
- const buf=E.memory.buffer,cf=new Float64Array(buf,cp,cap*26),fx=new Float64Array(buf,fxp,nf+1),fy=new Float64Array(buf,fyp,nf+1),cmf=new Float64Array(buf,cmp,(Object.keys(cmObj).length+1)*5),cid=new Float64Array(buf,cip,Object.keys(cmObj).length+1),p=new Float64Array(buf,pp,97);
+ const buf=E.memory.buffer,cf=new Float64Array(buf,cp,cap*29),fx=new Float64Array(buf,fxp,nf+1),fy=new Float64Array(buf,fyp,nf+1),cmf=new Float64Array(buf,cmp,(Object.keys(cmObj).length+1)*5),cid=new Float64Array(buf,cip,Object.keys(cmObj).length+1),p=new Float64Array(buf,pp,97);
  pack.stamp=(pack.stamp||0)+1;cs.forEach((c,i)=>{c._i=i;c._f=pack.stamp;});
- cs.forEach((c,i)=>{const b=i*26,g=c.g;cf.set([c.x,c.y,c.vx,c.vy,c.radius,c.energy,c.gene,c.alive?1:0,c.maxSpeed,c.speedModifier,c.hostility,c.mutationRate,c.sv,c.cl||0,(c.sym&&c.sym._f===pack.stamp)?c.sym._i:-1,g.spd,g.app,g.bnd,g.col[0],g.col[1],g.col[2],c.comp||0,0,0,0,0],b);});
+ cs.forEach((c,i)=>{const b=i*29,g=c.g;/*ST=29: slots 25-28 (crowd/envVx/envVy/sqs) zeroed per pack - wasm buffer reused across trials*/cf.set([c.x,c.y,c.vx,c.vy,c.radius,c.energy,c.gene,c.alive?1:0,c.maxSpeed,c.speedModifier,c.hostility,c.mutationRate,c.sv,c.cl||0,(c.sym&&c.sym._f===pack.stamp)?c.sym._i:-1,g.spd,g.app,g.bnd,g.col[0],g.col[1],g.col[2],c.comp||0,0,0,0,0,0,0,0],b);});
  E.sim_set_n(n);E.sim_set_nf(nf);
  for(let i=0;i<nf;i++){fx[i]=J.food[i].x;fy[i]=J.food[i].y;}
  const cl=Object.keys(cmObj);cl.forEach((k,i)=>{const m=cmObj[k];cid[i]=+k;cmf[i*5]=m.vx;cmf[i*5+1]=m.vy;cmf[i*5+2]=m.x;cmf[i*5+3]=m.y;cmf[i*5+4]=m.e;});
@@ -92,17 +92,17 @@ if(mode==='A'||mode==='D'){
    const jm={};J.trace.forEach(r=>{jm[r[0]]=[r[1],r[2]];});
    for(let q=0;q<wt.length;q+=3){const i=wt[q],jd=jm[i];if(!jd||jd[0]!==wt[q+1]||jd[1]!==wt[q+2])console.log('  cell',i,'js upd/pair draws',jd&&jd[0],jd&&jd[1],'wasm',wt[q+1],wt[q+2]);}}
   }
-  const cf=new Float64Array(E.memory.buffer,cp,(N+256)*26);
+  const cf=new Float64Array(E.memory.buffer,cp,(N+256)*29);
   const jev=[J.ev.birth,J.ev.divide||0,J.ev.eaten||0,J.ev.merge||0,J.ev.fuse||0,J.ev.pair||0,J.ev.hit,J.ev.oob,J.ev.ate||0,J.ev.death];
   const wev=[o[0],o[1],o[2],o[3],o[4],o[5],o[6],o[7],o[8],o[9]];
   let d='';const K=['birth','divide','eaten','merge','fuse','pair','hit','oob','ate','death'];
   for(let i=0;i<10;i++)if(jev[i]!==wev[i]){d+=K[i]+' js='+jev[i]+' wasm='+wev[i]+' ';evDiff[K[i]]=(evDiff[K[i]]||0)+1;}
   // state compare: wasm keeps REM'd (dead) rows; JS spliced them. Compare survivors in order.
   const JC=J.cells;let maxd=0,maxf='';
-  const wrows=[];for(let i=0;i<o[15];i++)if(cf[i*26+22]===0)wrows.push(i);
+  const wrows=[];for(let i=0;i<o[15];i++)if(cf[i*29+22]===0)wrows.push(i);
   if(JC.length!==wrows.length){d+='n js='+JC.length+' wasmLive='+wrows.length+' wasmN='+o[15]+' ';}
   const nm=Math.min(JC.length,wrows.length);
-  for(let ii=0;ii<nm;ii++){const i=wrows[ii];const c=JC[ii],b=i*26;
+  for(let ii=0;ii<nm;ii++){const i=wrows[ii];const c=JC[ii],b=i*29;
    const F=[['x',0],['y',1],['vx',2],['vy',3],['radius',4],['energy',5],['gene',6],['maxSpeed',8],['speedModifier',9],['hostility',10],['mutationRate',11],['sv',12],['cl',13]];
    for(const[f,off2]of F){const dd=Math.abs(c[f]-cf[b+off2]);if(dd>maxd){maxd=dd;maxf=f;}if(dd>1e-9){worst[f]=(worst[f]||[]);if(worst[f].length<3)worst[f].push('t'+t+' i'+i+' js='+c[f]+' wasm='+cf[b+off2]);}}
    if((c.alive?1:0)!==(cf[b+7]!==0?1:0)){d+='alive@'+i+' ';}
@@ -115,7 +115,7 @@ if(mode==='A'||mode==='D'){
     console.log(' survived wasm-only(orig idx):',deadOnlyJ.slice(0,6),' js-only:',deadOnlyW.map(i=>JC.find(c=>c._oid===i)&&cs[i]._oid).slice(0,6));
     console.log(' js-only-survivor oids:',JC.filter(c=>!liveW.has(c._oid)).map(c=>c._oid).slice(0,6));
     // first survivor-index mismatch detail
-    for(let ii=0;ii<nm;ii++){const i=wrows[ii],c=JC[ii],b=i*26;
+    for(let ii=0;ii<nm;ii++){const i=wrows[ii],c=JC[ii],b=i*29;
      const dx=Math.abs(c.x-cf[b]),dy=Math.abs(c.y-cf[b+1]),dv=Math.abs(c.vx-cf[b+2])+Math.abs(c.vy-cf[b+3]);
      if(dx+dy+dv>1e-9||c._oid!==i){
       console.log(' first divergent survivor row',ii,'origIdx wasm',i,'js oid',c._oid);
@@ -146,9 +146,9 @@ if(mode==='A'||mode==='D'){
    const{cp}=pack(wcells,0,{},0,cont);
    E.sim_step(Math.floor(Math.random()*4294967296),Math.floor(Math.random()*4294967296));
    const o=new Float64Array(E.memory.buffer,E.sim_out(),32);
-   const cf=new Float64Array(E.memory.buffer,cp,(wcells.length+256)*26);
+   const cf=new Float64Array(E.memory.buffer,cp,(wcells.length+256)*29);
    const n2=o[15],out=[];
-   for(let i=0;i<n2;i++){const b=i*26;const c=i<wcells.length?wcells[i]:new J.Cell(cf[b],cf[b+1],cf[b+6],cf[b+11]);
+   for(let i=0;i<n2;i++){const b=i*29;const c=i<wcells.length?wcells[i]:new J.Cell(cf[b],cf[b+1],cf[b+6],cf[b+11]);
     c.x=cf[b];c.y=cf[b+1];c.vx=cf[b+2];c.vy=cf[b+3];c.radius=cf[b+4];c.energy=cf[b+5];c.gene=cf[b+6];c.alive=cf[b+7]!==0;c.maxSpeed=cf[b+8];c.speedModifier=cf[b+9];c.hostility=cf[b+10];c.mutationRate=cf[b+11];c.sv=cf[b+12];c.cl=cf[b+13];
     c.g.spd=cf[b+15];c.g.app=cf[b+16];c.g.bnd=cf[b+17];c.g.col=[cf[b+18],cf[b+19],cf[b+20]];out.push(c);}
    bWfr.push(o[0]+'/'+n2);bW+=o[0];
@@ -186,13 +186,13 @@ if(mode==='A'||mode==='D'){
    const{cp}=pack(wcells,wfood.length,cmObj,wseq,cont);
    E.sim_step(Math.floor(Math.random()*4294967296),Math.floor(Math.random()*4294967296));
    const o=new Float64Array(E.memory.buffer,E.sim_out(),32);
-   const cf=new Float64Array(E.memory.buffer,cp,(wcells.length+256)*26);
+   const cf=new Float64Array(E.memory.buffer,cp,(wcells.length+256)*29);
    const lg=new Float64Array(E.memory.buffer,E.sim_log(),o[17]);
    const n2=o[15],out=[];
-   for(let i=0;i<n2;i++){const b=i*26;const c=i<wcells.length?wcells[i]:new J.Cell(cf[b],cf[b+1],cf[b+6],cf[b+11]);
+   for(let i=0;i<n2;i++){const b=i*29;const c=i<wcells.length?wcells[i]:new J.Cell(cf[b],cf[b+1],cf[b+6],cf[b+11]);
     c.x=cf[b];c.y=cf[b+1];c.vx=cf[b+2];c.vy=cf[b+3];c.radius=cf[b+4];c.energy=cf[b+5];c.gene=cf[b+6];c.alive=cf[b+7]!==0;c.maxSpeed=cf[b+8];c.speedModifier=cf[b+9];c.hostility=cf[b+10];c.mutationRate=cf[b+11];c.sv=cf[b+12];c.cl=cf[b+13];
     c.g.spd=cf[b+15];c.g.app=cf[b+16];c.g.bnd=cf[b+17];c.g.col=[cf[b+18],cf[b+19],cf[b+20]];if(cf[b+21]>0)c.comp=cf[b+21];out.push(c);}
-   for(let i=0;i<n2;i++){const sy=cf[i*26+14];out[i].sym=sy>=0?out[sy]:null;}
+   for(let i=0;i<n2;i++){const sy=cf[i*29+14];out[i].sym=sy>=0?out[sy]:null;}
    const fg=new Float64Array(E.memory.buffer,E.sim_food_gone(),wfood.length+1);
    wfood=wfood.filter((f2,i)=>!fg[i]);
    wcells=out.filter(c=>c.alive);wseq=o[10];

@@ -1,9 +1,9 @@
 // ca2core sim: port of the per-frame cell loop (update/organic/checkSurvival/interact/keepIn/divide/reproduce/joinCluster/fuse,
 // hover colour). State is struct-of-arrays in wasm memory; JS packs/unpacks around one call per frame. No DOM.
 use std::f64::consts::PI;
-pub const ST: usize = 26; // f64 per cell (24 = eased squash state SQ, 25 = crowding field CROWD, item 64)
+pub const ST: usize = 29; // f64 per cell (24 = eased squash state SQ, 25 = crowding field CROWD, 26-27 = environmental velocity ENVX/ENVY, 28 = wall-press signal SQS out, item 64)
 const X: usize = 0; const Y: usize = 1; const VX: usize = 2; const VY: usize = 3; const RAD: usize = 4; const EN: usize = 5; const GENE: usize = 6;
-const ALIVE: usize = 7; const MAXS: usize = 8; const SPM: usize = 9; const HOST: usize = 10; const MUT: usize = 11; const SV: usize = 12; const CL: usize = 13; const SQ: usize = 24; const CROWD: usize = 25;
+const ALIVE: usize = 7; const MAXS: usize = 8; const SPM: usize = 9; const HOST: usize = 10; const MUT: usize = 11; const SV: usize = 12; const CL: usize = 13; const SQ: usize = 24; const CROWD: usize = 25; const ENVX: usize = 26; const ENVY: usize = 27; const SQS: usize = 28;
 const SYM: usize = 14; const GSPD: usize = 15; const GAPP: usize = 16; const GBND: usize = 17; const C0: usize = 18; const C1: usize = 19; const C2: usize = 20;
 const COMP: usize = 21; const REM: usize = 22; const AGE: usize = 23; // 23: age in ms, packed by JS every frame (juvenile reproduction gate); wasm writes -1 here on eat/fuse = absorbed flag (biomass stayed in a cell, no nutrient pulse)
 
@@ -12,7 +12,7 @@ pub struct Sim {
     pub fx: Vec<f64>, pub fy: Vec<f64>, pub fgone: Vec<f64>, pub nf: usize,
     pub cm_id: Vec<f64>, pub cm: Vec<f64>, // per cluster: vx,vy,x,y,e (stride 5)
     pub p: Vec<f64>, pub out: Vec<f64>,
-    s0: u64, s1: u64, live: usize, pr: Vec<f64>, // per-frame wall-press signal, 1:1 with ca2.js c.sqS (item 64)
+    s0: u64, s1: u64, live: usize, pr: Vec<f64>, // per-frame wall-press signal, out via the SQS slot; 1:1 with ca2.js c.sqS (item 64)
     pub log: Vec<f64>,
 }
 pub static mut SIM: Option<Sim> = None;
@@ -177,15 +177,16 @@ impl Sim {
         let cl = self.g(c, CL); self.set(k, CL, cl);
         self.out[0] += 1.0; self.out[1] += 1.0; self.log.extend_from_slice(&[k as f64, c as f64, -1.0, 1.0]);
     }
-    fn keep_in(&mut self, c: usize, ease: bool) {
+    fn keep_in(&mut self, c: usize) {
         let (cx, cy, cw, ch) = (self.p[P_CX], self.p[P_CY], self.p[P_CW], self.p[P_CH]);
-        let gap = 0f64.max(self.p[P_BGAP]); let r = 0.0; // centre-wall (owner 22 Oct), 1:1 with ca2.js keepIn
-        let rfit = 8f64.max(cw.min(ch) / 2.0 - gap); let _ = rfit;
+        let gap = 0f64.max(self.p[P_BGAP]); let r = 0.0; // zone/sensing geometry stays centre-based and radius-independent (owner 20 Oct), 1:1 with ca2.js keepIn
+        let rfit = 8f64.max(cw.min(ch) / 2.0 - gap); // the contact clamp (below) sits at the eased squashed radius - architect finding (c)
         let bnd = if self.p[P_GENOME] != 0.0 { self.g(c, GBND) } else { 1.0 };
         let z = 0f64.max((self.p[P_BZONE] * bnd).min(cw / 2.5).min(ch / 2.5));
         let f = self.p[P_BFORCE]; let ms = self.g(c, MAXS) + 1.0;
         let (x0, x1, y0, y1) = (cx + r + gap, cx + cw - r - gap, cy + r + gap, cy + ch - r - gap);
         let (mut x, mut y, mut vx, mut vy) = (self.g(c, X), self.g(c, Y), self.g(c, VX), self.g(c, VY));
+        let (mut evx, mut evy) = (self.g(c, ENVX), self.g(c, ENVY)); // environmental velocity (item 64 directive 3), 1:1 ca2.js
         let mut d; let mut t; let mut press = 0.0f64;
         d = x - x0; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vx += f * t * t * ms * 0.25; if vx < 0.0 { vx *= 1.0 - 0.25 * t; } if t > press { press = t; } }
         d = x1 - x; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vx -= f * t * t * ms * 0.25; if vx > 0.0 { vx *= 1.0 - 0.25 * t; } if t > press { press = t; } }
@@ -207,9 +208,9 @@ impl Sim {
                 if si < 2 { vx *= damp; vy += tdr; } else { vy *= damp; vx += tdr; }
             }
         }
-        // item 64 directive 2: no permanent size loss at the boundary - one eased squash state, 1:1 with
-        // ca2.js keepIn (sqS signal at both call sites) + stepSquash (one ease per frame, after the second
-        // keepIn): the press accumulates over both keep_in calls, the ease runs once, on the second call.
+        // item 64 directive 2: no permanent size loss at the boundary - the eased squash state is eased
+        // ONCE per frame in ca2.js stepSquash as a post-pass for BOTH engines (1:1 by construction, the
+        // separatorPass/constraintSolver pattern); the press signal accumulated here goes out via SQS.
         // item 64 directive 4: crowding field with memory, 1:1 with ca2.js keepIn - fast build under
         // pressure, slow release in quiet; squeezed cells slow and drift along the pressed edge toward
         // its roomier middle, so the release spreads like a crowd instead of bursting
@@ -226,36 +227,34 @@ impl Sim {
                 if press > 0.0 {
                     let cpush = self.p[P_CPUSH] * crowd.min(1.0) * ms * 0.5;
                     let midx = (x0 + x1) / 2.0; let midy = (y0 + y1) / 2.0;
-                    if x - x0 < z || x1 - x < z { vy += cpush * (if y < midy { 1.0 } else { -1.0 }); }
-                    if y - y0 < z || y1 - y < z { vx += cpush * (if x < midx { 1.0 } else { -1.0 }); }
+                    if x - x0 < z || x1 - x < z { evy += cpush * (if y < midy { 1.0 } else { -1.0 }); } // crowd drift is environment-imparted (directive 4), 1:1 ca2.js keepIn
+                    if y - y0 < z || y1 - y < z { evx += cpush * (if x < midx { 1.0 } else { -1.0 }); }
                 }
             }
             self.set(c, CROWD, crowd);
         }
         if press > self.pr[c] { self.pr[c] = press; }
-        if ease {
-            let g2 = 0f64.max(self.p[P_BGAP]);
-            let bxs = x - self.p[P_CX] - g2; let bys = y - self.p[P_CY] - g2;
-            let rf = bxs.min(self.p[P_CW] - g2 - bxs).min(bys).min(self.p[P_CH] - g2 - bys).max(1.0);
-            let mut tg = if self.p[P_BOUND] != 0.0 { clamp(1.0 - (0f64.max(rf - self.g(c, RAD))) / 8.0, 0.0, 1.0) } else { 0.0 };
-            if self.pr[c] > tg { tg = self.pr[c]; }
-            let sq0 = self.g(c, SQ);
-            let ek = self.p[P_DTF] * 0.06;
-            let rate = if tg > sq0 { self.p[P_SQIN] } else { self.p[P_SQOUT] };
-            self.set(c, SQ, sq0 + (tg - sq0) * (1.0 - (1.0 - rate).powf(ek)));
-        }
         // absolute wall (owner 22 Oct): nothing is ever outside; a moved wall carries the body, a hit reflects.
+        // The contact clamp sits at the ONE eased squashed radius the render draws (effR, architect finding c):
+        // contact body == drawn body, so nothing is ever clipped and pressed bodies squeeze at the wall.
+        let sqm = self.p[P_SQMAX];
+        let rr = (self.g(c, RAD) * (1.0 - sqm * self.g(c, SQ))).min(rfit).max(0.0); // 1:1 ca2.js keepIn -> wallPull(c, effR(c), true)
+        let (x0, x1, y0, y1) = (cx + rr + gap, cx + cw - rr - gap, cy + rr + gap, cy + ch - rr - gap);
         let (x0, x1) = if x1 < x0 { let m = (x0 + x1) / 2.0; (m, m) } else { (x0, x1) };
         let (y0, y1) = if y1 < y0 { let m = (y0 + y1) / 2.0; (m, m) } else { (y0, y1) };
         // piston carry (owner 25 Oct): 1:1 with ca2.js wallPull - an inward-moving wall gives the carried
-        // body the wall's velocity and a deterministic golden-ratio spread; a static wall reflects at 0.7
+        // body the wall's normal velocity (environmental channel: bodies without self-propulsion are carried
+        // too) and a deterministic golden-ratio spread, and presses the squash one frame-depth deeper per
+        // outrunning frame; a static wall reflects at 0.7
         let (wcar, wspr) = (self.p[P_WCARRY], self.p[P_WSPREAD]);
         let (wvx0, wvx1, wvy0, wvy1) = (self.p[P_WVX0], self.p[P_WVX1], self.p[P_WVY0], self.p[P_WVY1]);
-        if x < x0 { let fr = y * 0.6180339 - (y * 0.6180339).floor(); if wcar > 0.0 && wvx0 > 0.0 { x = x0 + wvx0.abs() * wspr * fr; vx = wvx0 * wcar; } else { x = x0; vx = vx.abs() * 0.7; } }
-        else if x > x1 { let fr = y * 0.6180339 - (y * 0.6180339).floor(); if wcar > 0.0 && wvx1 < 0.0 { x = x1 - wvx1.abs() * wspr * fr; vx = wvx1 * wcar; } else { x = x1; vx = -vx.abs() * 0.7; } }
-        if y < y0 { let fr = x * 0.6180339 - (x * 0.6180339).floor(); if wcar > 0.0 && wvy0 > 0.0 { y = y0 + wvy0.abs() * wspr * fr; vy = wvy0 * wcar; } else { y = y0; vy = vy.abs() * 0.7; } }
-        else if y > y1 { let fr = x * 0.6180339 - (x * 0.6180339).floor(); if wcar > 0.0 && wvy1 < 0.0 { y = y1 - wvy1.abs() * wspr * fr; vy = wvy1 * wcar; } else { y = y1; vy = -vy.abs() * 0.7; } }
+        if x < x0 { let fr = y * 0.6180339 - (y * 0.6180339).floor(); if wcar > 0.0 && wvx0 > 0.0 { x = x0 + wvx0.abs() * wspr * fr; evx = wvx0 * wcar; let cp = (self.g(c, SQ) + wvx0.abs() / (self.g(c, RAD) * sqm).max(1e-6)).min(1.0); if cp > self.pr[c] { self.pr[c] = cp; } } else { x = x0; vx = vx.abs() * 0.7; } }
+        else if x > x1 { let fr = y * 0.6180339 - (y * 0.6180339).floor(); if wcar > 0.0 && wvx1 < 0.0 { x = x1 - wvx1.abs() * wspr * fr; evx = wvx1 * wcar; let cp = (self.g(c, SQ) + wvx1.abs() / (self.g(c, RAD) * sqm).max(1e-6)).min(1.0); if cp > self.pr[c] { self.pr[c] = cp; } } else { x = x1; vx = -vx.abs() * 0.7; } }
+        if y < y0 { let fr = x * 0.6180339 - (x * 0.6180339).floor(); if wcar > 0.0 && wvy0 > 0.0 { y = y0 + wvy0.abs() * wspr * fr; evy = wvy0 * wcar; let cp = (self.g(c, SQ) + wvy0.abs() / (self.g(c, RAD) * sqm).max(1e-6)).min(1.0); if cp > self.pr[c] { self.pr[c] = cp; } } else { y = y0; vy = vy.abs() * 0.7; } }
+        else if y > y1 { let fr = x * 0.6180339 - (x * 0.6180339).floor(); if wcar > 0.0 && wvy1 < 0.0 { y = y1 - wvy1.abs() * wspr * fr; evy = wvy1 * wcar; let cp = (self.g(c, SQ) + wvy1.abs() / (self.g(c, RAD) * sqm).max(1e-6)).min(1.0); if cp > self.pr[c] { self.pr[c] = cp; } } else { y = y1; vy = -vy.abs() * 0.7; } }
         self.set(c, X, x); self.set(c, Y, y); self.set(c, VX, vx); self.set(c, VY, vy);
+        self.set(c, ENVX, evx); self.set(c, ENVY, evy);
+        self.set(c, SQS, self.pr[c]); // the press signal goes out for the JS post-pass squash ease (item 64 directive 2)
     }
     fn update(&mut self, c: usize) {
         if !self.alive(c) { return; }
@@ -269,8 +268,10 @@ impl Sim {
         let lim = self.g(c, MAXS) * sm * self.g(c, SPM) * if rd { 1.0 + self.p[P_RESTL] * 1.5 } else { 1.0 };
         self.limit(c, lim);
         self.organic(c, 0);
-        let (nx, ny) = (self.g(c, X) + self.g(c, VX), self.g(c, Y) + self.g(c, VY));
+        let (nx, ny) = (self.g(c, X) + self.g(c, VX) + self.g(c, ENVX), self.g(c, Y) + self.g(c, VY) + self.g(c, ENVY)); // intrinsic + environmental channels (item 64 directive 3), 1:1 ca2.js update
         self.set(c, X, nx); self.set(c, Y, ny);
+        let edk = 0.75f64.powf(self.p[P_DTF] * 0.06); // the medium absorbs environmental motion (60fps-reference easing)
+        self.set(c, ENVX, self.g(c, ENVX) * edk); self.set(c, ENVY, self.g(c, ENVY) * edk);
         let cl = self.g(c, CL);
         let cmi = if cl != 0.0 && self.p[P_EATMERGE] != 0.0 { self.cm_find(cl) } else { None };
         let mut en = self.g(c, EN) - self.p[P_ECR] * if cmi.is_some() { 0.85 } else { 1.0 };
@@ -341,7 +342,7 @@ impl Sim {
             if gate { self.divide(c); }
         }
         if self.p[P_FGROW] != 0.0 && self.g(c, RAD) > self.p[P_CELLR] { let r = self.p[P_CELLR].max(self.g(c, RAD) - self.p[P_FSHR]); self.set(c, RAD, r); }
-        if self.p[P_BOUND] != 0.0 { self.keep_in(c, false); }
+        if self.p[P_BOUND] != 0.0 { self.keep_in(c); }
         else {
             let (x, y) = (self.g(c, X), self.g(c, Y));
             if x < self.p[P_CX] || x > self.p[P_CX] + self.p[P_CW] || y < self.p[P_CY] || y > self.p[P_CY] + self.p[P_CH] { self.set(c, ALIVE, 0.0); self.out[7] += 1.0; }
@@ -484,7 +485,7 @@ impl Sim {
                 let (a1, a2) = (self.rnd01(), self.rnd01());
                 self.set(i, VX, self.g(i, VX) + (a1 - 0.5) * ms2 * 2.0); self.set(i, VY, self.g(i, VY) + (a2 - 0.5) * ms2 * 2.0);
             }
-            if self.p[P_BOUND] != 0.0 && self.p[P_ONLYINT] != 1.0 && self.alive(i) { self.keep_in(i, true); }
+            if self.p[P_BOUND] != 0.0 && self.p[P_ONLYINT] != 1.0 && self.alive(i) { self.keep_in(i); }
             if !self.alive(i) { self.out[9] += 1.0; self.set(i, REM, 1.0); self.live -= 1; }
         }
         self.out[10] = self.p[P_CLSEQ]; self.out[11] = if hovering { 1.0 } else { 0.0 };

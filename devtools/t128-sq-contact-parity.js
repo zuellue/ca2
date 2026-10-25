@@ -36,8 +36,8 @@ cs.push(mk2(5, 150, 20), mk2(12, 250, 20)); // 2 at the left wall
   function packWasm(cs, ease) {
     const n = cs.length, cap = n + 16;
     const cp = E.sim_cells(cap), fxp = E.sim_food(1), cmp = E.sim_cm(1), cip = E.sim_cm_ids(), pp = E.sim_params();
-    const buf = E.memory.buffer, cf = new Float64Array(buf, cp, cap * 26), p = new Float64Array(buf, pp, 97);
-    cs.forEach((c, i) => { const b = i * 26, g = c.g; cf.set([c.x, c.y, c.vx, c.vy, c.radius, c.energy, c.gene, 1, c.maxSpeed, c.speedModifier, c.hostility, c.mutationRate, c.sv, c.cl || 0, -1, g.spd, g.app, g.bnd, g.col[0], g.col[1], g.col[2], c.comp || 0, 0, 0, c.sq || 0], b); });
+    const buf = E.memory.buffer, cf = new Float64Array(buf, cp, cap * 29), p = new Float64Array(buf, pp, 97);
+    cs.forEach((c, i) => { const b = i * 29, g = c.g; cf.set([c.x, c.y, c.vx, c.vy, c.radius, c.energy, c.gene, 1, c.maxSpeed, c.speedModifier, c.hostility, c.mutationRate, c.sv, c.cl || 0, -1, g.spd, g.app, g.bnd, g.col[0], g.col[1], g.col[2], c.comp || 0, 0, 0, c.sq || 0], b); });
     E.sim_set_n(n); E.sim_set_nf(0); E.sim_cm_count(0);
     p[7] = 1; // genomeOn (P_GENOME=7): without it wasm pins bnd to 1 while JS uses c.g.bnd
     p[0] = J.P.interactionRadius; p[9] = 0; p[12] = 0.001; p[13] = J.P.foodEnergyValue; p[16] = J.P.CELL_RADIUS; p[17] = J.P.foodGrowMax; p[18] = 0; p[20] = J.P.UNIVERSE_SIZE; p[22] = 1; p[23] = 70; p[24] = 0.8; p[25] = J.P.restless; p[28] = J.P.mergeGene; p[29] = 0; p[30] = 0; p[31] = J.P.energyGainFromInteraction; p[32] = J.P.GENE_MIN; p[33] = J.P.GENE_MAX; p[34] = 1e9; p[35] = J.P.clusterMax; p[36] = J.P.genomeMut; p[37] = J.P.mutationRateRange; p[38] = J.P.metaballStrength;
@@ -47,8 +47,8 @@ cs.push(mk2(5, 150, 20), mk2(12, 250, 20)); // 2 at the left wall
     return cp;
   }
   function readWasm(cp, n) {
-    const cf = new Float64Array(E.memory.buffer, E.sim_cells_ptr(), (n + 16) * 26), out = [];
-    for (let i = 0; i < n; i++) { const b = i * 26; out.push({ x: cf[b], y: cf[b + 1], vx: cf[b + 2], vy: cf[b + 3], r: cf[b + 4], sq: cf[b + 24] }); }
+    const cf = new Float64Array(E.memory.buffer, E.sim_cells_ptr(), (n + 16) * 29), out = [];
+    for (let i = 0; i < n; i++) { const b = i * 29; out.push({ x: cf[b], y: cf[b + 1], vx: cf[b + 2], vy: cf[b + 3], r: cf[b + 4], sq: cf[b + 24], crowd: cf[b + 25], sqs: cf[b + 28] }); } // 25: crowding field, 28: wall-press signal out (item 64)
     const o = new Float64Array(E.memory.buffer, E.sim_out(), 32);
     return { cells: out, hit: o[6], oob: o[7] };
   }
@@ -58,13 +58,14 @@ cs.push(mk2(5, 150, 20), mk2(12, 250, 20)); // 2 at the left wall
     J.ev.hit = 0; Math.random = xorSeed(111, 222); // exact RNG sync with sim_step(111, 222) (t74 method)
     J.frame(); // JS engine: 1 frame (update/interact/keepIn order matches sim.rs step)
     E.sim_step(111, 222);
-    if (ease) { // JS render-path ease (stepSquash equivalent, 1:1 position after the frame): target = max(wall-geometry clamp, keepIn sqS)
+    if (ease) { // the squash ease is a JS post-pass for BOTH engines now (item 64 directive 2, stepSquash): target = pressure signals only (sqS + crowding field), no geometry term (architect finding c); the wasm press signal arrives via the SQS slot
       for (const c of cs) { if (!c.alive) continue;
-        var g2 = 0, bx = c.x - 0 - g2, by = c.y - 0 - g2, rf = Math.max(1, Math.min(bx, 400 - g2 - bx, by, 400 - g2 - by));
-        var tg = Math.max(Math.min(Math.max(1 - Math.max(0, rf - c.radius) / 8, 0), 1), c.sqS || 0);
+        var tg = Math.max(c.sqS || 0, Math.min(1, c.crowd || 0));
         var ek = 16.67 * 0.06, rate = tg > (c.sq || 0) ? 0.45 : 0.08;
         c.sq = (c.sq || 0) + (tg - (c.sq || 0)) * (1 - Math.pow(1 - rate, ek)); c.sqS = 0; } }
+    const wPre = null; // (wasm rows get the identical post-pass below, after read)
     const w = readWasm(cp, cs.length);
+    if (ease) for (const q of w.cells) { var tg2 = Math.max(q.sqs || 0, Math.min(1, q.crowd || 0)), rate2 = tg2 > q.sq ? 0.45 : 0.08; q.sq = q.sq + (tg2 - q.sq) * (1 - Math.pow(1 - rate2, 16.67 * 0.06)); } // same post-pass as the JS rows
     const rows = cs.map((c, i) => {
       const q = w.cells[i];
       return { i: i, dx: +(c.x - q.x).toFixed(4), dy: +(c.y - q.y).toFixed(4), dvx: +(c.vx - q.vx).toFixed(4), dvy: +(c.vy - q.vy).toFixed(4), dsq: +((c.sq || 0) - q.sq).toFixed(4), jsSq: +(c.sq || 0).toFixed(4), wSq: +q.sq.toFixed(4) };
