@@ -136,7 +136,7 @@ async function runEngine(enginePath, label) {
   const births = [], deaths = []; let prevAlive = new Set(); cs0.forEach(q => prevAlive.add(idMap.get(q)));
   const meta = { pumpsBeforeInject: pumpCount, clockAtInject: V.clock - clockStart };
   if (typeof __injReceipt !== 'undefined') { meta.injectReceipt = __injReceipt; meta.injectReceiptAllOk = __injReceipt.length === 85 && __injReceipt.every(r => r.idFnOk); }
-  if (process.env.T130_TRACE && sandbox.__ca2trace) { const pre = sandbox.__ca2trace.filter(r => r[1] === 'pre').map(r => r[0]); meta.trfAtInject = pre.length ? Math.max.apply(null, pre) + 1 : 0; } // first post-inject sim-step frame
+  if (process.env.T130_TRACE && sandbox.__ca2trace) { const pre = sandbox.__ca2trace.filter(r => r[1] === 'pre').map(r => r[0]); meta.trfAtInjectPlanned = pre.length ? Math.max.apply(null, pre) + 1 : 0; } // superseded by trfAtInjectMeasured at closeout (first traced frame)
   function pump() { pumpCount++; V.clock += DT; const q = V.rafQ.splice(0); q.forEach(f => { try { f(V.clock); } catch (e) { console.error(label + ' frame EXC: ' + (e && e.stack || e).slice(0, 500)); process.exit(2); } }); }
   const COS8 = [1, 0.7071, 0, -0.7071, -1, -0.7071, 0, 0.7071], SIN8 = [0, 0.7071, 1, 0.7071, 0, -0.7071, -1, -0.7071];
   function nearContact(q) { const c = ca2.cont, r = q.radius;
@@ -157,7 +157,9 @@ async function runEngine(enginePath, label) {
   for (let j = 4; j >= 0; j--) { fire('mousemove', x0 + Math.round(j * d), y); for (let k = 0; k < 4; k++) { pump(); frames.push(snapshot()); } }
   fire('mouseup', x0, y);
   for (let r = 0; r < 60; r++) { pump(); frames.push(snapshot()); }
-  if (process.env.T130_TRACE && sandbox.__ca2trace) fs.writeFileSync('/tmp/t130-trace-' + label + '.json', JSON.stringify(sandbox.__ca2trace));
+  if (process.env.T130_TRACE && sandbox.__ca2trace) { fs.writeFileSync('/tmp/t130-trace-' + label + '.json', JSON.stringify(sandbox.__ca2trace));
+    meta.trfAtInjectMeasured = sandbox.__ca2trace.length ? sandbox.__ca2trace[0][0] : null; } // first traced frame = inject frame (trace installed at inject)
+  // identity scope: tids 0..84 = injected cohort (stateB index, cross-pair aligned); tids >=1000 = births, PER-ENGINE lineage only - no cross-pair identity for births (divergent runs birth different cells).
   meta.totalPumps = pumpCount; meta.meanDtMs = +((V.clock - clockStart) / pumpCount).toFixed(3); meta.births = births; meta.deaths = deaths;
   return { label, engine: path.basename(enginePath), simOn: (ca2.simOn === undefined ? 'unavail' : ca2.simOn), initCheck: { n: cs0.length, mism }, meta, frames };
 }
