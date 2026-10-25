@@ -12,13 +12,14 @@ pub struct Sim {
     pub fx: Vec<f64>, pub fy: Vec<f64>, pub fgone: Vec<f64>, pub nf: usize,
     pub cm_id: Vec<f64>, pub cm: Vec<f64>, // per cluster: vx,vy,x,y,e (stride 5)
     pub p: Vec<f64>, pub out: Vec<f64>,
-    s0: u64, s1: u64, live: usize, pub log: Vec<f64>,
+    s0: u64, s1: u64, live: usize, pr: Vec<f64>, // per-frame wall-press signal, 1:1 with ca2.js c.sqS (item 64)
+    pub log: Vec<f64>,
 }
 pub static mut SIM: Option<Sim> = None;
 pub fn sim() -> &'static mut Sim {
     unsafe {
         let s = &mut *std::ptr::addr_of_mut!(SIM);
-        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 89], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new() }); }
+        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 89], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new(), pr: vec![] }); }
         s.as_mut().unwrap()
     }
 }
@@ -174,7 +175,7 @@ impl Sim {
         let cl = self.g(c, CL); self.set(k, CL, cl);
         self.out[0] += 1.0; self.out[1] += 1.0; self.log.extend_from_slice(&[k as f64, c as f64, -1.0, 1.0]);
     }
-    fn keep_in(&mut self, c: usize) {
+    fn keep_in(&mut self, c: usize, ease: bool) {
         let (cx, cy, cw, ch) = (self.p[P_CX], self.p[P_CY], self.p[P_CW], self.p[P_CH]);
         let gap = 0f64.max(self.p[P_BGAP]); let r = 0.0; // centre-wall (owner 22 Oct), 1:1 with ca2.js keepIn
         let rfit = 8f64.max(cw.min(ch) / 2.0 - gap); let _ = rfit;
@@ -189,16 +190,20 @@ impl Sim {
         d = y - y0; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vy += f * t * t * ms * 0.25; if vy < 0.0 { vy *= 1.0 - 0.25 * t; } if t > press { press = t; } }
         d = y1 - y; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vy -= f * t * t * ms * 0.25; if vy > 0.0 { vy *= 1.0 - 0.25 * t; } if t > press { press = t; } }
         // item 64 directive 2: no permanent size loss at the boundary - one eased squash state, 1:1 with
-        // ca2.js stepSquash: target = max(wall-geometry clamp, zone pressure), dt-normalized easing (60fps reference)
-        let g2 = 0f64.max(self.p[P_BGAP]);
-        let bxs = x - self.p[P_CX] - g2; let bys = y - self.p[P_CY] - g2;
-        let rf = bxs.min(self.p[P_CW] - g2 - bxs).min(bys).min(self.p[P_CH] - g2 - bys).max(1.0);
-        let mut tg = if self.p[P_BOUND] != 0.0 { clamp(1.0 - (0f64.max(rf - self.g(c, RAD))) / 8.0, 0.0, 1.0) } else { 0.0 };
-        if press > tg { tg = press; }
-        let sq0 = self.g(c, SQ);
-        let ek = self.p[P_DTF] * 0.06;
-        let rate = if tg > sq0 { self.p[P_SQIN] } else { self.p[P_SQOUT] };
-        self.set(c, SQ, sq0 + (tg - sq0) * (1.0 - (1.0 - rate).powf(ek)));
+        // ca2.js keepIn (sqS signal at both call sites) + stepSquash (one ease per frame, after the second
+        // keepIn): the press accumulates over both keep_in calls, the ease runs once, on the second call.
+        if press > self.pr[c] { self.pr[c] = press; }
+        if ease {
+            let g2 = 0f64.max(self.p[P_BGAP]);
+            let bxs = x - self.p[P_CX] - g2; let bys = y - self.p[P_CY] - g2;
+            let rf = bxs.min(self.p[P_CW] - g2 - bxs).min(bys).min(self.p[P_CH] - g2 - bys).max(1.0);
+            let mut tg = if self.p[P_BOUND] != 0.0 { clamp(1.0 - (0f64.max(rf - self.g(c, RAD))) / 8.0, 0.0, 1.0) } else { 0.0 };
+            if self.pr[c] > tg { tg = self.pr[c]; }
+            let sq0 = self.g(c, SQ);
+            let ek = self.p[P_DTF] * 0.06;
+            let rate = if tg > sq0 { self.p[P_SQIN] } else { self.p[P_SQOUT] };
+            self.set(c, SQ, sq0 + (tg - sq0) * (1.0 - (1.0 - rate).powf(ek)));
+        }
         // absolute wall (owner 22 Oct): nothing is ever outside; a moved wall carries the body, a hit reflects.
         let (x0, x1) = if x1 < x0 { let m = (x0 + x1) / 2.0; (m, m) } else { (x0, x1) };
         let (y0, y1) = if y1 < y0 { let m = (y0 + y1) / 2.0; (m, m) } else { (y0, y1) };
@@ -296,7 +301,7 @@ impl Sim {
             if gate { self.divide(c); }
         }
         if self.p[P_FGROW] != 0.0 && self.g(c, RAD) > self.p[P_CELLR] { let r = self.p[P_CELLR].max(self.g(c, RAD) - self.p[P_FSHR]); self.set(c, RAD, r); }
-        if self.p[P_BOUND] != 0.0 { self.keep_in(c); }
+        if self.p[P_BOUND] != 0.0 { self.keep_in(c, false); }
         else {
             let (x, y) = (self.g(c, X), self.g(c, Y));
             if x < self.p[P_CX] || x > self.p[P_CX] + self.p[P_CW] || y < self.p[P_CY] || y > self.p[P_CY] + self.p[P_CH] { self.set(c, ALIVE, 0.0); self.out[7] += 1.0; }
@@ -407,6 +412,8 @@ impl Sim {
         self.set(b, VX, lerp(bvx, bvx - nx * 2.0 * bd, 0.8) + r2x * 0.3); self.set(b, VY, lerp(bvy, bvy - ny * 2.0 * bd, 0.8) + r2y * 0.3);
     }
     pub fn step(&mut self, s0: f64, s1: f64) {
+        if self.pr.len() < self.cap { self.pr.resize(self.cap, 0.0); }
+        for v in self.pr.iter_mut() { *v = 0.0; }
         self.s0 = (s0 as u64) << 32 | 0x9E3779B9; self.s1 = (s1 as u64) << 32 | 0x85EBCA6B;
         for k in 0..20 { self.out[k] = 0.0; } // 20-23 are cumulative kill-reason diagnostics, not per-step
         let n0 = self.n; self.live = n0; self.log.clear();
@@ -437,7 +444,7 @@ impl Sim {
                 let (a1, a2) = (self.rnd01(), self.rnd01());
                 self.set(i, VX, self.g(i, VX) + (a1 - 0.5) * ms2 * 2.0); self.set(i, VY, self.g(i, VY) + (a2 - 0.5) * ms2 * 2.0);
             }
-            if self.p[P_BOUND] != 0.0 && self.p[P_ONLYINT] != 1.0 && self.alive(i) { self.keep_in(i); }
+            if self.p[P_BOUND] != 0.0 && self.p[P_ONLYINT] != 1.0 && self.alive(i) { self.keep_in(i, true); }
             if !self.alive(i) { self.out[9] += 1.0; self.set(i, REM, 1.0); self.live -= 1; }
         }
         self.out[10] = self.p[P_CLSEQ]; self.out[11] = if hovering { 1.0 } else { 0.0 };
