@@ -291,7 +291,7 @@
     }
   }
   // the one eased squash state, contact side: bodies feel and draw the same squashed radius (item 64 directive 2)
-  function effR(c) { return c.radius * (1 - P.squashMax * (c.sq || 0)); }
+  function effR(c) { return c.radius * (1 - (P.squashMax === undefined ? 0.18 : P.squashMax) * (c.sq || 0)); }
   // one wall side of wallPull: piston carry when the wall advanced inward past the body this frame, else reflect
   function carrySide(p, ax, vax, along, line, wv, side, vel) {
     if (P.wallCarry > 0 && wv * side > 0) {
