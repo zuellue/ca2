@@ -1,11 +1,11 @@
 // ca2core sim: port of the per-frame cell loop (update/organic/checkSurvival/interact/keepIn/divide/reproduce/joinCluster/fuse,
 // hover colour). State is struct-of-arrays in wasm memory; JS packs/unpacks around one call per frame. No DOM.
 use std::f64::consts::PI;
-pub const ST: usize = 29; // f64 per cell (24 = eased squash state SQ, 25 = crowding field CROWD, 26-27 = environmental velocity ENVX/ENVY, 28 = wall-press signal SQS out, item 64)
+pub const ST: usize = 30; // f64 per cell (24 = eased squash state SQ, 25 = crowding field CROWD, 26-27 = environmental velocity ENVX/ENVY, 28 = wall-press signal SQS out, 29 = death-reason code DRSN out (2 energy0, 3 crowd, 4 genebound, 5 oob, 6 select; item 64, main 25 Oct: real wasm death reason, no inference)
 const X: usize = 0; const Y: usize = 1; const VX: usize = 2; const VY: usize = 3; const RAD: usize = 4; const EN: usize = 5; const GENE: usize = 6;
 const ALIVE: usize = 7; const MAXS: usize = 8; const SPM: usize = 9; const HOST: usize = 10; const MUT: usize = 11; const SV: usize = 12; const CL: usize = 13; const SQ: usize = 24; const CROWD: usize = 25; const ENVX: usize = 26; const ENVY: usize = 27; const SQS: usize = 28;
 const SYM: usize = 14; const GSPD: usize = 15; const GAPP: usize = 16; const GBND: usize = 17; const C0: usize = 18; const C1: usize = 19; const C2: usize = 20;
-const COMP: usize = 21; const REM: usize = 22; const AGE: usize = 23; // 23: age in ms, packed by JS every frame (juvenile reproduction gate); wasm writes -1 here on eat/fuse = absorbed flag (biomass stayed in a cell, no nutrient pulse)
+const COMP: usize = 21; const REM: usize = 22; const AGE: usize = 23; const DRSN: usize = 29; // 23: age in ms, packed by JS every frame (juvenile reproduction gate); wasm writes -1 here on eat/fuse = absorbed flag (biomass stayed in a cell, no nutrient pulse)
 
 pub struct Sim {
     pub cells: Vec<f64>, pub n: usize, pub cap: usize,
@@ -278,9 +278,9 @@ impl Sim {
         if self.p[P_SELON] != 0.0 && self.p[P_GENOME] != 0.0 {
             self.set(c, EN, en);
             let mf = self.misfit(c); en -= self.p[P_SELS] * mf * 0.05;
-            if self.rnd01() < self.p[P_SELS] * 0.005 * mf.powf(1.5) { self.set(c, ALIVE, 0.0); self.out[20] += 1.0; }
+            if self.rnd01() < self.p[P_SELS] * 0.005 * mf.powf(1.5) { self.set(c, ALIVE, 0.0); self.set(c, DRSN, 6.0); self.out[20] += 1.0; }
         }
-        if en <= 0.0 { self.set(c, ALIVE, 0.0); self.out[21] += 1.0; }
+        if en <= 0.0 { self.set(c, ALIVE, 0.0); self.set(c, DRSN, 2.0); self.out[21] += 1.0; }
         self.set(c, EN, en);
         if let Some(k) = cmi {
             let (cvx, cvy, cxx, cyy, ce) = (self.cm[k * 5], self.cm[k * 5 + 1], self.cm[k * 5 + 2], self.cm[k * 5 + 3], self.cm[k * 5 + 4]);
@@ -345,16 +345,16 @@ impl Sim {
         if self.p[P_BOUND] != 0.0 { self.keep_in(c); }
         else {
             let (x, y) = (self.g(c, X), self.g(c, Y));
-            if x < self.p[P_CX] || x > self.p[P_CX] + self.p[P_CW] || y < self.p[P_CY] || y > self.p[P_CY] + self.p[P_CH] { self.set(c, ALIVE, 0.0); self.out[7] += 1.0; }
+            if x < self.p[P_CX] || x > self.p[P_CX] + self.p[P_CW] || y < self.p[P_CY] || y > self.p[P_CY] + self.p[P_CH] { self.set(c, ALIVE, 0.0); self.set(c, DRSN, 5.0); self.out[7] += 1.0; }
         }
     }
     fn check_survival(&mut self, c: usize) {
         if !self.alive(c) { return; } // a cell already killed this step (energy0 in update) is one death, not also crowd/genebound (item 64 counter alias)
         let gene = self.g(c, GENE);
-        if gene <= self.p[P_GMIN] || gene >= self.p[P_GMAX] { self.set(c, ALIVE, 0.0); self.out[23] += 1.0; }
+        if gene <= self.p[P_GMIN] || gene >= self.p[P_GMAX] { self.set(c, ALIVE, 0.0); self.set(c, DRSN, 4.0); self.out[23] += 1.0; }
         let r = self.p[P_IR]; let (cx, cy) = (self.g(c, X), self.g(c, Y)); let mut n = 0;
         for o in 0..self.n { if o != c && self.alive(o) && self.g(o, REM) == 0.0 && hyp(cx - self.g(o, X), cy - self.g(o, Y)) < r { n += 1; } }
-        if self.g(c, EN) < n as f64 * self.p[P_CROWD] { self.set(c, ALIVE, 0.0); self.out[22] += 1.0; }
+        if self.g(c, EN) < n as f64 * self.p[P_CROWD] { self.set(c, ALIVE, 0.0); self.set(c, DRSN, 3.0); self.out[22] += 1.0; }
     }
     fn join_cluster(&mut self, a: usize, b: usize) {
         let (acl, bcl) = (self.g(a, CL), self.g(b, CL)); let cmax = self.p[P_CLMAX] as usize;

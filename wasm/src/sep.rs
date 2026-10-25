@@ -10,6 +10,6 @@ static mut MOVES: Vec<f64> = Vec::new();
  for p in 0..np {parts.fill(0.);let b=p*4;let (x,y,nx,ny)=(pts[b],pts[b+1],pts[b+2],pts[b+3]);let mut total=0.;
   for q in 0..ns{let z=q*5;let dx=x-src[z];let dy=y-src[z+1];if dx.abs()>src[z+3]||dy.abs()>src[z+3]{continue}let f=src[z+2]/(dx*dx+dy*dy+0.0001);parts[src[z+4] as usize]+=f;total+=f;}
   if total<=threshold{continue}hit+=1.;
-  for k in 0..nc{if parts[k]<=ink{continue}let z=k*3;let dx=cs[z]-x;let dy=cs[z+1]-y;let(mx,my)=if nx!=0.||ny!=0.{let side=if dx*nx+dy*ny>=0.{1.}else{-1.};(nx*side,ny*side)}else{let d=dx.hypot(dy).max(0.0001);(dx/d,dy/d)};let step=(cs[z+2]+2.).min((cs[z+2]*((parts[k]/threshold).sqrt()-1.)).max(1.));if (mx*step).abs()>mv[k*2].abs(){mv[k*2]=mx*step}if(my*step).abs()>mv[k*2+1].abs(){mv[k*2+1]=my*step}}
+  for k in 0..nc{if parts[k]<=ink{continue}let z=k*3;let dx=cs[z]-x;let dy=cs[z+1]-y;let(mx,my)=if nx!=0.||ny!=0.{let side=if dx*nx+dy*ny>=0.{1.}else{-1.};(nx*side,ny*side)}else{let d=dx.hypot(dy).max(0.0001);(dx/d,dy/d)};let step=(cs[z+2]+2.).min((cs[z+2]*((parts[k]/threshold).sqrt()-1.)).max(1.));mv[k*2]+=mx*step;mv[k*2+1]+=my*step}
  }hit
 }}
