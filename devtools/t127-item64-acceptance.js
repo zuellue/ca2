@@ -9,7 +9,7 @@ const H = require(process.argv[2] ? require('path').resolve(process.argv[2]) : r
 const FPS = +(process.argv[3] || 12), SEP = +(process.argv[4] || 0), ISO = +(process.argv[5] || 0), SHOT = process.argv[6] || '', SEED = +(process.argv[7] || 0); // SEED: matched-initial-state control (main 25 Oct) - same seeded Math.random at boot in both trees
 const EXTRA = process.argv[8] ? JSON.parse(process.argv[8]) : {}; // extra setKey overrides, e.g. '{"crowdGain":0}' for A/B
 const STATE = process.argv[9] || ''; // 'dump:/path.json' captures the post-boot state; 'inject:/path.json' forces it - matched initial state across trees (main 25 Oct)
-const TAILMS = +(process.argv[10] || 0); // extra post-expansion observation window in SIM FRAMES for the release-tail question (main 25 Oct); 0 = unchanged. Wall-ms is wrong here: the post-mouseup composition transition runs at ~1-2fps in headless, so a wall-ms tail records almost nothing.
+const TAILMS = +(process.argv[10] || 0); const TAILDRAW = +(process.argv[11] || 0); // 1: stepped tail keeps the ink mask fresh (noDraw mode 2) - faithful separator-on measurement (main 25 Oct) // extra post-expansion observation window in SIM FRAMES for the release-tail question (main 25 Oct); 0 = unchanged. Wall-ms is wrong here: the post-mouseup composition transition runs at ~1-2fps in headless, so a wall-ms tail records almost nothing.
 (async () => {
   const T0 = Date.now(); const el = () => ((Date.now() - T0) / 1000).toFixed(1);
   const s = await H.serve(8913), c = await H.launch(8912, 'http://127.0.0.1:8913/index.html', ['--window-size=900,600']);
@@ -72,10 +72,10 @@ setTimeout(function(){var j=0;var iv2=setInterval(function(){j++;if(j<=steps){__
   await wait('window.__done', 25);
   if (TAILMS > 0) { const frBase = await evG('window.__fr.length'); for (let tw = 0; tw < 90; tw++) { await c.sleep(2000); const fn2 = await evG('window.__fr.length'); if (fn2 >= frBase + TAILMS) break; } } // bounded: up to 180s for TAILMS extra sim frames
   console.error(el() + 's drag done');
-  const stepped = TAILMS > 0 ? await evG(`(function(){ try { window.__ca2NoDraw = 1; var series = [];
+  const stepped = TAILMS > 0 ? await evG(`(function(){ try { window.__ca2NoDraw = ${TAILDRAW ? 2 : 1}; var series = [];
     for (var b = 0; b < 10; b++) { __ca2.stepN(${FPS}, ${1000 / FPS}); var cs = __ca2.getCells(), cx = __ca2.cont.x, same = 0, zvx = 0, alive = 0, mv = 0;
-      var zids = []; for (var i = 0; i < cs.length; i++) { var q = cs[i]; if (!q.alive) continue; alive++; if (q.x - cx < 3) { same++; if (Math.abs(q.vx) < 0.05) { zvx++; zids.push(q.__ti === undefined ? -1 : q.__ti); } else mv++; } }
-      series.push({ step: (b + 1) * ${FPS}, alive: alive, sameAtWall: same, zeroVx: zvx, zids: zids, moving: mv, deaths: (__ca2.deathsLive === undefined ? __ca2.deaths : __ca2.deathsLive), trans: (__ca2.transLive === undefined ? __ca2.trans : __ca2.transLive), frameT: Math.round(__ca2.frameT || 0) }); } // live accessors: value fields freeze between full-frame rebuilds // zids+frameT: per-ID persistence and virtual-clock proof (main 25 Oct)
+      var zids = [], ageS = 0; for (var i = 0; i < cs.length; i++) { var q = cs[i]; if (!q.alive) continue; alive++; ageS += q.age || 0; if (q.x - cx < 3) { same++; if (Math.abs(q.vx) < 0.05) { zvx++; zids.push(q.__ti === undefined ? -1 : q.__ti); } else mv++; } }
+      series.push({ step: (b + 1) * ${FPS}, alive: alive, sameAtWall: same, zeroVx: zvx, zids: zids, moving: mv, deaths: (__ca2.deathsLive === undefined ? null : __ca2.deathsLive), trans: (__ca2.transLive === undefined ? null : __ca2.transLive), unavail: (__ca2.deathsLive === undefined ? 'deaths,trans' : undefined), maskT: Math.round(__ca2.sepMaskT || 0), ageMean: alive ? +(ageS / alive).toFixed(2) : 0, frameT: Math.round(__ca2.frameT || 0) }); } // live getters only - missing capability marks fields null+unavail, never silent stale fallback (main 25 Oct); maskT vs frameT proves per-step mask freshness in mode 2; ageMean proves aging runs in stepped phases
     window.__ca2NoDraw = 0; return JSON.stringify(series); } catch (e9) { window.__ca2NoDraw = 0; return 'STEPPED-ERR: ' + (e9 && e9.stack || e9); } })()`) : '[]'; // sim-stepped long tail (120 steps = 10s sim at 12fps), NOT real rAF timing (main 25 Oct); render skipped, physics path unchanged, separators off
   console.error(el() + 's stepped tail: ' + String(stepped).slice(0, 120));
   if (SHOT) await c.shot(SHOT + '-after.png');
