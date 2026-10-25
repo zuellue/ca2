@@ -1401,7 +1401,7 @@
         var lnx=-ly/ll, lny=lx/ll, signed=(c.x-ls[0])*lnx+(c.y-ls[1])*lny, lside=signed>=0?1:-1;
         var travel=0, cap=inkBody.bound*2+2;
         while(travel<cap && sepBodyLineHit(inkBody,c.x+lnx*lside*travel,c.y+lny*lside*travel,ls))travel+=1;
-        if(travel<cap){c.x+=lnx*lside*travel;c.y+=lny*lside*travel;var lv=c.vx*lnx+c.vy*lny;if(lv*lside<0){c.vx-=1.7*lv*lnx;c.vy-=1.7*lv*lny;}}
+        if(travel<cap){var tq=Math.min(travel,(c.maxSpeed||0)+1);c.x+=lnx*lside*tq;c.y+=lny*lside*tq;var lv=c.vx*lnx+c.vy*lny;if(lv*lside<0){c.vx-=1.7*lv*lnx;c.vy-=1.7*lv*lny;}}
       }
       if (mask && sepBodyHit(inkBody, c.x, c.y)) {
         // Search real empty ink space, not bounding boxes: counters remain usable. The previous
@@ -1409,8 +1409,9 @@
         var foundInk = false, bestIX = c.x, bestIY = c.y;
         var stepInk = 2, maxInk = Math.max(lay().fs * 2, r * 3), gapInk = Math.max(0, P.boundGap || 0);
         for (var reachInk = stepInk; reachInk <= maxInk && !foundInk; reachInk += stepInk) {
-          for (var dirInk = 0; dirInk < 24; dirInk++) {
-            var angleInk = dirInk * Math.PI / 12, testIX = c.x + Math.cos(angleInk) * reachInk, testIY = c.y + Math.sin(angleInk) * reachInk;
+          var dirBase = Math.floor((((c.gene * 0.6180339887) % 1 + 1) % 1) * 24);
+          for (var dirK = 0; dirK < 24; dirK++) {
+            var dirInk = (dirBase + dirK) % 24, angleInk = dirInk * Math.PI / 12, testIX = c.x + Math.cos(angleInk) * reachInk, testIY = c.y + Math.sin(angleInk) * reachInk;
             if (testIX < cont.x + gapInk || testIX > cont.x + cont.w - gapInk || testIY < cont.y + gapInk || testIY > cont.y + cont.h - gapInk) continue;
             var crossesInk = false;
             if (segs) for (var isg = 0; isg < segs.length; isg++) {
@@ -1422,7 +1423,8 @@
         }
         if (foundInk) {
           var inkDX = bestIX - c.x, inkDY = bestIY - c.y, inkLen = Math.hypot(inkDX, inkDY) || 1;
-          c.x = bestIX; c.y = bestIY;
+          var inkStep = Math.min(inkLen, (c.maxSpeed || 0) + 1);
+          c.x += inkDX / inkLen * inkStep; c.y += inkDY / inkLen * inkStep; // continuous escape: one own-quantum step per frame, never a teleport (owner 25 Oct: organic individual escape)
           var inkVN = (c.vx * inkDX + c.vy * inkDY) / inkLen;
           if (inkVN < 0) { c.vx -= 1.7 * inkVN * inkDX / inkLen; c.vy -= 1.7 * inkVN * inkDY / inkLen; }
         }
