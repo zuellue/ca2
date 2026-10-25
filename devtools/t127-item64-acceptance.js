@@ -7,6 +7,7 @@
 // usage: node devtools/t127-item64-acceptance.js [harnessPath] [fps] [sep 0|1] [iso 0|1] [shotPrefix]
 const H = require(process.argv[2] ? require('path').resolve(process.argv[2]) : require('path').join(__dirname, 'harness.js'));
 const FPS = +(process.argv[3] || 12), SEP = +(process.argv[4] || 0), ISO = +(process.argv[5] || 0), SHOT = process.argv[6] || '', SEED = +(process.argv[7] || 0); // SEED: matched-initial-state control (main 25 Oct) - same seeded Math.random at boot in both trees
+const EXTRA = process.argv[8] ? JSON.parse(process.argv[8]) : {}; // extra setKey overrides, e.g. '{"crowdGain":0}' for A/B
 (async () => {
   const T0 = Date.now(); const el = () => ((Date.now() - T0) / 1000).toFixed(1);
   const s = await H.serve(8913), c = await H.launch(8912, 'http://127.0.0.1:8913/index.html', ['--window-size=900,600']);
@@ -26,7 +27,7 @@ const FPS = +(process.argv[3] || 12), SEP = +(process.argv[4] || 0), ISO = +(pro
   if (transLeft) { console.log(JSON.stringify({ abort: 'trans-active' })); c.close(); s.close(); process.exit(0); }
   await c.sleep(1000);
   const setup = await evG(`(function(){
-__ca2.setKey('fps', ${FPS}); __ca2.setKey('separatorOn', ${SEP});
+__ca2.setKey('fps', ${FPS}); __ca2.setKey('separatorOn', ${SEP}); ${Object.entries(EXTRA).map(function (e2) { return "__ca2.setKey('" + e2[0] + "', " + JSON.stringify(e2[1]) + ");"; }).join(' ')}
 ${ISO ? "__ca2.setKey('foodGrow', 0); __ca2.setKey('foodShrink', 0); __ca2.setKey('divideOn', 0); __ca2.setKey('eatMergeOn', 0); __ca2.setKey('symbiogenesisOn', 0); __ca2.setKey('reproChance', 0);" : ''}
 var cv = document.querySelector('canvas');
 window.__fire = function (t, x, y) { cv.dispatchEvent(new MouseEvent(t, { clientX: x, clientY: y, bubbles: true })); };
