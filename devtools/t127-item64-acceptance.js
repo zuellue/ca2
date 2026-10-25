@@ -129,6 +129,7 @@ var rr = [], rk; for (rk in reacts) rr.push(reacts[rk]);
 var rf = rr.map(function (r) { return r.f; }), rfm = mean(rf), rfSd = Math.sqrt(mean(rf.map(function (v2) { return (v2 - rfm) * (v2 - rfm); })));
 var sx = 0, sy = 0; rr.forEach(function (r) { sx += Math.cos(r.dir); sy += Math.sin(r.dir); });
 var dirSpread = rr.length ? 1 - Math.hypot(sx, sy) / rr.length : 0;
+// LEGACY radiusLoss below: index-aligned, invalid for identity comparison once deaths splice the arrays - kept for provenance, NOT acceptance (main 25 Oct). radiusLossTi is the ti-aligned correction.
 var radiusLoss = 0, f0 = fr[0], fl = fr[fr.length - 1];
 if (f0 && fl) { var n0 = f0.a.length / 5, nl = fl.a.length / 5;
   for (var j2 = 0; j2 < nl; j2++) { var bd2 = 1e9, bi = -1;
@@ -191,12 +192,44 @@ var sxE = 0, syE = 0; rrE.forEach(function (r3) { sxE += Math.cos(r3.dir); syE +
 var dirSpreadE = rrE.length ? 1 - Math.hypot(sxE, syE) / rrE.length : 0;
 document.getElementById('panel').classList.remove('hov');
 var transEnd = __ca2.trans, cellR = __ca2.P.CELL_RADIUS;
+var sqTr = {};
+for (var i6 = 0; i6 < fr.length; i6++) { var b6 = fr[i6].b; if (!b6) continue;
+  for (var j6 = 0; j6 < b6.length / 4; j6++) { var t6 = b6[j6 * 4], s6 = b6[j6 * 4 + 1]; if (t6 < 0) continue;
+    var e6 = sqTr[t6] || (sqTr[t6] = { max: 0, last: 0 }); if (s6 > e6.max) e6.max = s6; e6.last = s6; } }
+var aliveTi2 = {}; __ca2.getCells().forEach(function (q) { if (q.__ti !== undefined && q.alive) aliveTi2[q.__ti] = 1; });
+var sqN = 0, sqRec = 0, sqGiants = [], k6;
+for (k6 in sqTr) { if (sqTr[k6].max > 0.3) { sqN++; if (sqTr[k6].last < 0.1) sqRec++; } }
+for (k6 in sqTr) { var g6 = __rsh[k6]; if (g6 && g6.r0 > 96 && sqTr[k6].max > 0.05) sqGiants.push({ ti: +k6, alive: !!aliveTi2[k6], r0: +g6.r0.toFixed(1), maxSq: +sqTr[k6].max.toFixed(3), tailSq: +sqTr[k6].last.toFixed(3) }); }
+// crowding geometry on the tail frame (main 25 Oct): central accumulation + row-band regularity on the shifted geometry
+var tailF = fr[fr.length - 1], cg = { tailCells: 0, centroidOffset: null, centerQuarterRatio: null, rowBand: null };
+if (tailF && tailF.a) { var n7 = tailF.a.length / 5, nb7x = tailF.b ? tailF.b.length / 4 : 0, sx7 = 0, sy7 = 0, inC = 0, i7;
+  var bands = { l: [], r: [], t: [], b: [] };
+  for (i7 = 0; i7 < n7; i7++) { var X7 = tailF.a[i7 * 5], Y7 = tailF.a[i7 * 5 + 1], R7 = tailF.a[i7 * 5 + 4]; sx7 += X7; sy7 += Y7;
+    var fx7 = (X7 - tailF.x) / tailF.w, fy7 = (Y7 - tailF.y) / tailF.h; if (fx7 > 0.25 && fx7 < 0.75 && fy7 > 0.25 && fy7 < 0.75) inC++;
+    var sq7 = i7 < nb7x ? tailF.b[i7 * 4 + 1] : 0, eff7 = sqM2 === null ? R7 : R7 * (1 - sqM2 * sq7);
+    var dL7 = X7 - tailF.x, dR7 = tailF.x + tailF.w - X7, dT7 = Y7 - tailF.y, dB7 = tailF.y + tailF.h - Y7, dm7 = Math.min(dL7, dR7, dT7, dB7), gap7 = dm7 - eff7;
+    if (Math.abs(gap7) < 3) { if (dm7 === dL7) bands.l.push(Y7); else if (dm7 === dR7) bands.r.push(Y7); else if (dm7 === dT7) bands.t.push(X7); else bands.b.push(X7); } }
+  cg.tailCells = n7;
+  if (n7) { cg.centroidOffset = +(Math.hypot(sx7 / n7 - (tailF.x + tailF.w / 2), sy7 / n7 - (tailF.y + tailF.h / 2)) / (0.5 * Math.min(tailF.w, tailF.h))).toFixed(3);
+    cg.centerQuarterRatio = +((inC / n7) / 0.25).toFixed(3); }
+  var bestW = null, bestA = [], wk;
+  for (wk in bands) { if (bands[wk].length > bestA.length) { bestA = bands[wk]; bestW = wk; } }
+  if (bestA.length >= 4) { bestA.sort(function (a7, b7) { return a7 - b7; }); var sp = [], i8;
+    for (i8 = 1; i8 < bestA.length; i8++) sp.push(bestA[i8] - bestA[i8 - 1]);
+    var m8 = 0; for (i8 = 0; i8 < sp.length; i8++) m8 += sp[i8]; m8 /= sp.length;
+    var v8 = 0; for (i8 = 0; i8 < sp.length; i8++) v8 += (sp[i8] - m8) * (sp[i8] - m8); v8 = Math.sqrt(v8 / sp.length);
+    var wallLen = (bestW === 'l' || bestW === 'r') ? tailF.h : tailF.w;
+    cg.rowBand = { wall: bestW, members: bestA.length, spacingMean: +m8.toFixed(1), spacingCV: +(m8 > 0 ? v8 / m8 : 0).toFixed(3), coverage: +((bestA[bestA.length - 1] - bestA[0]) / wallLen).toFixed(3) }; } }
+var radiusLossTi = 0;
+if (f0 && fl && f0.b && fl.b) { var m0 = {}, j9;
+  for (j9 = 0; j9 < f0.b.length / 4; j9++) { var t9 = f0.b[j9 * 4]; if (t9 >= 0) m0[t9] = f0.a[j9 * 5 + 4]; }
+  for (j9 = 0; j9 < fl.b.length / 4; j9++) { var t9b = fl.b[j9 * 4]; if (t9b >= 0 && m0[t9b] > 1) radiusLossTi = Math.max(radiusLossTi, 1 - fl.a[j9 * 5 + 4] / m0[t9b]); } }
 return JSON.stringify({ initFP: window.__initFP, frames: fr.length, transEnd: transEnd, cellR: +cellR.toFixed(2), maxDisp: +maxDisp.toFixed(2), maxSameCoord: maxSame, lineage: (function () { var aliveTi = {}; __ca2.getCells().forEach(function (q) { if (q.__ti !== undefined && q.alive) aliveTi[q.__ti] = 1; });
-  var aliveMax = 0, deadMax = 0, recN = 0, unrecN = 0, deadN = 0, k;
+  var aliveMax = 0, deadMax = 0, recN = 0, deadN = 0, dropN = 0, k;
   for (k in __rsh) { if (!aliveTi[k]) continue; var a2 = __rsh[k]; if (a2.r0 > 1) aliveMax = Math.max(aliveMax, (a2.r0 - a2.rmin) / a2.r0); }
-  for (k in __deadR) { var d2 = __deadR[k]; deadN++; if (d2.r0 > 1) deadMax = Math.max(deadMax, (d2.r0 - d2.rmin) / d2.r0); if (d2.lastR > d2.rmin * 1.02) recN++; else unrecN++; }
-  return { aliveMaxDrop: +aliveMax.toFixed(4), deadMaxDrop: +deadMax.toFixed(4), deadTagged: deadN, deadRecoveredBeforeDeath: recN, deadUnrecoveredAtDeath: unrecN }; })(),
-  radiusLoss: +radiusLoss.toFixed(4),
+  for (k in __deadR) { var d2 = __deadR[k]; deadN++; if (d2.r0 > 1) { var dr2 = (d2.r0 - d2.rmin) / d2.r0; deadMax = Math.max(deadMax, dr2); if (dr2 > 0.02) { dropN++; if (d2.lastR > d2.rmin * 1.02) recN++; } } }
+  return { aliveMaxDrop: +aliveMax.toFixed(4), deadMaxDrop: +deadMax.toFixed(4), deadTagged: deadN, deadWithDrop: dropN, deadRecoveredOfDrop: recN, coverage: { taggedTotal: window.__tn || 0, shadowN: Object.keys(__rsh).length, aliveTagged: Object.keys(aliveTi).length } }; })(),
+  sqRecov: { trackedWithSq: sqN, recoveredTail: sqRec, giants: sqGiants }, crowdGeo: cg, radiusLoss: +radiusLoss.toFixed(4), radiusLossTi: +radiusLossTi.toFixed(4),
   ledgerLoss: +ledgerLoss.toFixed(4), ledgerN: ledgerN, lossByCell: lossByCell.slice(0, 8), shrinkRep: shrinkRep.slice(0, 8), deaths: __ca2.deaths, deadRep: deadRep.slice(0, 12), liveMinLoss: +liveMinLoss.toFixed(4),
   killReasons: (function () { if (!__ca2.killReasons) return null; var k1 = __ca2.killReasons(), k0 = window.__kr0 || { select: 0, energy0: 0, crowd: 0, genebound: 0 }; return { select: k1.select - k0.select, energy0: k1.energy0 - k0.energy0, crowd: k1.crowd - k0.crowd, genebound: k1.genebound - k0.genebound }; })(), deathLog: (__ca2.deathLog || []).slice(-32), transFrames: fr.filter(function (f) { return f.tr; }).length, frameWallSpanMs: fr.length > 1 ? fr[fr.length - 1].t - fr[0].t : 0, sepJitter: sepJit, viol: viol, maxSameTail: maxSameTail, wallTail: wallTail, violFrames: violFrames, reactN: rr.length, reactFrameSd: +rfSd.toFixed(2), reactDirSpread: +dirSpread.toFixed(3), wallTraj: wallTraj, squashMax: sqM2, minPen: minPen == null ? null : +minPen.toFixed(3), minPenSat: minPenSat == null ? null : +minPenSat.toFixed(3), clipFrames: clipFrames, clipFramesSat: clipFramesSat, penEvents: penEvents.sort(function (a9, b9) { return a9.pen - b9.pen; }).slice(0, 8), penEventN: penEvents.length, penEventsSat: penEventsSat.sort(function (a8, b8) { return a8.pen - b8.pen; }).slice(0, 8), penEventSatN: penEventsSat.length, maxContactTail: maxContactTail, maxIdDisp: +maxIdDisp.toFixed(2), reactEnvN: rrE.length, reactEnvFrameSd: +rfSdE.toFixed(2), reactEnvDirSpread: +dirSpreadE.toFixed(3) });})()`);
   const TREE = (process.argv[2] || '').includes('ca2base') ? 'base' : 'branch';
