@@ -9,7 +9,7 @@ const H = require(process.argv[2] ? require('path').resolve(process.argv[2]) : r
 const FPS = +(process.argv[3] || 12), SEP = +(process.argv[4] || 0), ISO = +(process.argv[5] || 0), SHOT = process.argv[6] || '', SEED = +(process.argv[7] || 0); // SEED: matched-initial-state control (main 25 Oct) - same seeded Math.random at boot in both trees
 const EXTRA = process.argv[8] ? JSON.parse(process.argv[8]) : {}; // extra setKey overrides, e.g. '{"crowdGain":0}' for A/B
 const STATE = process.argv[9] || ''; // 'dump:/path.json' captures the post-boot state; 'inject:/path.json' forces it - matched initial state across trees (main 25 Oct)
-const TAILMS = +(process.argv[10] || 0); // extra post-expansion observation window for the release-tail question (main 25 Oct); 0 = unchanged
+const TAILMS = +(process.argv[10] || 0); // extra post-expansion observation window in SIM FRAMES for the release-tail question (main 25 Oct); 0 = unchanged. Wall-ms is wrong here: the post-mouseup composition transition runs at ~1-2fps in headless, so a wall-ms tail records almost nothing.
 (async () => {
   const T0 = Date.now(); const el = () => ((Date.now() - T0) / 1000).toFixed(1);
   const s = await H.serve(8913), c = await H.launch(8912, 'http://127.0.0.1:8913/index.html', ['--window-size=900,600']);
@@ -41,7 +41,7 @@ if (INJ) { var cs0 = __ca2.getCells();
   __ca2.cont.x = INJ.cont.x; __ca2.cont.y = INJ.cont.y; __ca2.cont.w = INJ.cont.w; __ca2.cont.h = INJ.cont.h; __ca2.cont.tw = INJ.cont.w; __ca2.cont.th = INJ.cont.h; __ca2.cont.ew = INJ.cont.w; __ca2.cont.eh = INJ.cont.h; }
 var cv = document.querySelector('canvas');
 window.__fire = function (t, x, y) { cv.dispatchEvent(new MouseEvent(t, { clientX: x, clientY: y, bubbles: true })); };
-window.__fr = []; window.__recOn = 1;
+window.__fr = []; window.__recOn = 1; window.__kr0 = __ca2.killReasons ? __ca2.killReasons() : null; // kill-counter snapshot post-inject: window delta, not lifetime cumulative (main 25 Oct)
 window.__ls = {}; window.__tn = 0;
 __ca2.getCells().forEach(function (q) { q.__r0 = q.radius; q.__ti = window.__tn++; q.__rmin = q.radius; }); // identity tags: per-cell radius ledger + dead-cell tracking (main 25 Oct)
 var __fp = 0; __ca2.getCells().forEach(function (q) { if (q.alive) __fp = (__fp * 31 + Math.round(q.x * 7 + q.y * 13 + q.radius * 17)) >>> 0; }); window.__initFP = __fp; // initial-state fingerprint: identical across trees iff the seed matched the population
@@ -66,10 +66,11 @@ var c = __ca2.cont; return JSON.stringify({ x: c.x, w: c.w, y: c.y, h: c.h, fr: 
   const fr0 = st.fr;
   evG(`(function(){__fire('mousedown',${x0},${y});
 var steps=5,d=${half}/5,i=0;var iv=setInterval(function(){i++;if(i<=steps){__fire('mousemove',${x0}+Math.round(i*d),${y});}else{clearInterval(iv);
-setTimeout(function(){var j=0;var iv2=setInterval(function(){j++;if(j<=steps){__fire('mousemove',${x0}+Math.round((5-j)*d),${y});}else{clearInterval(iv2);__fire('mouseup',${x0},${y});setTimeout(function(){window.__done=1;},${TAILMS});}},60);}},2000);}},60);})()`);
+setTimeout(function(){var j=0;var iv2=setInterval(function(){j++;if(j<=steps){__fire('mousemove',${x0}+Math.round((5-j)*d),${y});}else{clearInterval(iv2);__fire('mouseup',${x0},${y});window.__done=1;}},60);}},2000);}},60);})()`);
   console.error(el() + 's drag fired');
   if (SHOT) { await c.sleep(1600); await c.shot(SHOT + '-mid.png'); } // mid-hold: max squeeze, squash state visible
-  await wait('window.__done', 25 + Math.ceil(TAILMS / 1000)); // budget must cover the post-expansion tail
+  await wait('window.__done', 25);
+  if (TAILMS > 0) { const frBase = await evG('window.__fr.length'); for (let tw = 0; tw < 90; tw++) { await c.sleep(2000); const fn2 = await evG('window.__fr.length'); if (fn2 >= frBase + TAILMS) break; } } // bounded: up to 180s for TAILMS extra sim frames
   console.error(el() + 's drag done');
   if (SHOT) await c.shot(SHOT + '-after.png');
   const out = await evG(`(function(){window.__recOn = 0; var fr = __fr.slice(${fr0});
@@ -136,7 +137,7 @@ document.getElementById('panel').classList.remove('hov');
 var transEnd = __ca2.trans, cellR = __ca2.P.CELL_RADIUS;
 return JSON.stringify({ initFP: window.__initFP, frames: fr.length, transEnd: transEnd, cellR: +cellR.toFixed(2), maxDisp: +maxDisp.toFixed(2), maxSameCoord: maxSame, radiusLoss: +radiusLoss.toFixed(4),
   ledgerLoss: +ledgerLoss.toFixed(4), ledgerN: ledgerN, lossByCell: lossByCell.slice(0, 8), shrinkRep: shrinkRep.slice(0, 8), deaths: __ca2.deaths, deadRep: deadRep.slice(0, 12), liveMinLoss: +liveMinLoss.toFixed(4),
-  sepJitter: sepJit, viol: viol, maxSameTail: maxSameTail, wallTail: wallTail, violFrames: violFrames, reactN: rr.length, reactFrameSd: +rfSd.toFixed(2), reactDirSpread: +dirSpread.toFixed(3) });})()`);
+  killReasons: (function () { if (!__ca2.killReasons) return null; var k1 = __ca2.killReasons(), k0 = window.__kr0 || { select: 0, energy0: 0, crowd: 0, genebound: 0 }; return { select: k1.select - k0.select, energy0: k1.energy0 - k0.energy0, crowd: k1.crowd - k0.crowd, genebound: k1.genebound - k0.genebound }; })(), deathLog: (__ca2.deathLog || []).slice(-32), sepJitter: sepJit, viol: viol, maxSameTail: maxSameTail, wallTail: wallTail, violFrames: violFrames, reactN: rr.length, reactFrameSd: +rfSd.toFixed(2), reactDirSpread: +dirSpread.toFixed(3) });})()`);
   const TREE = (process.argv[2] || '').includes('ca2base') ? 'base' : 'branch';
   let outP = {}; try { outP = JSON.parse(out === 'EV-TIMEOUT' ? '{}' : out); } catch (e) { console.error('EVAL-EXC raw:', String(out).slice(0, 600)); }
   console.log(JSON.stringify(Object.assign({ fps: FPS, sep: SEP, iso: ISO, tree: TREE, runs: 'independent-bounded (unmatched populations)', errs: c.errs.length }, outP)));
