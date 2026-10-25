@@ -372,6 +372,13 @@
       if (vel) p[vax] = side * Math.abs(p[vax]) * 0.7;
     }
   }
+  // item 64 (main 25 Oct): the ONE shared boundary rule as the frame's last position write, in EVERY path that
+  // moves bodies after keepIn - the pre-render ink re-resolve and the HUD-off collective pass relocate bodies with a
+  // centre-only clamp, so the wall must win again after them (46/46 pen defect root fix, second site).
+  function finalWallClamp() {
+    if (!P.boundAware) return;
+    for (var fci = 0; fci < cells.length; fci++) { var fcc = cells[fci]; if (fcc.alive) wallPull(fcc, effR(fcc), true); }
+  }
   function divide(c) {
     var ang = Math.random() * 6.2832, nr = Math.max(P.CELL_RADIUS, c.radius * 0.62);
     c.radius = nr; c.energy /= 2;
@@ -2094,16 +2101,7 @@
     if (subN > 1) wallSubPass(subN, subX0, subY0, subW0, subH0);
     if (P.separatorOn) { ctx.save(); drawAxis(lay(), String(cells.length), String(Math.round(mouse.x)), true); ctx.restore(); separatorPass(); pfm('separator'); } // one mechanism after both engines: identical enforcement for wasm and JS (1:1 by construction)
     constraintSolver(); pfm('solver'); // item 64 directive 6: walls+segments+overlap converge in one iteration loop
-    // item 64 (main 25 Oct, 46/46 pen defect root fix): separatorPass/constraintSolver move bodies AFTER keepIn ran and
-    // never re-apply the contact clamp (the solver's own wall pass is centre-based and inert at solverIters=0), so the
-    // plate wall did not win last - re-apply the ONE shared boundary rule at the contact radius as the frame's final
-    // position write, identical for both engines (frame() post-pass, 1:1 by construction, same pattern as stepSquash).
-    if (P.boundAware) {
-      for (var fci = 0; fci < cells.length; fci++) {
-        var fcc = cells[fci];
-        if (fcc.alive) wallPull(fcc, effR(fcc), true);
-      }
-    }
+    finalWallClamp(); // item 64 (main 25 Oct, 46/46 pen defect root fix): the plate wall wins last after keepIn/separatorPass/constraintSolver - same call in every path
     stepSquash(); // item 64 directive 2: one eased squash state per frame for BOTH engines, after every sqS feed (post-pass, 1:1 by construction - the wasm engine exports its press signal via the SQS slot instead of easing internally). Was draw-side (GPU/noDraw paths skipped it) + inside wasm keep_in (double ease on the CPU-draw path)
     hoverCol = hovering ? tmpHover : [255, 255, 255];
     stepParasites(); pfm('sim loop+parasites');
@@ -2186,6 +2184,7 @@
     }
 
     if(P.separatorOn&&!P.showHud)separatorCollectivePass();
+    finalWallClamp(); // item 64: the ink re-resolve above relocates bodies centre-clamped only - the wall wins last in the render and stepped-mode-2 paths too
     pfm('hud text');
     // title circles: hover turns a circle to random black or white (new random pick on every hover); the cursor reacts
     var titleHit = null;
