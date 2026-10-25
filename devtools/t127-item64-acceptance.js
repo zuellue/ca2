@@ -67,9 +67,9 @@ var c = __ca2.cont; return JSON.stringify({ x: c.x, w: c.w, y: c.y, h: c.h, fr: 
   const fr0 = st.fr;
   evG(`(function(){__fire('mousedown',${x0},${y});
 var steps=5,d=${half}/5,i=0;var iv=setInterval(function(){i++;if(i<=steps){__fire('mousemove',${x0}+Math.round(i*d),${y});}else{clearInterval(iv);
-setTimeout(function(){var j=0;var iv2=setInterval(function(){j++;if(j<=steps){__fire('mousemove',${x0}+Math.round((5-j)*d),${y});}else{clearInterval(iv2);__fire('mouseup',${x0},${y});window.__done=1;}},60);}},2000);}},60);})()`);
+setTimeout(function(){window.__sqz=1;var wh=0;var wiv=setInterval(function(){if(window.__shotHold&&!window.__sqzgo&&++wh<50)return;clearInterval(wiv);var j=0;var iv2=setInterval(function(){j++;if(j<=steps){__fire('mousemove',${x0}+Math.round((5-j)*d),${y});}else{clearInterval(iv2);__fire('mouseup',${x0},${y});window.__done=1;}},60);},60);},2000);}},60);})()`);
   console.error(el() + 's drag fired');
-  if (SHOT) { await c.sleep(1600); await c.shot(SHOT + '-mid.png'); } // mid-hold: max squeeze, squash state visible
+  if (SHOT) { await evG('window.__shotHold=1'); await wait('window.__sqz', 80); await c.shot(SHOT + '-mid.png'); await evG('window.__sqzgo=1'); } // max-squeeze pixel capture inside the hold phase; without SHOT the drag timeline is unchanged (main 07:30: pixels before any no-clipping claim)
   await wait('window.__done', 25);
   if (TAILMS > 0) { const frBase = await evG('window.__fr.length'); for (let tw = 0; tw < 90; tw++) { await c.sleep(2000); const fn2 = await evG('window.__fr.length'); if (fn2 >= frBase + TAILMS) break; } } // bounded: up to 180s for TAILMS extra sim frames
   console.error(el() + 's drag done');
@@ -158,14 +158,14 @@ shrinkRep.sort(function (a, b) { return b.loss - a.loss; }); // attribution: man
 // additive residency/displacement/reaction block (main 07:30): original metrics above stay byte-identical.
 // pen = (nearest-wall centre distance) - eased render radius; <0 = surface through the wall (clipping), |pen|<3 = resting in contact.
 var sqM2 = (__ca2.P && typeof __ca2.P.squashMax === 'number') ? __ca2.P.squashMax : null;
-var minPen = null, clipFrames = 0, maxContactTail = 0, maxIdDisp = 0, prevById = {}, reactsEnv = {}, penEvents = [];
+var minPen = null, minPenSat = null, clipFrames = 0, clipFramesSat = 0, maxContactTail = 0, maxIdDisp = 0, prevById = {}, reactsEnv = {}, penEvents = [];
 for (var i5 = 0; i5 < fr.length; i5++) {
-  var f5 = fr[i5], p5 = fr[Math.max(0, i5 - 1)], na5 = f5.a.length / 5, nb5 = f5.b ? f5.b.length / 4 : 0, anyClip = 0, contactN = 0, curById = {};
+  var f5 = fr[i5], p5 = fr[Math.max(0, i5 - 1)], na5 = f5.a.length / 5, nb5 = f5.b ? f5.b.length / 4 : 0, anyClip = 0, anyClipSat = 0, contactN = 0, curById = {};
   for (var j5 = 0; j5 < na5; j5++) {
     var X5 = f5.a[j5 * 5], Y5 = f5.a[j5 * 5 + 1], R5 = f5.a[j5 * 5 + 4];
     var ti5 = j5 < nb5 ? f5.b[j5 * 4] : -1, sq5 = j5 < nb5 ? f5.b[j5 * 4 + 1] : 0, evx5 = j5 < nb5 ? f5.b[j5 * 4 + 2] : 0, evy5 = j5 < nb5 ? f5.b[j5 * 4 + 3] : 0;
     if (sqM2 != null) { var pen5 = Math.min(X5 - f5.x, f5.x + f5.w - X5, Y5 - f5.y, f5.y + f5.h - Y5) - R5 * (1 - sqM2 * sq5);
-      if (minPen == null || pen5 < minPen) minPen = pen5; if (pen5 < -0.5) { anyClip = 1; if (penEvents.length < 400) penEvents.push({ f: i5, ti: ti5, pen: +pen5.toFixed(2), x: +X5.toFixed(1), y: +Y5.toFixed(1), r: +R5.toFixed(2), sq: +sq5.toFixed(3), w: +f5.w.toFixed(1) }); }
+      var sat5 = 2 * R5 * (1 - sqM2 * sq5) <= Math.min(f5.w, f5.h) * 0.98; if (minPen == null || pen5 < minPen) minPen = pen5; if (sat5 && (minPenSat == null || pen5 < minPenSat)) minPenSat = pen5; if (pen5 < -0.5) { anyClip = 1; if (sat5) anyClipSat = 1; if (penEvents.length < 400) penEvents.push({ f: i5, ti: ti5, pen: +pen5.toFixed(2), x: +X5.toFixed(1), y: +Y5.toFixed(1), r: +R5.toFixed(2), sq: +sq5.toFixed(3), w: +f5.w.toFixed(1) }); }
       if (i5 >= fr.length - 24 && Math.abs(pen5) < 3) contactN++; }
     if (ti5 >= 0) { curById[ti5] = [X5, Y5];
       if (prevById[ti5]) { var dd5 = Math.hypot(X5 - prevById[ti5][0], Y5 - prevById[ti5][1]); if (dd5 > maxIdDisp && dd5 < 400) maxIdDisp = dd5; } }
@@ -175,7 +175,7 @@ for (var i5 = 0; i5 < fr.length; i5++) {
       var dvxE = (f5.a[j5 * 5 + 2] + evx5) - pvx5, dvyE = (f5.a[j5 * 5 + 3] + evy5) - pvy5;
       if (Math.hypot(dvxE, dvyE) > 0.5) reactsEnv[j5] = { f: i5, dir: Math.atan2(f5.a[j5 * 5 + 3] + evy5, f5.a[j5 * 5 + 2] + evx5) }; }
   }
-  prevById = curById; if (anyClip) clipFrames++; if (i5 >= fr.length - 24 && contactN > maxContactTail) maxContactTail = contactN;
+  prevById = curById; if (anyClip) clipFrames++; if (anyClipSat) clipFramesSat++; if (i5 >= fr.length - 24 && contactN > maxContactTail) maxContactTail = contactN;
 }
 var rrE = [], rkE; for (rkE in reactsEnv) rrE.push(reactsEnv[rkE]);
 var rfE = rrE.map(function (r3) { return r3.f; }), rfmE = mean(rfE), rfSdE = Math.sqrt(mean(rfE.map(function (v3) { return (v3 - rfmE) * (v3 - rfmE); })));
@@ -185,7 +185,7 @@ document.getElementById('panel').classList.remove('hov');
 var transEnd = __ca2.trans, cellR = __ca2.P.CELL_RADIUS;
 return JSON.stringify({ initFP: window.__initFP, frames: fr.length, transEnd: transEnd, cellR: +cellR.toFixed(2), maxDisp: +maxDisp.toFixed(2), maxSameCoord: maxSame, radiusLoss: +radiusLoss.toFixed(4),
   ledgerLoss: +ledgerLoss.toFixed(4), ledgerN: ledgerN, lossByCell: lossByCell.slice(0, 8), shrinkRep: shrinkRep.slice(0, 8), deaths: __ca2.deaths, deadRep: deadRep.slice(0, 12), liveMinLoss: +liveMinLoss.toFixed(4),
-  killReasons: (function () { if (!__ca2.killReasons) return null; var k1 = __ca2.killReasons(), k0 = window.__kr0 || { select: 0, energy0: 0, crowd: 0, genebound: 0 }; return { select: k1.select - k0.select, energy0: k1.energy0 - k0.energy0, crowd: k1.crowd - k0.crowd, genebound: k1.genebound - k0.genebound }; })(), deathLog: (__ca2.deathLog || []).slice(-32), transFrames: fr.filter(function (f) { return f.tr; }).length, frameWallSpanMs: fr.length > 1 ? fr[fr.length - 1].t - fr[0].t : 0, sepJitter: sepJit, viol: viol, maxSameTail: maxSameTail, wallTail: wallTail, violFrames: violFrames, reactN: rr.length, reactFrameSd: +rfSd.toFixed(2), reactDirSpread: +dirSpread.toFixed(3), squashMax: sqM2, minPen: minPen == null ? null : +minPen.toFixed(3), clipFrames: clipFrames, penEvents: penEvents.sort(function (a9, b9) { return a9.pen - b9.pen; }).slice(0, 8), penEventN: penEvents.length, maxContactTail: maxContactTail, maxIdDisp: +maxIdDisp.toFixed(2), reactEnvN: rrE.length, reactEnvFrameSd: +rfSdE.toFixed(2), reactEnvDirSpread: +dirSpreadE.toFixed(3) });})()`);
+  killReasons: (function () { if (!__ca2.killReasons) return null; var k1 = __ca2.killReasons(), k0 = window.__kr0 || { select: 0, energy0: 0, crowd: 0, genebound: 0 }; return { select: k1.select - k0.select, energy0: k1.energy0 - k0.energy0, crowd: k1.crowd - k0.crowd, genebound: k1.genebound - k0.genebound }; })(), deathLog: (__ca2.deathLog || []).slice(-32), transFrames: fr.filter(function (f) { return f.tr; }).length, frameWallSpanMs: fr.length > 1 ? fr[fr.length - 1].t - fr[0].t : 0, sepJitter: sepJit, viol: viol, maxSameTail: maxSameTail, wallTail: wallTail, violFrames: violFrames, reactN: rr.length, reactFrameSd: +rfSd.toFixed(2), reactDirSpread: +dirSpread.toFixed(3), squashMax: sqM2, minPen: minPen == null ? null : +minPen.toFixed(3), minPenSat: minPenSat == null ? null : +minPenSat.toFixed(3), clipFrames: clipFrames, clipFramesSat: clipFramesSat, penEvents: penEvents.sort(function (a9, b9) { return a9.pen - b9.pen; }).slice(0, 8), penEventN: penEvents.length, maxContactTail: maxContactTail, maxIdDisp: +maxIdDisp.toFixed(2), reactEnvN: rrE.length, reactEnvFrameSd: +rfSdE.toFixed(2), reactEnvDirSpread: +dirSpreadE.toFixed(3) });})()`);
   const TREE = (process.argv[2] || '').includes('ca2base') ? 'base' : 'branch';
   let steppedArr = []; try { steppedArr = JSON.parse(stepped); } catch (e) {}
   let outP = {}; try { outP = JSON.parse(out === 'EV-TIMEOUT' ? '{}' : out); } catch (e) { console.error('EVAL-EXC raw:', String(out).slice(0, 600)); }
