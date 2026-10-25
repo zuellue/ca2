@@ -75,7 +75,7 @@ setTimeout(function(){var j=0;var iv2=setInterval(function(){j++;if(j<=steps){__
   const stepped = TAILMS > 0 ? await evG(`(function(){ try { window.__ca2NoDraw = 1; var series = [];
     for (var b = 0; b < 10; b++) { __ca2.stepN(${FPS}, ${1000 / FPS}); var cs = __ca2.getCells(), cx = __ca2.cont.x, same = 0, zvx = 0, alive = 0, mv = 0;
       var zids = []; for (var i = 0; i < cs.length; i++) { var q = cs[i]; if (!q.alive) continue; alive++; if (q.x - cx < 3) { same++; if (Math.abs(q.vx) < 0.05) { zvx++; zids.push(q.__ti === undefined ? -1 : q.__ti); } else mv++; } }
-      series.push({ step: (b + 1) * ${FPS}, alive: alive, sameAtWall: same, zeroVx: zvx, zids: zids, moving: mv, deaths: __ca2.deaths, trans: __ca2.trans, frameT: Math.round(__ca2.frameT || 0) }); } // zids+frameT: per-ID persistence and virtual-clock proof (main 25 Oct)
+      series.push({ step: (b + 1) * ${FPS}, alive: alive, sameAtWall: same, zeroVx: zvx, zids: zids, moving: mv, deaths: (__ca2.deathsLive === undefined ? __ca2.deaths : __ca2.deathsLive), trans: (__ca2.transLive === undefined ? __ca2.trans : __ca2.transLive), frameT: Math.round(__ca2.frameT || 0) }); } // live accessors: value fields freeze between full-frame rebuilds // zids+frameT: per-ID persistence and virtual-clock proof (main 25 Oct)
     window.__ca2NoDraw = 0; return JSON.stringify(series); } catch (e9) { window.__ca2NoDraw = 0; return 'STEPPED-ERR: ' + (e9 && e9.stack || e9); } })()`) : '[]'; // sim-stepped long tail (120 steps = 10s sim at 12fps), NOT real rAF timing (main 25 Oct); render skipped, physics path unchanged, separators off
   console.error(el() + 's stepped tail: ' + String(stepped).slice(0, 120));
   if (SHOT) await c.shot(SHOT + '-after.png');
