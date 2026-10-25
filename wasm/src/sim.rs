@@ -19,7 +19,7 @@ pub static mut SIM: Option<Sim> = None;
 pub fn sim() -> &'static mut Sim {
     unsafe {
         let s = &mut *std::ptr::addr_of_mut!(SIM);
-        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 89], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new(), pr: vec![] }); }
+        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 93], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new(), pr: vec![] }); }
         s.as_mut().unwrap()
     }
 }
@@ -40,7 +40,8 @@ const P_ORGDIE: usize = 61; const P_ORGGROW: usize = 62; const P_ORGBIRTH: usize
 const P_ORGBRAIN: usize = 65; const P_ORGR90: usize = 66; // organic() life/birth/energy deltas (B3/S23 topology stays)
 const P_SYMEN: usize = 67; const P_SYMBRK: usize = 68; const P_SYMBRKD: usize = 69; // symbiosis bond feed, whim break, distance break (x span)
 const P_DTF: usize = 78; const P_FERATE: usize = 79;
-const P_SQMAX: usize = 86; const P_SQIN: usize = 87; const P_SQOUT: usize = 88; // eased squash: depth + in/out rates per frame at 60fps (item 64) // frame dt ms + grazing rate (dots/s per touched dot) - moved off 55/56: those belong to P_NCM/P_ONLYINT, and foodEatRate!=0 read as ONLYINT disabled update()/check_survival() for every cell (divide/graze/shrink/keepIn all dead)
+const P_SQMAX: usize = 86; const P_SQIN: usize = 87; const P_SQOUT: usize = 88; // eased squash: depth + in/out rates per frame at 60fps (item 64)
+const P_SENR: usize = 89; const P_SENSL: usize = 90; const P_SENTU: usize = 91; const P_SENDL: usize = 92; // sensing band: radius multiplier, slow, turn, max per-cell delay (item 64 directive 1) // frame dt ms + grazing rate (dots/s per touched dot) - moved off 55/56: those belong to P_NCM/P_ONLYINT, and foodEatRate!=0 read as ONLYINT disabled update()/check_survival() for every cell (divide/graze/shrink/keepIn all dead)
 const P_EATDF: usize = 70; const P_FUSEDF: usize = 71; const P_SYMDF: usize = 72; // eat/fuse/pair contact distance (x radii sum)
 const P_HABON: usize = 73; const P_HABCAP: usize = 74;
 const P_DIVMODE: usize = 75; const P_DIVAGE: usize = 76; const P_DIVEN: usize = 77;
@@ -189,6 +190,22 @@ impl Sim {
         d = x1 - x; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vx -= f * t * t * ms * 0.25; if vx > 0.0 { vx *= 1.0 - 0.25 * t; } if t > press { press = t; } }
         d = y - y0; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vy += f * t * t * ms * 0.25; if vy < 0.0 { vy *= 1.0 - 0.25 * t; } if t > press { press = t; } }
         d = y1 - y; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vy -= f * t * t * ms * 0.25; if vy > 0.0 { vy *= 1.0 - 0.25 * t; } if t > press { press = t; } }
+        // item 64 directive 1: sensing before contact, 1:1 with ca2.js keepIn - slow + along-wall drift in
+        // the band [z, z*senseR), staggered by a deterministic per-cell hash (no RNG consumption)
+        let zs = z * self.p[P_SENR];
+        if zs > z + 0.001 && (self.p[P_SENSL] != 0.0 || self.p[P_SENTU] != 0.0) {
+            let mut h1 = self.g(c, GENE) * 0.6180339887; h1 -= h1.floor();
+            let mut h2 = self.g(c, MAXS) * 0.7548776662; h2 -= h2.floor();
+            let sdel = h1 * self.p[P_SENDL]; let ssl = self.p[P_SENSL]; let stu = self.p[P_SENTU];
+            for si in 0..4 {
+                let sd = if si == 0 { x - x0 } else if si == 1 { x1 - x } else if si == 2 { y - y0 } else { y1 - y };
+                if sd >= zs || sd < z { continue; }
+                let st0 = 1.0 - sd / zs; let st = clamp((st0 - sdel) / (1e-6f64).max(1.0 - sdel), 0.0, 1.0);
+                if st <= 0.0 { continue; }
+                let damp = 1.0 - ssl * st; let tdr = stu * st * ms * (if h2 < 0.5 { -1.0 } else { 1.0 }) * 0.5;
+                if si < 2 { vx *= damp; vy += tdr; } else { vy *= damp; vx += tdr; }
+            }
+        }
         // item 64 directive 2: no permanent size loss at the boundary - one eased squash state, 1:1 with
         // ca2.js keepIn (sqS signal at both call sites) + stepSquash (one ease per frame, after the second
         // keepIn): the press accumulates over both keep_in calls, the ease runs once, on the second call.
