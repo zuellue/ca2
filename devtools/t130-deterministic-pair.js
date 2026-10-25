@@ -105,8 +105,8 @@ async function runEngine(enginePath, label) {
   if (!ca2 || !ca2.getCells) throw new Error(label + ': __ca2 missing after boot');
   // settle intro batched spawn + boot morph: pump until full population and no trans
   for (let i = 0; i < 300; i++) { pump(); await new Promise(r => setImmediate(r)); } // fixed pre-inject pump: deterministic PRNG position, population fully replaced by inject below
-  for (let i = 0; i < 600 && ca2.trans; i++) { pump(); await new Promise(r => setImmediate(r)); }
-  if (ca2.trans) throw new Error(label + ': trans did not drain');
+  for (let i = 0; i < 600 && !sandbox.__ca2KillTrans && (ca2.transLive === undefined ? ca2.trans : ca2.transLive); i++) { pump(); await new Promise(r => setImmediate(r)); } // probe builds: trans is killed at inject instead (cellMorphMs=4200 -> 21s morph cannot drain in-window)
+  if (!sandbox.__ca2KillTrans && (ca2.transLive === undefined ? ca2.trans : ca2.transLive)) throw new Error(label + ': trans did not drain');
   if (!ca2.getCells().length) throw new Error(label + ': empty population at inject');
   console.error(label + ': pre-inject n=' + ca2.getCells().length);
   // panel hover: freeze auto re-deals (t127 parity)
@@ -118,8 +118,11 @@ async function runEngine(enginePath, label) {
   INJ.cells.forEach((sc, i) => { const c = cs0[i]; for (const k in sc) { if (k === 'g' || k === 'shp') c[k] = JSON.parse(JSON.stringify(sc[k])); else c[k] = sc[k]; } });
   cs0.length = INJ.cells.length;
   cs0.forEach(q => { q.envVx = 0; q.envVy = 0; }); // stateB carries no envV; zero the boot residue so both engines start with identical dynamic state
+  cs0.forEach(q => { q.comp = 0; q.sym = null; }); // stateB carries no comp/sym; boot-morph composition ids and symbiosis links are boot residue (boundary finding 25 Oct)
   if (process.env.T130_TRACE) { // inject-index identity: trace stays off through boot; ids = stateB index for injected cells, 1000+ for births (cross-pair aligned)
     sandbox.__ca2trace = [];
+    sandbox.__ca2bndRows = []; // first-update boundary rows (tr6 instrumented builds only)
+    sandbox.__ca2bndArm = true;
     const objToIdx = new WeakMap(); cs0.forEach((q, i) => objToIdx.set(q, i)); let birthId = 1000;
     sandbox.__ca2traceIdFn = (tc) => { const i = objToIdx.get(tc); return i !== undefined ? i : birthId++; };
     var __injReceipt = cs0.slice(0, 85).map((q, i) => ({ i, idFnOk: sandbox.__ca2traceIdFn(q) === i, x: +q.x.toFixed(3), y: +q.y.toFixed(3), radius: +q.radius.toFixed(3), vx: +q.vx.toFixed(3), vy: +q.vy.toFixed(3), energy: +q.energy.toFixed(4), sq: +q.sq.toFixed(4) }));
@@ -130,6 +133,14 @@ async function runEngine(enginePath, label) {
   // re-seed post-boot so both engines enter the drag with identical PRNG streams (wasm s0/s1 are passed per-step from JS Math.random)
   const rng2 = makeRng(SEED);
   vm.runInContext('Math.random = window.__rng2;', Object.assign(sandbox, { __rng2: rng2 }), { filename: 'reseed.js' });
+  if (sandbox.__ca2KillTrans) { // pair-matched global physics (boundary-finding 25 Oct): morph killed; trans-lerped P keys reset to the frozen preset; env to declaration defaults; clusterSeq past stateB max; live-key drift cleared. Direct probe writes - setKey/applyKey would pin keys and reset radii.
+    sandbox.__ca2KillTrans();
+    const GP = JSON.parse(PRESET_TXT);
+    const maxCl = INJ.cells.reduce((m, c) => Math.max(m, c.cl || 0), 0);
+    sandbox.__ca2ResetGlobals(GP.UNIVERSE_SIZE, GP.CELL_RADIUS, GP.interactionRadius, GP.mutationRateRange, GP.baseMutationRate, maxCl + 1);
+    cs0.forEach(q => { q.bornAt = 0; }); // boot-born residue: age slot must match pair-wide
+    const lv = sandbox.__ca2 && sandbox.__ca2.live; if (lv) for (const lk in lv) delete lv[lk];
+  }
   // per-ti full-state verify
   const idMap = new WeakMap(); let nextTi = 0;
   let mism = 0; cs0.forEach((q, i) => { idMap.set(q, nextTi++); const s = INJ.cells[i]; if (!s || Math.abs(q.x - s.x) > 0.01 || Math.abs(q.y - s.y) > 0.01 || Math.abs(q.radius - s.radius) > 0.01 || Math.abs((q.vx||0) - (s.vx||0)) > 0.01 || Math.abs((q.vy||0) - (s.vy||0)) > 0.01 || Math.abs((q.energy||0) - (s.energy||0)) > 0.001 || Math.abs((q.sq||0) - (s.sq||0)) > 0.001) mism++; });
@@ -150,6 +161,7 @@ async function runEngine(enginePath, label) {
   const fire = (t, x, y) => { const e = { type: t, clientX: x, clientY: y, buttons: t === 'mouseup' ? 0 : 1, target: cv, preventDefault() {}, stopPropagation() {}, stopImmediatePropagation() {} }; cv.dispatchEvent(e); fireWin(t, e); };
   const frames = [];
   pump(); frames.push(snapshot());
+  if (process.env.T130_BOUNDARY) { pump(); frames.push(snapshot()); pump(); frames.push(snapshot()); } else {
   const y = Math.round(ca2.cont.y + ca2.cont.h / 2), x0 = Math.round(ca2.cont.x + 2), half = Math.round(ca2.cont.w * 0.25), d = half / 5;
   fire('mousedown', x0, y); pump(); frames.push(snapshot());
   for (let i = 1; i <= 5; i++) { fire('mousemove', x0 + Math.round(i * d), y); for (let k = 0; k < 4; k++) { pump(); frames.push(snapshot()); } }
@@ -157,6 +169,8 @@ async function runEngine(enginePath, label) {
   for (let j = 4; j >= 0; j--) { fire('mousemove', x0 + Math.round(j * d), y); for (let k = 0; k < 4; k++) { pump(); frames.push(snapshot()); } }
   fire('mouseup', x0, y);
   for (let r = 0; r < 60; r++) { pump(); frames.push(snapshot()); }
+  }
+  if (process.env.T130_TRACE && sandbox.__ca2bndRows) fs.writeFileSync('/tmp/t130-bnd-' + label + '.json', JSON.stringify(sandbox.__ca2bndRows));
   if (process.env.T130_TRACE && sandbox.__ca2trace) { fs.writeFileSync('/tmp/t130-trace-' + label + '.json', JSON.stringify(sandbox.__ca2trace));
     meta.trfAtInjectMeasured = sandbox.__ca2trace.length ? sandbox.__ca2trace[0][0] : null; } // first traced frame = inject frame (trace installed at inject)
   // identity scope: tids 0..84 = injected cohort (stateB index, cross-pair aligned); tids >=1000 = births, PER-ENGINE lineage only - no cross-pair identity for births (divergent runs birth different cells).
