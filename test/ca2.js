@@ -451,7 +451,10 @@
     if (dist < rab) ev.hit++;
     if (dist < a.radius + b.radius && Math.random() < P.reproChance * birthCapF() && a.energy > P.minEnergyForReproduction && b.energy > P.minEnergyForReproduction && frameT - (a.bornAt || 0) >= P.reproMinAgeMs && frameT - (b.bornAt || 0) >= P.reproMinAgeMs) reproduce(a, b); // juveniles do not reproduce: newborns overlap their parents, and ungated contact births chained into rows (owner 21 Oct: one click must be one cell)
     var nl = dist || 1, nx = dx / nl, ny = dy / nl, sep = (rab - dist) * 0.5;
-    a.x -= nx * sep; a.y -= ny * sep; b.x += nx * sep; b.y += ny * sep;
+    // f9 (73d-1, 1:1 sim.rs): a squeeze pushes as a force, it never carries - a pressed pair separates at the cells' own quantum over the next frames
+    if (a.__ccT !== frameT) { a.__ccT = frameT; a.__ccU = 0; } if (b.__ccT !== frameT) { b.__ccT = frameT; b.__ccU = 0; }
+    var spa9 = Math.min(sep, Math.max(0, (a.maxSpeed || 0) + 1 - a.__ccU)), spb9 = Math.min(sep, Math.max(0, (b.maxSpeed || 0) + 1 - b.__ccU));
+    a.x -= nx * spa9; a.y -= ny * spa9; a.__ccU += spa9; b.x += nx * spb9; b.y += ny * spb9; b.__ccU += spb9;
     var ad = a.vx * nx + a.vy * ny, bd = b.vx * nx + b.vy * ny;
     a.vx = lerp(a.vx, a.vx - nx * 2 * ad, 0.8); a.vy = lerp(a.vy, a.vy - ny * 2 * ad, 0.8);
     b.vx = lerp(b.vx, b.vx - nx * 2 * bd, 0.8); b.vy = lerp(b.vy, b.vy - ny * 2 * bd, 0.8);
@@ -945,21 +948,22 @@
     c.vx += -Math.sin(sh2.dir) * swk; c.vy += Math.cos(sh2.dir) * swk;
     var vv = Math.hypot(c.vx, c.vy); if (vv > 0.05) { c.vx = lerp(c.vx, Math.cos(sh2.dir) * vv, 0.04); c.vy = lerp(c.vy, Math.sin(sh2.dir) * vv, 0.04); }
   }
+  var WDRSN = {2: 'energy0', 3: 'crowd', 4: 'genebound', 5: 'oob', 6: 'select'}; // wasm sim.rs DRSN codes -> deathLog reasons (item 64, main 25 Oct)
   function simW(tmpRef) {
     var E = WC.e; if (E && /[?&]simab=1/.test(location.search) && (SIMW.t = !SIMW.t)) return false; if (!E || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) { SIMW.on = false; return false; }
     try {
       var t0 = performance.now(), n = cells.length, cap = n + 256, nf = food.length, cl = Object.keys(cmean), ncm = cl.length, i, c, b;
       E.sim_cells(cap); E.sim_food(nf + 1); E.sim_cm(ncm + 1);
       var cp = E.sim_cells(cap), fxp = E.sim_food(nf + 1), fyp = E.sim_food_y(), fgp = E.sim_food_gone(), cmp = E.sim_cm(ncm + 1), cip = E.sim_cm_ids(), pp = E.sim_params();
-      var buf = WC.mem.buffer, cf = new Float64Array(buf, cp, cap * 29), fx = new Float64Array(buf, fxp, nf + 1), fy = new Float64Array(buf, fyp, nf + 1), cmf = new Float64Array(buf, cmp, (ncm + 1) * 5), cid = new Float64Array(buf, cip, ncm + 1), p = new Float64Array(buf, pp, 97);
+      var buf = WC.mem.buffer, cf = new Float64Array(buf, cp, cap * 30), fx = new Float64Array(buf, fxp, nf + 1), fy = new Float64Array(buf, fyp, nf + 1), cmf = new Float64Array(buf, cmp, (ncm + 1) * 5), cid = new Float64Array(buf, cip, ncm + 1), p = new Float64Array(buf, pp, 97);
       simStamp++;
       for (i = 0; i < n; i++) {
         c = cells[i]; c._i = i; c._f = simStamp;
       }
       for (i = 0; i < n; i++) {
-        c = cells[i]; b = i * 29; var g = c.g;
+        c = cells[i]; b = i * 30; var g = c.g;
         cf[b] = c.x; cf[b + 1] = c.y; cf[b + 2] = c.vx; cf[b + 3] = c.vy; cf[b + 4] = c.radius; cf[b + 5] = c.energy; cf[b + 6] = c.gene; cf[b + 7] = c.alive ? 1 : 0; cf[b + 8] = c.maxSpeed; cf[b + 9] = c.speedModifier; cf[b + 10] = c.hostility; cf[b + 11] = c.mutationRate; cf[b + 12] = c.sv; cf[b + 13] = c.cl || 0;
-        cf[b + 14] = (c.sym && c.sym._f === simStamp) ? c.sym._i : -1; cf[b + 15] = g.spd; cf[b + 16] = g.app; cf[b + 17] = g.bnd; cf[b + 18] = g.col[0]; cf[b + 19] = g.col[1]; cf[b + 20] = g.col[2]; cf[b + 21] = c.comp || 0; cf[b + 22] = 0; cf[b + 23] = frameT - (c.bornAt || 0); cf[b + 24] = c.sq || 0; cf[b + 25] = c.crowd || 0; cf[b + 26] = c.envVx || 0; cf[b + 27] = c.envVy || 0; cf[b + 28] = 0; // slot 23: age ms in, -1 = absorbed out; 22 is the wasm REM flag; 24: eased squash state, 25: crowd field (item 64); 26-27: environmental velocity (directive 3); 28: wasm wall-press signal out (the squash ease is a JS post-pass for both engines)
+        cf[b + 14] = (c.sym && c.sym._f === simStamp) ? c.sym._i : -1; cf[b + 15] = g.spd; cf[b + 16] = g.app; cf[b + 17] = g.bnd; cf[b + 18] = g.col[0]; cf[b + 19] = g.col[1]; cf[b + 20] = g.col[2]; cf[b + 21] = c.comp || 0; cf[b + 22] = 0; cf[b + 23] = frameT - (c.bornAt || 0); cf[b + 24] = c.sq || 0; cf[b + 25] = c.crowd || 0; cf[b + 26] = c.envVx || 0; cf[b + 27] = c.envVy || 0; cf[b + 28] = 0; cf[b + 29] = 0; // slot 23: age ms in, -1 = absorbed out; 22 is the wasm REM flag; 24: eased squash state, 25: crowd field (item 64); 26-27: environmental velocity (directive 3); 28: wasm wall-press signal out (the squash ease is a JS post-pass for both engines)
       }
       E.sim_set_n(n); E.sim_set_nf(nf);
       for (i = 0; i < nf; i++) { fx[i] = food[i].x; fy[i] = food[i].y; }
@@ -984,14 +988,14 @@
       var o = new Float64Array(WC.mem.buffer, E.sim_out(), 32), nf2 = o[15];
       var kids = [];
       if (E.sim_cap && E.sim_cap() !== cap) { cap = E.sim_cap(); cp = E.sim_cells_ptr(); } // wasm grew its cell buffer on a birth burst: re-anchor before reading back
-      cf = new Float64Array(WC.mem.buffer, cp, cap * 29);
+      cf = new Float64Array(WC.mem.buffer, cp, cap * 30);
       for (i = 0; i < nf2; i++) {
-        b = i * 29; c = i < n ? cells[i] : new Cell(cf[b], cf[b + 1], cf[b + 6], cf[b + 11]);
+        b = i * 30; c = i < n ? cells[i] : new Cell(cf[b], cf[b + 1], cf[b + 6], cf[b + 11]);
         if (i >= n) { cells.push(c); c._i = i; c._f = simStamp; }
         c.x = cf[b]; c.y = cf[b + 1]; c.vx = cf[b + 2]; c.vy = cf[b + 3]; c.radius = cf[b + 4]; c.energy = cf[b + 5]; c.gene = cf[b + 6]; c.alive = cf[b + 7] !== 0; c.maxSpeed = cf[b + 8]; c.speedModifier = cf[b + 9]; c.hostility = cf[b + 10]; c.mutationRate = cf[b + 11]; c.sv = cf[b + 12]; c.cl = cf[b + 13];
-        var gg = c.g; gg.spd = cf[b + 15]; gg.app = cf[b + 16]; gg.bnd = cf[b + 17]; gg.col = [cf[b + 18], cf[b + 19], cf[b + 20]]; if (cf[b + 21] > 0) c.comp = cf[b + 21]; c.absorbed = cf[b + 23] < 0 ? 1 : 0; c.sq = cf[b + 24]; c.crowd = cf[b + 25]; c.envVx = cf[b + 26]; c.envVy = cf[b + 27]; c.sqS = Math.max(c.sqS || 0, cf[b + 28]);
+        var gg = c.g; gg.spd = cf[b + 15]; gg.app = cf[b + 16]; gg.bnd = cf[b + 17]; gg.col = [cf[b + 18], cf[b + 19], cf[b + 20]]; if (cf[b + 21] > 0) c.comp = cf[b + 21]; c.absorbed = cf[b + 23] < 0 ? 1 : 0; c.sq = cf[b + 24]; c.crowd = cf[b + 25]; c.envVx = cf[b + 26]; c.envVy = cf[b + 27]; c.sqS = Math.max(c.sqS || 0, cf[b + 28]); c.wasmDr = cf[b + 29];
       }
-      for (i = 0; i < nf2; i++) { var sy = cf[i * 29 + 14]; cells[i].sym = sy >= 0 ? cells[sy] : null; }
+      for (i = 0; i < nf2; i++) { var sy = cf[i * 30 + 14]; cells[i].sym = sy >= 0 ? cells[sy] : null; }
       var fg = new Float64Array(WC.mem.buffer, fgp, nf + 1);
       var lg = new Float64Array(WC.mem.buffer, E.sim_log(), o[17]); // births / fusions: body plans stay in JS (newShape/mixShape), the wasm core only reports who came from whom
       for (i = 0; i < lg.length; i += 4) { var kd = lg[i + 3], k0 = cells[lg[i]], p0 = cells[lg[i + 1]], p1 = lg[i + 2] >= 0 ? cells[lg[i + 2]] : null; if (kd === 1) k0.shp = newShape(p0.shp); else if (kd === 2) k0.shp = mixShape(p0.shp, p1.shp); else k0.shp = mixShape(k0.shp, p0.shp); }
@@ -1000,7 +1004,7 @@
       for (i = nf - 1; i >= 0; i--) if (fg[i] !== 0) { habAte(food[i]); food[i].gone = 1; food.splice(i, 1); }
       ev.killSel = (ev.killSel || 0) + (o[20] || 0); ev.killEnergy = (ev.killEnergy || 0) + (o[21] || 0); ev.killCrowd = (ev.killCrowd || 0) + (o[22] || 0); ev.killGene = (ev.killGene || 0) + (o[23] || 0); // wasm kill-reason counters (sim.rs out[20-23], per-step, accumulated here into session totals) - actual death-path trace, no inference (main 25 Oct)
       ev.birth += o[0]; ev.divide = (ev.divide || 0) + o[1]; ev.eaten = (ev.eaten || 0) + o[2]; ev.merge = (ev.merge || 0) + o[3]; ev.fuse = (ev.fuse || 0) + o[4]; ev.pair = (ev.pair || 0) + o[5]; ev.hit += o[6]; ev.oob += o[7]; ev.ate = (ev.ate || 0) + o[8]; clusterSeq = o[10];
-      for (i = cells.length - 1; i >= 0; i--) if (!cells[i].alive) { ev.death++; logDeath(cells[i], cells[i].__dr || 'untagged-wasm'); habReap(cells[i]); cells.splice(i, 1); }
+      for (i = cells.length - 1; i >= 0; i--) if (!cells[i].alive) { ev.death++; logDeath(cells[i], cells[i].__dr || WDRSN[cells[i].wasmDr] || 'untagged-wasm'); habReap(cells[i]); cells.splice(i, 1); }
       hovering = o[11] !== 0; tmpRef.v = [o[12], o[13], o[14]];
       SIMW.ms = SIMW.ms * 0.9 + (performance.now() - t0) * 0.1; SIMW.on = true; return true;
     } catch (e) { WC.simOff = true; WC.simErr = String(e); SIMW.on = false; return false; }
@@ -1341,6 +1345,7 @@
     if (!segs && !mask) return;
     for (var i = 0; i < cells.length; i++) {
       var c = cells[i]; if (!c.alive) continue;
+      if (c.__sepT !== frameT) { c.__sepT = frameT; c.__sepU = 0; } // f9: ONE positional-correction budget per cell per FRAME across every separator invocation (73d-1)
       var r = c.radius * Math.sqrt(Math.max(0, P.metaballStrength) / Math.max(0.001, P.THRESHOLD)) + Math.min(LW(), 1 / DD) / 2, j, dx, dy, d, nx, ny;
       var habF = 1 - (P.habMax === undefined ? 0.6 : P.habMax) * (c.hab || 0); // item 64 directive 5: habituation weakens the startle, quiet restores it (state updated below)
       if (segs && isFinite(c._sepX) && isFinite(c._sepY)) for (j = 0; j < segs.length; j++) {
@@ -1348,7 +1353,7 @@
         var enX = -ey / el, enY = ex / el, oldD = (c._sepX - es[0]) * enX + (c._sepY - es[1]) * enY, newD = (c.x - es[0]) * enX + (c.y - es[1]) * enY;
         if (oldD * newD < 0) {
           var hitT = oldD / (oldD - newD), hitX = c._sepX + (c.x - c._sepX) * hitT, hitY = c._sepY + (c.y - c._sepY) * hitT, along = ((hitX - es[0]) * ex + (hitY - es[1]) * ey) / (el * el);
-          if (along >= 0 && along <= 1) { var side = oldD > 0 ? 1 : -1; c.x = hitX + enX * side * r; c.y = hitY + enY * side * r; var nv = c.vx * enX + c.vy * enY; if (nv * side < 0) { c.vx -= (1 + 0.7 * habF) * nv * enX; c.vy -= (1 + 0.7 * habF) * nv * enY; } }
+          if (along >= 0 && along <= 1) { var side = oldD > 0 ? 1 : -1; var q9g = (c.maxSpeed || 0) + 1, back9 = Math.min(r, Math.max(0, q9g - (c.__sepU || 0))); c.__sepU = (c.__sepU || 0) + back9; c.x = hitX + enX * side * back9; c.y = hitY + enY * side * back9; var nv = c.vx * enX + c.vy * enY; if (nv * side < 0) { c.vx -= (1 + 0.7 * habF) * nv * enX; c.vy -= (1 + 0.7 * habF) * nv * enY; } }
         }
       }
       var pr = 0, solverOn = (P.solverIters === undefined ? 0 : P.solverIters) > 0;
@@ -1370,7 +1375,8 @@
         if (!anyV) break;
         var al = Math.hypot(acx, acy);
         if (al < 0.001) break; // perfectly opposed normals: hold position, velocity already reflected
-        var st = Math.min(al, worst + 1); c.x += acx / al * st; c.y += acy / al * st;
+        var q9 = (c.maxSpeed || 0) + 1, rem9 = Math.max(0, q9 - (c.__sepU || 0)); // f9: same per-cell quantum as the collective pass (maxSpeed+1), shared by every separator correction this frame
+        var st = Math.min(al, worst + 1, rem9); if (st <= 0) break; c.__sepU += st; c.x += acx / al * st; c.y += acy / al * st;
       }
       // the separator narrows what presses it (same rule as the plate wall, owner 22 Oct): a giant whose body
       // cannot fit between the lines is worn down toward the base radius until it fits
@@ -1410,7 +1416,7 @@
         var lnx=-ly/ll, lny=lx/ll, signed=(c.x-ls[0])*lnx+(c.y-ls[1])*lny, lside=signed>=0?1:-1;
         var travel=0, cap=inkBody.bound*2+2;
         while(travel<cap && sepBodyLineHit(inkBody,c.x+lnx*lside*travel,c.y+lny*lside*travel,ls))travel+=1;
-        if(travel<cap){c.x+=lnx*lside*travel;c.y+=lny*lside*travel;var lv=c.vx*lnx+c.vy*lny;if(lv*lside<0){c.vx-=1.7*lv*lnx;c.vy-=1.7*lv*lny;}}
+        var q9w=(c.maxSpeed||0)+1,rem9w=Math.max(0,q9w-(c.__sepU||0));if(travel>rem9w)travel=rem9w;c.__sepU=(c.__sepU||0)+travel;if(travel>0){c.x+=lnx*lside*travel;c.y+=lny*lside*travel;}if(true){var lv=c.vx*lnx+c.vy*lny;if(lv*lside<0){c.vx-=1.7*lv*lnx;c.vy-=1.7*lv*lny;}}
       }
       if (mask && sepBodyHit(inkBody, c.x, c.y)) {
         // Search real empty ink space, not bounding boxes: counters remain usable. The previous
@@ -1431,7 +1437,7 @@
         }
         if (foundInk) {
           var inkDX = bestIX - c.x, inkDY = bestIY - c.y, inkLen = Math.hypot(inkDX, inkDY) || 1;
-          c.x = bestIX; c.y = bestIY;
+          var q9m = (c.maxSpeed || 0) + 1, mv9 = Math.min(inkLen, Math.max(0, q9m - (c.__sepU || 0))); c.__sepU = (c.__sepU || 0) + mv9; if (mv9 > 0) { c.x += inkDX / inkLen * mv9; c.y += inkDY / inkLen * mv9; } // f9: walk toward the free point at the cell's own quantum, never teleport
           var inkVN = (c.vx * inkDX + c.vy * inkDY) / inkLen;
           if (inkVN < 0) { c.vx -= 1.7 * inkVN * inkDX / inkLen; c.vy -= 1.7 * inkVN * inkDY / inkLen; }
         }
@@ -1451,10 +1457,10 @@
     if(P.showHud&&SEP.img)for(var yy=0;yy<SEP.mh;yy++)for(var xx=0;xx<SEP.mw;xx++)if(SEP.img[(yy*SEP.mw+xx)*4+3]>40)addPoint(xx*2+1,yy*2+1,0,0);
     // Sum the same sources that will be rendered, then move contributors, never erase pixels.
     for(var pass=0;pass<12;pass++){
-      var bodies=[],active=[], moves=[], hit=0,flat=[],parts=[];
+      var bodies=[],active=[], moves=[], hit=0,flat=[],parts=[],over=[];
       for(var ci=0;ci<cells.length;ci++)if(cells[ci].alive&&introOn(cells[ci].popD)&&cells[ci].x>=cont.x&&cells[ci].x<=cont.x+cont.w&&cells[ci].y>=cont.y&&cells[ci].y<=cont.y+cont.h) {active.push(cells[ci]);bodies.push(null);moves.push([0,0]);}
       var allowance=active.length>1?Math.max(1,Math.floor(SRC_MAX/active.length)):SRC_MAX;
-      for(var k=0;k<active.length;k++)bodies[k]=sepBody(active[k],allowance);
+      for(var k=0;k<active.length;k++){bodies[k]=sepBody(active[k],allowance);over[k]=1;}
       for(var k=0;k<active.length;k++){var b=bodies[k],c=active[k];for(var q=0;q<b.n;q++)flat.push([c.x+b.x[q],c.y+b.y[q],P.metaballStrength*b.r[q]*b.r[q],b.r[q]*Math.max(3,Math.sqrt(P.metaballStrength/(P.THRESHOLD*.03))),k]);}
       function sample(x,y,nx,ny){
         if(x<cont.x||x>cont.x+cont.w||y<cont.y||y>cont.y+cont.h)return;
@@ -1462,10 +1468,13 @@
         for(var k=0;k<active.length;k++)parts[k]=0;
         for(var q=0;q<flat.length;q++){var fs=flat[q],dx=x-fs[0],dy=y-fs[1];if(Math.abs(dx)>fs[3]||Math.abs(dy)>fs[3])continue;var f=fs[2]/(dx*dx+dy*dy+.0001);parts[fs[4]]+=f;total+=f;}
         if(total<=threshold)return;hit++;
-        for(var k=0;k<active.length;k++)if(parts[k]>threshold*.002){var c=active[k],dx=c.x-x,dy=c.y-y,mx,my;
+        // contact attribution (item 64, root of the collective slide): only a cell whose OWN ink touches the wall point
+        // moves - the crowd-share gate (.002 of threshold) dragged 99%+ of transported px on non-contacting cells. Step
+        // scales with the cell's own overload at the point, not the crowd total. Same ink test as sepBodyLineHit (.96).
+        for(var k=0;k<active.length;k++)if(parts[k]>P.THRESHOLD*.96){if(parts[k]/threshold>over[k])over[k]=parts[k]/threshold;var c=active[k],dx=c.x-x,dy=c.y-y,mx,my;
           if(nx!==null){var side=dx*nx+dy*ny>=0?1:-1;mx=nx*side;my=ny*side;}else{var dl=Math.max(.0001,Math.hypot(dx,dy));mx=dx/dl;my=dy/dl;}
-          var step=Math.min(bodies[k].bound+2,Math.max(1,bodies[k].bound*(Math.sqrt(total/threshold)-1))), m=moves[k];
-          if(Math.abs(mx*step)>Math.abs(m[0]))m[0]=mx*step;if(Math.abs(my*step)>Math.abs(m[1]))m[1]=my*step;
+          var step=Math.min(bodies[k].bound+2,Math.max(1,bodies[k].bound*(Math.sqrt(parts[k]/threshold)-1))), m=moves[k];
+          m[0]+=mx*step;m[1]+=my*step; // multi-segment coherence (item 64, main 25 Oct): per-point escape pushes accumulate as one vector per cell - contradictory pushes from different segments cancel instead of per-axis max zigzag; magnitude stays bounded by the 73d(2) quantum cap at apply time
         }
       }
       var E=WC.e, usedW=false;
@@ -1475,8 +1484,8 @@
         for(var q=0;q<flat.length;q++)fb.set(flat[q],q*5);
         for(var k=0;k<active.length;k++)cb.set([active[k].x,active[k].y,bodies[k].bound],k*3);
         new Float64Array(WC.mem.buffer,pp,points.length).set(points);
-        hit=E.sep_run(flat.length,points.length/4,active.length,threshold);
-        var mb=new Float64Array(WC.mem.buffer,E.sep_moves(),active.length*2);for(var k=0;k<active.length;k++){moves[k][0]=mb[k*2];moves[k][1]=mb[k*2+1];}usedW=true;
+        hit=E.sep_run(flat.length,points.length/4,active.length,threshold,P.THRESHOLD*.96);
+        var mb=new Float64Array(WC.mem.buffer,E.sep_moves(),active.length*3);for(var k=0;k<active.length;k++){moves[k][0]=mb[k*3];moves[k][1]=mb[k*3+1];over[k]=mb[k*3+2];}usedW=true;
       }
       if(!usedW)for(var pi=0;pi<points.length;pi+=4)sample(points[pi],points[pi+1],points[pi+2]||points[pi+3]?points[pi+2]:null,points[pi+3]);
       if(!hit)break;
@@ -1485,9 +1494,10 @@
         // A collective correction must stay on this cell's side of every finite wall.
         for(var j=0;j<segs.length;j++){var sg=segs[j],ex=sg[2]-sg[0],ey=sg[3]-sg[1],d0=(c.x-sg[0])*ey-(c.y-sg[1])*ex,d1=(tx-sg[0])*ey-(ty-sg[1])*ex;
           if(d0*d1<0){var t=d0/(d0-d1),hx=c.x+(tx-c.x)*t,hy=c.y+(ty-c.y)*t,ll=ex*ex+ey*ey,along=ll?((hx-sg[0])*ex+(hy-sg[1])*ey)/ll:-1;if(along>=0&&along<=1)fraction=Math.min(fraction,Math.max(0,t-.001));}}
-        c._sepX=c.x;c._sepY=c.y;if(pass===0){c._f5x0=c.x;c._f5y0=c.y;}
+        c._sepX=c.x;c._sepY=c.y;if(c._f5T!==frameT){c._f5T=frameT;c._f5x0=c.x;c._f5y0=c.y;} // f9: frame-tagged baseline - the collective budget spans all of this frame's invocations
         var q5=(c.maxSpeed||0)+1,rem5=Math.max(0,q5-Math.hypot(c.x-c._f5x0,c.y-c._f5y0)),mx5=(tx-c.x)*fraction,my5=(ty-c.y)*fraction,ml5=Math.hypot(mx5,my5);
-        if(ml5>rem5&&ml5>0){var k5=rem5/ml5;mx5*=k5;my5*=k5;}
+        var capEff=rem5; // f9: strict per-frame budget, no pressure-proportional excess - the boundary pushes as a force, it never carries (73d-1); a pressed body exits at its own quantum over the next frames and overload still reads as reversible squash (sqS)
+        if(ml5>capEff&&ml5>0){var k5=capEff/ml5;mx5*=k5;my5*=k5;}
         c.x+=mx5;c.y+=my5; // 73d(2): the TOTAL per-frame collective correction is bounded at the cell's own quantum across all passes, not per pass
         if(pass>=3&&(m[0]||m[1])){
           var pressure=Math.min(1,Math.hypot(m[0],m[1])/Math.max(1,bodies[k].bound));
