@@ -187,9 +187,8 @@ impl Sim {
         d = x1 - x; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vx -= f * t * t * ms * 0.25; if vx > 0.0 { vx *= 1.0 - 0.25 * t; } if t > press { press = t; } }
         d = y - y0; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vy += f * t * t * ms * 0.25; if vy < 0.0 { vy *= 1.0 - 0.25 * t; } if t > press { press = t; } }
         d = y1 - y; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vy -= f * t * t * ms * 0.25; if vy > 0.0 { vy *= 1.0 - 0.25 * t; } if t > press { press = t; } }
-        // the wall narrows what presses it (owner 22 Oct): pressed growth wears off toward the base radius
-        let rad0 = self.g(c, RAD); let base = self.p[P_CELLR];
-        if press > 0.0 && rad0 > base { self.set(c, RAD, base.max(rad0 - f * press * 0.5)); }
+        // item 64: no permanent size loss at the boundary (squash lives draw-side in JS)
+        let _ = press;
         // absolute wall (owner 22 Oct): nothing is ever outside; a moved wall carries the body, a hit reflects.
         let (x0, x1) = if x1 < x0 { let m = (x0 + x1) / 2.0; (m, m) } else { (x0, x1) };
         let (y0, y1) = if y1 < y0 { let m = (y0 + y1) / 2.0; (m, m) } else { (y0, y1) };

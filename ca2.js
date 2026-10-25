@@ -31,7 +31,7 @@
   };
   // owner's chosen defaults (23:04)
   P.audioFadeMs = 5000;
-  P.typeSlider = 1; P.cfgFont = 0; P.cfgFontSize = 13; P.cfgCase = 0; P.lineColor = '#111111'; P.autoInvert = 1; P.axisColor = ''; P.circColor = ''; P.ruleColor = ''; P.dragMargin = 8; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000; P.wallSmoothMs = 60; P.wallCarry = 1; P.wallSpread = 0.5;
+  P.typeSlider = 1; P.cfgFont = 0; P.cfgFontSize = 13; P.cfgCase = 0; P.lineColor = '#111111'; P.autoInvert = 1; P.axisColor = ''; P.circColor = ''; P.ruleColor = ''; P.dragMargin = 8; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000; P.wallSmoothMs = 60; P.wallCarry = 1; P.wallSpread = 0.5; P.squashMax = 0.18; P.squashIn = 0.45; P.squashOut = 0.08;
   P.foodMode = 2; P.foodBlobR = 70; P.foodBlobDots = 8; P.foodLife = 1; P.foodLifeMs = 300; P.foodLifeCell = 4; P.foodEatR = 0.4;
   Object.assign(P, {"UNIVERSE_SIZE": 55.95868745026389, "baseMutationRate": 9.628232288701716, "mutationRateRange": 2.6268439511457253, "interactionRadius": 12.016352372548786, "CELL_RADIUS": 34.57106164334512, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 50, "maxRadius": 150, "baseMaxSpeed": 2, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 2.5, "THRESHOLD": 0.19, "metaballStrength": 0.024, "foodDensity": 0.023801395385356694, "foodEnergyValue": 20, "minRefreshInterval": 2, "maxRefreshInterval": 9, "slowDownRadius": 9, "speedReductionFactor": 37.5, "grain": 1, "grainAmount": 1.22, "grainStrength": 9.2, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 12, "fps": 12, "containerCorner": 29, "resolution": 1, "margin": 10, "gap": 26, "textScale": 0.8, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.74, "morphEase": 0.7, "pixelRatio": 2, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 1, "axisLayer": 0, "genomeOn": 1, "genomeMut": 0.5, "divideOn": 1, "divideAt": 3, "eatMergeOn": 1, "eatRatio": 3, "eatChance": 1, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.35, "clusterMax": 10, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 8, "foodShrink": 0.1, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 2350, "boundAware": 1, "boundZone": 20, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 2.3, "panelAlpha": 0, "panelWidth": 340, "blurWidth": 340, "cursorSens": 0.75, "cursorSize": 0.31, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 0.53, "audioMode": 1, "audioTone": 2120, "audioMod": 1, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#000000", "foodAlpha": 1, "foodSize": 3.5, "foodShow": 0.51, "audioFadeMs": 5000, "dragMargin": 24, "edgeGrab": 20, "restless": 3, "edgeFit": 0.3, "boundZoneR": 0.1, "blobOutline": 1, "plateOverlap": 0.5, "parasiteHard": 39.5, "parasiteSight": 4000, "parasiteNerv": 1, "parasiteHardMs": 20000, "foodMode": 3, "foodBlobR": 70, "foodBlobDots": 8, "foodLife": 1, "foodLifeMs": 300, "foodLifeCell": 4, "foodEatR": 0.26});
   // eating radius is a fixed px distance, independent of cell radius (owner 20 Oct: no factor); migrate the stored factor with the preset radius
@@ -211,9 +211,9 @@
     d = x1 - c.x; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vx -= F * t * t * ms * 0.25; if (c.vx > 0) c.vx *= 1 - 0.25 * t; if (t > press) press = t; }
     d = c.y - y0; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vy += F * t * t * ms * 0.25; if (c.vy < 0) c.vy *= 1 - 0.25 * t; if (t > press) press = t; }
     d = y1 - c.y; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vy -= F * t * t * ms * 0.25; if (c.vy > 0) c.vy *= 1 - 0.25 * t; if (t > press) press = t; }
-    // the wall narrows pressed bodies and pushes them back - pressed growth
-    // wears off toward the base radius, so giants are not center-pinned by their own radius inset
-    if (press > 0 && c.radius > P.CELL_RADIUS) c.radius = Math.max(P.CELL_RADIUS, c.radius - F * press * 0.5);
+    // item 64: the boundary causes no permanent size loss - pressure reads as the eased squash
+    // state (stepSquash/emitCell), the radius itself is never worn at a wall
+    if (press > (c.sqS || 0)) c.sqS = press;
     wallPull(c, r, true); // the shared boundary-morph rule; cells add velocity reflection
   }
   // the boundary-morph rule for ANY body: a wall that moved past it pulls it back gradually (no teleport);
@@ -232,6 +232,19 @@
     else if (p.x > x1) carrySide(p, 'x', 'vx', p.y, x1, cont.wvx1, -1, vel);
     if (p.y < y0) carrySide(p, 'y', 'vy', p.x, y0, cont.wvy0, 1, vel);
     else if (p.y > y1) carrySide(p, 'y', 'vy', p.x, y1, cont.wvy1, -1, vel);
+  }
+  // item 64 directive 2: one eased squash state per cell. Walls (geometry) and separators (sqS signal)
+  // feed the target; pressure rises fast (squashIn), release restores the body slowly (squashOut)
+  function stepSquash() {
+    var g2 = Math.max(0, P.boundGap || 0);
+    for (var i = 0; i < cells.length; i++) {
+      var c = cells[i]; if (!c.alive) continue;
+      var bx = c.x - cont.x - g2, by = c.y - cont.y - g2, sq0 = c.sq || 0;
+      var rF = Math.max(1, Math.min(bx, cont.w - g2 - bx, by, cont.h - g2 - by));
+      var tg = Math.max(P.boundAware ? clamp(1 - Math.max(0, rF - c.radius) / 8, 0, 1) : 0, c.sqS || 0);
+      c.sq = sq0 + (tg - sq0) * (tg > sq0 ? P.squashIn : P.squashOut);
+      c.sqS = 0;
+    }
   }
   // one wall side of wallPull: piston carry when the wall advanced inward past the body this frame, else reflect
   function carrySide(p, ax, vax, along, line, wv, side, vel) {
@@ -722,7 +735,7 @@
     var pushSrc = function (sx, sy, sr) { var d = Math.min(sx - (P.boundGap > 0 ? P.boundGap : 0), cont.w - (P.boundGap > 0 ? P.boundGap : 0) - sx, sy - (P.boundGap > 0 ? P.boundGap : 0), cont.h - (P.boundGap > 0 ? P.boundGap : 0) - sy); o.x.push(sx); o.y.push(sy); o.r.push(Math.min(sr, Math.max(0.4, d))); o.n++; };
     // wall squeeze: the drawn body never crosses the gap line; a cell pressed at the wall compresses a little so the squeeze is felt (owner 21 Oct)
     var gap2 = Math.max(0, P.boundGap || 0), rFree = Math.max(1, Math.min(bx - gap2, cont.w - gap2 - bx, by - gap2, cont.h - gap2 - by));
-    var cr = Math.min(c.radius, Math.max(1, rFree)) * (1 - 0.18 * clamp(1 - Math.max(0, rFree - c.radius) / 8, 0, 1));
+    var cr = Math.min(c.radius, Math.max(1, rFree)) * (1 - P.squashMax * (c.sq || 0)); // eased squash state, no one-frame deflate/inflate (item 64 directive 2)
     if (P.cellShapes && sh && sh.t === 1 && allowance > 1) { // string: silhouette aspect asp, thickness th (short fat stubs are 2-3 discs)
       var rs = cr * sh.th, span = 2 * cr * sh.th * (sh.asp - 1), want = Math.min(9, Math.max(2, Math.round(span / (1.15 * rs)) + 1)), nn = Math.min(want, allowance);
       if (nn >= 2) {
@@ -860,7 +873,7 @@
       fSum = new Float32Array(bw * bh); fR = new Float32Array(bw * bh); fG = new Float32Array(bw * bh); fB = new Float32Array(bw * bh);
     } else { fSum.fill(0); fR.fill(0); fG.fill(0); fB.fill(0); }
     var ms = P.metaballStrength, TH = P.THRESHOLD, inv = 1 / S;
-    var src = buildSources(), sn = src.n;
+    stepSquash(); var src = buildSources(), sn = src.n;
     if (WC.ok && !WC.off) { // Rust/wasm path (ca2core): same field + pixel pass, JS below stays as the fallback
       try {
         var nw = sn, cp = WC.cells(nw), cf = new Float64Array(WC.mem.buffer, cp, nw * 6);
@@ -1221,7 +1234,7 @@
       }
       // the separator narrows what presses it (same rule as the plate wall, owner 22 Oct): a giant whose body
       // cannot fit between the lines is worn down toward the base radius until it fits
-      if (pr > 0 && c.radius > P.CELL_RADIUS) c.radius = Math.max(P.CELL_RADIUS, c.radius - (P.boundForce || 0.8) * pr * 2);
+      if (pr > (c.sqS || 0)) c.sqS = Math.min(1, pr); // item 64: reversible squash, zero permanent size loss
       // Resolve the lobes against the hairline itself, without replacing it with a broad bounding wall.
       var inkBody = (mask || segs) ? sepBody(c) : null;
       if (segs) for (j=0;j<segs.length;j++) {
@@ -1308,9 +1321,8 @@
         c._sepX=c.x;c._sepY=c.y;c.x+=(tx-c.x)*fraction;c.y+=(ty-c.y)*fraction;
         if(pass>=3&&(m[0]||m[1])){
           var pressure=Math.min(1,Math.hypot(m[0],m[1])/Math.max(1,bodies[k].bound));
-          // Field is proportional to radius squared: overload-derived compression,
-          // after positional relaxation fails. This is physical source compression, not a mask.
-          var oldRadius=c.radius;c.radius=Math.max(.4,c.radius/(1+pressure));radiusLoss+=oldRadius-c.radius;
+          // item 64: overload reads as reversible squash, never permanent radius loss (radiusLoss stays 0)
+          if (pressure > (c.sqS || 0)) c.sqS = pressure;
         }
       }
       separatorPass();
@@ -2439,7 +2451,8 @@
       ['eatDistF', 'eat contact', 0.1, 2, 0.05], ['fuseDistF', 'fusion contact', 0.1, 2, 0.05], ['symDistF', 'pair contact', 0.1, 3, 0.05]]],
     ['life', [
       ['spawnProtect', 'spawn protect', 0, 1, 1], ['boundGap', 'wall gap', 0, 200, 1], ['boundZone', 'awareness zone', 0, 200, 1], ['dragMargin', 'drag margin', 0, 100, 1], ['edgeGrab', 'border grab', 3, 40, 1], ['restless', 'restlessness', 0, 3, 0.05], ['boundForce', 'push', 0, 3, 0.05], ['cellMorphMs', 'morph time', 100, 6000, 50],
-      ['wallSmoothMs', 'wall follow', 0, 400, 5], ['wallCarry', 'wall carry', 0, 2, 0.05], ['wallSpread', 'wall spread', 0, 2, 0.05]]],
+      ['wallSmoothMs', 'wall follow', 0, 400, 5], ['wallCarry', 'wall carry', 0, 2, 0.05], ['wallSpread', 'wall spread', 0, 2, 0.05],
+      ['squashMax', 'squash depth', 0, 0.6, 0.01], ['squashIn', 'squash in', 0, 1, 0.01], ['squashOut', 'squash out', 0, 1, 0.01]]],
     ['sound', [
       ['audioVol', 'volume', 0, 1, 0.01], ['audioTone', 'tone', 200, 8000, 10], ['audioMod', 'modulation', 0, 1, 0.01],
       ['audioCrackle', 'micro events', 0, 1, 0.01], ['audioMicroPitch', 'micro pitch', 200, 4000, 10], ['audioMicroDecay', 'micro decay', 10, 400, 1], ['audioMicroRand', 'randomness', 0, 1, 0.01], ['audioWidth', 'stereo width', 0, 1, 0.01]]],
