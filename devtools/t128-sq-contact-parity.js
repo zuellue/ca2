@@ -10,7 +10,7 @@ const names = ['rand2D', 'normCol', 'speedOf', 'mutGenome', 'mixGenome', 'newSha
 const code = `var UI_END=800,CELL_END=1300;
 var rnd=function(a,b){if(b===undefined){b=a;a=0;}return a+Math.random()*(b-a);};var clamp=function(v,a,b){return v<a?a:v>b?b:v;};var lerp=function(a,b,t){return a+(b-a)*t;};var map=function(v,a,b,c,d){return c+(d-c)*(v-a)/(b-a);};
 ${vr('P')}
-P.wallCarry=1;P.wallSpread=0.5;P.wallSmoothMs=60;P.squashMax=0.18;P.squashIn=0.45;P.squashOut=0.08;P.senseR=1.6;P.senseSlow=0.25;P.senseTurn=0.12;P.senseDelay=0.5;P.minEnergyForReproduction=1e9;P.reproChance=0;P.divideOn=0;P.eatMergeOn=0;P.symbiogenesisOn=0;P.habitatOn=0;P.habitatBirthCap=2;P.cellLife=0;P.cellLifeVar=0.3;P.crowdTol=0.5;P.orgLifeDie=-0.005;P.orgLifeGrow=1.0025;P.orgBirth=1.005;P.orgDead=-0.0025;P.orgBrain=0.008;P.orgR90=0.0025;P.symEnergy=0.00075;P.symBreak=0.0002;P.symBreakDist=3;P.eatDistF=0.85;P.fuseDistF=0.6;P.symDistF=1.1;
+P.wallCarry=1;P.wallSpread=0.5;P.wallSmoothMs=60;P.squashMax=0.18;P.squashIn=0.45;P.squashOut=0.08;P.senseR=1.6;P.senseSlow=0.25;P.senseTurn=0.12;P.senseDelay=0.5;P.crowdGain=0.12;P.crowdRel=0.02;P.crowdSlow=0.5;P.crowdPush=0.3;P.minEnergyForReproduction=1e9;P.reproChance=0;P.divideOn=0;P.eatMergeOn=0;P.symbiogenesisOn=0;P.habitatOn=0;P.habitatBirthCap=2;P.cellLife=0;P.cellLifeVar=0.3;P.crowdTol=0.5;P.orgLifeDie=-0.005;P.orgLifeGrow=1.0025;P.orgBirth=1.005;P.orgDead=-0.0025;P.orgBrain=0.008;P.orgR90=0.0025;P.symEnergy=0.00075;P.symBreak=0.0002;P.symBreakDist=3;P.eatDistF=0.85;P.fuseDistF=0.6;P.symDistF=1.1;
 function habAte(){}function habReap(){}
 var cells=[],food=[],ev={birth:0,death:0,hit:0,oob:0},clusterSeq=0,env={spd:1,app:0.5,bnd:1,col:null},cmean={};
 var cont={x:0,y:0,w:400,h:400,wvx0:0,wvx1:0,wvy0:0,wvy1:0},mouse={x:-1e9,y:-1e9,over:false},resizeDrag=false,frameDtf=16.67;
@@ -36,19 +36,19 @@ cs.push(mk2(5, 150, 20), mk2(12, 250, 20)); // 2 at the left wall
   function packWasm(cs, ease) {
     const n = cs.length, cap = n + 16;
     const cp = E.sim_cells(cap), fxp = E.sim_food(1), cmp = E.sim_cm(1), cip = E.sim_cm_ids(), pp = E.sim_params();
-    const buf = E.memory.buffer, cf = new Float64Array(buf, cp, cap * 25), p = new Float64Array(buf, pp, 93);
-    cs.forEach((c, i) => { const b = i * 25, g = c.g; cf.set([c.x, c.y, c.vx, c.vy, c.radius, c.energy, c.gene, 1, c.maxSpeed, c.speedModifier, c.hostility, c.mutationRate, c.sv, c.cl || 0, -1, g.spd, g.app, g.bnd, g.col[0], g.col[1], g.col[2], c.comp || 0, 0, 0, c.sq || 0], b); });
+    const buf = E.memory.buffer, cf = new Float64Array(buf, cp, cap * 26), p = new Float64Array(buf, pp, 97);
+    cs.forEach((c, i) => { const b = i * 26, g = c.g; cf.set([c.x, c.y, c.vx, c.vy, c.radius, c.energy, c.gene, 1, c.maxSpeed, c.speedModifier, c.hostility, c.mutationRate, c.sv, c.cl || 0, -1, g.spd, g.app, g.bnd, g.col[0], g.col[1], g.col[2], c.comp || 0, 0, 0, c.sq || 0], b); });
     E.sim_set_n(n); E.sim_set_nf(0); E.sim_cm_count(0);
     p[7] = 1; // genomeOn (P_GENOME=7): without it wasm pins bnd to 1 while JS uses c.g.bnd
     p[0] = J.P.interactionRadius; p[9] = 0; p[12] = 0.001; p[13] = J.P.foodEnergyValue; p[16] = J.P.CELL_RADIUS; p[17] = J.P.foodGrowMax; p[18] = 0; p[20] = J.P.UNIVERSE_SIZE; p[22] = 1; p[23] = 70; p[24] = 0.8; p[25] = J.P.restless; p[28] = J.P.mergeGene; p[29] = 0; p[30] = 0; p[31] = J.P.energyGainFromInteraction; p[32] = J.P.GENE_MIN; p[33] = J.P.GENE_MAX; p[34] = 1e9; p[35] = J.P.clusterMax; p[36] = J.P.genomeMut; p[37] = J.P.mutationRateRange; p[38] = J.P.metaballStrength;
     p[39] = 1; p[40] = 0.5; p[41] = 1; p[49] = 0; p[50] = 0; p[51] = 400; p[52] = 400; p[53] = 0; p[54] = 0; p[56] = 0;
     p[57] = 0; p[58] = J.P.reproMinAgeMs || 0; p[59] = 0; p[60] = J.P.crowdTol; p[61] = J.P.orgLifeDie; p[62] = J.P.orgLifeGrow; p[63] = J.P.orgBirth; p[64] = J.P.orgDead; p[65] = J.P.orgBrain; p[66] = J.P.orgR90; p[67] = J.P.symEnergy; p[68] = J.P.symBreak; p[69] = J.P.symBreakDist; p[70] = J.P.eatDistF; p[71] = J.P.fuseDistF; p[72] = J.P.symDistF;
-    p[78] = 16.67; p[79] = 0; p[84] = 1; p[85] = 0.5; p[86] = 0.18; p[87] = ease ? 0.45 : 0; p[88] = ease ? 0.08 : 0; p[89] = 1.6; p[90] = 0.25; p[91] = 0.12; p[92] = 0.5; // sensing on, both engines (item 64 directive 1)
+    p[78] = 16.67; p[79] = 0; p[84] = 1; p[85] = 0.5; p[86] = 0.18; p[87] = ease ? 0.45 : 0; p[88] = ease ? 0.08 : 0; p[89] = 1.6; p[90] = 0.25; p[91] = 0.12; p[92] = 0.5; p[93] = 0.12; p[94] = 0.02; p[95] = 0.5; p[96] = 0.3; // crowding field on, both engines (item 64 directive 4) // sensing on, both engines (item 64 directive 1)
     return cp;
   }
   function readWasm(cp, n) {
-    const cf = new Float64Array(E.memory.buffer, E.sim_cells_ptr(), (n + 16) * 25), out = [];
-    for (let i = 0; i < n; i++) { const b = i * 25; out.push({ x: cf[b], y: cf[b + 1], vx: cf[b + 2], vy: cf[b + 3], r: cf[b + 4], sq: cf[b + 24] }); }
+    const cf = new Float64Array(E.memory.buffer, E.sim_cells_ptr(), (n + 16) * 26), out = [];
+    for (let i = 0; i < n; i++) { const b = i * 26; out.push({ x: cf[b], y: cf[b + 1], vx: cf[b + 2], vy: cf[b + 3], r: cf[b + 4], sq: cf[b + 24] }); }
     const o = new Float64Array(E.memory.buffer, E.sim_out(), 32);
     return { cells: out, hit: o[6], oob: o[7] };
   }

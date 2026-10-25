@@ -1,9 +1,9 @@
 // ca2core sim: port of the per-frame cell loop (update/organic/checkSurvival/interact/keepIn/divide/reproduce/joinCluster/fuse,
 // hover colour). State is struct-of-arrays in wasm memory; JS packs/unpacks around one call per frame. No DOM.
 use std::f64::consts::PI;
-pub const ST: usize = 25; // f64 per cell (24 = eased squash state SQ, item 64)
+pub const ST: usize = 26; // f64 per cell (24 = eased squash state SQ, 25 = crowding field CROWD, item 64)
 const X: usize = 0; const Y: usize = 1; const VX: usize = 2; const VY: usize = 3; const RAD: usize = 4; const EN: usize = 5; const GENE: usize = 6;
-const ALIVE: usize = 7; const MAXS: usize = 8; const SPM: usize = 9; const HOST: usize = 10; const MUT: usize = 11; const SV: usize = 12; const CL: usize = 13; const SQ: usize = 24;
+const ALIVE: usize = 7; const MAXS: usize = 8; const SPM: usize = 9; const HOST: usize = 10; const MUT: usize = 11; const SV: usize = 12; const CL: usize = 13; const SQ: usize = 24; const CROWD: usize = 25;
 const SYM: usize = 14; const GSPD: usize = 15; const GAPP: usize = 16; const GBND: usize = 17; const C0: usize = 18; const C1: usize = 19; const C2: usize = 20;
 const COMP: usize = 21; const REM: usize = 22; const AGE: usize = 23; // 23: age in ms, packed by JS every frame (juvenile reproduction gate); wasm writes -1 here on eat/fuse = absorbed flag (biomass stayed in a cell, no nutrient pulse)
 
@@ -19,7 +19,7 @@ pub static mut SIM: Option<Sim> = None;
 pub fn sim() -> &'static mut Sim {
     unsafe {
         let s = &mut *std::ptr::addr_of_mut!(SIM);
-        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 93], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new(), pr: vec![] }); }
+        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 97], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new(), pr: vec![] }); }
         s.as_mut().unwrap()
     }
 }
@@ -41,7 +41,8 @@ const P_ORGBRAIN: usize = 65; const P_ORGR90: usize = 66; // organic() life/birt
 const P_SYMEN: usize = 67; const P_SYMBRK: usize = 68; const P_SYMBRKD: usize = 69; // symbiosis bond feed, whim break, distance break (x span)
 const P_DTF: usize = 78; const P_FERATE: usize = 79;
 const P_SQMAX: usize = 86; const P_SQIN: usize = 87; const P_SQOUT: usize = 88; // eased squash: depth + in/out rates per frame at 60fps (item 64)
-const P_SENR: usize = 89; const P_SENSL: usize = 90; const P_SENTU: usize = 91; const P_SENDL: usize = 92; // sensing band: radius multiplier, slow, turn, max per-cell delay (item 64 directive 1) // frame dt ms + grazing rate (dots/s per touched dot) - moved off 55/56: those belong to P_NCM/P_ONLYINT, and foodEatRate!=0 read as ONLYINT disabled update()/check_survival() for every cell (divide/graze/shrink/keepIn all dead)
+const P_SENR: usize = 89; const P_SENSL: usize = 90; const P_SENTU: usize = 91; const P_SENDL: usize = 92; // sensing band: radius multiplier, slow, turn, max per-cell delay (item 64 directive 1)
+const P_CGAIN: usize = 93; const P_CREL: usize = 94; const P_CSLOW: usize = 95; const P_CPUSH: usize = 96; // crowding field: build rate, release rate, slow factor, along-edge drift (item 64 directive 4) // frame dt ms + grazing rate (dots/s per touched dot) - moved off 55/56: those belong to P_NCM/P_ONLYINT, and foodEatRate!=0 read as ONLYINT disabled update()/check_survival() for every cell (divide/graze/shrink/keepIn all dead)
 const P_EATDF: usize = 70; const P_FUSEDF: usize = 71; const P_SYMDF: usize = 72; // eat/fuse/pair contact distance (x radii sum)
 const P_HABON: usize = 73; const P_HABCAP: usize = 74;
 const P_DIVMODE: usize = 75; const P_DIVAGE: usize = 76; const P_DIVEN: usize = 77;
@@ -209,6 +210,28 @@ impl Sim {
         // item 64 directive 2: no permanent size loss at the boundary - one eased squash state, 1:1 with
         // ca2.js keepIn (sqS signal at both call sites) + stepSquash (one ease per frame, after the second
         // keepIn): the press accumulates over both keep_in calls, the ease runs once, on the second call.
+        // item 64 directive 4: crowding field with memory, 1:1 with ca2.js keepIn - fast build under
+        // pressure, slow release in quiet; squeezed cells slow and drift along the pressed edge toward
+        // its roomier middle, so the release spreads like a crowd instead of bursting
+        let cg = self.p[P_CGAIN];
+        if cg > 0.0 {
+            let ek2 = self.p[P_DTF] * 0.06;
+            let kg = 1.0 - (1.0 - cg).powf(ek2);
+            let kr = 1.0 - (1.0 - self.p[P_CREL]).powf(ek2);
+            let cd0 = self.g(c, CROWD);
+            let crowd = if press > cd0 { cd0 + (press - cd0) * kg } else { cd0 - cd0 * kr };
+            if crowd > 0.001 {
+                let csl = 1.0 - self.p[P_CSLOW] * crowd.min(1.0);
+                vx *= csl; vy *= csl;
+                if press > 0.0 {
+                    let cpush = self.p[P_CPUSH] * crowd.min(1.0) * ms * 0.5;
+                    let midx = (x0 + x1) / 2.0; let midy = (y0 + y1) / 2.0;
+                    if x - x0 < z || x1 - x < z { vy += cpush * (if y < midy { 1.0 } else { -1.0 }); }
+                    if y - y0 < z || y1 - y < z { vx += cpush * (if x < midx { 1.0 } else { -1.0 }); }
+                }
+            }
+            self.set(c, CROWD, crowd);
+        }
         if press > self.pr[c] { self.pr[c] = press; }
         if ease {
             let g2 = 0f64.max(self.p[P_BGAP]);

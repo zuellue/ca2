@@ -31,7 +31,7 @@
   };
   // owner's chosen defaults (23:04)
   P.audioFadeMs = 5000;
-  P.typeSlider = 1; P.cfgFont = 0; P.cfgFontSize = 13; P.cfgCase = 0; P.lineColor = '#111111'; P.autoInvert = 1; P.axisColor = ''; P.circColor = ''; P.ruleColor = ''; P.dragMargin = 8; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000; P.wallSmoothMs = 60; P.wallCarry = 1; P.wallSpread = 0.5; P.squashMax = 0.18; P.squashIn = 0.45; P.squashOut = 0.08; P.senseR = 1.6; P.senseSlow = 0.25; P.senseTurn = 0.12; P.senseDelay = 0.5; P.wallSubStep = 0.5; P.wallSubMax = 8;
+  P.typeSlider = 1; P.cfgFont = 0; P.cfgFontSize = 13; P.cfgCase = 0; P.lineColor = '#111111'; P.autoInvert = 1; P.axisColor = ''; P.circColor = ''; P.ruleColor = ''; P.dragMargin = 8; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000; P.wallSmoothMs = 60; P.wallCarry = 1; P.wallSpread = 0.5; P.squashMax = 0.18; P.squashIn = 0.45; P.squashOut = 0.08; P.senseR = 1.6; P.senseSlow = 0.25; P.senseTurn = 0.12; P.senseDelay = 0.5; P.wallSubStep = 0.5; P.wallSubMax = 8; P.crowdGain = 0.12; P.crowdRel = 0.02; P.crowdSlow = 0.5; P.crowdPush = 0.3;
   P.foodMode = 2; P.foodBlobR = 70; P.foodBlobDots = 8; P.foodLife = 1; P.foodLifeMs = 300; P.foodLifeCell = 4; P.foodEatR = 0.4;
   Object.assign(P, {"UNIVERSE_SIZE": 55.95868745026389, "baseMutationRate": 9.628232288701716, "mutationRateRange": 2.6268439511457253, "interactionRadius": 12.016352372548786, "CELL_RADIUS": 34.57106164334512, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 50, "maxRadius": 150, "baseMaxSpeed": 2, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 2.5, "THRESHOLD": 0.19, "metaballStrength": 0.024, "foodDensity": 0.023801395385356694, "foodEnergyValue": 20, "minRefreshInterval": 2, "maxRefreshInterval": 9, "slowDownRadius": 9, "speedReductionFactor": 37.5, "grain": 1, "grainAmount": 1.22, "grainStrength": 9.2, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 12, "fps": 12, "containerCorner": 29, "resolution": 1, "margin": 10, "gap": 26, "textScale": 0.8, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.74, "morphEase": 0.7, "pixelRatio": 2, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 1, "axisLayer": 0, "genomeOn": 1, "genomeMut": 0.5, "divideOn": 1, "divideAt": 3, "eatMergeOn": 1, "eatRatio": 3, "eatChance": 1, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.35, "clusterMax": 10, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 8, "foodShrink": 0.1, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 2350, "boundAware": 1, "boundZone": 20, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 2.3, "panelAlpha": 0, "panelWidth": 340, "blurWidth": 340, "cursorSens": 0.75, "cursorSize": 0.31, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 0.53, "audioMode": 1, "audioTone": 2120, "audioMod": 1, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#000000", "foodAlpha": 1, "foodSize": 3.5, "foodShow": 0.51, "audioFadeMs": 5000, "dragMargin": 24, "edgeGrab": 20, "restless": 3, "edgeFit": 0.3, "boundZoneR": 0.1, "blobOutline": 1, "plateOverlap": 0.5, "parasiteHard": 39.5, "parasiteSight": 4000, "parasiteNerv": 1, "parasiteHardMs": 20000, "foodMode": 3, "foodBlobR": 70, "foodBlobDots": 8, "foodLife": 1, "foodLifeMs": 300, "foodLifeCell": 4, "foodEatR": 0.26});
   // eating radius is a fixed px distance, independent of cell radius (owner 20 Oct: no factor); migrate the stored factor with the preset radius
@@ -237,6 +237,24 @@
         var st0 = 1 - sd / zs, st = clamp((st0 - sDel) / Math.max(1e-6, 1 - sDel), 0, 1); if (st <= 0) continue;
         var damp = 1 - sSl * st, tdr = sTu * st * ms * (h2 < 0.5 ? -1 : 1) * 0.5;
         if (si < 2) { c.vx *= damp; c.vy += tdr; } else { c.vy *= damp; c.vx += tdr; }
+      }
+    }
+    // item 64 directive 4: crowding is a field with memory - wall/separator pressure builds it (fast in),
+    // quiet releases it (slow out): squeezed cells slow and drift along the pressed edge toward its roomier
+    // middle; the easing spreads the release like a crowd, not a burst. 1:1 in sim.rs keep_in.
+    var cg = P.crowdGain === undefined ? 0.12 : P.crowdGain;
+    if (cg > 0) {
+      var ek2 = frameDtf * 0.06, kg = 1 - Math.pow(1 - cg, ek2), kr = 1 - Math.pow(1 - (P.crowdRel === undefined ? 0.02 : P.crowdRel), ek2);
+      var cd0 = c.crowd || 0;
+      c.crowd = press > cd0 ? cd0 + (press - cd0) * kg : cd0 - cd0 * kr;
+      if (c.crowd > 0.001) {
+        var csl = 1 - (P.crowdSlow === undefined ? 0.5 : P.crowdSlow) * Math.min(1, c.crowd);
+        c.vx *= csl; c.vy *= csl;
+        if (press > 0) {
+          var cpush = (P.crowdPush === undefined ? 0.3 : P.crowdPush) * Math.min(1, c.crowd) * ms * 0.5, midX = (x0 + x1) / 2, midY = (y0 + y1) / 2;
+          if (c.x - x0 < z || x1 - c.x < z) c.vy += cpush * (c.y < midY ? 1 : -1);
+          if (c.y - y0 < z || y1 - c.y < z) c.vx += cpush * (c.x < midX ? 1 : -1);
+        }
       }
     }
     wallPull(c, r, true); // the shared boundary-morph rule; cells add velocity reflection
@@ -845,15 +863,15 @@
       var t0 = performance.now(), n = cells.length, cap = n + 256, nf = food.length, cl = Object.keys(cmean), ncm = cl.length, i, c, b;
       E.sim_cells(cap); E.sim_food(nf + 1); E.sim_cm(ncm + 1);
       var cp = E.sim_cells(cap), fxp = E.sim_food(nf + 1), fyp = E.sim_food_y(), fgp = E.sim_food_gone(), cmp = E.sim_cm(ncm + 1), cip = E.sim_cm_ids(), pp = E.sim_params();
-      var buf = WC.mem.buffer, cf = new Float64Array(buf, cp, cap * 25), fx = new Float64Array(buf, fxp, nf + 1), fy = new Float64Array(buf, fyp, nf + 1), cmf = new Float64Array(buf, cmp, (ncm + 1) * 5), cid = new Float64Array(buf, cip, ncm + 1), p = new Float64Array(buf, pp, 93);
+      var buf = WC.mem.buffer, cf = new Float64Array(buf, cp, cap * 26), fx = new Float64Array(buf, fxp, nf + 1), fy = new Float64Array(buf, fyp, nf + 1), cmf = new Float64Array(buf, cmp, (ncm + 1) * 5), cid = new Float64Array(buf, cip, ncm + 1), p = new Float64Array(buf, pp, 97);
       simStamp++;
       for (i = 0; i < n; i++) {
         c = cells[i]; c._i = i; c._f = simStamp;
       }
       for (i = 0; i < n; i++) {
-        c = cells[i]; b = i * 25; var g = c.g;
+        c = cells[i]; b = i * 26; var g = c.g;
         cf[b] = c.x; cf[b + 1] = c.y; cf[b + 2] = c.vx; cf[b + 3] = c.vy; cf[b + 4] = c.radius; cf[b + 5] = c.energy; cf[b + 6] = c.gene; cf[b + 7] = c.alive ? 1 : 0; cf[b + 8] = c.maxSpeed; cf[b + 9] = c.speedModifier; cf[b + 10] = c.hostility; cf[b + 11] = c.mutationRate; cf[b + 12] = c.sv; cf[b + 13] = c.cl || 0;
-        cf[b + 14] = (c.sym && c.sym._f === simStamp) ? c.sym._i : -1; cf[b + 15] = g.spd; cf[b + 16] = g.app; cf[b + 17] = g.bnd; cf[b + 18] = g.col[0]; cf[b + 19] = g.col[1]; cf[b + 20] = g.col[2]; cf[b + 21] = c.comp || 0; cf[b + 22] = 0; cf[b + 23] = frameT - (c.bornAt || 0); cf[b + 24] = c.sq || 0; // slot 23: age ms in, -1 = absorbed out; 22 is the wasm REM flag; 24: eased squash state (item 64)
+        cf[b + 14] = (c.sym && c.sym._f === simStamp) ? c.sym._i : -1; cf[b + 15] = g.spd; cf[b + 16] = g.app; cf[b + 17] = g.bnd; cf[b + 18] = g.col[0]; cf[b + 19] = g.col[1]; cf[b + 20] = g.col[2]; cf[b + 21] = c.comp || 0; cf[b + 22] = 0; cf[b + 23] = frameT - (c.bornAt || 0); cf[b + 24] = c.sq || 0; cf[b + 25] = c.crowd || 0; // slot 23: age ms in, -1 = absorbed out; 22 is the wasm REM flag; 24: eased squash state, 25: crowd field (item 64)
       }
       E.sim_set_n(n); E.sim_set_nf(nf);
       for (i = 0; i < nf; i++) { fx[i] = food[i].x; fy[i] = food[i].y; }
@@ -867,6 +885,7 @@
       p[80] = cont.wvx0 || 0; p[81] = cont.wvx1 || 0; p[82] = cont.wvy0 || 0; p[83] = cont.wvy1 || 0; p[84] = P.wallCarry === undefined ? 1 : P.wallCarry; p[85] = P.wallSpread === undefined ? 0.5 : P.wallSpread; // 80-85: piston carry edge velocities + factors (owner 25 Oct)
       p[86] = P.squashMax === undefined ? 0.18 : P.squashMax; p[87] = P.squashIn === undefined ? 0.45 : P.squashIn; p[88] = P.squashOut === undefined ? 0.08 : P.squashOut; // 86-88: eased squash state, contact+render (item 64)
       p[89] = P.senseR === undefined ? 1.6 : P.senseR; p[90] = P.senseSlow === undefined ? 0.25 : P.senseSlow; p[91] = P.senseTurn === undefined ? 0.12 : P.senseTurn; p[92] = P.senseDelay === undefined ? 0.5 : P.senseDelay; // 89-92: sensing band (item 64 directive 1)
+      p[93] = P.crowdGain === undefined ? 0.12 : P.crowdGain; p[94] = P.crowdRel === undefined ? 0.02 : P.crowdRel; p[95] = P.crowdSlow === undefined ? 0.5 : P.crowdSlow; p[96] = P.crowdPush === undefined ? 0.3 : P.crowdPush; // 93-96: crowding field (item 64 directive 4)
       p[78] = frameDtf; p[79] = P.foodEatRate === undefined ? 1.5 : P.foodEatRate; // frame dt ms + grazing rate for sim.rs eat roll - 55/56 are NCM/ONLYINT, never pack them (6d7a61a collision disabled update() sitewide)
       p[57] = P.boundGap || 0; p[58] = P.reproMinAgeMs || 0; p[59] = P.reproChance === undefined ? 0.02 : P.reproChance; // 58: juvenile gate ms, 59: contact birth chance // boundGap slot for sim.rs keep_in (625f4e8 port); 44/45 are env.col
       p[60] = P.crowdTol; p[61] = P.orgLifeDie; p[62] = P.orgLifeGrow; p[63] = P.orgBirth; p[64] = P.orgDead; p[65] = P.orgBrain; p[66] = P.orgR90;
@@ -877,14 +896,14 @@
       var o = new Float64Array(WC.mem.buffer, E.sim_out(), 32), nf2 = o[15];
       var kids = [];
       if (E.sim_cap && E.sim_cap() !== cap) { cap = E.sim_cap(); cp = E.sim_cells_ptr(); } // wasm grew its cell buffer on a birth burst: re-anchor before reading back
-      cf = new Float64Array(WC.mem.buffer, cp, cap * 25);
+      cf = new Float64Array(WC.mem.buffer, cp, cap * 26);
       for (i = 0; i < nf2; i++) {
-        b = i * 25; c = i < n ? cells[i] : new Cell(cf[b], cf[b + 1], cf[b + 6], cf[b + 11]);
+        b = i * 26; c = i < n ? cells[i] : new Cell(cf[b], cf[b + 1], cf[b + 6], cf[b + 11]);
         if (i >= n) { cells.push(c); c._i = i; c._f = simStamp; }
         c.x = cf[b]; c.y = cf[b + 1]; c.vx = cf[b + 2]; c.vy = cf[b + 3]; c.radius = cf[b + 4]; c.energy = cf[b + 5]; c.gene = cf[b + 6]; c.alive = cf[b + 7] !== 0; c.maxSpeed = cf[b + 8]; c.speedModifier = cf[b + 9]; c.hostility = cf[b + 10]; c.mutationRate = cf[b + 11]; c.sv = cf[b + 12]; c.cl = cf[b + 13];
-        var gg = c.g; gg.spd = cf[b + 15]; gg.app = cf[b + 16]; gg.bnd = cf[b + 17]; gg.col = [cf[b + 18], cf[b + 19], cf[b + 20]]; if (cf[b + 21] > 0) c.comp = cf[b + 21]; c.absorbed = cf[b + 23] < 0 ? 1 : 0; c.sq = cf[b + 24];
+        var gg = c.g; gg.spd = cf[b + 15]; gg.app = cf[b + 16]; gg.bnd = cf[b + 17]; gg.col = [cf[b + 18], cf[b + 19], cf[b + 20]]; if (cf[b + 21] > 0) c.comp = cf[b + 21]; c.absorbed = cf[b + 23] < 0 ? 1 : 0; c.sq = cf[b + 24]; c.crowd = cf[b + 25];
       }
-      for (i = 0; i < nf2; i++) { var sy = cf[i * 25 + 14]; cells[i].sym = sy >= 0 ? cells[sy] : null; }
+      for (i = 0; i < nf2; i++) { var sy = cf[i * 26 + 14]; cells[i].sym = sy >= 0 ? cells[sy] : null; }
       var fg = new Float64Array(WC.mem.buffer, fgp, nf + 1);
       var lg = new Float64Array(WC.mem.buffer, E.sim_log(), o[17]); // births / fusions: body plans stay in JS (newShape/mixShape), the wasm core only reports who came from whom
       for (i = 0; i < lg.length; i += 4) { var kd = lg[i + 3], k0 = cells[lg[i]], p0 = cells[lg[i + 1]], p1 = lg[i + 2] >= 0 ? cells[lg[i + 2]] : null; if (kd === 1) k0.shp = newShape(p0.shp); else if (kd === 2) k0.shp = mixShape(p0.shp, p1.shp); else k0.shp = mixShape(k0.shp, p0.shp); }
@@ -1266,6 +1285,7 @@
       // the separator narrows what presses it (same rule as the plate wall, owner 22 Oct): a giant whose body
       // cannot fit between the lines is worn down toward the base radius until it fits
       if (pr > (c.sqS || 0)) c.sqS = Math.min(1, pr); // item 64: reversible squash, zero permanent size loss
+      if (pr > (c.crowd || 0)) c.crowd = Math.min(1, pr); // directive 4: separator pressure feeds the same field (JS post-pass, both engines)
       // item 64 directive 1 (separators): sensing before contact, same rule as the boundary band - slow +
       // along-line drift in [r, r*senseR*bnd), staggered by a deterministic per-cell hash (no RNG), so no
       // two cells react identically at the hairline. JS-only like the whole separator stack (no wasm path).
@@ -2514,7 +2534,7 @@
     ['life', [
       ['spawnProtect', 'spawn protect', 0, 1, 1], ['boundGap', 'wall gap', 0, 200, 1], ['boundZone', 'awareness zone', 0, 200, 1], ['dragMargin', 'drag margin', 0, 100, 1], ['edgeGrab', 'border grab', 3, 40, 1], ['restless', 'restlessness', 0, 3, 0.05], ['boundForce', 'push', 0, 3, 0.05], ['cellMorphMs', 'morph time', 100, 6000, 50],
       ['wallSmoothMs', 'wall follow', 0, 400, 5], ['wallCarry', 'wall carry', 0, 2, 0.05], ['wallSpread', 'wall spread', 0, 2, 0.05],
-      ['squashMax', 'squash depth', 0, 0.6, 0.01], ['squashIn', 'squash in', 0, 1, 0.01], ['squashOut', 'squash out', 0, 1, 0.01], ['senseR', 'sensing radius', 0, 4, 0.05], ['senseSlow', 'sensing slow', 0, 1, 0.01], ['senseTurn', 'sensing turn', 0, 1, 0.01], ['senseDelay', 'sensing delay', 0, 1, 0.01], ['wallSubStep', 'wall substep', 0.05, 2, 0.05], ['wallSubMax', 'wall substep max', 1, 16, 1]]],
+      ['squashMax', 'squash depth', 0, 0.6, 0.01], ['squashIn', 'squash in', 0, 1, 0.01], ['squashOut', 'squash out', 0, 1, 0.01], ['senseR', 'sensing radius', 0, 4, 0.05], ['senseSlow', 'sensing slow', 0, 1, 0.01], ['senseTurn', 'sensing turn', 0, 1, 0.01], ['senseDelay', 'sensing delay', 0, 1, 0.01], ['wallSubStep', 'wall substep', 0.05, 2, 0.05], ['wallSubMax', 'wall substep max', 1, 16, 1], ['crowdGain', 'crowd build', 0, 1, 0.01], ['crowdRel', 'crowd release', 0, 1, 0.01], ['crowdSlow', 'crowd slow', 0, 1, 0.01], ['crowdPush', 'crowd drift', 0, 1, 0.01]]],
     ['sound', [
       ['audioVol', 'volume', 0, 1, 0.01], ['audioTone', 'tone', 200, 8000, 10], ['audioMod', 'modulation', 0, 1, 0.01],
       ['audioCrackle', 'micro events', 0, 1, 0.01], ['audioMicroPitch', 'micro pitch', 200, 4000, 10], ['audioMicroDecay', 'micro decay', 10, 400, 1], ['audioMicroRand', 'randomness', 0, 1, 0.01], ['audioWidth', 'stereo width', 0, 1, 0.01]]],
