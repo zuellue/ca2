@@ -41,6 +41,7 @@ function stubEl(tag) {
 
 async function runEngine(enginePath, label) {
   const V = { clock: 1000, rafQ: [], timers: [] };
+  let pumpCount = 0; const clockStart = V.clock;
   const rng = makeRng(SEED);
   const engineDir = path.dirname(path.resolve(enginePath));
   registerFont(path.join(engineDir, 'Ca2-Thin.ttf'), { family: 'Ca2-Thin' });
@@ -91,6 +92,7 @@ async function runEngine(enginePath, label) {
   sandbox.MutationObserver = class { constructor(f) {} observe() {} disconnect() {} };
   sandbox.ResizeObserver = class { constructor(f) {} observe() {} disconnect() {} };
   sandbox.IntersectionObserver = class { constructor(f) {} observe() {} disconnect() {} };
+  if (process.env.T130_TRACE) sandbox.__ca2trace = [];
   vm.createContext(sandbox);
   vm.runInContext('Math.random = window.__rng;', Object.assign(sandbox, { __rng: rng }), { filename: 'seed.js' });
   const src = fs.readFileSync(enginePath, 'utf8');
@@ -107,7 +109,7 @@ async function runEngine(enginePath, label) {
   console.error(label + ': pre-inject n=' + ca2.getCells().length);
   // panel hover: freeze auto re-deals (t127 parity)
   doc.getElementById('panel').classList.add('hov');
-  ca2.setKey('fps', FPS); ca2.setKey('separatorOn', 1);
+  ca2.setKey('fps', FPS); ca2.setKey('separatorOn', 1); if (process.env.T130_RES) ca2.setKey('resolution', +process.env.T130_RES); // render-only knob: sim semantics untouched, speeds the JS fallback path
   // inject stateB (t127 verbatim semantics)
   const INJ = STATE, cs0 = ca2.getCells();
   while (cs0.length < INJ.cells.length) { const tp0 = cs0[cs0.length - 1], d0 = Object.create(Object.getPrototypeOf(tp0)); Object.assign(d0, tp0); d0.g = JSON.parse(JSON.stringify(tp0.g)); d0.shp = JSON.parse(JSON.stringify(tp0.shp)); cs0.push(d0); }
@@ -120,10 +122,14 @@ async function runEngine(enginePath, label) {
   const rng2 = makeRng(SEED);
   vm.runInContext('Math.random = window.__rng2;', Object.assign(sandbox, { __rng2: rng2 }), { filename: 'reseed.js' });
   // per-ti full-state verify
-  let mism = 0; cs0.forEach((q, i) => { q.__ti = i; const s = INJ.cells[i]; if (!s || Math.abs(q.x - s.x) > 0.01 || Math.abs(q.y - s.y) > 0.01 || Math.abs(q.radius - s.radius) > 0.01) mism++; });
-  function pump() { V.clock += DT; const q = V.rafQ.splice(0); q.forEach(f => { try { f(V.clock); } catch (e) { console.error(label + ' frame EXC: ' + (e && e.stack || e).slice(0, 500)); process.exit(2); } }); }
-  function snapshot() { const out = []; cs0.forEach(q => { if (q.alive) out.push([q.__ti, +q.x.toFixed(3), +q.y.toFixed(3), +q.vx.toFixed(3), +q.vy.toFixed(3), +q.radius.toFixed(3), +Math.hypot(q.envVx || 0, q.envVy || 0).toFixed(3)]); });
-    return { cont: [+ca2.cont.x.toFixed(3), +ca2.cont.y.toFixed(3), +ca2.cont.w.toFixed(3), +ca2.cont.h.toFixed(3)], cells: out }; }
+  const idMap = new WeakMap(); let nextTi = 0;
+  let mism = 0; cs0.forEach((q, i) => { idMap.set(q, nextTi++); const s = INJ.cells[i]; if (!s || Math.abs(q.x - s.x) > 0.01 || Math.abs(q.y - s.y) > 0.01 || Math.abs(q.radius - s.radius) > 0.01) mism++; });
+  const births = [], deaths = []; let prevAlive = new Set(); cs0.forEach(q => prevAlive.add(idMap.get(q)));
+  const meta = { pumpsBeforeInject: pumpCount, clockAtInject: V.clock - clockStart };
+  function pump() { pumpCount++; V.clock += DT; const q = V.rafQ.splice(0); q.forEach(f => { try { f(V.clock); } catch (e) { console.error(label + ' frame EXC: ' + (e && e.stack || e).slice(0, 500)); process.exit(2); } }); }
+  function snapshot() { const out = []; const nowAlive = new Set(); cs0.forEach(q => { if (!q.alive) return; let ti = idMap.get(q); if (ti === undefined) { ti = nextTi++; idMap.set(q, ti); births.push([frames.length, ti]); } nowAlive.add(ti); out.push([ti, +q.x.toFixed(3), +q.y.toFixed(3), +q.vx.toFixed(3), +q.vy.toFixed(3), +q.radius.toFixed(3), +Math.hypot(q.envVx || 0, q.envVy || 0).toFixed(3)]); });
+    prevAlive.forEach(ti => { if (!nowAlive.has(ti)) deaths.push([frames.length, ti]); }); prevAlive = nowAlive;
+    return { cont: [+ca2.cont.x.toFixed(3), +ca2.cont.y.toFixed(3), +ca2.cont.w.toFixed(3), +ca2.cont.h.toFixed(3)], n: out.length, cells: out }; }
   const cv = doc.getElementById('c');
   const fire = (t, x, y) => cv.dispatchEvent({ type: t, clientX: x, clientY: y, buttons: t === 'mouseup' ? 0 : 1, preventDefault() {}, stopPropagation() {} });
   const frames = [];
@@ -131,11 +137,15 @@ async function runEngine(enginePath, label) {
   const y = Math.round(ca2.cont.y + ca2.cont.h / 2), x0 = Math.round(ca2.cont.x + 2), half = Math.round(ca2.cont.w * 0.25), d = half / 5;
   fire('mousedown', x0, y); pump(); frames.push(snapshot());
   for (let i = 1; i <= 5; i++) { fire('mousemove', x0 + Math.round(i * d), y); for (let k = 0; k < 4; k++) { pump(); frames.push(snapshot()); } }
-  for (let h = 0; h < 30; h++) { pump(); frames.push(snapshot()); }
+  for (let h = 0; h < 118; h++) { pump(); frames.push(snapshot()); } // 1+1+20+118+20+60 = 220 recorded frames exactly
   for (let j = 4; j >= 0; j--) { fire('mousemove', x0 + Math.round(j * d), y); for (let k = 0; k < 4; k++) { pump(); frames.push(snapshot()); } }
   fire('mouseup', x0, y);
   for (let r = 0; r < 60; r++) { pump(); frames.push(snapshot()); }
-  return { label, engine: path.basename(enginePath), simOn: (ca2.simOn === undefined ? 'unavail' : ca2.simOn), initCheck: { n: cs0.length, mism }, frames };
+  if (process.env.T130_TRACE && sandbox.__ca2trace) { fs.writeFileSync('/tmp/t130-trace-' + label + '.json', JSON.stringify(sandbox.__ca2trace));
+    meta.trfAtInject = sandbox.__ca2trace.length ? Math.max.apply(null, sandbox.__ca2trace.filter(r => r[1] === 'pre').map(r => r[0]).concat([-1])) : -1;
+    meta.trfTotal = meta.trfAtInject; }
+  meta.totalPumps = pumpCount; meta.meanDtMs = +((V.clock - clockStart) / pumpCount).toFixed(3); meta.births = births; meta.deaths = deaths;
+  return { label, engine: path.basename(enginePath), simOn: (ca2.simOn === undefined ? 'unavail' : ca2.simOn), initCheck: { n: cs0.length, mism }, meta, frames };
 }
 
 function trajOf(run) { const T = {}; run.frames.forEach((f, fi) => f.cells.forEach(c => { (T[c[0]] = T[c[0]] || {})[fi] = [c[1], c[2]]; })); return T; }
@@ -156,7 +166,7 @@ function metrics(run) {
 (async () => {
   const A = await runEngine(engineA, 'A'), B = await runEngine(engineB, 'B');
   const det = engineA === engineB ? (JSON.stringify(A.frames) === JSON.stringify(B.frames)) : null;
-  console.log(JSON.stringify({ N, SEED, FPS, determinismSelfCheck: det, A: { label: A.label, engine: A.engine, simOn: A.simOn, initCheck: A.initCheck, metrics: metrics(A) }, B: { label: B.label, engine: B.engine, simOn: B.simOn, initCheck: B.initCheck, metrics: metrics(B) } }, null, 1));
+  console.log(JSON.stringify({ N, SEED, FPS, determinismSelfCheck: det, A: { label: A.label, engine: A.engine, simOn: A.simOn, initCheck: A.initCheck, meta: A.meta, metrics: metrics(A) }, B: { label: B.label, engine: B.engine, simOn: B.simOn, initCheck: B.initCheck, meta: B.meta, metrics: metrics(B) } }, null, 1));
   fs.writeFileSync('/tmp/t130-' + A.label + '.frames.json', JSON.stringify(A.frames));
   fs.writeFileSync('/tmp/t130-' + B.label + '.frames.json', JSON.stringify(B.frames));
 })().catch(e => { console.error('FATAL', e && e.stack || e); process.exit(1); });
