@@ -94,7 +94,7 @@ async function runEngine(enginePath, label) {
   sandbox.MutationObserver = class { constructor(f) {} observe() {} disconnect() {} };
   sandbox.ResizeObserver = class { constructor(f) {} observe() {} disconnect() {} };
   sandbox.IntersectionObserver = class { constructor(f) {} observe() {} disconnect() {} };
-  if (process.env.T130_TRACE) sandbox.__ca2trace = [];
+  // trace array installed AT INJECT (see below) so trace ids are inject-index aligned
   vm.createContext(sandbox);
   vm.runInContext('Math.random = window.__rng;', Object.assign(sandbox, { __rng: rng }), { filename: 'seed.js' });
   const src = fs.readFileSync(enginePath, 'utf8');
@@ -118,6 +118,12 @@ async function runEngine(enginePath, label) {
   INJ.cells.forEach((sc, i) => { const c = cs0[i]; for (const k in sc) { if (k === 'g' || k === 'shp') c[k] = JSON.parse(JSON.stringify(sc[k])); else c[k] = sc[k]; } });
   cs0.length = INJ.cells.length;
   cs0.forEach(q => { q.envVx = 0; q.envVy = 0; }); // stateB carries no envV; zero the boot residue so both engines start with identical dynamic state
+  if (process.env.T130_TRACE) { // inject-index identity: trace stays off through boot; ids = stateB index for injected cells, 1000+ for births (cross-pair aligned)
+    sandbox.__ca2trace = [];
+    const objToIdx = new WeakMap(); cs0.forEach((q, i) => objToIdx.set(q, i)); let birthId = 1000;
+    sandbox.__ca2traceIdFn = (tc) => { const i = objToIdx.get(tc); return i !== undefined ? i : birthId++; };
+    var __injReceipt = cs0.slice(0, 85).map((q, i) => ({ i, idFnOk: sandbox.__ca2traceIdFn(q) === i, x: +q.x.toFixed(3), y: +q.y.toFixed(3), radius: +q.radius.toFixed(3), vx: +q.vx.toFixed(3), vy: +q.vy.toFixed(3), energy: +q.energy.toFixed(4), sq: +q.sq.toFixed(4) }));
+  }
   const fd0 = ca2.getFood(); fd0.length = 0; INJ.food.forEach(f => fd0.push({ x: f.x, y: f.y, r: f.r }));
   ca2.cont.x = INJ.cont.x; ca2.cont.y = INJ.cont.y; ca2.cont.w = INJ.cont.w; ca2.cont.h = INJ.cont.h; ca2.cont.tw = INJ.cont.w; ca2.cont.th = INJ.cont.h; ca2.cont.ew = INJ.cont.w; ca2.cont.eh = INJ.cont.h; ca2.cont.rawW = INJ.cont.w; ca2.cont.rawH = INJ.cont.h; ca2.cont.user = true;
   if (ca2.clampTargets) ca2.clampTargets();
@@ -129,6 +135,7 @@ async function runEngine(enginePath, label) {
   let mism = 0; cs0.forEach((q, i) => { idMap.set(q, nextTi++); const s = INJ.cells[i]; if (!s || Math.abs(q.x - s.x) > 0.01 || Math.abs(q.y - s.y) > 0.01 || Math.abs(q.radius - s.radius) > 0.01 || Math.abs((q.vx||0) - (s.vx||0)) > 0.01 || Math.abs((q.vy||0) - (s.vy||0)) > 0.01 || Math.abs((q.energy||0) - (s.energy||0)) > 0.001 || Math.abs((q.sq||0) - (s.sq||0)) > 0.001) mism++; });
   const births = [], deaths = []; let prevAlive = new Set(); cs0.forEach(q => prevAlive.add(idMap.get(q)));
   const meta = { pumpsBeforeInject: pumpCount, clockAtInject: V.clock - clockStart };
+  if (typeof __injReceipt !== 'undefined') { meta.injectReceipt = __injReceipt; meta.injectReceiptAllOk = __injReceipt.length === 85 && __injReceipt.every(r => r.idFnOk); }
   if (process.env.T130_TRACE && sandbox.__ca2trace) { const pre = sandbox.__ca2trace.filter(r => r[1] === 'pre').map(r => r[0]); meta.trfAtInject = pre.length ? Math.max.apply(null, pre) + 1 : 0; } // first post-inject sim-step frame
   function pump() { pumpCount++; V.clock += DT; const q = V.rafQ.splice(0); q.forEach(f => { try { f(V.clock); } catch (e) { console.error(label + ' frame EXC: ' + (e && e.stack || e).slice(0, 500)); process.exit(2); } }); }
   const COS8 = [1, 0.7071, 0, -0.7071, -1, -0.7071, 0, 0.7071], SIN8 = [0, 0.7071, 1, 0.7071, 0, -0.7071, -1, -0.7071];
