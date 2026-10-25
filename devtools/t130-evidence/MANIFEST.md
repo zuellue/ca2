@@ -65,3 +65,19 @@ Fixed dt = 1/60 per pump; PRNG reseeded per engine at inject.
   rel-1 sq diffs. Needs a wasm-side reset export (writer/owner topic).
 - p[43-45] proven gated by sim.rs:80 `if p[P_ECOL] != 0.0`; food sentinel slot
   nf unread (sim.rs:324 loops 0..self.nf). Confirmed OFF by code + receipts.
+
+## Motion witness (77d explicit boundary-motion pin, 2026-10-25 pm)
+Harness T130_MOTION=1 records per-frame RAW boundary-motion rows
+[cont.x, cont.y, cont.w, cont.h, wvx0, wvx1, wvy0, wvy1] (unrounded) per engine
+and compares them exactly per frame.
+- t130m-aa.json — A/A self-check (tr7Base vs tr7Base, seed 1): determinism true,
+  motionCompare 220/220 exact-equal, maxAbsDiff 0.
+- t130m-a2-s1.json — base vs (a)v2 witness run (seed 1): motionCompare 220/220
+  exact-equal, maxAbsDiff 0; engine outputs still diverge (oscFlips 4100 vs 3561),
+  so divergence is ENGINE RESPONSE, not input.
+- t130m-motion-base-s1.json / t130m-motion-a2-s1.json — the two recorded scripts,
+  sha256 e0230a2d1616f24d6cbab71bd89da82af69c932640c0c480bea2abb061005359 BOTH
+  (byte-identical). "Same boundary-motion input" is now MEASURED, not assumed from
+  seed, for the 77d scenario. Forced replay unnecessary here (zero divergence to
+  suppress); the witness catches any future scenario where motion diverges.
+Scope: 77d scenario (stateB drag script, 220 frames, seed 1) only.

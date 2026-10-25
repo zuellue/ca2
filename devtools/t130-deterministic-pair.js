@@ -160,7 +160,10 @@ async function runEngine(enginePath, label) {
     if (q.x - c.x < r + 30 || c.x + c.w - q.x < r + 30 || q.y - c.y < r + 30 || c.y + c.h - q.y < r + 30) return 1;
     if (ca2.sepInk) for (let k = 0; k < 8; k++) { for (const d of [r + 8, r + 28]) { if (ca2.sepInk(q.x + COS8[k] * d, q.y + SIN8[k] * d)) return 1; } }
     return 0; }
-  function snapshot() { const out = []; const nowAlive = new Set(); cs0.forEach(q => { if (!q.alive) return; let ti = idMap.get(q); if (ti === undefined) { ti = nextTi++; idMap.set(q, ti); births.push([frames.length, ti]); } nowAlive.add(ti); out.push([ti, +q.x.toFixed(3), +q.y.toFixed(3), +q.vx.toFixed(3), +q.vy.toFixed(3), +q.radius.toFixed(3), +Math.hypot(q.envVx || 0, q.envVy || 0).toFixed(3), nearContact(q)]); });
+  const MOTION = !!process.env.T130_MOTION; const motionRows = []; // 77d explicit boundary-motion witness: raw cont geometry + wall edge velocities per recorded frame, unrounded (main 25 Oct)
+  const MFIELDS = ['x','y','w','h','wvx0','wvx1','wvy0','wvy1'];
+  function snapshot() { const out = []; const nowAlive = new Set();
+    if (MOTION) { const mc = ca2.cont; motionRows.push([mc.x, mc.y, mc.w, mc.h, mc.wvx0 || 0, mc.wvx1 || 0, mc.wvy0 || 0, mc.wvy1 || 0]); } cs0.forEach(q => { if (!q.alive) return; let ti = idMap.get(q); if (ti === undefined) { ti = nextTi++; idMap.set(q, ti); births.push([frames.length, ti]); } nowAlive.add(ti); out.push([ti, +q.x.toFixed(3), +q.y.toFixed(3), +q.vx.toFixed(3), +q.vy.toFixed(3), +q.radius.toFixed(3), +Math.hypot(q.envVx || 0, q.envVy || 0).toFixed(3), nearContact(q)]); });
     prevAlive.forEach(ti => { if (!nowAlive.has(ti)) deaths.push([frames.length, ti]); }); prevAlive = nowAlive;
     return { cont: [+ca2.cont.x.toFixed(3), +ca2.cont.y.toFixed(3), +ca2.cont.w.toFixed(3), +ca2.cont.h.toFixed(3)], n: out.length, cells: out }; }
   const cv = doc.getElementById('c');
@@ -184,7 +187,7 @@ async function runEngine(enginePath, label) {
   meta.carryById = sandbox.__ca2Carry || {};
     meta.holdScale = +(process.env.T130_HOLD_SCALE || 1);
     meta.totalPumps = pumpCount; meta.meanDtMs = +((V.clock - clockStart) / pumpCount).toFixed(3); meta.births = births; meta.deaths = deaths;
-  return { label, engine: path.basename(enginePath), simOn: (ca2.simOn === undefined ? 'unavail' : ca2.simOn), initCheck: { n: cs0.length, mism }, meta, frames };
+  return { label, engine: path.basename(enginePath), simOn: (ca2.simOn === undefined ? 'unavail' : ca2.simOn), initCheck: { n: cs0.length, mism }, meta, frames, motionRows: MOTION ? motionRows : null, motionFields: MOTION ? MFIELDS : null };
 }
 
 function trajOf(run) { const T = {}; run.frames.forEach((f, fi) => f.cells.forEach(c => { (T[c[0]] = T[c[0]] || {})[fi] = [c[1], c[2]]; })); return T; }
@@ -222,7 +225,18 @@ function metrics(run) {
 (async () => {
   const A = await runEngine(engineA, 'A'), B = await runEngine(engineB, 'B');
   const det = engineA === engineB ? (JSON.stringify(A.frames) === JSON.stringify(B.frames)) : null;
-  console.log(JSON.stringify({ N, SEED, FPS, determinismSelfCheck: det, A: { label: A.label, engine: A.engine, simOn: A.simOn, initCheck: A.initCheck, meta: A.meta, metrics: metrics(A) }, B: { label: B.label, engine: B.engine, simOn: B.simOn, initCheck: B.initCheck, meta: B.meta, metrics: metrics(B) } }, null, 1));
+  let motionCompare = null;
+  if (process.env.T130_MOTION && A.motionRows && B.motionRows) {
+    fs.writeFileSync('/tmp/t130-motion-A.json', JSON.stringify({ fields: A.motionFields, rows: A.motionRows }));
+    fs.writeFileSync('/tmp/t130-motion-B.json', JSON.stringify({ fields: B.motionFields, rows: B.motionRows }));
+    const mc = { frames: Math.min(A.motionRows.length, B.motionRows.length), rowsA: A.motionRows.length, rowsB: B.motionRows.length, exactEqualFrames: 0, firstDiffFrame: null, firstDiffField: null, firstDiffValues: null, maxAbsDiff: 0, fields: A.motionFields };
+    for (let i = 0; i < mc.frames; i++) { const ra = A.motionRows[i], rb = B.motionRows[i]; let feq = true;
+      for (let k = 0; k < 8; k++) { const d = Math.abs(ra[k] - rb[k]); if (d > mc.maxAbsDiff) mc.maxAbsDiff = d;
+        if (ra[k] !== rb[k]) { feq = false; if (mc.firstDiffFrame === null) { mc.firstDiffFrame = i; mc.firstDiffField = mc.fields[k]; mc.firstDiffValues = [ra[k], rb[k]]; } } }
+      if (feq) mc.exactEqualFrames++; }
+    motionCompare = mc;
+  }
+  console.log(JSON.stringify({ N, SEED, FPS, determinismSelfCheck: det, motionCompare, A: { label: A.label, engine: A.engine, simOn: A.simOn, initCheck: A.initCheck, meta: A.meta, metrics: metrics(A) }, B: { label: B.label, engine: B.engine, simOn: B.simOn, initCheck: B.initCheck, meta: B.meta, metrics: metrics(B) } }, null, 1));
   fs.writeFileSync('/tmp/t130-' + A.label + '.frames.json', JSON.stringify(A.frames));
   fs.writeFileSync('/tmp/t130-' + B.label + '.frames.json', JSON.stringify(B.frames));
 })().catch(e => { console.error('FATAL', e && e.stack || e); process.exit(1); });
