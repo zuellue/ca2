@@ -9,6 +9,7 @@ const H = require(process.argv[2] ? require('path').resolve(process.argv[2]) : r
 const FPS = +(process.argv[3] || 12), SEP = +(process.argv[4] || 0), ISO = +(process.argv[5] || 0), SHOT = process.argv[6] || '', SEED = +(process.argv[7] || 0); // SEED: matched-initial-state control (main 25 Oct) - same seeded Math.random at boot in both trees
 const EXTRA = process.argv[8] ? JSON.parse(process.argv[8]) : {}; // extra setKey overrides, e.g. '{"crowdGain":0}' for A/B
 const STATE = process.argv[9] || ''; // 'dump:/path.json' captures the post-boot state; 'inject:/path.json' forces it - matched initial state across trees (main 25 Oct)
+const TAILMS = +(process.argv[10] || 0); // extra post-expansion observation window for the release-tail question (main 25 Oct); 0 = unchanged
 (async () => {
   const T0 = Date.now(); const el = () => ((Date.now() - T0) / 1000).toFixed(1);
   const s = await H.serve(8913), c = await H.launch(8912, 'http://127.0.0.1:8913/index.html', ['--window-size=900,600']);
@@ -47,7 +48,7 @@ var __fp = 0; __ca2.getCells().forEach(function (q) { if (q.alive) __fp = (__fp 
 window.__stateDump = JSON.stringify({ cells: __ca2.getCells().map(function (q) { return { x: q.x, y: q.y, vx: q.vx, vy: q.vy, radius: q.radius, energy: q.energy, gene: q.gene, maxSpeed: q.maxSpeed, speedModifier: q.speedModifier, hostility: q.hostility, mutationRate: q.mutationRate, sv: q.sv, cl: q.cl || 0, sq: q.sq || 0, crowd: q.crowd || 0, hab: q.hab || 0, alive: q.alive, g: q.g, shp: q.shp }; }), food: __ca2.getFood().map(function (f) { return { x: f.x, y: f.y, r: f.r }; }), cont: { x: __ca2.cont.x, y: __ca2.cont.y, w: __ca2.cont.w, h: __ca2.cont.h } });
 requestAnimationFrame(function rc() { if (!window.__recOn) return; var c = __ca2.cont, cs = __ca2.getCells(), a = new Float32Array(cs.length * 5), j = 0;
   for (var i = 0; i < cs.length; i++) { var q = cs[i]; if (q.alive) { a[j++] = q.x; a[j++] = q.y; a[j++] = q.vx; a[j++] = q.vy; a[j++] = q.radius;
-    if (q.__ti !== undefined) { __ls[q.__ti] = [q.x, q.y, q.radius, q.energy, __fr.length, q.__r0]; if (q.radius < q.__rmin) q.__rmin = q.radius;
+    if (q.__ti !== undefined) { var nb7 = 0; for (var n7 = 0; n7 < cs.length; n7++) { var q7 = cs[n7]; if (q7 !== q && q7.alive && Math.hypot(q.x - q7.x, q.y - q7.y) < 12.016) nb7++; } __ls[q.__ti] = [q.x, q.y, q.radius, q.energy, __fr.length, q.__r0, q.gene, nb7, Math.round(q.age || 0), Math.round(q.life || 0)]; if (q.radius < q.__rmin) q.__rmin = q.radius;
       var dr = (q.__rprev === undefined ? q.radius : q.__rprev) - q.radius; q.__rprev = q.radius;
       if (dr > (q.__rmaxdrop || 0)) { q.__rmaxdrop = dr; q.__rdropf = __fr.length; var cc = __ca2.cont; q.__rdropwall = Math.min(Math.abs(q.x - cc.x), Math.abs(cc.x + cc.w - q.x), Math.abs(q.y - cc.y), Math.abs(cc.y + cc.h - q.y)) < 30;
         var sgs = (__ca2.axisInfo && __ca2.axisInfo.segs) || []; q.__rdropsep = false;
@@ -65,10 +66,10 @@ var c = __ca2.cont; return JSON.stringify({ x: c.x, w: c.w, y: c.y, h: c.h, fr: 
   const fr0 = st.fr;
   evG(`(function(){__fire('mousedown',${x0},${y});
 var steps=5,d=${half}/5,i=0;var iv=setInterval(function(){i++;if(i<=steps){__fire('mousemove',${x0}+Math.round(i*d),${y});}else{clearInterval(iv);
-setTimeout(function(){var j=0;var iv2=setInterval(function(){j++;if(j<=steps){__fire('mousemove',${x0}+Math.round((5-j)*d),${y});}else{clearInterval(iv2);__fire('mouseup',${x0},${y});window.__done=1;}},60);}},2000);}},60);})()`);
+setTimeout(function(){var j=0;var iv2=setInterval(function(){j++;if(j<=steps){__fire('mousemove',${x0}+Math.round((5-j)*d),${y});}else{clearInterval(iv2);__fire('mouseup',${x0},${y});setTimeout(function(){window.__done=1;},${TAILMS});}},60);}},2000);}},60);})()`);
   console.error(el() + 's drag fired');
   if (SHOT) { await c.sleep(1600); await c.shot(SHOT + '-mid.png'); } // mid-hold: max squeeze, squash state visible
-  await wait('window.__done', 25);
+  await wait('window.__done', 25 + Math.ceil(TAILMS / 1000)); // budget must cover the post-expansion tail
   console.error(el() + 's drag done');
   if (SHOT) await c.shot(SHOT + '-after.png');
   const out = await evG(`(function(){window.__recOn = 0; var fr = __fr.slice(${fr0});
@@ -119,7 +120,8 @@ __ca2.getCells().forEach(function (q) { q.__seen = 1; });
 for (var ti = 0; ti < __tn; ti++) { var L = __ls[ti]; if (!L) continue;
   var live = false; __ca2.getCells().forEach(function (q) { if (q.__ti === ti) live = true; });
   if (!live) { var atWall = contL ? (Math.min(Math.abs(L[0] - contL.x), Math.abs(L[0] - (contL.x + contL.w)), Math.abs(L[1] - contL.y), Math.abs(L[1] - (contL.y + contL.h))) < 6) : false;
-    deadRep.push({ ti: ti, endRLoss: +(1 - L[2] / L[5]).toFixed(3), lastE: +L[3].toFixed(2), atWall: atWall, frAgo: fr.length - L[4] }); } }
+    var g0 = L[6];
+    deadRep.push({ ti: ti, endRLoss: +(1 - L[2] / L[5]).toFixed(3), lastE: +L[3].toFixed(2), atWall: atWall, frAgo: fr.length - L[4], gene: g0, lastN12: L[7], lastAge: L[8], life: L[9], ageLeftMs: L[9] ? L[9] - L[8] : -1 }); } } // gene + lastN12 recorded for death-cause grounding (gene-bound vs crowding-threshold, main 25 Oct)
 __ca2.getCells().forEach(function (q) { if (q.__r0 !== undefined && q.__r0 > 1) liveMinLoss = Math.max(liveMinLoss, 1 - (q.__rmin || q.radius) / q.__r0); });
 var ledgerLoss = 0, ledgerN = 0, ledgerGone = 0;
 __ca2.getCells().forEach(function (q) { if (q.__r0 === undefined) return; ledgerN++; if (q.__r0 > 1) ledgerLoss = Math.max(ledgerLoss, 1 - q.radius / q.__r0); });
@@ -136,6 +138,7 @@ return JSON.stringify({ initFP: window.__initFP, frames: fr.length, transEnd: tr
   ledgerLoss: +ledgerLoss.toFixed(4), ledgerN: ledgerN, lossByCell: lossByCell.slice(0, 8), shrinkRep: shrinkRep.slice(0, 8), deaths: __ca2.deaths, deadRep: deadRep.slice(0, 12), liveMinLoss: +liveMinLoss.toFixed(4),
   sepJitter: sepJit, viol: viol, maxSameTail: maxSameTail, wallTail: wallTail, violFrames: violFrames, reactN: rr.length, reactFrameSd: +rfSd.toFixed(2), reactDirSpread: +dirSpread.toFixed(3) });})()`);
   const TREE = (process.argv[2] || '').includes('ca2base') ? 'base' : 'branch';
-  console.log(JSON.stringify(Object.assign({ fps: FPS, sep: SEP, iso: ISO, tree: TREE, runs: 'independent-bounded (unmatched populations)', errs: c.errs.length }, JSON.parse(out === 'EV-TIMEOUT' ? '{}' : out))));
+  let outP = {}; try { outP = JSON.parse(out === 'EV-TIMEOUT' ? '{}' : out); } catch (e) { console.error('EVAL-EXC raw:', String(out).slice(0, 600)); }
+  console.log(JSON.stringify(Object.assign({ fps: FPS, sep: SEP, iso: ISO, tree: TREE, runs: 'independent-bounded (unmatched populations)', errs: c.errs.length }, outP)));
   c.close(); s.close(); process.exit(0);
 })().catch(e => { console.log('FATAL', e.message); process.exit(1); });
