@@ -441,8 +441,13 @@
     var rab = effR(a) + effR(b);
     if (dist < rab) ev.hit++;
     if (dist < a.radius + b.radius && Math.random() < P.reproChance * birthCapF() && a.energy > P.minEnergyForReproduction && b.energy > P.minEnergyForReproduction && frameT - (a.bornAt || 0) >= P.reproMinAgeMs && frameT - (b.bornAt || 0) >= P.reproMinAgeMs) reproduce(a, b); // juveniles do not reproduce: newborns overlap their parents, and ungated contact births chained into rows (owner 21 Oct: one click must be one cell)
-    var nl = dist || 1, nx = dx / nl, ny = dy / nl, sep = (rab - dist) * 0.5;
-    a.x -= nx * sep; a.y -= ny * sep; b.x += nx * sep; b.y += ny * sep;
+    // item 64 F3 (main 25 Oct): coincidence de-overlap is continuous, not a one-step full resolution - each
+    // side moves at most its own wall-zone quantum (maxSpeed+1, the engine's per-frame movement scale) and the
+    // rest resolves over the following frames; a degenerate contact normal (exact coincidence) is decided by
+    // stable call order, never by sub-pixel jitter. No radius/squash change here.
+    var nx, ny; if (dist > 1e-6) { nx = dx / dist; ny = dy / dist; } else { nx = 1; ny = 0; }
+    var sep = (rab - dist) * 0.5, qa = Math.max(-(a.maxSpeed + 1), Math.min(a.maxSpeed + 1, sep)), qb = Math.max(-(b.maxSpeed + 1), Math.min(b.maxSpeed + 1, sep));
+    a.x -= nx * qa; a.y -= ny * qa; b.x += nx * qb; b.y += ny * qb;
     var ad = a.vx * nx + a.vy * ny, bd = b.vx * nx + b.vy * ny;
     a.vx = lerp(a.vx, a.vx - nx * 2 * ad, 0.8); a.vy = lerp(a.vy, a.vy - ny * 2 * ad, 0.8);
     b.vx = lerp(b.vx, b.vx - nx * 2 * bd, 0.8); b.vy = lerp(b.vy, b.vy - ny * 2 * bd, 0.8);

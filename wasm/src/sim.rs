@@ -443,10 +443,16 @@ impl Sim {
         if dist < rea + reb { self.out[6] += 1.0; }
         let capf = if self.p[P_HABON] > 0.5 && self.p[P_HABCAP] > 0.0 { let cap = self.p[P_HABCAP] * self.p[P_UNI]; let n = self.n as f64; if n > cap { cap / n } else { 1.0 } } else { 1.0 };
         if dist < ra + rb && self.rnd01() < self.p[P_REPROCH] * capf && self.g(a, EN) > self.p[P_MINREP] && self.g(b, EN) > self.p[P_MINREP] && self.g(a, AGE) >= self.p[P_RMINAGE] && self.g(b, AGE) >= self.p[P_RMINAGE] { self.reproduce(a, b); } // juveniles do not reproduce: newborns overlap their parents and ungated contact births chained into rows (owner 21 Oct)
-        let nl = if dist != 0.0 { dist } else { 1.0 };
-        let (nx, ny) = (dx / nl, dy / nl); let sep = (rea + reb - dist) * 0.5;
-        self.set(a, X, self.g(a, X) - nx * sep); self.set(a, Y, self.g(a, Y) - ny * sep);
-        self.set(b, X, self.g(b, X) + nx * sep); self.set(b, Y, self.g(b, Y) + ny * sep);
+        // item 64 F3 (main 25 Oct): coincidence de-overlap is continuous, not a one-step full resolution -
+        // each side moves at most its own wall-zone quantum (maxSpeed+1, the engine's per-frame movement
+        // scale) and the rest resolves over the following frames; a degenerate contact normal (exact
+        // coincidence) is decided by stable call order, never by sub-pixel jitter. 1:1 ca2.js interact.
+        let (nx, ny) = if dist > 1e-6 { (dx / dist, dy / dist) } else { (1.0, 0.0) };
+        let sep = (rea + reb - dist) * 0.5;
+        let qa = sep.min(self.g(a, MAXS) + 1.0).max(-(self.g(a, MAXS) + 1.0));
+        let qb = sep.min(self.g(b, MAXS) + 1.0).max(-(self.g(b, MAXS) + 1.0));
+        self.set(a, X, self.g(a, X) - nx * qa); self.set(a, Y, self.g(a, Y) - ny * qa);
+        self.set(b, X, self.g(b, X) + nx * qb); self.set(b, Y, self.g(b, Y) + ny * qb);
         let (avx, avy, bvx, bvy) = (self.g(a, VX), self.g(a, VY), self.g(b, VX), self.g(b, VY));
         let ad = avx * nx + avy * ny; let bd = bvx * nx + bvy * ny;
         let (r1x, r1y) = self.rand2d(); let (r2x, r2y) = self.rand2d();
