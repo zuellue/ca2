@@ -242,10 +242,13 @@
       var bx = c.x - cont.x - g2, by = c.y - cont.y - g2, sq0 = c.sq || 0;
       var rF = Math.max(1, Math.min(bx, cont.w - g2 - bx, by, cont.h - g2 - by));
       var tg = Math.max(P.boundAware ? clamp(1 - Math.max(0, rF - c.radius) / 8, 0, 1) : 0, c.sqS || 0);
-      c.sq = sq0 + (tg - sq0) * (tg > sq0 ? P.squashIn : P.squashOut);
+      var ek = frameDtf * 0.06, rate = tg > sq0 ? P.squashIn : P.squashOut; // easing per elapsed time at a 60fps reference: 12fps and 60fps run the same biology (item 64)
+      c.sq = sq0 + (tg - sq0) * (1 - Math.pow(1 - rate, ek));
       c.sqS = 0;
     }
   }
+  // the one eased squash state, contact side: bodies feel and draw the same squashed radius (item 64 directive 2)
+  function effR(c) { return c.radius * (1 - P.squashMax * (c.sq || 0)); }
   // one wall side of wallPull: piston carry when the wall advanced inward past the body this frame, else reflect
   function carrySide(p, ax, vax, along, line, wv, side, vel) {
     if (P.wallCarry > 0 && wv * side > 0) {
@@ -314,9 +317,10 @@
     if (a.hostility > 0.5) {
       var l = dist || 1; a.vx += (-dx / l) * 0.05 * a.hostility; a.vy += (-dy / l) * 0.05 * a.hostility;
     }
-    if (dist < a.radius + b.radius) ev.hit++;
+    var rab = effR(a) + effR(b);
+    if (dist < rab) ev.hit++;
     if (dist < a.radius + b.radius && Math.random() < P.reproChance * birthCapF() && a.energy > P.minEnergyForReproduction && b.energy > P.minEnergyForReproduction && frameT - (a.bornAt || 0) >= P.reproMinAgeMs && frameT - (b.bornAt || 0) >= P.reproMinAgeMs) reproduce(a, b); // juveniles do not reproduce: newborns overlap their parents, and ungated contact births chained into rows (owner 21 Oct: one click must be one cell)
-    var nl = dist || 1, nx = dx / nl, ny = dy / nl, sep = (a.radius + b.radius - dist) * 0.5;
+    var nl = dist || 1, nx = dx / nl, ny = dy / nl, sep = (rab - dist) * 0.5;
     a.x -= nx * sep; a.y -= ny * sep; b.x += nx * sep; b.y += ny * sep;
     var ad = a.vx * nx + a.vy * ny, bd = b.vx * nx + b.vy * ny;
     a.vx = lerp(a.vx, a.vx - nx * 2 * ad, 0.8); a.vy = lerp(a.vy, a.vy - ny * 2 * ad, 0.8);
@@ -816,15 +820,15 @@
       var t0 = performance.now(), n = cells.length, cap = n + 256, nf = food.length, cl = Object.keys(cmean), ncm = cl.length, i, c, b;
       E.sim_cells(cap); E.sim_food(nf + 1); E.sim_cm(ncm + 1);
       var cp = E.sim_cells(cap), fxp = E.sim_food(nf + 1), fyp = E.sim_food_y(), fgp = E.sim_food_gone(), cmp = E.sim_cm(ncm + 1), cip = E.sim_cm_ids(), pp = E.sim_params();
-      var buf = WC.mem.buffer, cf = new Float64Array(buf, cp, cap * 24), fx = new Float64Array(buf, fxp, nf + 1), fy = new Float64Array(buf, fyp, nf + 1), cmf = new Float64Array(buf, cmp, (ncm + 1) * 5), cid = new Float64Array(buf, cip, ncm + 1), p = new Float64Array(buf, pp, 88);
+      var buf = WC.mem.buffer, cf = new Float64Array(buf, cp, cap * 25), fx = new Float64Array(buf, fxp, nf + 1), fy = new Float64Array(buf, fyp, nf + 1), cmf = new Float64Array(buf, cmp, (ncm + 1) * 5), cid = new Float64Array(buf, cip, ncm + 1), p = new Float64Array(buf, pp, 89);
       simStamp++;
       for (i = 0; i < n; i++) {
         c = cells[i]; c._i = i; c._f = simStamp;
       }
       for (i = 0; i < n; i++) {
-        c = cells[i]; b = i * 24; var g = c.g;
+        c = cells[i]; b = i * 25; var g = c.g;
         cf[b] = c.x; cf[b + 1] = c.y; cf[b + 2] = c.vx; cf[b + 3] = c.vy; cf[b + 4] = c.radius; cf[b + 5] = c.energy; cf[b + 6] = c.gene; cf[b + 7] = c.alive ? 1 : 0; cf[b + 8] = c.maxSpeed; cf[b + 9] = c.speedModifier; cf[b + 10] = c.hostility; cf[b + 11] = c.mutationRate; cf[b + 12] = c.sv; cf[b + 13] = c.cl || 0;
-        cf[b + 14] = (c.sym && c.sym._f === simStamp) ? c.sym._i : -1; cf[b + 15] = g.spd; cf[b + 16] = g.app; cf[b + 17] = g.bnd; cf[b + 18] = g.col[0]; cf[b + 19] = g.col[1]; cf[b + 20] = g.col[2]; cf[b + 21] = c.comp || 0; cf[b + 22] = 0; cf[b + 23] = frameT - (c.bornAt || 0); // slot 23: age ms in, -1 = absorbed out (eaten/fused: no nutrient pulse); 22 is the wasm REM flag
+        cf[b + 14] = (c.sym && c.sym._f === simStamp) ? c.sym._i : -1; cf[b + 15] = g.spd; cf[b + 16] = g.app; cf[b + 17] = g.bnd; cf[b + 18] = g.col[0]; cf[b + 19] = g.col[1]; cf[b + 20] = g.col[2]; cf[b + 21] = c.comp || 0; cf[b + 22] = 0; cf[b + 23] = frameT - (c.bornAt || 0); cf[b + 24] = c.sq || 0; // slot 23: age ms in, -1 = absorbed out; 22 is the wasm REM flag; 24: eased squash state (item 64)
       }
       E.sim_set_n(n); E.sim_set_nf(nf);
       for (i = 0; i < nf; i++) { fx[i] = food[i].x; fy[i] = food[i].y; }
@@ -836,6 +840,7 @@
       p[39] = env.spd; p[40] = env.app; p[41] = env.bnd; p[42] = env.col ? 1 : 0; if (env.col) { p[43] = env.col[0]; p[44] = env.col[1]; p[45] = env.col[2]; }
       p[46] = mouse.x; p[47] = mouse.y; p[48] = mouse.over ? 1 : 0; p[49] = cont.x; p[50] = cont.y; p[51] = cont.w; p[52] = cont.h; p[53] = resizeDrag ? 1 : 0; p[54] = clusterSeq;
       p[80] = cont.wvx0 || 0; p[81] = cont.wvx1 || 0; p[82] = cont.wvy0 || 0; p[83] = cont.wvy1 || 0; p[84] = P.wallCarry === undefined ? 1 : P.wallCarry; p[85] = P.wallSpread === undefined ? 0.5 : P.wallSpread; // 80-85: piston carry edge velocities + factors (owner 25 Oct)
+      p[86] = P.squashMax === undefined ? 0.18 : P.squashMax; p[87] = P.squashIn === undefined ? 0.45 : P.squashIn; p[88] = P.squashOut === undefined ? 0.08 : P.squashOut; // 86-88: eased squash state, contact+render (item 64)
       p[78] = frameDtf; p[79] = P.foodEatRate === undefined ? 1.5 : P.foodEatRate; // frame dt ms + grazing rate for sim.rs eat roll - 55/56 are NCM/ONLYINT, never pack them (6d7a61a collision disabled update() sitewide)
       p[57] = P.boundGap || 0; p[58] = P.reproMinAgeMs || 0; p[59] = P.reproChance === undefined ? 0.02 : P.reproChance; // 58: juvenile gate ms, 59: contact birth chance // boundGap slot for sim.rs keep_in (625f4e8 port); 44/45 are env.col
       p[60] = P.crowdTol; p[61] = P.orgLifeDie; p[62] = P.orgLifeGrow; p[63] = P.orgBirth; p[64] = P.orgDead; p[65] = P.orgBrain; p[66] = P.orgR90;
@@ -846,14 +851,14 @@
       var o = new Float64Array(WC.mem.buffer, E.sim_out(), 32), nf2 = o[15];
       var kids = [];
       if (E.sim_cap && E.sim_cap() !== cap) { cap = E.sim_cap(); cp = E.sim_cells_ptr(); } // wasm grew its cell buffer on a birth burst: re-anchor before reading back
-      cf = new Float64Array(WC.mem.buffer, cp, cap * 24);
+      cf = new Float64Array(WC.mem.buffer, cp, cap * 25);
       for (i = 0; i < nf2; i++) {
-        b = i * 24; c = i < n ? cells[i] : new Cell(cf[b], cf[b + 1], cf[b + 6], cf[b + 11]);
+        b = i * 25; c = i < n ? cells[i] : new Cell(cf[b], cf[b + 1], cf[b + 6], cf[b + 11]);
         if (i >= n) { cells.push(c); c._i = i; c._f = simStamp; }
         c.x = cf[b]; c.y = cf[b + 1]; c.vx = cf[b + 2]; c.vy = cf[b + 3]; c.radius = cf[b + 4]; c.energy = cf[b + 5]; c.gene = cf[b + 6]; c.alive = cf[b + 7] !== 0; c.maxSpeed = cf[b + 8]; c.speedModifier = cf[b + 9]; c.hostility = cf[b + 10]; c.mutationRate = cf[b + 11]; c.sv = cf[b + 12]; c.cl = cf[b + 13];
-        var gg = c.g; gg.spd = cf[b + 15]; gg.app = cf[b + 16]; gg.bnd = cf[b + 17]; gg.col = [cf[b + 18], cf[b + 19], cf[b + 20]]; if (cf[b + 21] > 0) c.comp = cf[b + 21]; c.absorbed = cf[b + 23] < 0 ? 1 : 0;
+        var gg = c.g; gg.spd = cf[b + 15]; gg.app = cf[b + 16]; gg.bnd = cf[b + 17]; gg.col = [cf[b + 18], cf[b + 19], cf[b + 20]]; if (cf[b + 21] > 0) c.comp = cf[b + 21]; c.absorbed = cf[b + 23] < 0 ? 1 : 0; c.sq = cf[b + 24];
       }
-      for (i = 0; i < nf2; i++) { var sy = cf[i * 24 + 14]; cells[i].sym = sy >= 0 ? cells[sy] : null; }
+      for (i = 0; i < nf2; i++) { var sy = cf[i * 25 + 14]; cells[i].sym = sy >= 0 ? cells[sy] : null; }
       var fg = new Float64Array(WC.mem.buffer, fgp, nf + 1);
       var lg = new Float64Array(WC.mem.buffer, E.sim_log(), o[17]); // births / fusions: body plans stay in JS (newShape/mixShape), the wasm core only reports who came from whom
       for (i = 0; i < lg.length; i += 4) { var kd = lg[i + 3], k0 = cells[lg[i]], p0 = cells[lg[i + 1]], p1 = lg[i + 2] >= 0 ? cells[lg[i + 2]] : null; if (kd === 1) k0.shp = newShape(p0.shp); else if (kd === 2) k0.shp = mixShape(p0.shp, p1.shp); else k0.shp = mixShape(k0.shp, p0.shp); }

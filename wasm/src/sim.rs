@@ -1,9 +1,9 @@
 // ca2core sim: port of the per-frame cell loop (update/organic/checkSurvival/interact/keepIn/divide/reproduce/joinCluster/fuse,
 // hover colour). State is struct-of-arrays in wasm memory; JS packs/unpacks around one call per frame. No DOM.
 use std::f64::consts::PI;
-pub const ST: usize = 24; // f64 per cell
+pub const ST: usize = 25; // f64 per cell (24 = eased squash state SQ, item 64)
 const X: usize = 0; const Y: usize = 1; const VX: usize = 2; const VY: usize = 3; const RAD: usize = 4; const EN: usize = 5; const GENE: usize = 6;
-const ALIVE: usize = 7; const MAXS: usize = 8; const SPM: usize = 9; const HOST: usize = 10; const MUT: usize = 11; const SV: usize = 12; const CL: usize = 13;
+const ALIVE: usize = 7; const MAXS: usize = 8; const SPM: usize = 9; const HOST: usize = 10; const MUT: usize = 11; const SV: usize = 12; const CL: usize = 13; const SQ: usize = 24;
 const SYM: usize = 14; const GSPD: usize = 15; const GAPP: usize = 16; const GBND: usize = 17; const C0: usize = 18; const C1: usize = 19; const C2: usize = 20;
 const COMP: usize = 21; const REM: usize = 22; const AGE: usize = 23; // 23: age in ms, packed by JS every frame (juvenile reproduction gate); wasm writes -1 here on eat/fuse = absorbed flag (biomass stayed in a cell, no nutrient pulse)
 
@@ -18,7 +18,7 @@ pub static mut SIM: Option<Sim> = None;
 pub fn sim() -> &'static mut Sim {
     unsafe {
         let s = &mut *std::ptr::addr_of_mut!(SIM);
-        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 88], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new() }); }
+        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 89], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new() }); }
         s.as_mut().unwrap()
     }
 }
@@ -38,7 +38,8 @@ const P_CROWD: usize = 60; // checkSurvival crowding tolerance (energy < n * cro
 const P_ORGDIE: usize = 61; const P_ORGGROW: usize = 62; const P_ORGBIRTH: usize = 63; const P_ORGDECAY: usize = 64;
 const P_ORGBRAIN: usize = 65; const P_ORGR90: usize = 66; // organic() life/birth/energy deltas (B3/S23 topology stays)
 const P_SYMEN: usize = 67; const P_SYMBRK: usize = 68; const P_SYMBRKD: usize = 69; // symbiosis bond feed, whim break, distance break (x span)
-const P_DTF: usize = 78; const P_FERATE: usize = 79; // frame dt ms + grazing rate (dots/s per touched dot) - moved off 55/56: those belong to P_NCM/P_ONLYINT, and foodEatRate!=0 read as ONLYINT disabled update()/check_survival() for every cell (divide/graze/shrink/keepIn all dead)
+const P_DTF: usize = 78; const P_FERATE: usize = 79;
+const P_SQMAX: usize = 86; const P_SQIN: usize = 87; const P_SQOUT: usize = 88; // eased squash: depth + in/out rates per frame at 60fps (item 64) // frame dt ms + grazing rate (dots/s per touched dot) - moved off 55/56: those belong to P_NCM/P_ONLYINT, and foodEatRate!=0 read as ONLYINT disabled update()/check_survival() for every cell (divide/graze/shrink/keepIn all dead)
 const P_EATDF: usize = 70; const P_FUSEDF: usize = 71; const P_SYMDF: usize = 72; // eat/fuse/pair contact distance (x radii sum)
 const P_HABON: usize = 73; const P_HABCAP: usize = 74;
 const P_DIVMODE: usize = 75; const P_DIVAGE: usize = 76; const P_DIVEN: usize = 77;
@@ -187,8 +188,17 @@ impl Sim {
         d = x1 - x; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vx -= f * t * t * ms * 0.25; if vx > 0.0 { vx *= 1.0 - 0.25 * t; } if t > press { press = t; } }
         d = y - y0; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vy += f * t * t * ms * 0.25; if vy < 0.0 { vy *= 1.0 - 0.25 * t; } if t > press { press = t; } }
         d = y1 - y; if d < z { t = clamp(1.0 - d / z, 0.0, 1.0); vy -= f * t * t * ms * 0.25; if vy > 0.0 { vy *= 1.0 - 0.25 * t; } if t > press { press = t; } }
-        // item 64: no permanent size loss at the boundary (squash lives draw-side in JS)
-        let _ = press;
+        // item 64 directive 2: no permanent size loss at the boundary - one eased squash state, 1:1 with
+        // ca2.js stepSquash: target = max(wall-geometry clamp, zone pressure), dt-normalized easing (60fps reference)
+        let g2 = 0f64.max(self.p[P_BGAP]);
+        let bxs = x - self.p[P_CX] - g2; let bys = y - self.p[P_CY] - g2;
+        let rf = bxs.min(self.p[P_CW] - g2 - bxs).min(bys).min(self.p[P_CH] - g2 - bys).max(1.0);
+        let mut tg = if self.p[P_BOUND] != 0.0 { clamp(1.0 - (0f64.max(rf - self.g(c, RAD))) / 8.0, 0.0, 1.0) } else { 0.0 };
+        if press > tg { tg = press; }
+        let sq0 = self.g(c, SQ);
+        let ek = self.p[P_DTF] * 0.06;
+        let rate = if tg > sq0 { self.p[P_SQIN] } else { self.p[P_SQOUT] };
+        self.set(c, SQ, sq0 + (tg - sq0) * (1.0 - (1.0 - rate).powf(ek)));
         // absolute wall (owner 22 Oct): nothing is ever outside; a moved wall carries the body, a hit reflects.
         let (x0, x1) = if x1 < x0 { let m = (x0 + x1) / 2.0; (m, m) } else { (x0, x1) };
         let (y0, y1) = if y1 < y0 { let m = (y0 + y1) / 2.0; (m, m) } else { (y0, y1) };
@@ -382,11 +392,12 @@ impl Sim {
         self.set(a, GENE, clamp(ga + gc, gmin, gmax)); self.set(b, GENE, clamp(gb - gc, gmin, gmax));
         let host = self.g(a, HOST);
         if host > 0.5 { let l = if dist != 0.0 { dist } else { 1.0 }; let vx = self.g(a, VX) + (-dx / l) * 0.05 * host; let vy = self.g(a, VY) + (-dy / l) * 0.05 * host; self.set(a, VX, vx); self.set(a, VY, vy); }
-        if dist < ra + rb { self.out[6] += 1.0; }
+        let sqm = self.p[P_SQMAX]; let (rea, reb) = (ra * (1.0 - sqm * self.g(a, SQ)), rb * (1.0 - sqm * self.g(b, SQ))); // eased squash state on the contact side (item 64)
+        if dist < rea + reb { self.out[6] += 1.0; }
         let capf = if self.p[P_HABON] > 0.5 && self.p[P_HABCAP] > 0.0 { let cap = self.p[P_HABCAP] * self.p[P_UNI]; let n = self.n as f64; if n > cap { cap / n } else { 1.0 } } else { 1.0 };
         if dist < ra + rb && self.rnd01() < self.p[P_REPROCH] * capf && self.g(a, EN) > self.p[P_MINREP] && self.g(b, EN) > self.p[P_MINREP] && self.g(a, AGE) >= self.p[P_RMINAGE] && self.g(b, AGE) >= self.p[P_RMINAGE] { self.reproduce(a, b); } // juveniles do not reproduce: newborns overlap their parents and ungated contact births chained into rows (owner 21 Oct)
         let nl = if dist != 0.0 { dist } else { 1.0 };
-        let (nx, ny) = (dx / nl, dy / nl); let sep = (ra + rb - dist) * 0.5;
+        let (nx, ny) = (dx / nl, dy / nl); let sep = (rea + reb - dist) * 0.5;
         self.set(a, X, self.g(a, X) - nx * sep); self.set(a, Y, self.g(a, Y) - ny * sep);
         self.set(b, X, self.g(b, X) + nx * sep); self.set(b, Y, self.g(b, Y) + ny * sep);
         let (avx, avy, bvx, bvy) = (self.g(a, VX), self.g(a, VY), self.g(b, VX), self.g(b, VY));

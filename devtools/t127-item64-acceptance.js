@@ -5,10 +5,10 @@
 const H = require(process.argv[2] ? require('path').resolve(process.argv[2]) : require('path').join(__dirname, 'harness.js'));
 const FPS = +(process.argv[3] || 12), SEP = +(process.argv[4] || 0);
 (async () => {
-  const s = await H.serve(8913), c = await H.launch(8912, 'http://127.0.0.1:8913/index.html');
+  console.error('serving');const s = await H.serve(8913);console.error('launching');const c = await H.launch(8912, 'http://127.0.0.1:8913/index.html');console.error('launched');
   const wait = async (e, n) => { for (let i = 0; i < (n || 120); i++) { if (await c.ev(e)) return true; await c.sleep(250); } return false; };
-  if (!await wait('window.__ca2 && __ca2.cells > 10')) { console.log('BOOT FAIL'); process.exit(1); }
-  await wait('!__ca2.trans', 60);
+  if (!await wait('window.__ca2 && __ca2.cells > 10')) { console.log('BOOT FAIL'); process.exit(1); } console.error('booted');
+  console.error('trans wait'); await wait('!__ca2.trans', 60); console.error('trans done');
   await c.ev(`__ca2.setKey('fps', ${FPS}); __ca2.setKey('separatorOn', ${SEP});`);
   await c.sleep(800);
   // per-frame full-state recorder
@@ -24,9 +24,9 @@ window.__fire=function(t,x,y){cv.dispatchEvent(new MouseEvent(t,{clientX:x,clien
   await c.ev(`(function(){__fire('mousedown',${x0},${y});
 var steps=5,d=${half}/5,i=0;var iv=setInterval(function(){i++;if(i<=steps){__fire('mousemove',${x0}+Math.round(i*d),${y});}else{clearInterval(iv);
 setTimeout(function(){var j=0;var iv2=setInterval(function(){j++;if(j<=steps){__fire('mousemove',${x0}+Math.round((5-j)*d),${y});}else{clearInterval(iv2);__fire('mouseup',${x0},${y});window.__done=1;}},60);}},2000);}},60);})()`);
-  await wait('window.__done', 40);
+  console.error('drag started'); await wait('window.__done', 40); console.error('drag done');
   await c.sleep(1200);
-  const fr = JSON.parse(await c.ev('JSON.stringify(__fr.slice(' + fr0 + '))'));
+  console.error('fetching frames'); const fr = JSON.parse(await c.ev('JSON.stringify(__fr.slice(' + fr0 + '))')); console.error('frames', fr.length);
   // --- metrics ---
   const mean = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0;
   let maxDisp = 0, maxSame = 0, viol = 0, violFrames = 0, reacts = [];
