@@ -136,6 +136,8 @@ async function runEngine(enginePath, label) {
   if (!sandbox.__ca2KillTrans || !sandbox.__ca2ResetGlobals) throw new Error(label + ': probe hooks missing (ca2KillTrans/ca2ResetGlobals) - instrumented build required, refusing unreset pair (fail-closed, main 25 Oct)');
   { // pair-matched global physics (boundary-finding 25 Oct): morph killed; trans-lerped P keys reset to the frozen preset; env to declaration defaults; clusterSeq past stateB max; live-key drift cleared. Direct probe writes - setKey/applyKey would pin keys and reset radii.
     sandbox.__ca2KillTrans();
+    if (!sandbox.__ca2traceIdFn) { const om = new WeakMap(); cs0.forEach((q, i) => om.set(q, i)); let bid = 1000; sandbox.__ca2traceIdFn = (tc) => { const i = om.get(tc); return i !== undefined ? i : bid++; }; }
+    sandbox.__ca2Carry = {}; // per-injected-id [carryEvents, sumPostCarrySpeedDelta] for the whole run (main+Q4H9 25 Oct)
     const GP = JSON.parse(PRESET_TXT);
     const maxCl = INJ.cells.reduce((m, c) => Math.max(m, c.cl || 0), 0);
     sandbox.__ca2ResetGlobals(GP.UNIVERSE_SIZE, GP.CELL_RADIUS, GP.interactionRadius, GP.mutationRateRange, GP.baseMutationRate, maxCl + 1);
@@ -175,7 +177,8 @@ async function runEngine(enginePath, label) {
   if (process.env.T130_TRACE && sandbox.__ca2trace) { fs.writeFileSync('/tmp/t130-trace-' + label + '.json', JSON.stringify(sandbox.__ca2trace));
     meta.trfAtInjectMeasured = sandbox.__ca2trace.length ? sandbox.__ca2trace[0][0] : null; } // first traced frame = inject frame (trace installed at inject)
   // identity scope: tids 0..84 = injected cohort (stateB index, cross-pair aligned); tids >=1000 = births, PER-ENGINE lineage only - no cross-pair identity for births (divergent runs birth different cells).
-  meta.totalPumps = pumpCount; meta.meanDtMs = +((V.clock - clockStart) / pumpCount).toFixed(3); meta.births = births; meta.deaths = deaths;
+  meta.carryById = sandbox.__ca2Carry || {};
+    meta.totalPumps = pumpCount; meta.meanDtMs = +((V.clock - clockStart) / pumpCount).toFixed(3); meta.births = births; meta.deaths = deaths;
   return { label, engine: path.basename(enginePath), simOn: (ca2.simOn === undefined ? 'unavail' : ca2.simOn), initCheck: { n: cs0.length, mism }, meta, frames };
 }
 
