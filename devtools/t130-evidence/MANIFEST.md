@@ -81,3 +81,31 @@ and compares them exactly per frame.
   seed, for the 77d scenario. Forced replay unnecessary here (zero divergence to
   suppress); the witness catches any future scenario where motion diverges.
 Scope: 77d scenario (stateB drag script, 220 frames, seed 1) only.
+
+## prod-vs-branch runs (2026-10-25 pm, T130_MOTION witness) - NOT motion-controlled
+Pairing: A = tr7Prod (production da2fbd0 ca2.js sha 830f1ce0 + t130 probes; probe build
+pins/tr7Prod-ca2.js sha 71ad6c7e1cf65147ec1c428c68cad2b4f99794d7b220ab305f7e64132cb700a6;
+production wasm pins/tr7Prod-ca2core.wasm sha da211141..., -simd 3fc2ec0f..., matched pair
+from the da2fbd0 tree) vs B = tr7Base (branch a62be62 + probes, branch wasm dec5fc55...).
+Both engines simOn=true on their OWN wasm. A/A prod self-check (t130p-aa.json): det true,
+motion 220/220 exact.
+
+KEY FINDING - motion scripts DIVERGE 220/220 from frame 0 (t130p-motion-*.json):
+identical drag events produce different boundary-motion scripts across prod vs branch.
+Profile identical across seeds 1-3 (geometry-driven, not RNG): max |diff| x 22.24, w 44.48,
+y 0.06, h 0.13, wvx 7.12, wvy 71.5. Prod cont values are integers and static-ease
+(x=276 frames 2-4); branch floats and eases (259.34 -> 256) - the step-1 delta (float wall
+geometry + time-based drag easing, wallSmoothMs) IS part of the candidate. Therefore these
+runs are NOT attributable under identical boundary motion: the 77d prod step-by-step
+requirement needs FORCED REPLAY (an engine override hook for cont+wv per frame on both
+builds) or must be labelled motion-uncontrolled. This is the precisely characterized
+prod-comparison gap, replacing "not run".
+
+Behavioral (label: motion-uncontrolled, not attributable): see t130p-prod-v-base-s{1,2,3}.json.
+  prod  osc 2234/2547/2460  path 1115.85/1498.48/1199.62  maxStep 128.33/119.18/146.79  deaths 51/54/55
+  base  osc 4100/3689/3473  path 1473.4/1322.1/1285.58    maxStep 183.87 (all)          deaths 42/46/49
+Branch side reproduces the earlier clean-matrix A-side EXACTLY (carry ev 7102/7068/6407,
+pist 1018/1146/1097, cf 5600/5504/5027, dvNeg -7907.6/-9403.1/-8379.2, deaths 42/46/49).
+Prod carry counters = 0 == UNAVAILABLE, not zero contacts: prod da2fbd0 has no carry
+mechanism (reflect-only wallPull) and no finalWallClamp; under wasm its cell wall
+resolutions are engine-internal with no JS hook.
