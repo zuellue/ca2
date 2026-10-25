@@ -6,10 +6,13 @@
 //   maxDisp, maxSameCoord, radiusLoss, sepJitter, viol/frame, reactionSpread (frame sd + direction spread).
 // usage: node devtools/t127-item64-acceptance.js [harnessPath] [fps] [sep 0|1] [iso 0|1] [shotPrefix]
 const H = require(process.argv[2] ? require('path').resolve(process.argv[2]) : require('path').join(__dirname, 'harness.js'));
-const FPS = +(process.argv[3] || 12), SEP = +(process.argv[4] || 0), ISO = +(process.argv[5] || 0), SHOT = process.argv[6] || '';
+const FPS = +(process.argv[3] || 12), SEP = +(process.argv[4] || 0), ISO = +(process.argv[5] || 0), SHOT = process.argv[6] || '', SEED = +(process.argv[7] || 0); // SEED: matched-initial-state control (main 25 Oct) - same seeded Math.random at boot in both trees
 (async () => {
   const T0 = Date.now(); const el = () => ((Date.now() - T0) / 1000).toFixed(1);
   const s = await H.serve(8913), c = await H.launch(8912, 'http://127.0.0.1:8913/index.html', ['--window-size=900,600']);
+  if (SEED) { // reload with a seeded Math.random from the very first script: identical boot populations in both trees
+    await c.send('Page.addScriptToEvaluateOnNewDocument', { source: '(function(){var s=' + SEED + '>>>0;Math.random=function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};})();' });
+    await c.send('Page.navigate', { url: 'http://127.0.0.1:8913/index.html' }); }
   const evG = async e => { const r = await Promise.race([c.ev(e), new Promise(r2 => setTimeout(() => r2('EV-TIMEOUT'), 15000))]); if (r === 'EV-TIMEOUT') console.error(el() + 's EV STALL on:', e.slice(0, 50)); return r; };
   const wait = async (e, n) => { for (let i = 0; i < (n || 40); i++) { if (await evG(e)) return true; await c.sleep(500); } return false; };
   if (!await wait('window.__ca2 && __ca2.cells > 10')) { console.log('BOOT FAIL'); process.exit(1); }
@@ -30,6 +33,7 @@ window.__fire = function (t, x, y) { cv.dispatchEvent(new MouseEvent(t, { client
 window.__fr = []; window.__recOn = 1;
 window.__ls = {}; window.__tn = 0;
 __ca2.getCells().forEach(function (q) { q.__r0 = q.radius; q.__ti = window.__tn++; q.__rmin = q.radius; }); // identity tags: per-cell radius ledger + dead-cell tracking (main 25 Oct)
+var __fp = 0; __ca2.getCells().forEach(function (q) { __fp = (__fp * 31 + Math.round(q.x * 7 + q.y * 13 + q.radius * 17)) >>> 0; }); window.__initFP = __fp; // initial-state fingerprint: identical across trees iff the seed matched the population
 requestAnimationFrame(function rc() { if (!window.__recOn) return; var c = __ca2.cont, cs = __ca2.getCells(), a = new Float32Array(cs.length * 5), j = 0;
   for (var i = 0; i < cs.length; i++) { var q = cs[i]; if (q.alive) { a[j++] = q.x; a[j++] = q.y; a[j++] = q.vx; a[j++] = q.vy; a[j++] = q.radius;
     if (q.__ti !== undefined) { __ls[q.__ti] = [q.x, q.y, q.radius, q.energy, __fr.length, q.__r0]; if (q.radius < q.__rmin) q.__rmin = q.radius;
@@ -110,7 +114,7 @@ var shrinkRep = []; __ca2.getCells().forEach(function (q) { if (q.__r0 !== undef
 shrinkRep.sort(function (a, b) { return b.loss - a.loss; }); // attribution: many tiny drops + overCellR = biological foodShrink; a large single drop at wall = constraint (main 25 Oct)
 document.getElementById('panel').classList.remove('hov');
 var transEnd = __ca2.trans, cellR = __ca2.P.CELL_RADIUS;
-return JSON.stringify({ frames: fr.length, transEnd: transEnd, cellR: +cellR.toFixed(2), maxDisp: +maxDisp.toFixed(2), maxSameCoord: maxSame, radiusLoss: +radiusLoss.toFixed(4),
+return JSON.stringify({ initFP: window.__initFP, frames: fr.length, transEnd: transEnd, cellR: +cellR.toFixed(2), maxDisp: +maxDisp.toFixed(2), maxSameCoord: maxSame, radiusLoss: +radiusLoss.toFixed(4),
   ledgerLoss: +ledgerLoss.toFixed(4), ledgerN: ledgerN, lossByCell: lossByCell.slice(0, 8), shrinkRep: shrinkRep.slice(0, 8), deaths: __ca2.deaths, deadRep: deadRep.slice(0, 12), liveMinLoss: +liveMinLoss.toFixed(4),
   sepJitter: sepJit, viol: viol, violFrames: violFrames, reactN: rr.length, reactFrameSd: +rfSd.toFixed(2), reactDirSpread: +dirSpread.toFixed(3) });})()`);
   const TREE = (process.argv[2] || '').includes('ca2base') ? 'base' : 'branch';

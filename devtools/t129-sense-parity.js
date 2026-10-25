@@ -7,7 +7,7 @@ const fs = require('fs'), path = require('path');
 const src = fs.readFileSync(path.join(__dirname, '..', 'ca2.js'), 'utf8');
 function fn(name) { const i = src.indexOf('function ' + name + '('); if (i < 0) throw name; let j = src.indexOf('{', i), d = 0, k = j; for (; k < src.length; k++) { if (src[k] == '{') d++; else if (src[k] == '}') { d--; if (!d) break; } } return src.slice(i, k + 1); }
 function vr(name) { const i = src.indexOf('var ' + name + ' = '); let j = src.indexOf('{', i), d = 0, k = j; for (; k < src.length; k++) { if (src[k] == '{') d++; else if (src[k] == '}') { d--; if (!d) break; } } return src.slice(i, k + 1) + ';'; }
-const names = ['rand2D', 'normCol', 'speedOf', 'mutGenome', 'mixGenome', 'newShape', 'mixShape', 'mutateGene', 'Cell', 'clusterSize', 'joinCluster', 'fuseCells', 'interact', 'reproduce', 'checkSurvival', 'limit', 'misfit', 'update', 'organic', 'keepIn', 'divide', 'wallPull', 'carrySide', 'effR'];
+const names = ['rand2D', 'normCol', 'speedOf', 'mutGenome', 'mixGenome', 'newShape', 'mixShape', 'mutateGene', 'Cell', 'clusterSize', 'joinCluster', 'fuseCells', 'interact', 'reproduce', 'checkSurvival', 'limit', 'misfit', 'update', 'organic', 'keepIn', 'divide', 'wallPull', 'carrySide', 'effR', 'wallSubPass'];
 const code = `var UI_END=800,CELL_END=1300;
 var rnd=function(a,b){if(b===undefined){b=a;a=0;}return a+Math.random()*(b-a);};var clamp=function(v,a,b){return v<a?a:v>b?b:v;};var lerp=function(a,b,t){return a+(b-a)*t;};var map=function(v,a,b,c,d){return c+(d-c)*(v-a)/(b-a);};
 ${vr('P')}
@@ -18,7 +18,7 @@ var cont={x:0,y:0,w:400,h:400,wvx0:0,wvx1:0,wvy0:0,wvy1:0},mouse={x:-1e9,y:-1e9,
 var frameT=0;
 function birthCapF(){return 1;}
 ${names.map(fn).join('\n')}
-return {P:P,Cell:Cell,get cells(){return cells;},set cells(v){cells=v;},ev:ev,cont:cont,
+return {P:P,Cell:Cell,wallSubPass:wallSubPass,get cells(){return cells;},set cells(v){cells=v;},ev:ev,cont:cont,
  frame:function(){for(var i=cells.length-1;i>=0;i--){var c=cells[i];update(c);checkSurvival(c);for(var k=i-1;k>=0;k--)interact(c,cells[k]);if(P.boundAware&&c.alive)keepIn(c);}}};`;
 const M64=(1n<<64n)-1n;
 function xorSeed(a,b){let s0=(BigInt(a>>>0)<<32n)|0x9E3779B9n,s1=(BigInt(b>>>0)<<32n)|0x85EBCA6Bn;const f=function(){f.n++;let x=s0,y=s1;s0=y;x=(x^(x<<23n))&M64;s1=(x^y^(x>>17n)^(y>>26n))&M64;return Number(((s1+y)&M64)>>11n)/9007199254740992;};f.n=0;return f;}
@@ -80,5 +80,26 @@ const wasm = fs.readFileSync(path.join(__dirname, '..', 'wasm', 'target', 'wasm3
   const bandExact = band.filter(r => Math.max(Math.abs(r.dx), Math.abs(r.dy), Math.abs(r.dvx), Math.abs(r.dvy), Math.abs(r.dsq)) === 0).length;
   const ctrlExact = ctrl.filter(r => Math.max(Math.abs(r.dx), Math.abs(r.dy), Math.abs(r.dvx), Math.abs(r.dvy), Math.abs(r.dsq)) === 0).length;
   console.log(JSON.stringify({ trials: rows.length, exact: exact, bandExact: bandExact + '/' + band.length, ctrlExact: ctrlExact + '/' + ctrl.length, worst: worst, diverged: rows.filter(r => Math.max(Math.abs(r.dx), Math.abs(r.dy), Math.abs(r.dvx), Math.abs(r.dvy), Math.abs(r.dsq)) > 0).slice(0, 6) }));
+  // SUB: wall-jump frame + directive-3 post-pass end to end (main 25 Oct: "structure 1:1" is not proof).
+  // Frame 1 at the old wall, then the plate jumps 40px left in ONE frame (> wallSubStep x radius), both
+  // engines step with the moved wall, then wallSubPass (4 substeps, interpolated path) runs on both states.
+  const subRows = [];
+  for (const cfg of [[110, 200, 10, -0.4, 0.1, 0.57, 3], [130, 250, 13, -0.2, -0.3, 0.13, 5]]) {
+    const cj = mkCell(cfg[0], cfg[1], cfg[3], cfg[4], 0.65, cfg[5], cfg[6]); cj.radius = cfg[2]; J.cells = [cj];
+    packWasm([cj]);
+    Math.random = xorSeed(77, 88); J.frame(); E.sim_step(77, 88); // frame 1, old wall
+    J.cont.x += 40; J.cont.w -= 40; // one-frame wall jump
+    const pv = new Float64Array(E.memory.buffer, E.sim_params(), 93); pv[49] += 40; pv[51] -= 40;
+    Math.random = xorSeed(99, 111); J.frame(); E.sim_step(99, 111); // frame 2, jumped wall
+    const cf2 = new Float64Array(E.memory.buffer, E.sim_cells_ptr(), 41 * 25), b0 = 0;
+    const wc = { x: cf2[b0], y: cf2[b0 + 1], vx: cf2[b0 + 2], vy: cf2[b0 + 3], radius: cf2[b0 + 4], energy: cf2[b0 + 5], gene: cf2[b0 + 6], alive: cf2[b0 + 7], maxSpeed: cf2[b0 + 8], sq: cf2[b0 + 24], sqS: 0, g: { bnd: cf2[b0 + 17] } };
+    const jCopy = { x: cj.x, y: cj.y, vx: cj.vx, vy: cj.vy, radius: cj.radius, energy: cj.energy, gene: cj.gene, alive: 1, maxSpeed: cj.maxSpeed, sq: cj.sq || 0, sqS: cj.sqS || 0, g: { bnd: cj.g.bnd } };
+    J.cells = [jCopy]; J.wallSubPass(4, J.cont.x - 40, J.cont.y, J.cont.w + 40, J.cont.h); // JS-engine state through the post-pass
+    J.cells = [wc]; J.wallSubPass(4, J.cont.x - 40, J.cont.y, J.cont.w + 40, J.cont.h); // wasm-engine state through the same post-pass
+    J.cont.x -= 40; J.cont.w += 40;
+    subRows.push({ r: cfg[2], dx: +(jCopy.x - wc.x).toFixed(6), dy: +(jCopy.y - wc.y).toFixed(6), dvx: +(jCopy.vx - wc.vx).toFixed(6), dvy: +(jCopy.vy - wc.vy).toFixed(6), jx: +jCopy.x.toFixed(4), wx: +wc.x.toFixed(4) });
+  }
+  const subExact = subRows.filter(r => Math.max(Math.abs(r.dx), Math.abs(r.dy), Math.abs(r.dvx), Math.abs(r.dvy)) === 0).length;
+  console.log(JSON.stringify({ sub: 'wall-jump 40px + wallSubPass(4) both engines', subExact: subExact + '/' + subRows.length, rows: subRows }));
   process.exit(0);
 })().catch(e => { console.log('FATAL', e.message); process.exit(1); });

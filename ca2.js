@@ -201,6 +201,15 @@
     if (P.boundAware) keepIn(c);
     else if (c.x < cont.x || c.x > cont.x + cont.w || c.y < cont.y || c.y > cont.y + cont.h) { c.alive = false; ev.oob++; }
   }
+  // item 64 directive 3: extra keepIn passes along the interpolated wall path (see frame()).
+  // Named for testability: t129 drives it directly against JS and wasm cell states.
+  function wallSubPass(subN, x0f, y0f, w0f, h0f) {
+    var fx3 = cont.x, fy3 = cont.y, fw3 = cont.w, fh3 = cont.h;
+    for (var sb3 = 1; sb3 <= subN; sb3++) { var st3 = sb3 / subN;
+      cont.x = x0f + (fx3 - x0f) * st3; cont.y = y0f + (fy3 - y0f) * st3; cont.w = w0f + (fw3 - w0f) * st3; cont.h = h0f + (fh3 - h0f) * st3;
+      for (var ci3 = 0; ci3 < cells.length; ci3++) { var cs3 = cells[ci3]; if (cs3.alive) keepIn(cs3); } }
+    cont.x = fx3; cont.y = fy3; cont.w = fw3; cont.h = fh3;
+  }
   // boundary awareness: a soft push inside the zone turns cells before the wall; the wall itself reflects (flat world, no death at the edge)
   function keepIn(c) {
     // the wall acts on the cell's edge, not its centre: the radius inset is automatic. The zone is the boundary distance knob only, independent of cell radius (owner 20 Oct)
@@ -1983,13 +1992,7 @@
       if (!c.alive) { ev.death++; habReap(c); cells.splice(i, 1); }
     }
     if (!simDone) SIMW.js = (SIMW.js || 0) * 0.9 + (performance.now() - tj0) * 0.1;
-    if (subN > 1) {
-      var fx3 = cont.x, fy3 = cont.y, fw3 = cont.w, fh3 = cont.h;
-      for (var sb3 = 1; sb3 <= subN; sb3++) { var st3 = sb3 / subN;
-        cont.x = subX0 + (fx3 - subX0) * st3; cont.y = subY0 + (fy3 - subY0) * st3; cont.w = subW0 + (fw3 - subW0) * st3; cont.h = subH0 + (fh3 - subH0) * st3;
-        for (var ci3 = 0; ci3 < cells.length; ci3++) { var cs3 = cells[ci3]; if (cs3.alive) keepIn(cs3); } }
-      cont.x = fx3; cont.y = fy3; cont.w = fw3; cont.h = fh3;
-    }
+    if (subN > 1) wallSubPass(subN, subX0, subY0, subW0, subH0);
     if (P.separatorOn) { ctx.save(); drawAxis(lay(), String(cells.length), String(Math.round(mouse.x)), true); ctx.restore(); separatorPass(); pfm('separator'); } // one mechanism after both engines: identical enforcement for wasm and JS (1:1 by construction)
     hoverCol = hovering ? tmpHover : [255, 255, 255];
     stepParasites(); pfm('sim loop+parasites');
