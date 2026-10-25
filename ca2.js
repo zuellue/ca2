@@ -2980,6 +2980,29 @@
     flip: function (p, c) { p.vx += ((p.b ? 24 : -24) - p.x) * 0.08 + c.jx * 0.3; p.vy += -p.y * 0.05 + c.jy * 0.3; },
     blink: function (p, c) { p.el.style.opacity = p.b ? '1' : '0.3'; p.vx += c.jx * 0.8; p.vy += c.jy * 0.8; }
   };
+  // murmuration for the EVOLUTION button: once the hover cascade has divided down to the floor, the crowd repeats a 9 s flight:
+  // a sudden ragged burst apart, then two sub-flocks that wheel after their own drifting centres (they stretch into streams, pass through
+  // each other, merge and split; each piece follows only its nearest few neighbours), then a slow regather. Velocity steering only.
+  function murmurStep(p, c, parts, m) {
+    var T = 9000, now = performance.now(), u = ((now - m.t0) % T) / T, i, n = parts.length, o, dx, dy, d, tk = now / 1000;
+    if (p.fg === undefined) { p.fg = Math.random() < 0.5 ? 0 : 1; p.mag = 0.5 + Math.random() * 1.5; p.ph = Math.random() * 6.283; p.bx = Math.random() - 0.5; p.by = Math.random() - 0.5; }
+    var near = [], nd = [];
+    for (i = 0; i < n; i++) { o = parts[i]; if (o === p) continue; dx = o.x - p.x; dy = o.y - p.y; d = dx * dx + dy * dy;
+      if (near.length < 6) { near.push(o); nd.push(d); } else { var wi = 0; for (var q = 1; q < 6; q++) if (nd[q] > nd[wi]) wi = q; if (d < nd[wi]) { near[wi] = o; nd[wi] = d; } } }
+    var ax = 0, ay = 0, px = 0, py = 0, sx = 0, sy = 0, k = near.length;
+    for (i = 0; i < k; i++) { o = near[i]; dx = o.x - p.x; dy = o.y - p.y; d = Math.sqrt(nd[i]) || 1; ax += o.vx; ay += o.vy; px += dx; py += dy; if (d < 12) { sx -= dx / d * (12 - d); sy -= dy / d * (12 - d); } }
+    var burst = u < 0.14 ? 1 - u / 0.14 : 0, gather = u > 0.84 ? (u - 0.84) / 0.16 : 0, wheel = 1 - burst - gather;
+    // two drifting centres whose distance breathes: the sub-flocks split apart and come back together
+    var sep = 70 * Math.sin(u * 6.283 * 2 + 0.6), g = p.fg ? 1 : -1;
+    var cxo = Math.max(150 - m.hx, Math.min(W - 150 - m.hx, 0)), cyo = Math.max(150 - m.hy, Math.min(H - 150 - m.hy, 0)); // keep the wheel's centre inside the window (the button sits at the right edge)
+    var wx = cxo + Math.sin(u * 6.283) * 40 + g * sep, wy = cyo + Math.cos(u * 6.283 * 1.3) * 28 + g * sep * 0.4;
+    var rx = p.x - wx, ry = p.y - wy, rd = Math.hypot(rx, ry) || 1, dir = g;
+    if (k) { p.vx += (ax / k - p.vx) * 0.1 + px / k * 0.012 + sx * 0.12; p.vy += (ay / k - p.vy) * 0.1 + py / k * 0.012 + sy * 0.12; }
+    var wave = 0.6 + 0.8 * Math.max(0, Math.sin(tk * 2.2 + (p.x + p.y) * 0.05 + p.ph)); // density waves travelling through the flock
+    p.vx += burst * (rx / rd * 1.6 * p.mag + p.bx * 2.4) + wheel * dir * (-ry / rd) * 0.5 * wave - wheel * rx * 0.004 + gather * (-p.x) * 0.045;
+    p.vy += burst * (ry / rd * 1.6 * p.mag + p.by * 2.4) + wheel * dir * (rx / rd) * 0.5 * wave - wheel * ry * 0.004 + gather * (-p.y) * 0.045;
+    p.vx += (Math.random() - 0.5) * 0.35; p.vy += (Math.random() - 0.5) * 0.35;
+  }
   var SECT_POOL = {
     config: ['grid', 'cohere', 'jitter'], picture: ['frame', 'align', 'drift'], panel: ['rows', 'slide', 'repel', 'grid'], cursor: ['chain', 'swirl', 'jitter'],
     grain: ['flicker', 'repel', 'jitter'], cells: ['cohere', 'repel', 'pulse', 'blink'], evolution: ['mutate', 'drift', 'cohere', 'chain'], life: ['blink', 'pulse', 'cohere', 'swirl'],
@@ -3006,6 +3029,7 @@
     var txt = sec.name.toUpperCase(), spans = [];
     for (var i = 0; i < txt.length; i++) { var sp = document.createElement('span'); sp.textContent = txt[i]; lb.appendChild(sp); spans.push(sp); }
     it.appendChild(c); it.appendChild(lb); secc.appendChild(it); sec.circ = c;
+    var murm = null; // evolution button only: set once the hover division cascade has run out; the pieces then fly as a murmuration
     var caT = null, caSt = null, t1 = null, t2 = null, dividing = false, parts = [], home = null, D0 = 0, ctr = { x: 0, y: 0 }, endTimers = [], endIv = null;
     function put(p) { p.el.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + p.y.toFixed(1) + 'px) scale(' + p.k.toFixed(2) + ')'; }
     // pieces scatter freely; only the browser window bounds them (a piece bounces off the window edges, never leaves the screen)
@@ -3022,7 +3046,7 @@
       if (endIv) { clearInterval(endIv); endIv = null; }
       endTimers.forEach(clearTimeout); endTimers = [];
       parts.forEach(function (p) { if (p.el !== c) p.el.remove(); }); parts = [];
-      dividing = false;
+      dividing = false; murm = null; delete c.dataset.flock;
       c.style.transition = ''; c.style.transform = ''; c.style.opacity = ''; c.style.background = 'transparent'; c.style.borderColor = 'var(--kc, var(--fg))'; c.style.borderWidth = LW() + 'px';
     }
     // hover state comes from the pointer crossing the button's resting box only. The living pieces move under a
@@ -3093,7 +3117,7 @@
           });
         });
         parts = out; parts.forEach(function (p) { inDisc(p); put(p); });
-        if (!did && t2) { clearInterval(t2); t2 = null; }
+        if (!did && t2) { clearInterval(t2); t2 = null; if (sec.name === 'evolution' && !murm) { murm = { t0: performance.now(), hx: ctr.x, hy: ctr.y }; c.dataset.flock = '1'; } } // cascade finished (every piece at the ~4 px floor): the flock begins
       }
       t1 = setTimeout(function () { t1 = null; split(); t2 = setInterval(split, 1300); }, 700);
       // behaviour pool: each section draws from a few local rules that fit its subject; at every hover two are picked at random and every
@@ -3113,14 +3137,14 @@
         for (i = 0; i < n; i++) { parts[i].b = (tick < 2 && parts[i].b === undefined) ? (lcg(caSt) < 0.5 ? 1 : 0) : nb[i]; if (Math.random() < 0.02) parts[i].b ^= 1; }
         parts.forEach(function (p, i) {
           var cc = { jx: lcg(caSt) - 0.5, jy: lcg(caSt) - 0.5, cx: cx, cy: cy, tick: tick, i: i, n: n, nbr: parts[(i + 1 + Math.floor(lcg(caSt) * 5)) % n], prev: parts[(i + n - 1) % n], pd: Math.hypot(p.x, p.y) || 1 };
-          RULES[pick[p.b ? 1 : 0]](p, cc);
+          if (murm) murmurStep(p, cc, parts, murm); else RULES[pick[p.b ? 1 : 0]](p, cc);
           p.vx *= 0.88; p.vy *= 0.88;
-          if (cc.pd > 70) { p.vx -= p.x / cc.pd * (cc.pd - 70) * 0.08; p.vy -= p.y / cc.pd * (cc.pd - 70) * 0.08; } // never far from the button
+          var leash = murm ? 190 : 70; if (cc.pd > leash) { p.vx -= p.x / cc.pd * (cc.pd - leash) * 0.08; p.vy -= p.y / cc.pd * (cc.pd - leash) * 0.08; } // never far from the button
           var nowM = performance.now();
           if (nowM > mUntil) { mrule = MOUSE_KEYS[Math.floor(Math.random() * MOUSE_KEYS.length)]; mUntil = nowM + 2500 + Math.random() * 6000; mGain = 0.4 + Math.random() * 1.2; c.dataset.mouse = mrule; }
           if (p.md === undefined) p.md = Math.random() * 1400; // this piece's own reaction delay (ms) after the pointer starts moving
           if (nowM - PTR.last < 900 && nowM - PTR.start > p.md) { var mdx = PTR.x - (ctr.x + p.x), mdy = PTR.y - (ctr.y + p.y); MOUSE_POOL[mrule](p, { dx: mdx, dy: mdy, d: Math.hypot(mdx, mdy) || 1 }, mGain); }
-          p.vx = clamp(p.vx, -4, 4); p.vy = clamp(p.vy, -4, 4);
+          var vm = murm ? 8 : 4; p.vx = clamp(p.vx, -vm, vm); p.vy = clamp(p.vy, -vm, vm);
           p.x += p.vx; p.y += p.vy; inDisc(p); put(p);
         });
       }, 110);
