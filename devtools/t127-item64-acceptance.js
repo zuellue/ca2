@@ -6,7 +6,7 @@ const H = require(process.argv[2] ? require('path').resolve(process.argv[2]) : r
 const FPS = +(process.argv[3] || 12), SEP = +(process.argv[4] || 0);
 (async () => {
   console.error('serving');const s = await H.serve(8913);console.error('launching');const c = await H.launch(8912, 'http://127.0.0.1:8913/index.html');console.error('launched');
-  const wait = async (e, n) => { for (let i = 0; i < (n || 120); i++) { if (await c.ev(e)) return true; await c.sleep(250); } return false; };
+  const wait = async (e, n) => { for (let i = 0; i < (n || 120); i++) { if (i % 20 === 0) console.error('wait', e.slice(0, 30), i); if (await c.ev(e)) return true; await c.sleep(250); } return false; };
   if (!await wait('window.__ca2 && __ca2.cells > 10')) { console.log('BOOT FAIL'); process.exit(1); } console.error('booted');
   console.error('trans wait'); await wait('!__ca2.trans', 60); console.error('trans done');
   await c.ev(`__ca2.setKey('fps', ${FPS}); __ca2.setKey('separatorOn', ${SEP});`);
