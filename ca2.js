@@ -451,6 +451,7 @@
     }
   }
   function checkSurvival(c) {
+    if (!c.alive) return; // 1:1 with sim.rs check_survival: one death is counted once, the first killer keeps the death-log tag (item 64 counter alias)
     if (c.gene <= P.GENE_MIN || c.gene >= P.GENE_MAX) { c.alive = false; c.__dr = 'genebound'; }
     var n = 0, R = P.interactionRadius;
     for (var i = 0; i < cells.length; i++) { var o = cells[i]; if (o !== c && o.alive && Math.hypot(c.x - o.x, c.y - o.y) < R) n++; }
@@ -2093,6 +2094,16 @@
     if (subN > 1) wallSubPass(subN, subX0, subY0, subW0, subH0);
     if (P.separatorOn) { ctx.save(); drawAxis(lay(), String(cells.length), String(Math.round(mouse.x)), true); ctx.restore(); separatorPass(); pfm('separator'); } // one mechanism after both engines: identical enforcement for wasm and JS (1:1 by construction)
     constraintSolver(); pfm('solver'); // item 64 directive 6: walls+segments+overlap converge in one iteration loop
+    // item 64 (main 25 Oct, 46/46 pen defect root fix): separatorPass/constraintSolver move bodies AFTER keepIn ran and
+    // never re-apply the contact clamp (the solver's own wall pass is centre-based and inert at solverIters=0), so the
+    // plate wall did not win last - re-apply the ONE shared boundary rule at the contact radius as the frame's final
+    // position write, identical for both engines (frame() post-pass, 1:1 by construction, same pattern as stepSquash).
+    if (P.boundAware) {
+      for (var fci = 0; fci < cells.length; fci++) {
+        var fcc = cells[fci];
+        if (fcc.alive) wallPull(fcc, effR(fcc), true);
+      }
+    }
     stepSquash(); // item 64 directive 2: one eased squash state per frame for BOTH engines, after every sqS feed (post-pass, 1:1 by construction - the wasm engine exports its press signal via the SQS slot instead of easing internally). Was draw-side (GPU/noDraw paths skipped it) + inside wasm keep_in (double ease on the CPU-draw path)
     hoverCol = hovering ? tmpHover : [255, 255, 255];
     stepParasites(); pfm('sim loop+parasites');
