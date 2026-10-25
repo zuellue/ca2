@@ -126,6 +126,7 @@ async function runEngine(enginePath, label) {
   let mism = 0; cs0.forEach((q, i) => { idMap.set(q, nextTi++); const s = INJ.cells[i]; if (!s || Math.abs(q.x - s.x) > 0.01 || Math.abs(q.y - s.y) > 0.01 || Math.abs(q.radius - s.radius) > 0.01) mism++; });
   const births = [], deaths = []; let prevAlive = new Set(); cs0.forEach(q => prevAlive.add(idMap.get(q)));
   const meta = { pumpsBeforeInject: pumpCount, clockAtInject: V.clock - clockStart };
+  if (process.env.T130_TRACE && sandbox.__ca2trace) { const pre = sandbox.__ca2trace.filter(r => r[1] === 'pre').map(r => r[0]); meta.trfAtInject = pre.length ? Math.max.apply(null, pre) + 1 : 0; } // first post-inject sim-step frame
   function pump() { pumpCount++; V.clock += DT; const q = V.rafQ.splice(0); q.forEach(f => { try { f(V.clock); } catch (e) { console.error(label + ' frame EXC: ' + (e && e.stack || e).slice(0, 500)); process.exit(2); } }); }
   function snapshot() { const out = []; const nowAlive = new Set(); cs0.forEach(q => { if (!q.alive) return; let ti = idMap.get(q); if (ti === undefined) { ti = nextTi++; idMap.set(q, ti); births.push([frames.length, ti]); } nowAlive.add(ti); out.push([ti, +q.x.toFixed(3), +q.y.toFixed(3), +q.vx.toFixed(3), +q.vy.toFixed(3), +q.radius.toFixed(3), +Math.hypot(q.envVx || 0, q.envVy || 0).toFixed(3)]); });
     prevAlive.forEach(ti => { if (!nowAlive.has(ti)) deaths.push([frames.length, ti]); }); prevAlive = nowAlive;
@@ -141,9 +142,7 @@ async function runEngine(enginePath, label) {
   for (let j = 4; j >= 0; j--) { fire('mousemove', x0 + Math.round(j * d), y); for (let k = 0; k < 4; k++) { pump(); frames.push(snapshot()); } }
   fire('mouseup', x0, y);
   for (let r = 0; r < 60; r++) { pump(); frames.push(snapshot()); }
-  if (process.env.T130_TRACE && sandbox.__ca2trace) { fs.writeFileSync('/tmp/t130-trace-' + label + '.json', JSON.stringify(sandbox.__ca2trace));
-    meta.trfAtInject = sandbox.__ca2trace.length ? Math.max.apply(null, sandbox.__ca2trace.filter(r => r[1] === 'pre').map(r => r[0]).concat([-1])) : -1;
-    meta.trfTotal = meta.trfAtInject; }
+  if (process.env.T130_TRACE && sandbox.__ca2trace) fs.writeFileSync('/tmp/t130-trace-' + label + '.json', JSON.stringify(sandbox.__ca2trace));
   meta.totalPumps = pumpCount; meta.meanDtMs = +((V.clock - clockStart) / pumpCount).toFixed(3); meta.births = births; meta.deaths = deaths;
   return { label, engine: path.basename(enginePath), simOn: (ca2.simOn === undefined ? 'unavail' : ca2.simOn), initCheck: { n: cs0.length, mism }, meta, frames };
 }
