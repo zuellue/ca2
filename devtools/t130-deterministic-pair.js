@@ -104,7 +104,7 @@ async function runEngine(enginePath, label) {
   const ca2 = sandbox.__ca2;
   if (!ca2 || !ca2.getCells) throw new Error(label + ': __ca2 missing after boot');
   // settle intro batched spawn + boot morph: pump until full population and no trans
-  for (let i = 0; i < 300; i++) { pump(); await new Promise(r => setImmediate(r)); } // fixed pre-inject pump: deterministic PRNG position, population fully replaced by inject below
+  const BOOT_SETTLE = +(process.env.T130_BOOT_SETTLE || 300); for (let i = 0; i < BOOT_SETTLE; i++) { pump(); await new Promise(r => setImmediate(r)); } // fixed pre-inject pump (default 300; PRNG is reseeded at inject and population replaced - shorter boots are labelled bounded nosim diagnostics only)
   for (let i = 0; i < 600 && !sandbox.__ca2KillTrans && (ca2.transLive === undefined ? ca2.trans : ca2.transLive); i++) { pump(); await new Promise(r => setImmediate(r)); } // probe builds: trans is killed at inject instead (cellMorphMs=4200 -> 21s morph cannot drain in-window)
   if (!sandbox.__ca2KillTrans && (ca2.transLive === undefined ? ca2.trans : ca2.transLive)) throw new Error(label + ': trans did not drain');
   if (!ca2.getCells().length) throw new Error(label + ': empty population at inject');
@@ -130,9 +130,11 @@ async function runEngine(enginePath, label) {
   const fd0 = ca2.getFood(); fd0.length = 0; INJ.food.forEach(f => fd0.push({ x: f.x, y: f.y, r: f.r }));
   ca2.cont.x = INJ.cont.x; ca2.cont.y = INJ.cont.y; ca2.cont.w = INJ.cont.w; ca2.cont.h = INJ.cont.h; ca2.cont.tw = INJ.cont.w; ca2.cont.th = INJ.cont.h; ca2.cont.ew = INJ.cont.w; ca2.cont.eh = INJ.cont.h; ca2.cont.rawW = INJ.cont.w; ca2.cont.rawH = INJ.cont.h; ca2.cont.user = true;
   if (ca2.clampTargets) ca2.clampTargets();
+  if (process.env.T130_STEPLOG) console.error(label + ": STEP probes-done");
   // re-seed post-boot so both engines enter the drag with identical PRNG streams (wasm s0/s1 are passed per-step from JS Math.random)
   const rng2 = makeRng(SEED);
   vm.runInContext('Math.random = window.__rng2;', Object.assign(sandbox, { __rng2: rng2 }), { filename: 'reseed.js' });
+  if (process.env.T130_STEPLOG) console.error(label + ": STEP inject-cells-done");
   if (!sandbox.__ca2KillTrans || !sandbox.__ca2ResetGlobals) throw new Error(label + ': probe hooks missing (ca2KillTrans/ca2ResetGlobals) - instrumented build required, refusing unreset pair (fail-closed, main 25 Oct)');
   { // pair-matched global physics (boundary-finding 25 Oct): morph killed; trans-lerped P keys reset to the frozen preset; env to declaration defaults; clusterSeq past stateB max; live-key drift cleared. Direct probe writes - setKey/applyKey would pin keys and reset radii.
     sandbox.__ca2KillTrans();
@@ -147,6 +149,7 @@ async function runEngine(enginePath, label) {
   // per-ti full-state verify
   const idMap = new WeakMap(); let nextTi = 0;
   let mism = 0; cs0.forEach((q, i) => { idMap.set(q, nextTi++); const s = INJ.cells[i]; if (!s || Math.abs(q.x - s.x) > 0.01 || Math.abs(q.y - s.y) > 0.01 || Math.abs(q.radius - s.radius) > 0.01 || Math.abs((q.vx||0) - (s.vx||0)) > 0.01 || Math.abs((q.vy||0) - (s.vy||0)) > 0.01 || Math.abs((q.energy||0) - (s.energy||0)) > 0.001 || Math.abs((q.sq||0) - (s.sq||0)) > 0.001) mism++; });
+  if (process.env.T130_STEPLOG) console.error(label + ": STEP verify-done");
   const births = [], deaths = []; let prevAlive = new Set(); cs0.forEach(q => prevAlive.add(idMap.get(q)));
   const meta = { pumpsBeforeInject: pumpCount, clockAtInject: V.clock - clockStart };
   if (typeof __injReceipt !== 'undefined') { meta.injectReceipt = __injReceipt; meta.injectReceiptAllOk = __injReceipt.length === 85 && __injReceipt.every(r => r.idFnOk); }
@@ -164,20 +167,22 @@ async function runEngine(enginePath, label) {
   const fire = (t, x, y) => { const e = { type: t, clientX: x, clientY: y, buttons: t === 'mouseup' ? 0 : 1, target: cv, preventDefault() {}, stopPropagation() {}, stopImmediatePropagation() {} }; cv.dispatchEvent(e); fireWin(t, e); };
   const frames = [];
   pump(); frames.push(snapshot());
+  if (process.env.T130_STEPLOG) console.error(label + ": STEP dragstart");
   if (process.env.T130_BOUNDARY) { pump(); frames.push(snapshot()); pump(); frames.push(snapshot()); } else {
   const y = Math.round(ca2.cont.y + ca2.cont.h / 2), x0 = Math.round(ca2.cont.x + 2), half = Math.round(ca2.cont.w * 0.25), d = half / 5;
   fire('mousedown', x0, y); pump(); frames.push(snapshot());
   for (let i = 1; i <= 5; i++) { fire('mousemove', x0 + Math.round(i * d), y); for (let k = 0; k < 4; k++) { pump(); frames.push(snapshot()); } }
-  for (let h = 0; h < 118; h++) { pump(); frames.push(snapshot()); } // 1+1+20+118+20+60 = 220 recorded frames exactly
+  const HOLD_SCALE = +(process.env.T130_HOLD_SCALE || 1); for (let h = 0; h < Math.round(118 * HOLD_SCALE); h++) { pump(); frames.push(snapshot()); } // 1+1+20+118+20+60 = 220 recorded frames at HOLD_SCALE=1 (shorter windows labelled via meta.holdScale)
   for (let j = 4; j >= 0; j--) { fire('mousemove', x0 + Math.round(j * d), y); for (let k = 0; k < 4; k++) { pump(); frames.push(snapshot()); } }
   fire('mouseup', x0, y);
-  for (let r = 0; r < 60; r++) { pump(); frames.push(snapshot()); }
+  for (let r = 0; r < Math.round(60 * HOLD_SCALE); r++) { pump(); frames.push(snapshot()); }
   }
   if (process.env.T130_TRACE && sandbox.__ca2bndRows) fs.writeFileSync('/tmp/t130-bnd-' + label + '.json', JSON.stringify(sandbox.__ca2bndRows));
   if (process.env.T130_TRACE && sandbox.__ca2trace) { fs.writeFileSync('/tmp/t130-trace-' + label + '.json', JSON.stringify(sandbox.__ca2trace));
     meta.trfAtInjectMeasured = sandbox.__ca2trace.length ? sandbox.__ca2trace[0][0] : null; } // first traced frame = inject frame (trace installed at inject)
   // identity scope: tids 0..84 = injected cohort (stateB index, cross-pair aligned); tids >=1000 = births, PER-ENGINE lineage only - no cross-pair identity for births (divergent runs birth different cells).
   meta.carryById = sandbox.__ca2Carry || {};
+    meta.holdScale = +(process.env.T130_HOLD_SCALE || 1);
     meta.totalPumps = pumpCount; meta.meanDtMs = +((V.clock - clockStart) / pumpCount).toFixed(3); meta.births = births; meta.deaths = deaths;
   return { label, engine: path.basename(enginePath), simOn: (ca2.simOn === undefined ? 'unavail' : ca2.simOn), initCheck: { n: cs0.length, mism }, meta, frames };
 }
