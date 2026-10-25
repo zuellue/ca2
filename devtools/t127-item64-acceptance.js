@@ -14,13 +14,21 @@ const FPS = +(process.argv[3] || 12), SEP = +(process.argv[4] || 0), ISO = +(pro
   const wait = async (e, n) => { for (let i = 0; i < (n || 40); i++) { if (await evG(e)) return true; await c.sleep(500); } return false; };
   if (!await wait('window.__ca2 && __ca2.cells > 10')) { console.log('BOOT FAIL'); process.exit(1); }
   console.error(el() + 's booted');
-  await c.sleep(2000);
+  await evG(`document.getElementById('panel').classList.add('hov')`); // freeze auto-refresh re-deals FIRST (its own postpone path), else a 2-9s re-deal keeps morphing radii and the drain below never ends
+  // morph drain: the worker preset apply right after boot can start a morph that eases cell radii
+  // (stepTrans) - measuring through it reads biology as constraint loss. Wait it out, bounded.
+  let transLeft = true;
+  for (let i = 0; i < 25; i++) { if (!await evG('__ca2.trans')) { transLeft = false; break; } await c.sleep(1000); }
+  console.error(el() + 's trans drained:', !transLeft);
+  if (transLeft) { console.log(JSON.stringify({ abort: 'trans-active' })); c.close(); s.close(); process.exit(0); }
+  await c.sleep(1000);
   const setup = await evG(`(function(){
 __ca2.setKey('fps', ${FPS}); __ca2.setKey('separatorOn', ${SEP});
 ${ISO ? "__ca2.setKey('foodGrow', 0); __ca2.setKey('foodShrink', 0); __ca2.setKey('divideOn', 0); __ca2.setKey('eatMergeOn', 0); __ca2.setKey('symbiogenesisOn', 0); __ca2.setKey('reproChance', 0);" : ''}
 var cv = document.querySelector('canvas');
 window.__fire = function (t, x, y) { cv.dispatchEvent(new MouseEvent(t, { clientX: x, clientY: y, bubbles: true })); };
 window.__fr = []; window.__recOn = 1;
+__ca2.getCells().forEach(function (q) { q.__r0 = q.radius; }); // identity tag: per-cell radius ledger start (main 25 Oct)
 requestAnimationFrame(function rc() { if (!window.__recOn) return; var c = __ca2.cont, cs = __ca2.getCells(), a = new Float32Array(cs.length * 5), j = 0;
   for (var i = 0; i < cs.length; i++) { var q = cs[i]; if (q.alive) { a[j++] = q.x; a[j++] = q.y; a[j++] = q.vx; a[j++] = q.vy; a[j++] = q.radius; } }
   __fr.push({ x: c.x, w: c.w, y: c.y, h: c.h, a: a.subarray(0, j) }); requestAnimationFrame(rc); });
@@ -75,7 +83,14 @@ if (${SEP}) { var segs = (__ca2.axisInfo.segs || []).slice(0, 20), flips = 0, nn
           var vn = avx * nx + avy * ny, vp = pb[m1 + 2] * nx + pb[m1 + 3] * ny, vq = pb0[m0 + 2] * nx + pb0[m0 + 3] * ny;
           nn++; if (Math.sign(vn) !== Math.sign(vp) && Math.sign(vp) === Math.sign(vq) && Math.abs(vn) > 0.05) flips++; break; } } } }
   sepJit = nn ? +(flips / nn).toFixed(4) : 0; }
-return JSON.stringify({ frames: fr.length, maxDisp: +maxDisp.toFixed(2), maxSameCoord: maxSame, radiusLoss: +radiusLoss.toFixed(4),
+var ledgerLoss = 0, ledgerN = 0, ledgerGone = 0;
+__ca2.getCells().forEach(function (q) { if (q.__r0 === undefined) return; ledgerN++; if (q.__r0 > 1) ledgerLoss = Math.max(ledgerLoss, 1 - q.radius / q.__r0); });
+var lossByCell = []; __ca2.getCells().forEach(function (q) { if (q.__r0 !== undefined && q.__r0 > 1) { var d = 1 - q.radius / q.__r0; if (d > 0.001) lossByCell.push(+d.toFixed(3)); } });
+lossByCell.sort(function (a, b) { return b - a; });
+document.getElementById('panel').classList.remove('hov');
+var transEnd = __ca2.trans, cellR = __ca2.P.CELL_RADIUS;
+return JSON.stringify({ frames: fr.length, transEnd: transEnd, cellR: +cellR.toFixed(2), maxDisp: +maxDisp.toFixed(2), maxSameCoord: maxSame, radiusLoss: +radiusLoss.toFixed(4),
+  ledgerLoss: +ledgerLoss.toFixed(4), ledgerN: ledgerN, lossByCell: lossByCell.slice(0, 8), deaths: __ca2.deaths,
   sepJitter: sepJit, viol: viol, violFrames: violFrames, reactN: rr.length, reactFrameSd: +rfSd.toFixed(2), reactDirSpread: +dirSpread.toFixed(3) });})()`);
   console.log(JSON.stringify(Object.assign({ fps: FPS, sep: SEP, iso: ISO, tree: 'unknown', errs: c.errs.length }, JSON.parse(out === 'EV-TIMEOUT' ? '{}' : out))));
   c.close(); s.close(); process.exit(0);
