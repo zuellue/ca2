@@ -349,6 +349,7 @@ impl Sim {
         }
     }
     fn check_survival(&mut self, c: usize) {
+        if !self.alive(c) { return; } // a cell already killed this step (energy0 in update) is one death, not also crowd/genebound (item 64 counter alias)
         let gene = self.g(c, GENE);
         if gene <= self.p[P_GMIN] || gene >= self.p[P_GMAX] { self.set(c, ALIVE, 0.0); self.out[23] += 1.0; }
         let r = self.p[P_IR]; let (cx, cy) = (self.g(c, X), self.g(c, Y)); let mut n = 0;
@@ -456,7 +457,7 @@ impl Sim {
         if self.pr.len() < self.cap { self.pr.resize(self.cap, 0.0); }
         for v in self.pr.iter_mut() { *v = 0.0; }
         self.s0 = (s0 as u64) << 32 | 0x9E3779B9; self.s1 = (s1 as u64) << 32 | 0x85EBCA6B;
-        for k in 0..20 { self.out[k] = 0.0; } // 20-23 are cumulative kill-reason diagnostics, not per-step
+        for k in 0..24 { self.out[k] = 0.0; } // 20-23 are kill-reason counts, per-step like the rest; JS accumulates them into session totals (item 64: cumulative-in-wasm + accumulate-in-JS double counted every frame)
         let n0 = self.n; self.live = n0; self.log.clear();
         let (mx, my, over) = (self.p[P_MX], self.p[P_MY], self.p[P_MOVER] != 0.0);
         let (cx, cy, cw, ch) = (self.p[P_CX], self.p[P_CY], self.p[P_CW], self.p[P_CH]);

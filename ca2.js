@@ -979,7 +979,7 @@
       for (i = 0; i < cells.length; i++) { c = cells[i]; if (c.alive && c.shp && c.shp.t === 1) simSwim(c); }
       tmpRef.hc = o[16] >= 0 ? cells[o[16]] : null;
       for (i = nf - 1; i >= 0; i--) if (fg[i] !== 0) { habAte(food[i]); food[i].gone = 1; food.splice(i, 1); }
-      ev.killSel = (ev.killSel || 0) + (o[20] || 0); ev.killEnergy = (ev.killEnergy || 0) + (o[21] || 0); ev.killCrowd = (ev.killCrowd || 0) + (o[22] || 0); ev.killGene = (ev.killGene || 0) + (o[23] || 0); // wasm kill-reason counters (sim.rs out[20-23], cumulative) - actual death-path trace, no inference (main 25 Oct)
+      ev.killSel = (ev.killSel || 0) + (o[20] || 0); ev.killEnergy = (ev.killEnergy || 0) + (o[21] || 0); ev.killCrowd = (ev.killCrowd || 0) + (o[22] || 0); ev.killGene = (ev.killGene || 0) + (o[23] || 0); // wasm kill-reason counters (sim.rs out[20-23], per-step, accumulated here into session totals) - actual death-path trace, no inference (main 25 Oct)
       ev.birth += o[0]; ev.divide = (ev.divide || 0) + o[1]; ev.eaten = (ev.eaten || 0) + o[2]; ev.merge = (ev.merge || 0) + o[3]; ev.fuse = (ev.fuse || 0) + o[4]; ev.pair = (ev.pair || 0) + o[5]; ev.hit += o[6]; ev.oob += o[7]; ev.ate = (ev.ate || 0) + o[8]; clusterSeq = o[10];
       for (i = cells.length - 1; i >= 0; i--) if (!cells[i].alive) { ev.death++; logDeath(cells[i], cells[i].__dr || 'untagged-wasm'); habReap(cells[i]); cells.splice(i, 1); }
       hovering = o[11] !== 0; tmpRef.v = [o[12], o[13], o[14]];
