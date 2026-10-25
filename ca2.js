@@ -326,6 +326,15 @@
     var x0 = cont.x + rr + gap, x1 = cont.x + cont.w - rr - gap, y0 = cont.y + rr + gap, y1 = cont.y + cont.h - rr - gap;
     if (x1 < x0) { x0 = x1 = (x0 + x1) / 2; }
     if (y1 < y0) { y0 = y1 = (y0 + y1) / 2; }
+    // 73d(1) anticipation: an inward-moving wall pushes each body in its path BEFORE contact - per-cell, local,
+    // ramp over one own-radius to at most the wall's own speed through the decaying env channel; the contact resolve stays as the fallback
+    if (P.wallCarry > 0 && vel) {
+      var antR = rr;
+      if (cont.wvx0 > 0 && p.x >= x0 && p.x - x0 < antR) { var kA = 1 - (p.x - x0) / antR; p.envVx += (Math.abs(cont.wvx0) * P.wallCarry - p.envVx) * kA; }
+      if (cont.wvx1 < 0 && p.x <= x1 && x1 - p.x < antR) { var kB = 1 - (x1 - p.x) / antR; p.envVx += (-Math.abs(cont.wvx1) * P.wallCarry - p.envVx) * kB; }
+      if (cont.wvy0 > 0 && p.y >= y0 && p.y - y0 < antR) { var kC = 1 - (p.y - y0) / antR; p.envVy += (Math.abs(cont.wvy0) * P.wallCarry - p.envVy) * kC; }
+      if (cont.wvy1 < 0 && p.y <= y1 && y1 - p.y < antR) { var kD = 1 - (y1 - p.y) / antR; p.envVy += (-Math.abs(cont.wvy1) * P.wallCarry - p.envVy) * kD; }
+    }
     if (p.x < x0) carrySide(p, 'x', 'vx', p.y, x0, cont.wvx0, 1, vel);
     else if (p.x > x1) carrySide(p, 'x', 'vx', p.y, x1, cont.wvx1, -1, vel);
     if (p.y < y0) carrySide(p, 'y', 'vy', p.x, y0, cont.wvy0, 1, vel);
@@ -1476,7 +1485,10 @@
         // A collective correction must stay on this cell's side of every finite wall.
         for(var j=0;j<segs.length;j++){var sg=segs[j],ex=sg[2]-sg[0],ey=sg[3]-sg[1],d0=(c.x-sg[0])*ey-(c.y-sg[1])*ex,d1=(tx-sg[0])*ey-(ty-sg[1])*ex;
           if(d0*d1<0){var t=d0/(d0-d1),hx=c.x+(tx-c.x)*t,hy=c.y+(ty-c.y)*t,ll=ex*ex+ey*ey,along=ll?((hx-sg[0])*ex+(hy-sg[1])*ey)/ll:-1;if(along>=0&&along<=1)fraction=Math.min(fraction,Math.max(0,t-.001));}}
-        c._sepX=c.x;c._sepY=c.y;c.x+=(tx-c.x)*fraction;c.y+=(ty-c.y)*fraction;
+        c._sepX=c.x;c._sepY=c.y;if(pass===0){c._f5x0=c.x;c._f5y0=c.y;}
+        var q5=(c.maxSpeed||0)+1,rem5=Math.max(0,q5-Math.hypot(c.x-c._f5x0,c.y-c._f5y0)),mx5=(tx-c.x)*fraction,my5=(ty-c.y)*fraction,ml5=Math.hypot(mx5,my5);
+        if(ml5>rem5&&ml5>0){var k5=rem5/ml5;mx5*=k5;my5*=k5;}
+        c.x+=mx5;c.y+=my5; // 73d(2): the TOTAL per-frame collective correction is bounded at the cell's own quantum across all passes, not per pass
         if(pass>=3&&(m[0]||m[1])){
           var pressure=Math.min(1,Math.hypot(m[0],m[1])/Math.max(1,bodies[k].bound));
           // item 64: overload reads as reversible squash, never permanent radius loss (radiusLoss stays 0)
