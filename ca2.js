@@ -1462,9 +1462,12 @@
         for(var k=0;k<active.length;k++)parts[k]=0;
         for(var q=0;q<flat.length;q++){var fs=flat[q],dx=x-fs[0],dy=y-fs[1];if(Math.abs(dx)>fs[3]||Math.abs(dy)>fs[3])continue;var f=fs[2]/(dx*dx+dy*dy+.0001);parts[fs[4]]+=f;total+=f;}
         if(total<=threshold)return;hit++;
-        for(var k=0;k<active.length;k++)if(parts[k]>threshold*.002){var c=active[k],dx=c.x-x,dy=c.y-y,mx,my;
+        // contact attribution (item 64, root of the collective slide): only a cell whose OWN ink touches the wall point
+        // moves - the crowd-share gate (.002 of threshold) dragged 99%+ of transported px on non-contacting cells. Step
+        // scales with the cell's own overload at the point, not the crowd total. Same ink test as sepBodyLineHit (.96).
+        for(var k=0;k<active.length;k++)if(parts[k]>P.THRESHOLD*.96){var c=active[k],dx=c.x-x,dy=c.y-y,mx,my;
           if(nx!==null){var side=dx*nx+dy*ny>=0?1:-1;mx=nx*side;my=ny*side;}else{var dl=Math.max(.0001,Math.hypot(dx,dy));mx=dx/dl;my=dy/dl;}
-          var step=Math.min(bodies[k].bound+2,Math.max(1,bodies[k].bound*(Math.sqrt(total/threshold)-1))), m=moves[k];
+          var step=Math.min(bodies[k].bound+2,Math.max(1,bodies[k].bound*(Math.sqrt(parts[k]/threshold)-1))), m=moves[k];
           if(Math.abs(mx*step)>Math.abs(m[0]))m[0]=mx*step;if(Math.abs(my*step)>Math.abs(m[1]))m[1]=my*step;
         }
       }
@@ -1475,7 +1478,7 @@
         for(var q=0;q<flat.length;q++)fb.set(flat[q],q*5);
         for(var k=0;k<active.length;k++)cb.set([active[k].x,active[k].y,bodies[k].bound],k*3);
         new Float64Array(WC.mem.buffer,pp,points.length).set(points);
-        hit=E.sep_run(flat.length,points.length/4,active.length,threshold);
+        hit=E.sep_run(flat.length,points.length/4,active.length,threshold,P.THRESHOLD*.96);
         var mb=new Float64Array(WC.mem.buffer,E.sep_moves(),active.length*2);for(var k=0;k<active.length;k++){moves[k][0]=mb[k*2];moves[k][1]=mb[k*2+1];}usedW=true;
       }
       if(!usedW)for(var pi=0;pi<points.length;pi+=4)sample(points[pi],points[pi+1],points[pi+2]||points[pi+3]?points[pi+2]:null,points[pi+3]);
