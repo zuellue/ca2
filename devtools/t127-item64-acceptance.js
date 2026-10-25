@@ -54,7 +54,8 @@ requestAnimationFrame(function rc() { if (!window.__recOn) return; var c = __ca2
         for (var si2 = 0; si2 < sgs.length; si2++) { var sg2 = sgs[si2], ex2 = sg2[2] - sg2[0], ey2 = sg2[3] - sg2[1], l2b = ex2 * ex2 + ey2 * ey2; if (!l2b) continue;
           var tt = Math.max(0, Math.min(1, ((q.x - sg2[0]) * ex2 + (q.y - sg2[1]) * ey2) / l2b));
           if (Math.hypot(q.x - (sg2[0] + ex2 * tt), q.y - (sg2[1] + ey2 * tt)) < 30) { q.__rdropsep = true; break; } } } } } }
-  __fr.push({ x: c.x, w: c.w, y: c.y, h: c.h, dv: __ca2.divides, bt: __ca2.births, a: a.subarray(0, j) }); requestAnimationFrame(rc); });
+  var wb = []; for (var wi = 0; wi < cs.length; wi++) { var qw = cs[wi]; if (qw.__ti !== undefined && qw.x - c.x < 3) wb.push([qw.__ti, qw.alive ? 1 : 0, +qw.x.toFixed(2), +qw.vx.toFixed(2), +(qw.crowd || 0).toFixed(3), +(qw.hab || 0).toFixed(3), +qw.energy.toFixed(1)]); } // alive-identity wall roster: locking-vs-corpses discriminator (main 25 Oct)
+  __fr.push({ x: c.x, w: c.w, y: c.y, h: c.h, dv: __ca2.divides, bt: __ca2.births, a: a.subarray(0, j), wb: wb }); requestAnimationFrame(rc); });
 var c = __ca2.cont; return JSON.stringify({ x: c.x, w: c.w, y: c.y, h: c.h, fr: __fr.length, trans: __ca2.trans });})()`);
   const st = JSON.parse(setup);
   if (STATE.startsWith('dump:')) { const sd = await evG('window.__stateDump'); require('fs').writeFileSync(STATE.slice(5), sd); console.error(el() + 's state dumped: ' + (sd ? sd.length : 0) + ' bytes'); }
@@ -88,6 +89,11 @@ for (var i = 0; i < fr.length; i++) {
   var mx = 0; for (var k2 in same) mx = Math.max(mx, same[k2]); if (mx > maxSame) maxSame = mx; if (i >= fr.length - 24 && mx > maxSameTail) maxSameTail = mx; // last ~2s at 12fps: post-expansion steady state - contact vs locking discriminator
   viol += v; if (v) violFrames++;
 }
+var wt = {};
+for (var i9 = Math.max(0, fr.length - 24); i9 < fr.length; i9++) { var wb2 = fr[i9].wb || []; for (var wi2 = 0; wi2 < wb2.length; wi2++) { var e9 = wb2[wi2]; if (!wt[e9[0]]) wt[e9[0]] = { alive: 0, frames: 0, vxSum: 0, crowd: e9[4], hab: e9[5], energy: e9[6], x: e9[2] }; var w9 = wt[e9[0]]; w9.frames++; if (e9[1]) w9.alive = 1; w9.vxSum += Math.abs(e9[3]); } }
+var wtIds = Object.keys(wt), liveLocked = 0, deadC = 0, moving = 0;
+wtIds.forEach(function (id) { var w = wt[id]; if (!w.alive) deadC++; else if (w.vxSum / w.frames < 0.05) liveLocked++; else moving++; });
+var wallTail = { unique: wtIds.length, dead: deadC, liveZeroVx: liveLocked, liveMoving: moving, sample: wtIds.slice(0, 8).map(function (id) { return { ti: +id, alive: wt[id].alive, frames: wt[id].frames, meanAbsVx: +(wt[id].vxSum / wt[id].frames).toFixed(3), crowd: wt[id].crowd, hab: wt[id].hab, energy: wt[id].energy, x: wt[id].x }; }) };
 var rr = [], rk; for (rk in reacts) rr.push(reacts[rk]);
 var rf = rr.map(function (r) { return r.f; }), rfm = mean(rf), rfSd = Math.sqrt(mean(rf.map(function (v2) { return (v2 - rfm) * (v2 - rfm); })));
 var sx = 0, sy = 0; rr.forEach(function (r) { sx += Math.cos(r.dir); sy += Math.sin(r.dir); });
@@ -128,7 +134,7 @@ document.getElementById('panel').classList.remove('hov');
 var transEnd = __ca2.trans, cellR = __ca2.P.CELL_RADIUS;
 return JSON.stringify({ initFP: window.__initFP, frames: fr.length, transEnd: transEnd, cellR: +cellR.toFixed(2), maxDisp: +maxDisp.toFixed(2), maxSameCoord: maxSame, radiusLoss: +radiusLoss.toFixed(4),
   ledgerLoss: +ledgerLoss.toFixed(4), ledgerN: ledgerN, lossByCell: lossByCell.slice(0, 8), shrinkRep: shrinkRep.slice(0, 8), deaths: __ca2.deaths, deadRep: deadRep.slice(0, 12), liveMinLoss: +liveMinLoss.toFixed(4),
-  sepJitter: sepJit, viol: viol, maxSameTail: maxSameTail, violFrames: violFrames, reactN: rr.length, reactFrameSd: +rfSd.toFixed(2), reactDirSpread: +dirSpread.toFixed(3) });})()`);
+  sepJitter: sepJit, viol: viol, maxSameTail: maxSameTail, wallTail: wallTail, violFrames: violFrames, reactN: rr.length, reactFrameSd: +rfSd.toFixed(2), reactDirSpread: +dirSpread.toFixed(3) });})()`);
   const TREE = (process.argv[2] || '').includes('ca2base') ? 'base' : 'branch';
   console.log(JSON.stringify(Object.assign({ fps: FPS, sep: SEP, iso: ISO, tree: TREE, runs: 'independent-bounded (unmatched populations)', errs: c.errs.length }, JSON.parse(out === 'EV-TIMEOUT' ? '{}' : out))));
   c.close(); s.close(); process.exit(0);
