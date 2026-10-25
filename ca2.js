@@ -362,8 +362,10 @@
     if (P.wallCarry > 0 && wv * side > 0) {
       var pen = side * (line - p[ax]); if (pen < 0) pen = 0; // owner 25 Oct block 73d-1: a moving wall pushes bodies as a FORCE, it does not carry them - position resolves to the contact line only (non-penetration), never placed ahead at wall speed
       p[ax] = line;
-      if (vel) { // impulse proportional to this frame's overrun depth, into the environmental channel that decays in update(): the body is pushed ahead and settles instead of surfing with the wall
-        if (vax === 'vx') p.envVx += side * pen * P.wallCarry; else p.envVy += side * pen * P.wallCarry;
+      if (vel) { // v2 (owner 25 Oct: v1 slingshot rejected): pressure-proportional approach toward at most the wall's own speed - a deep press firms the push, a light brush barely nudges, and the body can never be driven faster than the wall; momentum settles on release via the decaying env channel
+        var sqm3 = P.squashMax === undefined ? 0.18 : P.squashMax, rr3 = p.radius * (1 - sqm3 * (p.sq || 0));
+        var tgt3 = side * Math.abs(wv) * P.wallCarry, k3 = Math.min(1, pen / Math.max(1e-6, rr3));
+        if (vax === 'vx') p.envVx += (tgt3 - p.envVx) * k3; else p.envVy += (tgt3 - p.envVy) * k3;
         var sqm2 = P.squashMax === undefined ? 0.18 : P.squashMax, cp2 = Math.min(1, (p.sq || 0) + Math.abs(wv) / Math.max(1e-6, p.radius * sqm2)); // each frame the wall outruns the body it presses one frame-depth deeper
         if (cp2 > (p.sqS || 0)) p.sqS = cp2;
       }
