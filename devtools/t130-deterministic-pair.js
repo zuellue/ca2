@@ -80,7 +80,9 @@ async function runEngine(enginePath, label) {
   sandbox.window = sandbox; sandbox.globalThis = sandbox; sandbox.self = sandbox;
   sandbox.innerWidth = 900; sandbox.innerHeight = 600; sandbox.devicePixelRatio = 1;
   sandbox.matchMedia = () => ({ matches: false, addEventListener() {}, addListener() {} });
-  sandbox.addEventListener = () => {}; sandbox.removeEventListener = () => {};
+  const winLs = {};
+  sandbox.addEventListener = (t, f) => { (winLs[t] = winLs[t] || []).push(f); }; sandbox.removeEventListener = () => {};
+  function fireWin(t, e) { (winLs[t] || []).slice().forEach(f => f(e)); }
   sandbox.Image = function () { return stubEl('img'); };
   sandbox.Promise = Promise; sandbox.Date = Date; sandbox.Error = Error; sandbox.TypeError = TypeError; sandbox.Map = Map; sandbox.Set = Set; sandbox.Symbol = Symbol;
   sandbox.isFinite = isFinite; sandbox.isNaN = isNaN; sandbox.parseFloat = parseFloat; sandbox.parseInt = parseInt; sandbox.Number = Number; sandbox.String = String; sandbox.Boolean = Boolean; sandbox.RegExp = RegExp; sandbox.Function = Function; sandbox.encodeURIComponent = encodeURIComponent; sandbox.decodeURIComponent = decodeURIComponent;
@@ -115,6 +117,7 @@ async function runEngine(enginePath, label) {
   while (cs0.length < INJ.cells.length) { const tp0 = cs0[cs0.length - 1], d0 = Object.create(Object.getPrototypeOf(tp0)); Object.assign(d0, tp0); d0.g = JSON.parse(JSON.stringify(tp0.g)); d0.shp = JSON.parse(JSON.stringify(tp0.shp)); cs0.push(d0); }
   INJ.cells.forEach((sc, i) => { const c = cs0[i]; for (const k in sc) { if (k === 'g' || k === 'shp') c[k] = JSON.parse(JSON.stringify(sc[k])); else c[k] = sc[k]; } });
   cs0.length = INJ.cells.length;
+  cs0.forEach(q => { q.envVx = 0; q.envVy = 0; }); // stateB carries no envV; zero the boot residue so both engines start with identical dynamic state
   const fd0 = ca2.getFood(); fd0.length = 0; INJ.food.forEach(f => fd0.push({ x: f.x, y: f.y, r: f.r }));
   ca2.cont.x = INJ.cont.x; ca2.cont.y = INJ.cont.y; ca2.cont.w = INJ.cont.w; ca2.cont.h = INJ.cont.h; ca2.cont.tw = INJ.cont.w; ca2.cont.th = INJ.cont.h; ca2.cont.ew = INJ.cont.w; ca2.cont.eh = INJ.cont.h; ca2.cont.rawW = INJ.cont.w; ca2.cont.rawH = INJ.cont.h; ca2.cont.user = true;
   if (ca2.clampTargets) ca2.clampTargets();
@@ -123,16 +126,21 @@ async function runEngine(enginePath, label) {
   vm.runInContext('Math.random = window.__rng2;', Object.assign(sandbox, { __rng2: rng2 }), { filename: 'reseed.js' });
   // per-ti full-state verify
   const idMap = new WeakMap(); let nextTi = 0;
-  let mism = 0; cs0.forEach((q, i) => { idMap.set(q, nextTi++); const s = INJ.cells[i]; if (!s || Math.abs(q.x - s.x) > 0.01 || Math.abs(q.y - s.y) > 0.01 || Math.abs(q.radius - s.radius) > 0.01) mism++; });
+  let mism = 0; cs0.forEach((q, i) => { idMap.set(q, nextTi++); const s = INJ.cells[i]; if (!s || Math.abs(q.x - s.x) > 0.01 || Math.abs(q.y - s.y) > 0.01 || Math.abs(q.radius - s.radius) > 0.01 || Math.abs((q.vx||0) - (s.vx||0)) > 0.01 || Math.abs((q.vy||0) - (s.vy||0)) > 0.01 || Math.abs((q.energy||0) - (s.energy||0)) > 0.001 || Math.abs((q.sq||0) - (s.sq||0)) > 0.001) mism++; });
   const births = [], deaths = []; let prevAlive = new Set(); cs0.forEach(q => prevAlive.add(idMap.get(q)));
   const meta = { pumpsBeforeInject: pumpCount, clockAtInject: V.clock - clockStart };
   if (process.env.T130_TRACE && sandbox.__ca2trace) { const pre = sandbox.__ca2trace.filter(r => r[1] === 'pre').map(r => r[0]); meta.trfAtInject = pre.length ? Math.max.apply(null, pre) + 1 : 0; } // first post-inject sim-step frame
   function pump() { pumpCount++; V.clock += DT; const q = V.rafQ.splice(0); q.forEach(f => { try { f(V.clock); } catch (e) { console.error(label + ' frame EXC: ' + (e && e.stack || e).slice(0, 500)); process.exit(2); } }); }
-  function snapshot() { const out = []; const nowAlive = new Set(); cs0.forEach(q => { if (!q.alive) return; let ti = idMap.get(q); if (ti === undefined) { ti = nextTi++; idMap.set(q, ti); births.push([frames.length, ti]); } nowAlive.add(ti); out.push([ti, +q.x.toFixed(3), +q.y.toFixed(3), +q.vx.toFixed(3), +q.vy.toFixed(3), +q.radius.toFixed(3), +Math.hypot(q.envVx || 0, q.envVy || 0).toFixed(3)]); });
+  const COS8 = [1, 0.7071, 0, -0.7071, -1, -0.7071, 0, 0.7071], SIN8 = [0, 0.7071, 1, 0.7071, 0, -0.7071, -1, -0.7071];
+  function nearContact(q) { const c = ca2.cont, r = q.radius;
+    if (q.x - c.x < r + 30 || c.x + c.w - q.x < r + 30 || q.y - c.y < r + 30 || c.y + c.h - q.y < r + 30) return 1;
+    if (ca2.sepInk) for (let k = 0; k < 8; k++) { for (const d of [r + 8, r + 28]) { if (ca2.sepInk(q.x + COS8[k] * d, q.y + SIN8[k] * d)) return 1; } }
+    return 0; }
+  function snapshot() { const out = []; const nowAlive = new Set(); cs0.forEach(q => { if (!q.alive) return; let ti = idMap.get(q); if (ti === undefined) { ti = nextTi++; idMap.set(q, ti); births.push([frames.length, ti]); } nowAlive.add(ti); out.push([ti, +q.x.toFixed(3), +q.y.toFixed(3), +q.vx.toFixed(3), +q.vy.toFixed(3), +q.radius.toFixed(3), +Math.hypot(q.envVx || 0, q.envVy || 0).toFixed(3), nearContact(q)]); });
     prevAlive.forEach(ti => { if (!nowAlive.has(ti)) deaths.push([frames.length, ti]); }); prevAlive = nowAlive;
     return { cont: [+ca2.cont.x.toFixed(3), +ca2.cont.y.toFixed(3), +ca2.cont.w.toFixed(3), +ca2.cont.h.toFixed(3)], n: out.length, cells: out }; }
   const cv = doc.getElementById('c');
-  const fire = (t, x, y) => cv.dispatchEvent({ type: t, clientX: x, clientY: y, buttons: t === 'mouseup' ? 0 : 1, preventDefault() {}, stopPropagation() {} });
+  const fire = (t, x, y) => { const e = { type: t, clientX: x, clientY: y, buttons: t === 'mouseup' ? 0 : 1, target: cv, preventDefault() {}, stopPropagation() {}, stopImmediatePropagation() {} }; cv.dispatchEvent(e); fireWin(t, e); };
   const frames = [];
   pump(); frames.push(snapshot());
   const y = Math.round(ca2.cont.y + ca2.cont.h / 2), x0 = Math.round(ca2.cont.x + 2), half = Math.round(ca2.cont.w * 0.25), d = half / 5;
@@ -148,6 +156,7 @@ async function runEngine(enginePath, label) {
 }
 
 function trajOf(run) { const T = {}; run.frames.forEach((f, fi) => f.cells.forEach(c => { (T[c[0]] = T[c[0]] || {})[fi] = [c[1], c[2]]; })); return T; }
+function rowAt(run, ti, fi) { const f = run.frames[fi]; if (!f) return null; const n = +ti; for (const c of f.cells) if (c[0] === n) return c; return null; }
 function metrics(run) {
   const T = trajOf(run); let osc = 0, oscCells = 0, steps = 0, maxStep = 0, totPath = 0;
   Object.keys(T).forEach(ti => { const F = T[ti], ks = Object.keys(F).map(Number).sort((a, b) => a - b); let fl = 0, ps = 0, path = 0;
@@ -159,7 +168,23 @@ function metrics(run) {
     if (fl) { osc += fl; oscCells++; } totPath += path; });
   const cont0 = run.frames[0].cont; let maxSame = 0; const hist = {};
   run.frames.forEach(f => { const seen = {}; f.cells.forEach(c => { const off = Math.round((c[1] - f.cont[0]) * 10) / 10; if (off < 3) { seen[off] = (seen[off] || 0) + 1; if (seen[off] > maxSame) maxSame = seen[off]; } }); });
-  return { cellsTracked: Object.keys(T).length, oscFlips: osc, oscCells, meanPath: steps ? +(totPath / Object.keys(T).length).toFixed(2) : 0, maxStep: +maxStep.toFixed(2), maxSameCoord: maxSame };
+  // lifetime + contact + radius-band normalization (main 25 Oct): per-frame rows carry [ti,x,y,vx,vy,r,envV,near]
+  const flipState = {}; let aliveFrames = 0, contactFrames = 0, flipsContact = 0; const band = { 'r<=96': [0, 0], '96<r<=200': [0, 0], 'r>200': [0, 0] }; const lifetimes = [];
+  Object.keys(T).forEach(ti => { const F = T[ti], ks = Object.keys(F).map(Number).sort((a, b) => a - b); lifetimes.push(ks.length);
+    for (let i = 1; i < ks.length; i++) { if (ks[i] !== ks[i - 1] + 1) continue; const row = rowAt(run, ti, ks[i]); if (!row) continue; aliveFrames++; const r = row[5], near = row[7];
+      const b = r <= 96 ? 'r<=96' : (r <= 200 ? '96<r<=200' : 'r>200'); band[b][1]++;
+      const a2 = T[ti][ks[i - 1]], b2 = T[ti][ks[i]]; const dx = b2[0] - a2[0], dy = b2[1] - a2[1];
+      const sx = Math.abs(dx) > 1 ? Math.sign(dx) : 0, sy = Math.abs(dy) > 1 ? Math.sign(dy) : 0;
+      const fs = flipState[ti] = flipState[ti] || { x: 0, y: 0 };
+      const flipped = (sx && fs.x && sx !== fs.x) || (sy && fs.y && sy !== fs.y);
+      if (sx) fs.x = sx; if (sy) fs.y = sy;
+      if (flipped) { if (near) flipsContact++; band[b][0]++; }
+      if (near) contactFrames++; } });
+  return { cellsTracked: Object.keys(T).length, oscFlips: osc, oscCells, meanPath: steps ? +(totPath / Object.keys(T).length).toFixed(2) : 0, maxStep: +maxStep.toFixed(2), maxSameCoord: maxSame,
+    aliveFrames, contactFrames, pathPerAliveFrame: aliveFrames ? +(totPath / aliveFrames).toFixed(3) : 0,
+    oscPerContactFrame: contactFrames ? +(flipsContact / contactFrames).toFixed(4) : null,
+    oscByBand: Object.fromEntries(Object.entries(band).map(([k, v]) => [k, { flips: v[0], frames: v[1], rate: v[1] ? +(v[0] / v[1]).toFixed(4) : null }])),
+    lifetimes: lifetimes.length ? { min: Math.min.apply(null, lifetimes), med: lifetimes.sort((a, b) => a - b)[lifetimes.length >> 1], max: Math.max.apply(null, lifetimes) } : null };
 }
 
 (async () => {
