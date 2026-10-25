@@ -44,6 +44,7 @@ var c = __ca2.cont; return JSON.stringify({ x: c.x, w: c.w, y: c.y, h: c.h, fr: 
 var steps=5,d=${half}/5,i=0;var iv=setInterval(function(){i++;if(i<=steps){__fire('mousemove',${x0}+Math.round(i*d),${y});}else{clearInterval(iv);
 setTimeout(function(){var j=0;var iv2=setInterval(function(){j++;if(j<=steps){__fire('mousemove',${x0}+Math.round((5-j)*d),${y});}else{clearInterval(iv2);__fire('mouseup',${x0},${y});window.__done=1;}},60);}},2000);}},60);})()`);
   console.error(el() + 's drag fired');
+  if (SHOT) { await c.sleep(1600); await c.shot(SHOT + '-mid.png'); } // mid-hold: max squeeze, squash state visible
   await wait('window.__done', 25);
   console.error(el() + 's drag done');
   if (SHOT) await c.shot(SHOT + '-after.png');
