@@ -9,13 +9,13 @@ const H = require(process.argv[2] ? require('path').resolve(process.argv[2]) : r
 const FPS = +(process.argv[3] || 12), SEP = +(process.argv[4] || 0), ISO = +(process.argv[5] || 0), SHOT = process.argv[6] || '', SEED = +(process.argv[7] || 0); // SEED: matched-initial-state control (main 25 Oct) - same seeded Math.random at boot in both trees
 const EXTRA = process.argv[8] ? JSON.parse(process.argv[8]) : {}; // extra setKey overrides, e.g. '{"crowdGain":0}' for A/B
 const STATE = process.argv[9] || ''; // 'dump:/path.json' captures the post-boot state; 'inject:/path.json' forces it - matched initial state across trees (main 25 Oct)
-const TAILMS = +(process.argv[10] || 0); const TAILDRAW = +(process.argv[11] || 0); // wall[].zt = JS-recomputed zone deflection: discriminates engine divergence from geometry // 1: stepped tail keeps the ink mask fresh (noDraw mode 2) - faithful separator-on measurement (main 25 Oct) // extra post-expansion observation window in SIM FRAMES for the release-tail question (main 25 Oct); 0 = unchanged. Wall-ms is wrong here: the post-mouseup composition transition runs at ~1-2fps in headless, so a wall-ms tail records almost nothing.
+const TAILMS = +(process.argv[10] || 0); const TAILDRAW = +(process.argv[11] || 0); const NOSIM = +(process.argv[12] || 0), QRY = NOSIM ? '?nosim=1' : ''; // NOSIM: force the JS engine (wasm off) - engine-divergence discrimination // wall[].zt = JS-recomputed zone deflection: discriminates engine divergence from geometry // 1: stepped tail keeps the ink mask fresh (noDraw mode 2) - faithful separator-on measurement (main 25 Oct) // extra post-expansion observation window in SIM FRAMES for the release-tail question (main 25 Oct); 0 = unchanged. Wall-ms is wrong here: the post-mouseup composition transition runs at ~1-2fps in headless, so a wall-ms tail records almost nothing.
 (async () => {
   const T0 = Date.now(); const el = () => ((Date.now() - T0) / 1000).toFixed(1);
-  const s = await H.serve(8913), c = await H.launch(8912, 'http://127.0.0.1:8913/index.html', ['--window-size=900,600']);
+  const s = await H.serve(8913), c = await H.launch(8912, 'http://127.0.0.1:8913/index.html' + QRY, ['--window-size=900,600']);
   if (SEED) { // reload with a seeded Math.random from the very first script: identical boot populations in both trees
     await c.send('Page.addScriptToEvaluateOnNewDocument', { source: '(function(){var s=' + SEED + '>>>0;Math.random=function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};})();' });
-    await c.send('Page.navigate', { url: 'http://127.0.0.1:8913/index.html' }); }
+    await c.send('Page.navigate', { url: 'http://127.0.0.1:8913/index.html' + QRY }); }
   const evG = async e => { const r = await Promise.race([c.ev(e), new Promise(r2 => setTimeout(() => r2('EV-TIMEOUT'), 15000))]); if (r === 'EV-TIMEOUT') console.error(el() + 's EV STALL on:', e.slice(0, 50)); return r; };
   const wait = async (e, n) => { for (let i = 0; i < (n || 40); i++) { if (await evG(e)) return true; await c.sleep(500); } return false; };
   if (!await wait('window.__ca2 && __ca2.cells > 10')) { console.log('BOOT FAIL'); process.exit(1); }
@@ -79,7 +79,15 @@ setTimeout(function(){var j=0;var iv2=setInterval(function(){j++;if(j<=steps){__
     window.__ca2NoDraw = 0; return JSON.stringify(series); } catch (e9) { window.__ca2NoDraw = 0; return 'STEPPED-ERR: ' + (e9 && e9.stack || e9); } })()`) : '[]'; // sim-stepped long tail (120 steps = 10s sim at 12fps), NOT real rAF timing (main 25 Oct); render skipped, physics path unchanged, separators off
   console.error(el() + 's stepped tail: ' + String(stepped).slice(0, 120));
   if (SHOT) await c.shot(SHOT + '-after.png');
-  const out = await evG(`(function(){window.__recOn = 0; var fr = __fr.slice(${fr0});
+  const probe = TAILMS > 0 ? await evG(`(function(){ var out2 = { qry: location.search, simOn: __ca2.simOn, boundAware: __ca2.P.boundAware, crowdGain: __ca2.P.crowdGain, boundZone: __ca2.P.boundZone, cells: [] };
+  var cs2 = __ca2.getCells(), cx2 = __ca2.cont.x;
+  for (var i2 = 0; i2 < cs2.length; i2++) { var q2 = cs2[i2]; if (!q2.alive || q2.x - cx2 >= 3) continue;
+    var pre = { crowd: q2.crowd || 0, vx: q2.vx, sq: q2.sq || 0 };
+    __ca2.keepIn(q2);
+    out2.cells.push({ ti: q2.__ti === undefined ? -1 : q2.__ti, ms: +q2.maxSpeed.toFixed(3), bnd: q2.g ? +q2.g.bnd.toFixed(3) : -1, pre: pre, post: { crowd: q2.crowd || 0, vx: q2.vx, sqS: q2.sqS || 0 } }); }
+  return JSON.stringify(out2); })()`) : '{}'; // post-tail probe: manual keepIn on locked wall cells - does keepIn itself fire zone+crowd when called directly?
+  console.error(el() + 's keepIn probe: ' + String(probe).slice(0, 200));
+const out = await evG(`(function(){window.__recOn = 0; var fr = __fr.slice(${fr0});
 var mean = function (a) { return a.length ? a.reduce(function (s, v) { return s + v; }, 0) / a.length : 0; };
 var maxDisp = 0, maxSame = 0, maxSameTail = 0, viol = 0, violFrames = 0, reacts = {};
 for (var i = 0; i < fr.length; i++) {
@@ -147,6 +155,7 @@ return JSON.stringify({ initFP: window.__initFP, frames: fr.length, transEnd: tr
   const TREE = (process.argv[2] || '').includes('ca2base') ? 'base' : 'branch';
   let steppedArr = []; try { steppedArr = JSON.parse(stepped); } catch (e) {}
   let outP = {}; try { outP = JSON.parse(out === 'EV-TIMEOUT' ? '{}' : out); } catch (e) { console.error('EVAL-EXC raw:', String(out).slice(0, 600)); }
-  console.log(JSON.stringify(Object.assign({ fps: FPS, sep: SEP, iso: ISO, tree: TREE, runs: 'independent-bounded (unmatched populations)', errs: c.errs.length }, outP, { steppedTail: steppedArr })));
+  var probeP = {}; try { probeP = JSON.parse(probe); } catch (e8) {}
+  console.log(JSON.stringify(Object.assign({ fps: FPS, sep: SEP, iso: ISO, tree: TREE, runs: 'independent-bounded (unmatched populations)', errs: c.errs.length }, outP, { steppedTail: steppedArr }, { keepInProbe: probeP })));
   c.close(); s.close(); process.exit(0);
 })().catch(e => { console.log('FATAL', e.message); process.exit(1); });
