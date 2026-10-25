@@ -1452,10 +1452,10 @@
     if(P.showHud&&SEP.img)for(var yy=0;yy<SEP.mh;yy++)for(var xx=0;xx<SEP.mw;xx++)if(SEP.img[(yy*SEP.mw+xx)*4+3]>40)addPoint(xx*2+1,yy*2+1,0,0);
     // Sum the same sources that will be rendered, then move contributors, never erase pixels.
     for(var pass=0;pass<12;pass++){
-      var bodies=[],active=[], moves=[], hit=0,flat=[],parts=[];
+      var bodies=[],active=[], moves=[], hit=0,flat=[],parts=[],over=[];
       for(var ci=0;ci<cells.length;ci++)if(cells[ci].alive&&introOn(cells[ci].popD)&&cells[ci].x>=cont.x&&cells[ci].x<=cont.x+cont.w&&cells[ci].y>=cont.y&&cells[ci].y<=cont.y+cont.h) {active.push(cells[ci]);bodies.push(null);moves.push([0,0]);}
       var allowance=active.length>1?Math.max(1,Math.floor(SRC_MAX/active.length)):SRC_MAX;
-      for(var k=0;k<active.length;k++)bodies[k]=sepBody(active[k],allowance);
+      for(var k=0;k<active.length;k++){bodies[k]=sepBody(active[k],allowance);over[k]=1;}
       for(var k=0;k<active.length;k++){var b=bodies[k],c=active[k];for(var q=0;q<b.n;q++)flat.push([c.x+b.x[q],c.y+b.y[q],P.metaballStrength*b.r[q]*b.r[q],b.r[q]*Math.max(3,Math.sqrt(P.metaballStrength/(P.THRESHOLD*.03))),k]);}
       function sample(x,y,nx,ny){
         if(x<cont.x||x>cont.x+cont.w||y<cont.y||y>cont.y+cont.h)return;
@@ -1466,7 +1466,7 @@
         // contact attribution (item 64, root of the collective slide): only a cell whose OWN ink touches the wall point
         // moves - the crowd-share gate (.002 of threshold) dragged 99%+ of transported px on non-contacting cells. Step
         // scales with the cell's own overload at the point, not the crowd total. Same ink test as sepBodyLineHit (.96).
-        for(var k=0;k<active.length;k++)if(parts[k]>P.THRESHOLD*.96){var c=active[k],dx=c.x-x,dy=c.y-y,mx,my;
+        for(var k=0;k<active.length;k++)if(parts[k]>P.THRESHOLD*.96){if(parts[k]/threshold>over[k])over[k]=parts[k]/threshold;var c=active[k],dx=c.x-x,dy=c.y-y,mx,my;
           if(nx!==null){var side=dx*nx+dy*ny>=0?1:-1;mx=nx*side;my=ny*side;}else{var dl=Math.max(.0001,Math.hypot(dx,dy));mx=dx/dl;my=dy/dl;}
           var step=Math.min(bodies[k].bound+2,Math.max(1,bodies[k].bound*(Math.sqrt(parts[k]/threshold)-1))), m=moves[k];
           m[0]+=mx*step;m[1]+=my*step; // multi-segment coherence (item 64, main 25 Oct): per-point escape pushes accumulate as one vector per cell - contradictory pushes from different segments cancel instead of per-axis max zigzag; magnitude stays bounded by the 73d(2) quantum cap at apply time
@@ -1480,7 +1480,7 @@
         for(var k=0;k<active.length;k++)cb.set([active[k].x,active[k].y,bodies[k].bound],k*3);
         new Float64Array(WC.mem.buffer,pp,points.length).set(points);
         hit=E.sep_run(flat.length,points.length/4,active.length,threshold,P.THRESHOLD*.96);
-        var mb=new Float64Array(WC.mem.buffer,E.sep_moves(),active.length*2);for(var k=0;k<active.length;k++){moves[k][0]=mb[k*2];moves[k][1]=mb[k*2+1];}usedW=true;
+        var mb=new Float64Array(WC.mem.buffer,E.sep_moves(),active.length*3);for(var k=0;k<active.length;k++){moves[k][0]=mb[k*3];moves[k][1]=mb[k*3+1];over[k]=mb[k*3+2];}usedW=true;
       }
       if(!usedW)for(var pi=0;pi<points.length;pi+=4)sample(points[pi],points[pi+1],points[pi+2]||points[pi+3]?points[pi+2]:null,points[pi+3]);
       if(!hit)break;
@@ -1491,7 +1491,8 @@
           if(d0*d1<0){var t=d0/(d0-d1),hx=c.x+(tx-c.x)*t,hy=c.y+(ty-c.y)*t,ll=ex*ex+ey*ey,along=ll?((hx-sg[0])*ex+(hy-sg[1])*ey)/ll:-1;if(along>=0&&along<=1)fraction=Math.min(fraction,Math.max(0,t-.001));}}
         c._sepX=c.x;c._sepY=c.y;if(pass===0){c._f5x0=c.x;c._f5y0=c.y;}
         var q5=(c.maxSpeed||0)+1,rem5=Math.max(0,q5-Math.hypot(c.x-c._f5x0,c.y-c._f5y0)),mx5=(tx-c.x)*fraction,my5=(ty-c.y)*fraction,ml5=Math.hypot(mx5,my5);
-        if(ml5>rem5&&ml5>0){var k5=rem5/ml5;mx5*=k5;my5*=k5;}
+        var capEff=Math.max(rem5,q5*(1+Math.sqrt(Math.max(0,(over[k]||1)-1)))); // f8 candidate: pressure-proportional force cap (item 64, main 25 Oct) - the wall pushes as a force that grows with intrusion pressure, never a teleport-sized carry; through-protection stays with the fraction rule
+        if(ml5>capEff&&ml5>0){var k5=capEff/ml5;mx5*=k5;my5*=k5;}
         c.x+=mx5;c.y+=my5; // 73d(2): the TOTAL per-frame collective correction is bounded at the cell's own quantum across all passes, not per pass
         if(pass>=3&&(m[0]||m[1])){
           var pressure=Math.min(1,Math.hypot(m[0],m[1])/Math.max(1,bodies[k].bound));
