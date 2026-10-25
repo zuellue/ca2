@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Cellular Automata</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+<link rel="apple-touch-icon" href="favicon.png">
+<style>
+  @font-face { font-family: 'Ca2-Thin'; src: url('Ca2-Thin.ttf') format('truetype'); font-display: block; }
+  :root { --lw: 1px; --rg: 11px; --fg: #111; --fg-soft: rgba(17,17,17,.35); --bg: #fff; --m: 24px; }
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); }
+  canvas#c, canvas#g { display: block; position: fixed; inset: 0; width: var(--vw, 100vw); height: var(--vh, 100vh); }
+  canvas#g { pointer-events: none; z-index: 2147483647; } /* transparent grain overlay above EVERYTHING incl. UI (owner 21 Oct); the hover split (#secc, z 59) sits just under it */
+  /* touch: the plate canvas owns its gestures - no page scroll, rubber-band or double-tap zoom while on it */
+  canvas#c { touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  canvas#c, canvas#g { image-rendering: pixelated; image-rendering: crisp-edges; image-rendering: pixelated; }
+  canvas#ln { display: block; position: fixed; inset: 0; width: var(--vw, 100vw); height: var(--vh, 100vh); pointer-events: none; z-index: 9; }
+  /* config: same language as the sketch - Ca2-Thin, hairlines, no boxes */
+  #tab { position: fixed; top: 0; right: 0; width: 18px; height: 100%; z-index: 9; }
+  @media (pointer: coarse) { #tab::after { content: ''; position: absolute; top: 0; right: 0; width: 44px; height: 100%; } }
+  #panel { position: fixed; top: 0; right: 0; height: 100%; width: 340px; max-width: 86vw; z-index: 10; box-sizing: border-box;
+    padding: var(--m) 26px var(--m) 26px; overflow-y: auto; scrollbar-width: none;
+    font-family: var(--cff, 'Fragment Mono', ui-monospace, 'SF Mono', Menlo, monospace); font-size: var(--cfs, 13px); line-height: 1.3; letter-spacing: .04em; color: var(--fg); background: var(--panel-bg, var(--bg));
+    transform: translateX(100%); transition: transform .2s ease-out; will-change: transform; }
+  #panel::-webkit-scrollbar { display: none; }
+  /* auto invert: difference blend against whatever is behind the panel (cells, dots, colours); ink is white so it reads inverted */
+  #panel.blend { mix-blend-mode: difference; --fg: #fff; --fg-soft: rgba(255,255,255,.35); background: transparent; }
+  #panel.open, #panel.hov { transform: translateX(0); }
+  @media (hover: hover) { #tab:hover + #panel, #panel:hover { transform: translateX(0); } }
+  /* config text case parameter (cfgCase): u upper, l lower, s sentence */
+  #panel.cs-u, #panel.cs-u .grp, #panel.cs-u button, #secc.cs-u .sl { text-transform: uppercase; }
+  #panel.cs-l, #panel.cs-l .grp, #panel.cs-l button, #secc.cs-l .sl { text-transform: lowercase; }
+  #panel.cs-s, #panel.cs-s .grp, #panel.cs-s button, #secc.cs-s .sl span { text-transform: lowercase; }
+  #panel.cs-s .grp::first-letter, #panel.cs-s .lab span:first-child::first-letter, #panel.cs-s .chk span:first-child::first-letter, #panel.cs-s button::first-letter, #secc.cs-s .sl span:first-child { text-transform: uppercase; }
+  /* backdrop blur: full at the right edge, fading to sharp leftwards; width is a parameter (blurWidth) */
+  #blur { position: fixed; top: 0; right: 0; height: 100%; width: 340px; z-index: 9; pointer-events: none;
+    }
+  /* depth of field: stacked progressive blur layers, strongest at the screen edge, easing to sharp inward */
+  .bf { position: absolute; inset: 0; pointer-events: none; }
+  #blur .bf1 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .25 * var(--bk1, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .25 * var(--bk1, 0))); -webkit-mask-image: linear-gradient(to left, #000 55%, rgba(0,0,0,0) 100%); mask-image: linear-gradient(to left, #000 55%, rgba(0,0,0,0) 100%); }
+  #blur .bf2 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .5 * var(--bk2, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .5 * var(--bk2, 0))); -webkit-mask-image: linear-gradient(to left, #000 35%, rgba(0,0,0,0) 75%); mask-image: linear-gradient(to left, #000 35%, rgba(0,0,0,0) 75%); }
+  #blur .bf3 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .75 * var(--bk3, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .75 * var(--bk3, 0))); -webkit-mask-image: linear-gradient(to left, #000 15%, rgba(0,0,0,0) 50%); mask-image: linear-gradient(to left, #000 15%, rgba(0,0,0,0) 50%); }
+  #blur .bf4 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * var(--bk4, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * var(--bk4, 0))); -webkit-mask-image: linear-gradient(to left, #000 0%, rgba(0,0,0,0) 25%); mask-image: linear-gradient(to left, #000 0%, rgba(0,0,0,0) 25%); }
+  /* flipped twin on the left while the config is open: a depth-of-field field across the page */
+  #blurl { position: fixed; top: 0; left: 0; height: 100%; width: 340px; z-index: 9; pointer-events: none; }
+  #blurl .bf1 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .25 * var(--bk1, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .25 * var(--bk1, 0))); -webkit-mask-image: linear-gradient(to right, #000 55%, rgba(0,0,0,0) 100%); mask-image: linear-gradient(to right, #000 55%, rgba(0,0,0,0) 100%); }
+  #blurl .bf2 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .5 * var(--bk2, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .5 * var(--bk2, 0))); -webkit-mask-image: linear-gradient(to right, #000 35%, rgba(0,0,0,0) 75%); mask-image: linear-gradient(to right, #000 35%, rgba(0,0,0,0) 75%); }
+  #blurl .bf3 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .75 * var(--bk3, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .75 * var(--bk3, 0))); -webkit-mask-image: linear-gradient(to right, #000 15%, rgba(0,0,0,0) 50%); mask-image: linear-gradient(to right, #000 15%, rgba(0,0,0,0) 50%); }
+  #blurl .bf4 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * var(--bk4, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * var(--bk4, 0))); -webkit-mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,0) 25%); mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,0) 25%); }
+
+  @keyframes ca2in { from { opacity: 0 } to { opacity: 1 } }
+  #panel h1 { margin: 0 0 6px; font-weight: normal; font-size: 13px; letter-spacing: calc(.3em + 1px); font-family: 'Times New Roman', Times, serif; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; }
+  .row .lab { flex: 0 0 100%; }
+  .row .swc { margin: 2px 0 0 auto; }
+  .swc { width: var(--sd, 23px); height: var(--sd, 23px); border-radius: 50%; box-sizing: border-box; border: var(--lw, 1px) solid var(--kc, var(--fg)); cursor: pointer; background: transparent; }
+  input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+  input[type=color]::-webkit-color-swatch { border: 0; border-radius: 50%; }
+  input[type=color]::-moz-color-swatch { border: 0; border-radius: 50%; }
+  .grp { font-family: var(--cff, 'Times New Roman', Times, serif); }
+  #panel.fbold .grp { font-weight: 700; font-synthesis: none; } /* owner 22 Oct: section titles in the font's real bold; only when the active family ships one (no synthetic bold) */
+  .stats span:not(.n) { font-family: var(--cff, 'Fragment Mono', ui-monospace, 'SF Mono', Menlo, monospace); letter-spacing: .04em; }
+  #secc .sl { font-family: var(--cff, 'Times New Roman', Times, serif); }
+  .n { font-family: 'Ca2-Thin', monospace; font-size: 54px; white-space: nowrap; line-height: 1; letter-spacing: 0; }
+  .stats { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; white-space: nowrap; padding: 8px 0 12px; margin-bottom: 10px; }
+  .stats span:nth-child(even) { text-align: right; }
+  .stats span.n { justify-self: end; overflow: visible; }
+  .stats span:nth-child(odd) { align-self: center; }
+  .grp { position: relative; width: fit-content; margin: 14px 0 2px; letter-spacing: calc(.3em + 1px); text-transform: uppercase; font-size: var(--cfs, 13px); color: var(--fg-soft); padding-top: 8px; padding-bottom: 3px; }
+  /* the rule above a section title is exactly as wide as the title text (letter-spacing tail excluded); thickness = the one line-width parameter */
+  .grp::before { content: ''; position: absolute; left: 0; top: 0; width: calc(100% - .3em - 1px); border-top: var(--lw) solid var(--kr, var(--kl, #111)); }
+  .row { padding: calc(var(--rg) * 0.64) 0 calc(var(--rg) * 0.36); } /* top/bottom keep the 7:4 rhythm of the old fixed 11px gap */
+  .row .lab { display: flex; justify-content: space-between; }
+  .row input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; margin: 2px 0 0; background: transparent; cursor: pointer; }
+  .row input[type=range]::-webkit-slider-runnable-track { height: var(--lw); background: var(--kl, #111); }
+  .row input[type=range]::-moz-range-track { height: var(--lw); background: var(--kl, #111); }
+  .row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: calc((var(--lw) - 12px) / 2); box-sizing: border-box; border-radius: 50%; border: var(--lw) solid var(--kl, #111); background: transparent; }
+  .row input[type=range]::-moz-range-thumb { width: 10px; height: 10px; box-sizing: border-box; border-radius: 50%; border: var(--lw) solid var(--kl, #111); background: transparent; }
+  /* knob hover: CA-driven drift of the thumb (visual only; the value does not change) */
+  .row input[type=range]::-webkit-slider-thumb { transform: translate(var(--kx, 0px), 0) scale(var(--ks, 1)); transition: transform .1s linear; }
+  .row input[type=range]::-moz-range-thumb { transform: translate(var(--kx, 0px), 0) scale(var(--ks, 1)); transition: transform .1s linear; }
+  .row input[type=range]:hover::-webkit-slider-thumb { background: var(--hc, transparent); border-color: var(--hc, var(--kl, #111)); }
+  .row input[type=range]:hover::-moz-range-thumb { background: var(--hc, transparent); border-color: var(--hc, var(--kl, #111)); }
+  .row.live .lab b { color: var(--kc); }
+  .row.live input[type=range]::-webkit-slider-thumb { background: var(--kc); border-color: var(--kc); }
+  .row.live input[type=range]::-moz-range-thumb { background: var(--kc); border-color: var(--kc); }
+  .row.live input[type=range]::-webkit-slider-runnable-track { background: var(--kc); }
+  .row.live input[type=range]::-moz-range-track { background: var(--kc); }
+  .row input[type=range].ovl::-webkit-slider-thumb { background: transparent !important; border-color: transparent !important; }
+  .row input[type=range].ovl::-moz-range-thumb { background: transparent !important; border-color: transparent !important; }
+  .row.live input[type=range]::-webkit-slider-runnable-track { background: var(--kl, #111) !important; }
+  .row.live input[type=range]::-moz-range-track { background: var(--kl, #111) !important; }
+  .row.live .lab b { color: inherit !important; }
+  .row .lab b { cursor: text; }
+  .row .lab .man { font: inherit; color: inherit; background: transparent; border: 0; box-shadow: none; outline: none; width: 72px; text-align: right; padding: 0; margin: 0; -webkit-appearance: none; appearance: none; caret-color: var(--fg); }
+  .range-edit { display: none; margin-left: auto; align-items: center; gap: .5ch; white-space: nowrap; }
+  .range-edit input { font: inherit; color: inherit; width: 7ch; min-width: 0; text-align: right; border: 0; padding: 0; background: transparent; outline: none; }
+  .range-edit[data-invalid] { text-decoration: underline dotted; }
+  .param-row.range-editing .lab > b { display: none !important; }
+  .param-row.range-editing .range-edit { display: inline-flex; }
+  #panel.type-slider .param-row .lab > .range-edit { grid-column: 3; grid-row: 1; }
+  .type-knob { display: none; }
+  #panel.type-slider .param-row { position: relative; display: grid; grid-template-columns: max-content minmax(16px,1fr) max-content; align-items: center; column-gap: 0; }
+  #panel.type-slider .param-row .lab { display: contents; }
+  #panel.type-slider .param-row .lab > span { grid-column: 1; grid-row: 1; }
+  #panel.type-slider .param-row .lab > b { grid-column: 3; grid-row: 1; min-width: 3ch; text-align: right; padding-left: 14px; }
+  #panel.type-slider .param-row .name-tail { display: none; }
+  #panel.type-slider .param-row input[type=range] { grid-column: 2; grid-row: 1; margin: 0; height: 1.3em; min-width: 0; }
+  #panel.type-slider .param-row input[type=range]::-webkit-slider-runnable-track { background: transparent !important; }
+  #panel.type-slider .param-row input[type=range]::-moz-range-track { background: transparent !important; }
+  #panel.type-slider .param-row input[type=range]::-webkit-slider-thumb { border: 0 !important; background: transparent !important; }
+  #panel.type-slider .param-row input[type=range]::-moz-range-thumb { border: 0 !important; background: transparent !important; }
+  #panel.type-slider .type-knob { display: block; position: absolute; pointer-events: none; line-height: 1.3; transition: transform .1s linear; }
+  #panel.type-slider .param-row .lab .man { grid-column: 3; grid-row: 1; }
+  .chk { display: flex; justify-content: space-between; padding: 7px 0; cursor: pointer; user-select: none; }
+  .chk b { font-weight: normal; }
+  @media (hover: hover) { .chk:hover b { opacity: .4; } }
+  .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; padding-top: 12px; margin-top: 10px; }
+  .btns button:nth-child(odd) { justify-self: start; } .btns button:nth-child(even) { justify-self: end; }
+  .btns button { font: inherit; color: inherit; background: none; border: 0; padding: 4px 0; cursor: pointer; position: relative; }
+  .btns button::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; border-bottom: var(--lw) solid transparent; }
+  .btns button:hover::after { border-bottom-color: var(--fg); }
+  /* save is admin-only on desktop (owner 21 Oct): hidden in the button row until the admin code verifies; the mobile lane pins the same node outside .btns, where this rule does not reach */
+  /* code entry: 4 hollow circles stacked at the bottom right, on the section-circle axis (owner 22 Oct: the
+     original design - digits fill the circles top to bottom; the verified module takes over the same spot) */
+  #eadm { display: none; position: fixed; right: var(--m); bottom: var(--m); z-index: 11; flex-direction: column; align-items: center; cursor: text; opacity: 0; pointer-events: none; transition: opacity .2s ease-out, transform .25s ease; }
+  /* a completed 5s hold shows the circles even with the config closed (owner 22 Oct: the active code
+     entry must be visible) - still zero trace for visitors: no hold, no widget */
+  #eadm.on { display: flex; opacity: 1; pointer-events: auto; }
+  #eadm .ac { border-radius: 50%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: var(--fg); font-family: 'Fragment Mono', ui-monospace, monospace; }
+  #eadm .ac span { line-height: 1; }
+  #eadm.err .ac { border-color: #ff3c3c !important; color: #ff3c3c; }
+  /* armed + focused: a blinking caret marks the circle that takes the next digit (owner 22 Oct) */
+  #eadm .ac.cur::after { content: ''; position: absolute; width: var(--lw); height: 34%; background: var(--fg); animation: eadmblink 1.06s steps(1) infinite; }
+  #eadm .ac { position: relative; }
+  @keyframes eadmblink { 50% { opacity: 0; } }
+  /* section circles: right lane of the config panel, title-dot size, tangent stacking */
+  #secc { position: fixed; top: 0; right: var(--m); bottom: var(--m); z-index: 59; /* the hover split sits just under the grain (owner 21 Oct) */ display: flex; flex-direction: column; align-items: center; transform: translateX(calc(100% + var(--m) + 4px)); transition: transform .2s ease-out; overflow: visible; scrollbar-width: none; } /* overflow:visible - overflow-y:auto force-clips x, and the hover split pieces fly out of the button (owner 21 Oct: no clip; the mobile lane's override becomes redundant) */
+  #panel.open ~ #secc, #panel.hov ~ #secc { transform: translateX(0); }
+  @media (hover: hover) { #tab:hover ~ #secc, #panel:hover ~ #secc { transform: translateX(0); } }
+  #secc .sci { display: flex; flex-direction: column; align-items: center; flex: none; }
+  #secc .sc { border-radius: 50%; box-sizing: border-box; cursor: pointer; flex: none; }
+  #secc .sl { text-transform: uppercase; font-size: var(--cfs, 13px); overflow: hidden; height: 0; transition: height .25s ease, margin-top .25s ease; pointer-events: none; margin-top: 0; text-align: center; white-space: nowrap; width: auto; } /* the label is never clipped to the button width (owner 21 Oct) */
+  /* owner 22 Oct: desktop circles touch like the code circles - the gap only exists around an open title */
+  #secc .sl.on { margin-top: 16px; }
+  /* mobile keeps its own spacing: the mobile lane pins body[data-camode="m"] #secc .sl to 8px itself */
+  #secc .sl span { display: block; opacity: 0; transform-origin: 50% 0; transition: opacity .06s linear; line-height: calc(var(--cfs, 13px) * 1.3077); }
+  /* colour rows: free hex field + native picker (owner 21 Oct); the visible colour lives in .swink chips OUTSIDE the blended panel, so auto invert can never lie about a colour */
+  .swhex { font: inherit; color: inherit; background: none; border: 0; width: 7ch; padding: 0; margin-left: 0; } /* no underline, no #, flush left (owner 22 Oct) */
+  .swhex.off { color: color-mix(in srgb, var(--fg) 62%, transparent); } /* fg-soft fades the thin-font f arc under AA (measured); 62% keeps it legible */
+  .swpick { width: 20px; height: 20px; padding: 0; border: 0; background: none; margin-left: 8px; cursor: pointer; opacity: 0 !important; position: absolute; pointer-events: none; } /* invisible native input: the swatch click opens it (owner 22 Oct) */
+  .swink { position: fixed; z-index: 59; border-radius: 50%; pointer-events: none; box-sizing: border-box; }
+  #cur { position: fixed; left: 0; top: 0; display: none; pointer-events: none; z-index: 8; box-sizing: border-box; border: 1px solid #000; border-radius: 50%; will-change: transform; }
+  #cur i { position: absolute; left: 50%; top: 50%; width: 2px; height: 2px; border-radius: 50%; transform: translate(-50%, -50%); background: #000; }
+  body:not(.rdy) canvas { opacity: 0; }
+  canvas { transition: opacity .3s ease-in; }
+</style>
+<script>
+try { var s0 = JSON.parse(localStorage.getItem('ca2.config') || 'null'); if (s0 && s0.bgTarget && s0.bgTarget.length === 3) document.documentElement.style.setProperty('--bg', 'rgb(' + (s0.bgTarget[0] | 0) + ',' + (s0.bgTarget[1] | 0) + ',' + (s0.bgTarget[2] | 0) + ')'); } catch (e) {}
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<canvas id="g"></canvas>
+<div id="cur"><i></i></div>
+<div id="tab"></div>
+<div id="panel">
+  <h1>CONFIG</h1>
+  <div class="stats" id="stats"></div>
+  <div id="controls"></div>
+  <div class="btns" id="btns"></div>
+</div>
+<div id="blur"><div class="bf bf1"></div><div class="bf bf2"></div><div class="bf bf3"></div><div class="bf bf4"></div></div>
+<div id="blurl"><div class="bf bf1"></div><div class="bf bf2"></div><div class="bf bf3"></div><div class="bf bf4"></div></div>
+<script src="grain.js?v=202610222334"></script>
+<script src="audio.js?v=202610222334"></script>
+<script src="ca2.js?v=202610231815"></script>
+<script src="favicon.js?v=202610222334"></script>
+</body>
+</html>
