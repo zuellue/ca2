@@ -44,7 +44,7 @@ if (INJ) { var cs0 = __ca2.getCells();
 var cv = document.querySelector('canvas');
 window.__fire = function (t, x, y) { cv.dispatchEvent(new MouseEvent(t, { clientX: x, clientY: y, bubbles: true })); };
 window.__fr = []; window.__recOn = 1; window.__kr0 = __ca2.killReasons ? __ca2.killReasons() : null; // kill-counter snapshot post-inject: window delta, not lifetime cumulative (main 25 Oct)
-window.__ls = {}; window.__tn = 0; window.__rsh = {}; window.__deadR = {}; // per-ti radius lineage shadow: death-time rmin/lastR so radius recovery claims cover dead cells too (main 25 Oct)
+window.__ls = {}; window.__tn = 0; window.__oscPrev = {}; window.__oscN = {}; window.__sepSide = {}; window.__sepX = {}; window.__rsh = {}; window.__deadR = {}; // per-ti radius lineage shadow: death-time rmin/lastR so radius recovery claims cover dead cells too (main 25 Oct)
 __ca2.getCells().forEach(function (q) { q.__r0 = q.radius; q.__ti = window.__tn++; q.__rmin = q.radius; }); // identity tags: per-cell radius ledger + dead-cell tracking (main 25 Oct)
 var __fp = 0; __ca2.getCells().forEach(function (q) { if (q.alive) __fp = (__fp * 31 + Math.round(q.x * 7 + q.y * 13 + q.radius * 17)) >>> 0; }); window.__initFP = __fp; // initial-state fingerprint: identical across trees iff the seed matched the population
 window.__stateDump = JSON.stringify({ cells: __ca2.getCells().map(function (q) { return { x: q.x, y: q.y, vx: q.vx, vy: q.vy, radius: q.radius, energy: q.energy, gene: q.gene, maxSpeed: q.maxSpeed, speedModifier: q.speedModifier, hostility: q.hostility, mutationRate: q.mutationRate, sv: q.sv, cl: q.cl || 0, sq: q.sq || 0, crowd: q.crowd || 0, hab: q.hab || 0, alive: q.alive, g: q.g, shp: q.shp }; }), food: __ca2.getFood().map(function (f) { return { x: f.x, y: f.y, r: f.r }; }), cont: { x: __ca2.cont.x, y: __ca2.cont.y, w: __ca2.cont.w, h: __ca2.cont.h } });
@@ -59,6 +59,20 @@ requestAnimationFrame(function rc() { if (!window.__recOn) return; var c = __ca2
           var tt = Math.max(0, Math.min(1, ((q.x - sg2[0]) * ex2 + (q.y - sg2[1]) * ey2) / l2b));
           if (Math.hypot(q.x - (sg2[0] + ex2 * tt), q.y - (sg2[1] + ey2 * tt)) < 30) { q.__rdropsep = true; break; } } } } } }
   var wb = []; for (var wi = 0; wi < cs.length; wi++) { var qw = cs[wi]; if (qw.__ti !== undefined && qw.x - c.x < 3) wb.push([qw.__ti, qw.alive ? 1 : 0, +qw.x.toFixed(2), +qw.vx.toFixed(2), +(qw.crowd || 0).toFixed(3), +(qw.hab || 0).toFixed(3), +qw.energy.toFixed(1)]); } // alive-identity wall roster: locking-vs-corpses discriminator (main 25 Oct)
+  // osc: per-frame velocity-direction flip counter, ti-keyed (owner 'sallaniyorlar' lane); sepCross: ink-side flips on the same nearest segment, cluster-split (owner 'swarm crosses separators' lane) - additive (main 25 Oct)
+  var __segs0 = (${SEP} && __ca2.axisInfo && __ca2.axisInfo.segs) || null;
+  for (var oi = 0; oi < cs.length; oi++) { var oc = cs[oi]; if (oc.__ti === undefined || !oc.alive) continue;
+    var op = window.__oscPrev[oc.__ti];
+    if (op) { var ddx = oc.x - op[0], ddy = oc.y - op[1]; var rn2 = window.__oscN[oc.__ti] || (window.__oscN[oc.__ti] = { x: 0, y: 0 });
+      if (Math.abs(ddx) > 1 && op[2] !== 0 && Math.sign(ddx) !== op[2]) rn2.x++;
+      if (Math.abs(ddy) > 1 && op[3] !== 0 && Math.sign(ddy) !== op[3]) rn2.y++;
+      window.__oscPrev[oc.__ti] = [oc.x, oc.y, Math.abs(ddx) > 0.25 ? Math.sign(ddx) : 0, Math.abs(ddy) > 0.25 ? Math.sign(ddy) : 0];
+    } else window.__oscPrev[oc.__ti] = [oc.x, oc.y, 0, 0];
+    if (__segs0) { var bd5 = null, bs5 = 0, bi5 = -1;
+      for (var sg3 = 0; sg3 < __segs0.length; sg3++) { var s2 = __segs0[sg3]; var d3 = (s2[2] - s2[0]) * (oc.y - s2[1]) - (s2[3] - s2[1]) * (oc.x - s2[0]); var a3 = Math.abs(d3); if (bd5 === null || a3 < bd5) { bd5 = a3; bs5 = d3 > 0 ? 1 : (d3 < 0 ? -1 : 0); bi5 = sg3; } }
+      var ps5 = window.__sepSide[oc.__ti];
+      if (ps5 && ps5[1] === bi5 && ps5[0] !== 0 && bs5 !== 0 && bs5 !== ps5[0]) { var xr2 = window.__sepX[oc.__ti] || (window.__sepX[oc.__ti] = { n: 0, cl: 0 }); xr2.n++; if (oc.cl) xr2.cl = 1; }
+      window.__sepSide[oc.__ti] = [bs5, bi5]; } }
   var seenNow = {};
   for (var si9 = 0; si9 < cs.length; si9++) { var q9 = cs[si9]; if (q9.__ti === undefined || !q9.alive) continue; seenNow[q9.__ti] = 1;
     var sh9 = __rsh[q9.__ti] || (__rsh[q9.__ti] = { r0: q9.__r0, rmin: q9.radius, lastR: q9.radius, lastF: 0 });
@@ -231,7 +245,8 @@ return JSON.stringify({ initFP: window.__initFP, frames: fr.length, transEnd: tr
   for (k in __rsh) { if (!aliveTi[k]) continue; var a2 = __rsh[k]; if (a2.r0 > 1) aliveMax = Math.max(aliveMax, (a2.r0 - a2.rmin) / a2.r0); }
   for (k in __deadR) { var d2 = __deadR[k]; deadN++; if (d2.r0 > 1) { var dr2 = (d2.r0 - d2.rmin) / d2.r0; deadMax = Math.max(deadMax, dr2); if (dr2 > 0.02) { dropN++; if (d2.lastR > d2.rmin * 1.02) recN++; } } }
   return { aliveMaxDrop: +aliveMax.toFixed(4), deadMaxDrop: +deadMax.toFixed(4), deadTagged: deadN, deadWithDrop: dropN, deadRecoveredOfDrop: recN, coverage: { taggedTotal: window.__tn || 0, shadowN: Object.keys(__rsh).length, aliveTagged: Object.keys(aliveTi).length } }; })(),
-  sqRecov: { trackedWithSq: sqN, recoveredTail: sqRec, postTailN: Object.keys(postTail).length, giants: sqGiants }, crowdGeo: cg, radiusLoss: +radiusLoss.toFixed(4), radiusLossTi: +radiusLossTi.toFixed(4),
+  sqRecov: { trackedWithSq: sqN, recoveredTail: sqRec, postTailN: Object.keys(postTail).length, giants: sqGiants }, crowdGeo: cg, osc: (function () { var t = { x: 0, y: 0, cells: 0, maxX: 0, maxY: 0 }; Object.keys(window.__oscN || {}).forEach(function (k) { var v = window.__oscN[k]; t.x += v.x; t.y += v.y; if (v.x + v.y > 0) t.cells++; t.maxX = Math.max(t.maxX, v.x); t.maxY = Math.max(t.maxY, v.y); }); return t; })(),
+  sepCross: (function () { var t = { n: 0, clN: 0, cells: 0 }; Object.keys(window.__sepX || {}).forEach(function (k) { var v = window.__sepX[k]; t.n += v.n; if (v.cl) t.clN += v.n; if (v.n > 0) t.cells++; }); return t; })(), radiusLoss: +radiusLoss.toFixed(4), radiusLossTi: +radiusLossTi.toFixed(4),
   ledgerLoss: +ledgerLoss.toFixed(4), ledgerN: ledgerN, lossByCell: lossByCell.slice(0, 8), shrinkRep: shrinkRep.slice(0, 8), deaths: __ca2.deaths, deadRep: deadRep.slice(0, 12), liveMinLoss: +liveMinLoss.toFixed(4),
   killReasons: (function () { if (!__ca2.killReasons) return null; var k1 = __ca2.killReasons(), k0 = window.__kr0 || { select: 0, energy0: 0, crowd: 0, genebound: 0 }; return { select: k1.select - k0.select, energy0: k1.energy0 - k0.energy0, crowd: k1.crowd - k0.crowd, genebound: k1.genebound - k0.genebound }; })(), deathLog: (__ca2.deathLog || []).slice(-32), transFrames: fr.filter(function (f) { return f.tr; }).length, frameWallSpanMs: fr.length > 1 ? fr[fr.length - 1].t - fr[0].t : 0, sepJitter: sepJit, viol: viol, maxSameTail: maxSameTail, wallTail: wallTail, violFrames: violFrames, reactN: rr.length, reactFrameSd: +rfSd.toFixed(2), reactDirSpread: +dirSpread.toFixed(3), wallTraj: wallTraj, squashMax: sqM2, minPen: minPen == null ? null : +minPen.toFixed(3), minPenSat: minPenSat == null ? null : +minPenSat.toFixed(3), clipFrames: clipFrames, clipFramesSat: clipFramesSat, penEvents: penEvents.sort(function (a9, b9) { return a9.pen - b9.pen; }).slice(0, 8), penEventN: penEvents.length, penEventsSat: penEventsSat.sort(function (a8, b8) { return a8.pen - b8.pen; }).slice(0, 8), penEventSatN: penEventsSat.length, maxContactTail: maxContactTail, maxIdDisp: +maxIdDisp.toFixed(2), reactEnvN: rrE.length, reactEnvFrameSd: +rfSdE.toFixed(2), reactEnvDirSpread: +dirSpreadE.toFixed(3) });})()`);
   const TREE = (process.argv[2] || '').includes('ca2base') ? 'base' : 'branch';
