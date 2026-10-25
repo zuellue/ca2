@@ -31,7 +31,7 @@
   };
   // owner's chosen defaults (23:04)
   P.audioFadeMs = 5000;
-  P.typeSlider = 1; P.cfgFont = 0; P.cfgFontSize = 13; P.cfgCase = 0; P.lineColor = '#111111'; P.autoInvert = 1; P.axisColor = ''; P.circColor = ''; P.ruleColor = ''; P.dragMargin = 8; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000; P.wallSmoothMs = 60; P.wallCarry = 1; P.wallSpread = 0.5; P.squashMax = 0.18; P.squashIn = 0.45; P.squashOut = 0.08; P.senseR = 1.6; P.senseSlow = 0.25; P.senseTurn = 0.12; P.senseDelay = 0.5; P.wallSubStep = 0.5; P.wallSubMax = 8; P.crowdGain = 0.12; P.crowdRel = 0.02; P.crowdSlow = 0.5; P.crowdPush = 0.3; P.habRate = 0.02; P.habDecay = 0.005; P.habMax = 0.6;
+  P.typeSlider = 1; P.cfgFont = 0; P.cfgFontSize = 13; P.cfgCase = 0; P.lineColor = '#111111'; P.autoInvert = 1; P.axisColor = ''; P.circColor = ''; P.ruleColor = ''; P.dragMargin = 8; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000; P.wallSmoothMs = 60; P.wallCarry = 1; P.wallSpread = 0.5; P.squashMax = 0.18; P.squashIn = 0.45; P.squashOut = 0.08; P.senseR = 1.6; P.senseSlow = 0.25; P.senseTurn = 0.12; P.senseDelay = 0.5; P.wallSubStep = 0.5; P.wallSubMax = 8; P.crowdGain = 0.12; P.crowdRel = 0.02; P.crowdSlow = 0.5; P.crowdPush = 0.3; P.habRate = 0.02; P.habDecay = 0.005; P.habMax = 0.6; P.solverIters = 0; P.solverOverlap = 1;
   P.foodMode = 2; P.foodBlobR = 70; P.foodBlobDots = 8; P.foodLife = 1; P.foodLifeMs = 300; P.foodLifeCell = 4; P.foodEatR = 0.4;
   Object.assign(P, {"UNIVERSE_SIZE": 55.95868745026389, "baseMutationRate": 9.628232288701716, "mutationRateRange": 2.6268439511457253, "interactionRadius": 12.016352372548786, "CELL_RADIUS": 34.57106164334512, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 50, "maxRadius": 150, "baseMaxSpeed": 2, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 2.5, "THRESHOLD": 0.19, "metaballStrength": 0.024, "foodDensity": 0.023801395385356694, "foodEnergyValue": 20, "minRefreshInterval": 2, "maxRefreshInterval": 9, "slowDownRadius": 9, "speedReductionFactor": 37.5, "grain": 1, "grainAmount": 1.22, "grainStrength": 9.2, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 12, "fps": 12, "containerCorner": 29, "resolution": 1, "margin": 10, "gap": 26, "textScale": 0.8, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.74, "morphEase": 0.7, "pixelRatio": 2, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 1, "axisLayer": 0, "genomeOn": 1, "genomeMut": 0.5, "divideOn": 1, "divideAt": 3, "eatMergeOn": 1, "eatRatio": 3, "eatChance": 1, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.35, "clusterMax": 10, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 8, "foodShrink": 0.1, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 2350, "boundAware": 1, "boundZone": 20, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 2.3, "panelAlpha": 0, "panelWidth": 340, "blurWidth": 340, "cursorSens": 0.75, "cursorSize": 0.31, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 0.53, "audioMode": 1, "audioTone": 2120, "audioMod": 1, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#000000", "foodAlpha": 1, "foodSize": 3.5, "foodShow": 0.51, "audioFadeMs": 5000, "dragMargin": 24, "edgeGrab": 20, "restless": 3, "edgeFit": 0.3, "boundZoneR": 0.1, "blobOutline": 1, "plateOverlap": 0.5, "parasiteHard": 39.5, "parasiteSight": 4000, "parasiteNerv": 1, "parasiteHardMs": 20000, "foodMode": 3, "foodBlobR": 70, "foodBlobDots": 8, "foodLife": 1, "foodLifeMs": 300, "foodLifeCell": 4, "foodEatR": 0.26});
   // eating radius is a fixed px distance, independent of cell radius (owner 20 Oct: no factor); migrate the stored factor with the preset radius
@@ -209,6 +209,51 @@
       cont.x = x0f + (fx3 - x0f) * st3; cont.y = y0f + (fy3 - y0f) * st3; cont.w = w0f + (fw3 - w0f) * st3; cont.h = h0f + (fh3 - h0f) * st3;
       for (var ci3 = 0; ci3 < cells.length; ci3++) { var cs3 = cells[ci3]; if (cs3.alive) keepIn(cs3); } }
     cont.x = fx3; cont.y = fy3; cont.w = fw3; cont.h = fh3;
+  }
+  // item 64 directive 6: one constraint solver per substep for plate walls, separator segments and cell
+  // overlap together (solverIters iterations), instead of passes that undo each other: every iteration
+  // applies all three constraint families, so they converge instead of fighting. Positional only -
+  // velocity reflection stays in keepIn/separatorPass. Post-pass after both engines (1:1 by construction).
+  function constraintSolver() {
+    var iters = P.solverIters === undefined ? 0 : P.solverIters; if (iters < 1) return;
+    var segs = P.separatorOn && P.showAxis && axisInfo.segs ? axisInfo.segs : null;
+    var ov = P.solverOverlap === undefined ? 1 : P.solverOverlap;
+    var gap = Math.max(0, P.boundGap || 0), x0 = cont.x + gap, x1 = cont.x + cont.w - gap, y0 = cont.y + gap, y1 = cont.y + cont.h - gap;
+    for (var it = 0; it < iters; it++) {
+      var moved = false, i, j, c;
+      for (i = 0; i < cells.length; i++) {
+        c = cells[i]; if (!c.alive) continue;
+        if (it === 0) c.__solverPr = 0;
+        var r = c.radius * Math.sqrt(Math.max(0, P.metaballStrength) / Math.max(0.001, P.THRESHOLD)) + Math.min(LW(), 1 / DD) / 2;
+        if (segs) { // combined normals (a wedge pushed along the sum drifts out; per-segment ping-pongs forever)
+          var acx = 0, acy = 0, worst = 0, anyV = false;
+          for (j = 0; j < segs.length; j++) {
+            var sg = segs[j], ax = sg[2] - sg[0], ay = sg[3] - sg[1], L2 = ax * ax + ay * ay, t = L2 ? clamp(((c.x - sg[0]) * ax + (c.y - sg[1]) * ay) / L2, 0, 1) : 0;
+            var px = sg[0] + ax * t, py = sg[1] + ay * t, dx = c.x - px, dy = c.y - py, d = Math.hypot(dx, dy);
+            if (d < r) {
+              var nx2, ny2;
+              if (d < 0.001) { nx2 = -ay; ny2 = ax; var nl2 = Math.hypot(nx2, ny2) || 1; nx2 /= nl2; ny2 /= nl2; if (c.vx * nx2 + c.vy * ny2 < 0) { nx2 = -nx2; ny2 = -ny2; } }
+              else { nx2 = dx / d; ny2 = dy / d; }
+              var need = r - d; acx += nx2 * need; acy += ny2 * need; if (need > worst) worst = need; anyV = true;
+              var pr2 = need / r; if (pr2 > c.__solverPr) c.__solverPr = pr2; // pressure read by separatorPass for squash/crowd/habituation
+            }
+          }
+          if (anyV) { var al = Math.hypot(acx, acy); if (al >= 0.001) { var st = Math.min(al, worst + 1); c.x += acx / al * st; c.y += acy / al * st; moved = true; } }
+        }
+      }
+      if (ov > 0) for (i = 0; i < cells.length; i++) { var a2 = cells[i]; if (!a2.alive) continue;
+        for (j = i + 1; j < cells.length; j++) { var b2 = cells[j]; if (!b2.alive) continue;
+          var ddx = b2.x - a2.x, ddy = b2.y - a2.y, dd = Math.hypot(ddx, ddy), rr = (effR(a2) + effR(b2)) * 1; 
+          if (dd < rr && dd > 0.0001) { var push = (rr - dd) / 2 * ov, ux = ddx / dd, uy = ddy / dd; a2.x -= ux * push; a2.y -= uy * push; b2.x += ux * push; b2.y += uy * push; moved = true; }
+        }
+      }
+      for (i = 0; i < cells.length; i++) { // the wall wins last: overlap separation may push a body out of the plate, so the clamp closes every iteration
+        c = cells[i]; if (!c.alive) continue;
+        if (c.x < x0) { c.x = x0; moved = true; } else if (c.x > x1) { c.x = x1; moved = true; }
+        if (c.y < y0) { c.y = y0; moved = true; } else if (c.y > y1) { c.y = y1; moved = true; }
+      }
+      if (!moved) break;
+    }
   }
   // boundary awareness: a soft push inside the zone turns cells before the wall; the wall itself reflects (flat world, no death at the edge)
   function keepIn(c) {
@@ -1262,8 +1307,8 @@
           if (along >= 0 && along <= 1) { var side = oldD > 0 ? 1 : -1; c.x = hitX + enX * side * r; c.y = hitY + enY * side * r; var nv = c.vx * enX + c.vy * enY; if (nv * side < 0) { c.vx -= (1 + 0.7 * habF) * nv * enX; c.vy -= (1 + 0.7 * habF) * nv * enY; } }
         }
       }
-      var pr = 0;
-      if (segs) for (var it2 = 0; it2 < 3; it2++) { // combined normals: a body pinched in a wedge between two
+      var pr = 0, solverOn = (P.solverIters === undefined ? 0 : P.solverIters) > 0;
+      if (segs && !solverOn) for (var it2 = 0; it2 < 3; it2++) { // combined normals: a body pinched in a wedge between two
         // segments (arm end + diagonal start) is pushed along the sum, which drifts it out of the wedge -
         // per-segment resolution ping-pongs there forever (measured: 2 stuck cells, 35 px violation, 80 iterations)
         var acx = 0, acy = 0, worst = 0, anyV = false;
@@ -1285,6 +1330,7 @@
       }
       // the separator narrows what presses it (same rule as the plate wall, owner 22 Oct): a giant whose body
       // cannot fit between the lines is worn down toward the base radius until it fits
+      if (solverOn && (c.__solverPr || 0) > pr) pr = c.__solverPr; // directive 6: pressure measured by the unified solver
       if (pr > (c.sqS || 0)) c.sqS = Math.min(1, pr); // item 64: reversible squash, zero permanent size loss
       if (pr > (c.crowd || 0)) c.crowd = Math.min(1, pr); // directive 4: separator pressure feeds the same field (JS post-pass, both engines)
       // item 64 directive 1 (separators): sensing before contact, same rule as the boundary band - slow +
@@ -2021,6 +2067,7 @@
     if (!simDone) SIMW.js = (SIMW.js || 0) * 0.9 + (performance.now() - tj0) * 0.1;
     if (subN > 1) wallSubPass(subN, subX0, subY0, subW0, subH0);
     if (P.separatorOn) { ctx.save(); drawAxis(lay(), String(cells.length), String(Math.round(mouse.x)), true); ctx.restore(); separatorPass(); pfm('separator'); } // one mechanism after both engines: identical enforcement for wasm and JS (1:1 by construction)
+    constraintSolver(); pfm('solver'); // item 64 directive 6: walls+segments+overlap converge in one iteration loop
     hoverCol = hovering ? tmpHover : [255, 255, 255];
     stepParasites(); pfm('sim loop+parasites');
     stepAging(dtf); stepHabitat(dtf); pfm('habitat');
@@ -2541,7 +2588,7 @@
     ['life', [
       ['spawnProtect', 'spawn protect', 0, 1, 1], ['boundGap', 'wall gap', 0, 200, 1], ['boundZone', 'awareness zone', 0, 200, 1], ['dragMargin', 'drag margin', 0, 100, 1], ['edgeGrab', 'border grab', 3, 40, 1], ['restless', 'restlessness', 0, 3, 0.05], ['boundForce', 'push', 0, 3, 0.05], ['cellMorphMs', 'morph time', 100, 6000, 50],
       ['wallSmoothMs', 'wall follow', 0, 400, 5], ['wallCarry', 'wall carry', 0, 2, 0.05], ['wallSpread', 'wall spread', 0, 2, 0.05],
-      ['squashMax', 'squash depth', 0, 0.6, 0.01], ['squashIn', 'squash in', 0, 1, 0.01], ['squashOut', 'squash out', 0, 1, 0.01], ['senseR', 'sensing radius', 0, 4, 0.05], ['senseSlow', 'sensing slow', 0, 1, 0.01], ['senseTurn', 'sensing turn', 0, 1, 0.01], ['senseDelay', 'sensing delay', 0, 1, 0.01], ['wallSubStep', 'wall substep', 0.05, 2, 0.05], ['wallSubMax', 'wall substep max', 1, 16, 1], ['crowdGain', 'crowd build', 0, 1, 0.01], ['crowdRel', 'crowd release', 0, 1, 0.01], ['crowdSlow', 'crowd slow', 0, 1, 0.01], ['crowdPush', 'crowd drift', 0, 1, 0.01], ['habRate', 'habituation rate', 0, 0.2, 0.001], ['habDecay', 'habituation restore', 0, 0.2, 0.001], ['habMax', 'habituation depth', 0, 1, 0.01]]],
+      ['squashMax', 'squash depth', 0, 0.6, 0.01], ['squashIn', 'squash in', 0, 1, 0.01], ['squashOut', 'squash out', 0, 1, 0.01], ['senseR', 'sensing radius', 0, 4, 0.05], ['senseSlow', 'sensing slow', 0, 1, 0.01], ['senseTurn', 'sensing turn', 0, 1, 0.01], ['senseDelay', 'sensing delay', 0, 1, 0.01], ['wallSubStep', 'wall substep', 0.05, 2, 0.05], ['wallSubMax', 'wall substep max', 1, 16, 1], ['crowdGain', 'crowd build', 0, 1, 0.01], ['crowdRel', 'crowd release', 0, 1, 0.01], ['crowdSlow', 'crowd slow', 0, 1, 0.01], ['crowdPush', 'crowd drift', 0, 1, 0.01], ['habRate', 'habituation rate', 0, 0.2, 0.001], ['habDecay', 'habituation restore', 0, 0.2, 0.001], ['habMax', 'habituation depth', 0, 1, 0.01], ['solverIters', 'solver iterations', 0, 8, 1], ['solverOverlap', 'solver overlap', 0, 2, 0.05]]],
     ['sound', [
       ['audioVol', 'volume', 0, 1, 0.01], ['audioTone', 'tone', 200, 8000, 10], ['audioMod', 'modulation', 0, 1, 0.01],
       ['audioCrackle', 'micro events', 0, 1, 0.01], ['audioMicroPitch', 'micro pitch', 200, 4000, 10], ['audioMicroDecay', 'micro decay', 10, 400, 1], ['audioMicroRand', 'randomness', 0, 1, 0.01], ['audioWidth', 'stereo width', 0, 1, 0.01]]],

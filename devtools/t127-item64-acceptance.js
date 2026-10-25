@@ -8,6 +8,7 @@
 const H = require(process.argv[2] ? require('path').resolve(process.argv[2]) : require('path').join(__dirname, 'harness.js'));
 const FPS = +(process.argv[3] || 12), SEP = +(process.argv[4] || 0), ISO = +(process.argv[5] || 0), SHOT = process.argv[6] || '', SEED = +(process.argv[7] || 0); // SEED: matched-initial-state control (main 25 Oct) - same seeded Math.random at boot in both trees
 const EXTRA = process.argv[8] ? JSON.parse(process.argv[8]) : {}; // extra setKey overrides, e.g. '{"crowdGain":0}' for A/B
+const STATE = process.argv[9] || ''; // 'dump:/path.json' captures the post-boot state; 'inject:/path.json' forces it - matched initial state across trees (main 25 Oct)
 (async () => {
   const T0 = Date.now(); const el = () => ((Date.now() - T0) / 1000).toFixed(1);
   const s = await H.serve(8913), c = await H.launch(8912, 'http://127.0.0.1:8913/index.html', ['--window-size=900,600']);
@@ -26,15 +27,24 @@ const EXTRA = process.argv[8] ? JSON.parse(process.argv[8]) : {}; // extra setKe
   console.error(el() + 's trans drained:', !transLeft);
   if (transLeft) { console.log(JSON.stringify({ abort: 'trans-active' })); c.close(); s.close(); process.exit(0); }
   await c.sleep(1000);
+  const inj = STATE.startsWith('inject:') && require('fs').existsSync(STATE.slice(7)) ? JSON.parse(require('fs').readFileSync(STATE.slice(7), 'utf8')) : null;
   const setup = await evG(`(function(){
 __ca2.setKey('fps', ${FPS}); __ca2.setKey('separatorOn', ${SEP}); ${Object.entries(EXTRA).map(function (e2) { return "__ca2.setKey('" + e2[0] + "', " + JSON.stringify(e2[1]) + ");"; }).join(' ')}
 ${ISO ? "__ca2.setKey('foodGrow', 0); __ca2.setKey('foodShrink', 0); __ca2.setKey('divideOn', 0); __ca2.setKey('eatMergeOn', 0); __ca2.setKey('symbiogenesisOn', 0); __ca2.setKey('reproChance', 0);" : ''}
+var INJ = ${JSON.stringify(inj)};
+if (INJ) { var cs0 = __ca2.getCells();
+  while (cs0.length < INJ.cells.length) { var tp0 = cs0[cs0.length - 1], d0 = Object.create(Object.getPrototypeOf(tp0)); Object.assign(d0, tp0); d0.g = JSON.parse(JSON.stringify(tp0.g)); d0.shp = JSON.parse(JSON.stringify(tp0.shp)); cs0.push(d0); }
+  INJ.cells.forEach(function (sc, i) { var c = cs0[i]; for (var k in sc) { if (k === 'g' || k === 'shp') c[k] = JSON.parse(JSON.stringify(sc[k])); else c[k] = sc[k]; } });
+  cs0.length = INJ.cells.length; // hard truncate: extras never existed - no death-metric pollution
+  var fd0 = __ca2.getFood(); fd0.length = 0; INJ.food.forEach(function (f) { fd0.push({ x: f.x, y: f.y, r: f.r }); });
+  __ca2.cont.x = INJ.cont.x; __ca2.cont.y = INJ.cont.y; __ca2.cont.w = INJ.cont.w; __ca2.cont.h = INJ.cont.h; __ca2.cont.tw = INJ.cont.w; __ca2.cont.th = INJ.cont.h; __ca2.cont.ew = INJ.cont.w; __ca2.cont.eh = INJ.cont.h; }
 var cv = document.querySelector('canvas');
 window.__fire = function (t, x, y) { cv.dispatchEvent(new MouseEvent(t, { clientX: x, clientY: y, bubbles: true })); };
 window.__fr = []; window.__recOn = 1;
 window.__ls = {}; window.__tn = 0;
 __ca2.getCells().forEach(function (q) { q.__r0 = q.radius; q.__ti = window.__tn++; q.__rmin = q.radius; }); // identity tags: per-cell radius ledger + dead-cell tracking (main 25 Oct)
-var __fp = 0; __ca2.getCells().forEach(function (q) { __fp = (__fp * 31 + Math.round(q.x * 7 + q.y * 13 + q.radius * 17)) >>> 0; }); window.__initFP = __fp; // initial-state fingerprint: identical across trees iff the seed matched the population
+var __fp = 0; __ca2.getCells().forEach(function (q) { if (q.alive) __fp = (__fp * 31 + Math.round(q.x * 7 + q.y * 13 + q.radius * 17)) >>> 0; }); window.__initFP = __fp; // initial-state fingerprint: identical across trees iff the seed matched the population
+window.__stateDump = JSON.stringify({ cells: __ca2.getCells().map(function (q) { return { x: q.x, y: q.y, vx: q.vx, vy: q.vy, radius: q.radius, energy: q.energy, gene: q.gene, maxSpeed: q.maxSpeed, speedModifier: q.speedModifier, hostility: q.hostility, mutationRate: q.mutationRate, sv: q.sv, cl: q.cl || 0, sq: q.sq || 0, crowd: q.crowd || 0, hab: q.hab || 0, alive: q.alive, g: q.g, shp: q.shp }; }), food: __ca2.getFood().map(function (f) { return { x: f.x, y: f.y, r: f.r }; }), cont: { x: __ca2.cont.x, y: __ca2.cont.y, w: __ca2.cont.w, h: __ca2.cont.h } });
 requestAnimationFrame(function rc() { if (!window.__recOn) return; var c = __ca2.cont, cs = __ca2.getCells(), a = new Float32Array(cs.length * 5), j = 0;
   for (var i = 0; i < cs.length; i++) { var q = cs[i]; if (q.alive) { a[j++] = q.x; a[j++] = q.y; a[j++] = q.vx; a[j++] = q.vy; a[j++] = q.radius;
     if (q.__ti !== undefined) { __ls[q.__ti] = [q.x, q.y, q.radius, q.energy, __fr.length, q.__r0]; if (q.radius < q.__rmin) q.__rmin = q.radius;
@@ -47,6 +57,7 @@ requestAnimationFrame(function rc() { if (!window.__recOn) return; var c = __ca2
   __fr.push({ x: c.x, w: c.w, y: c.y, h: c.h, dv: __ca2.divides, bt: __ca2.births, a: a.subarray(0, j) }); requestAnimationFrame(rc); });
 var c = __ca2.cont; return JSON.stringify({ x: c.x, w: c.w, y: c.y, h: c.h, fr: __fr.length, trans: __ca2.trans });})()`);
   const st = JSON.parse(setup);
+  if (STATE.startsWith('dump:')) { const sd = await evG('window.__stateDump'); require('fs').writeFileSync(STATE.slice(5), sd); console.error(el() + 's state dumped: ' + (sd ? sd.length : 0) + ' bytes'); }
   console.error(el() + 's setup', setup.slice(0, 90));
   if (SHOT) await c.shot(SHOT + '-before.png');
   const y = Math.round(st.y + st.h / 2), x0 = Math.round(st.x + 2), half = Math.round(st.w * 0.25);
@@ -61,7 +72,7 @@ setTimeout(function(){var j=0;var iv2=setInterval(function(){j++;if(j<=steps){__
   if (SHOT) await c.shot(SHOT + '-after.png');
   const out = await evG(`(function(){window.__recOn = 0; var fr = __fr.slice(${fr0});
 var mean = function (a) { return a.length ? a.reduce(function (s, v) { return s + v; }, 0) / a.length : 0; };
-var maxDisp = 0, maxSame = 0, viol = 0, violFrames = 0, reacts = {};
+var maxDisp = 0, maxSame = 0, maxSameTail = 0, viol = 0, violFrames = 0, reacts = {};
 for (var i = 0; i < fr.length; i++) {
   var f = fr[i], p = fr[Math.max(0, i - 1)], same = {}, v = 0, na = f.a.length / 5;
   for (var j = 0; j < na; j++) {
@@ -74,7 +85,7 @@ for (var i = 0; i < fr.length; i++) {
       if (i < 40 && X - f.x < 40 && !reacts[j]) { var dvx = f.a[j * 5 + 2] - p.a[Math.min(j, np - 1) * 5 + 2], dvy = f.a[j * 5 + 3] - p.a[Math.min(j, np - 1) * 5 + 3];
         if (Math.hypot(dvx, dvy) > 0.5) reacts[j] = { f: i, dir: Math.atan2(f.a[j * 5 + 3], f.a[j * 5 + 2]) }; } }
   }
-  var mx = 0; for (var k2 in same) mx = Math.max(mx, same[k2]); if (mx > maxSame) maxSame = mx;
+  var mx = 0; for (var k2 in same) mx = Math.max(mx, same[k2]); if (mx > maxSame) maxSame = mx; if (i >= fr.length - 24 && mx > maxSameTail) maxSameTail = mx; // last ~2s at 12fps: post-expansion steady state - contact vs locking discriminator
   viol += v; if (v) violFrames++;
 }
 var rr = [], rk; for (rk in reacts) rr.push(reacts[rk]);
@@ -117,7 +128,7 @@ document.getElementById('panel').classList.remove('hov');
 var transEnd = __ca2.trans, cellR = __ca2.P.CELL_RADIUS;
 return JSON.stringify({ initFP: window.__initFP, frames: fr.length, transEnd: transEnd, cellR: +cellR.toFixed(2), maxDisp: +maxDisp.toFixed(2), maxSameCoord: maxSame, radiusLoss: +radiusLoss.toFixed(4),
   ledgerLoss: +ledgerLoss.toFixed(4), ledgerN: ledgerN, lossByCell: lossByCell.slice(0, 8), shrinkRep: shrinkRep.slice(0, 8), deaths: __ca2.deaths, deadRep: deadRep.slice(0, 12), liveMinLoss: +liveMinLoss.toFixed(4),
-  sepJitter: sepJit, viol: viol, violFrames: violFrames, reactN: rr.length, reactFrameSd: +rfSd.toFixed(2), reactDirSpread: +dirSpread.toFixed(3) });})()`);
+  sepJitter: sepJit, viol: viol, maxSameTail: maxSameTail, violFrames: violFrames, reactN: rr.length, reactFrameSd: +rfSd.toFixed(2), reactDirSpread: +dirSpread.toFixed(3) });})()`);
   const TREE = (process.argv[2] || '').includes('ca2base') ? 'base' : 'branch';
   console.log(JSON.stringify(Object.assign({ fps: FPS, sep: SEP, iso: ISO, tree: TREE, runs: 'independent-bounded (unmatched populations)', errs: c.errs.length }, JSON.parse(out === 'EV-TIMEOUT' ? '{}' : out))));
   c.close(); s.close(); process.exit(0);
