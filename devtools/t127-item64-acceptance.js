@@ -38,7 +38,9 @@ if (INJ) { var cs0 = __ca2.getCells();
   INJ.cells.forEach(function (sc, i) { var c = cs0[i]; for (var k in sc) { if (k === 'g' || k === 'shp') c[k] = JSON.parse(JSON.stringify(sc[k])); else c[k] = sc[k]; } });
   cs0.length = INJ.cells.length; // hard truncate: extras never existed - no death-metric pollution
   var fd0 = __ca2.getFood(); fd0.length = 0; INJ.food.forEach(function (f) { fd0.push({ x: f.x, y: f.y, r: f.r }); });
-  __ca2.cont.x = INJ.cont.x; __ca2.cont.y = INJ.cont.y; __ca2.cont.w = INJ.cont.w; __ca2.cont.h = INJ.cont.h; __ca2.cont.tw = INJ.cont.w; __ca2.cont.th = INJ.cont.h; __ca2.cont.ew = INJ.cont.w; __ca2.cont.eh = INJ.cont.h; }
+  __ca2.cont.x = INJ.cont.x; __ca2.cont.y = INJ.cont.y; __ca2.cont.w = INJ.cont.w; __ca2.cont.h = INJ.cont.h; __ca2.cont.tw = INJ.cont.w; __ca2.cont.th = INJ.cont.h; __ca2.cont.ew = INJ.cont.w; __ca2.cont.eh = INJ.cont.h;
+  __ca2.cont.rawW = INJ.cont.w; __ca2.cont.rawH = INJ.cont.h; __ca2.cont.user = true; // align COMMANDED targets with the injected rect: the drag's user-clamp path re-imposes rawW/rawH in the un-dragged axis (main 25 Oct: align targets, never freeze layout dynamics) - th would morph back to the boot height otherwise
+  if (__ca2.clampTargets) __ca2.clampTargets(); }
 var cv = document.querySelector('canvas');
 window.__fire = function (t, x, y) { cv.dispatchEvent(new MouseEvent(t, { clientX: x, clientY: y, bubbles: true })); };
 window.__fr = []; window.__recOn = 1; window.__kr0 = __ca2.killReasons ? __ca2.killReasons() : null; // kill-counter snapshot post-inject: window delta, not lifetime cumulative (main 25 Oct)
@@ -57,7 +59,7 @@ requestAnimationFrame(function rc() { if (!window.__recOn) return; var c = __ca2
           var tt = Math.max(0, Math.min(1, ((q.x - sg2[0]) * ex2 + (q.y - sg2[1]) * ey2) / l2b));
           if (Math.hypot(q.x - (sg2[0] + ex2 * tt), q.y - (sg2[1] + ey2 * tt)) < 30) { q.__rdropsep = true; break; } } } } } }
   var wb = []; for (var wi = 0; wi < cs.length; wi++) { var qw = cs[wi]; if (qw.__ti !== undefined && qw.x - c.x < 3) wb.push([qw.__ti, qw.alive ? 1 : 0, +qw.x.toFixed(2), +qw.vx.toFixed(2), +(qw.crowd || 0).toFixed(3), +(qw.hab || 0).toFixed(3), +qw.energy.toFixed(1)]); } // alive-identity wall roster: locking-vs-corpses discriminator (main 25 Oct)
-  __fr.push({ x: c.x, w: c.w, y: c.y, h: c.h, dv: __ca2.divides, bt: __ca2.births, tr: __ca2.trans ? 1 : 0, t: Math.round(performance.now()), a: a.subarray(0, j), b: b2.subarray(0, jb), wb: wb }); requestAnimationFrame(rc); });
+  __fr.push({ x: c.x, w: c.w, y: c.y, h: c.h, rw: c.rawW, rh: c.rawH, tw: c.tw, th: c.th, ft: __ca2.frameT, dv: __ca2.divides, bt: __ca2.births, tr: __ca2.trans ? 1 : 0, t: Math.round(performance.now()), a: a.subarray(0, j), b: b2.subarray(0, jb), wb: wb }); requestAnimationFrame(rc); });
 var c = __ca2.cont; return JSON.stringify({ x: c.x, w: c.w, y: c.y, h: c.h, fr: __fr.length, trans: __ca2.trans });})()`);
   const st = JSON.parse(setup);
   if (STATE.startsWith('dump:')) { const sd = await evG('window.__stateDump'); require('fs').writeFileSync(STATE.slice(5), sd); console.error(el() + 's state dumped: ' + (sd ? sd.length : 0) + ' bytes'); }
