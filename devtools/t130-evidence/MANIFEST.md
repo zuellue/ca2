@@ -109,3 +109,35 @@ pist 1018/1146/1097, cf 5600/5504/5027, dvNeg -7907.6/-9403.1/-8379.2, deaths 42
 Prod carry counters = 0 == UNAVAILABLE, not zero contacts: prod da2fbd0 has no carry
 mechanism (reflect-only wallPull) and no finalWallClamp; under wasm its cell wall
 resolutions are engine-internal with no JS hook.
+
+## Forced-replay prod-vs-branch (architect decision 25 Oct): FIRST motion-controlled evidence
+Harness T130_REPLAY=<script.json> imposes ONE pinned boundary-motion script on both
+engines (probe hook right after each build's cont/wvx recompute; per-frame fail-closed
+assert: hook fires exactly once + applied fields === row; branch forces 8 fields
+(bounds+wvx), prod 4 (bounds; wvx has NO consumer in da2fbd0 - UNAVAILABLE, not zero)).
+Pinned script: t130m-motion-base-s1.json sha256 e0230a2d1616f24d6cbab71bd89da82af69c932640c0c480bea2abb061005359.
+Rationale: continuity with ALL existing 77d evidence (clean 6/6 matrix, traces, boundary
+witness ran under this script); not tuned to the candidate. Prod-script sensitivity
+variant remains possible with t130p-motion-prod-s1.json.
+Builds (harness-only probes, not shipped): pins/tr7BaseR-ca2.js sha d9cba119820f71768e68364abff8c352eecb30b69ec0e8dabe3e6bec5aa470f7,
+pins/tr7ProdR-ca2.js sha c49157d67121f9b1ff17841296f7d15ec8c63a6cd6f12b35b4c9988a3065e5f6.
+
+CONTROLS (before interpretation): baseR A/A replay-OFF det true + metrics bit-reproduce
+the clean-matrix A-side (osc 4100, d 42, ev 7102, pist 1018, cf 5600, dvNeg -7907.6,
+maxStep 183.87) = replay hook INERT. prodR A/A replay-OFF det 2/3 true (one flake at
+frame 44, single-cell event - prod natural drag-easing is marginally wall-clock
+sensitive, hypothesis); metrics reproduce (osc 2234, d 51). Under replay-ON all 6
+paired runs are bit-stable across two repeats per seed (STABLE=true).
+
+PAIRED (A=prod da2fbd0, B=branch a62be62, shared imposed script, 220 frames):
+  s1: prod osc 3279 path 1822.74 mx 129.36 d 45 | base osc 4100 path 1473.4 mx 183.87 d 42
+  s2: prod osc 3439 path 1882.42 mx 130.32 d 40 | base osc 3689 path 1322.1 mx 183.87 d 46
+  s3: prod osc 3350 path 1804.95 mx 131.82 d 38 | base osc 3473 path 1285.58 mx 183.87 d 49
+  motion 220/220 exact all runs (4 shared fields). Base under forced own-script is
+  BIT-IDENTICAL to its natural run = hook captures every consumed component.
+READING (no winner): under common boundary motion prod shows LOWER osc all 3 seeds and
+higher mean path with lower maxStep; deaths mixed (s1 base lower, s2-s3 prod lower).
+Scope: engine response conditional on COMMON IMPOSED boundary motion - NOT end-to-end
+drag/easing quality (prod's natural script differs by design, step-1 delta). Prod carry
+metrics remain UNAVAILABLE (no mechanism, no JS hook). Earlier motion-uncontrolled runs
+(t130p-*) stay valid characterization, not attribution.

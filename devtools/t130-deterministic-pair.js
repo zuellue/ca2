@@ -97,6 +97,9 @@ async function runEngine(enginePath, label) {
   // trace array installed AT INJECT (see below) so trace ids are inject-index aligned
   vm.createContext(sandbox);
   vm.runInContext('Math.random = window.__rng;', Object.assign(sandbox, { __rng: rng }), { filename: 'seed.js' });
+  const REPLAY_ROWS = process.env.T130_REPLAY ? JSON.parse(fs.readFileSync(process.env.T130_REPLAY, 'utf8')).rows : null; // 77d forced replay: ONE pinned boundary-motion script as shared input (architect 25 Oct)
+  let replayOn = false, replayIdx = 0, replayRow = null, replayAppliedSeen = 0;
+
   const src = fs.readFileSync(enginePath, 'utf8');
   vm.runInContext(src, sandbox, { filename: path.basename(enginePath) });
   // let async boot (wasm instantiate, preset fetch) settle
@@ -154,7 +157,7 @@ async function runEngine(enginePath, label) {
   const meta = { pumpsBeforeInject: pumpCount, clockAtInject: V.clock - clockStart };
   if (typeof __injReceipt !== 'undefined') { meta.injectReceipt = __injReceipt; meta.injectReceiptAllOk = __injReceipt.length === 85 && __injReceipt.every(r => r.idFnOk); }
   if (process.env.T130_TRACE && sandbox.__ca2trace) { const pre = sandbox.__ca2trace.filter(r => r[1] === 'pre').map(r => r[0]); meta.trfAtInjectPlanned = pre.length ? Math.max.apply(null, pre) + 1 : 0; } // superseded by trfAtInjectMeasured at closeout (first traced frame)
-  function pump() { pumpCount++; V.clock += DT; const q = V.rafQ.splice(0); q.forEach(f => { try { f(V.clock); } catch (e) { console.error(label + ' frame EXC: ' + (e && e.stack || e).slice(0, 500)); process.exit(2); } }); }
+  function pump() { pumpCount++; if (REPLAY_ROWS && replayOn) { if (replayIdx >= REPLAY_ROWS.length) throw new Error(label + ': replay script exhausted at pump ' + pumpCount); replayRow = REPLAY_ROWS[replayIdx++]; sandbox.__ca2ReplayRow = replayRow; } V.clock += DT; const q = V.rafQ.splice(0); q.forEach(f => { try { f(V.clock); } catch (e) { console.error(label + ' frame EXC: ' + (e && e.stack || e).slice(0, 500)); process.exit(2); } }); }
   const COS8 = [1, 0.7071, 0, -0.7071, -1, -0.7071, 0, 0.7071], SIN8 = [0, 0.7071, 1, 0.7071, 0, -0.7071, -1, -0.7071];
   function nearContact(q) { const c = ca2.cont, r = q.radius;
     if (q.x - c.x < r + 30 || c.x + c.w - q.x < r + 30 || q.y - c.y < r + 30 || c.y + c.h - q.y < r + 30) return 1;
@@ -163,12 +166,17 @@ async function runEngine(enginePath, label) {
   const MOTION = !!process.env.T130_MOTION; const motionRows = []; // 77d explicit boundary-motion witness: raw cont geometry + wall edge velocities per recorded frame, unrounded (main 25 Oct)
   const MFIELDS = ['x','y','w','h','wvx0','wvx1','wvy0','wvy1'];
   function snapshot() { const out = []; const nowAlive = new Set();
-    if (MOTION) { const mc = ca2.cont; motionRows.push([mc.x, mc.y, mc.w, mc.h, mc.wvx0 || 0, mc.wvx1 || 0, mc.wvy0 || 0, mc.wvy1 || 0]); } cs0.forEach(q => { if (!q.alive) return; let ti = idMap.get(q); if (ti === undefined) { ti = nextTi++; idMap.set(q, ti); births.push([frames.length, ti]); } nowAlive.add(ti); out.push([ti, +q.x.toFixed(3), +q.y.toFixed(3), +q.vx.toFixed(3), +q.vy.toFixed(3), +q.radius.toFixed(3), +Math.hypot(q.envVx || 0, q.envVy || 0).toFixed(3), nearContact(q)]); });
+    if (MOTION) { const mc = ca2.cont; motionRows.push([mc.x, mc.y, mc.w, mc.h, mc.wvx0 || 0, mc.wvx1 || 0, mc.wvy0 || 0, mc.wvy1 || 0]); }
+    if (REPLAY_ROWS && replayOn) { const ap = sandbox.__ca2ReplayApplied || 0; if (ap !== replayAppliedSeen + 1) throw new Error(label + ': replay hook did not fire exactly once this frame (applied=' + ap + ' expected=' + (replayAppliedSeen + 1) + ') - override bypassed, FAIL CLOSED'); replayAppliedSeen = ap;
+      const nf = sandbox.__ca2ReplayFields || 0, cc = ca2.cont, vals = [cc.x, cc.y, cc.w, cc.h, cc.wvx0, cc.wvx1, cc.wvy0, cc.wvy1];
+      for (let k = 0; k < nf; k++) if (vals[k] !== replayRow[k]) throw new Error(label + ': replay assert failed field ' + k + ' (' + vals[k] + ' !== ' + replayRow[k] + ') - FAIL CLOSED');
+      meta.replayFields = nf; } cs0.forEach(q => { if (!q.alive) return; let ti = idMap.get(q); if (ti === undefined) { ti = nextTi++; idMap.set(q, ti); births.push([frames.length, ti]); } nowAlive.add(ti); out.push([ti, +q.x.toFixed(3), +q.y.toFixed(3), +q.vx.toFixed(3), +q.vy.toFixed(3), +q.radius.toFixed(3), +Math.hypot(q.envVx || 0, q.envVy || 0).toFixed(3), nearContact(q)]); });
     prevAlive.forEach(ti => { if (!nowAlive.has(ti)) deaths.push([frames.length, ti]); }); prevAlive = nowAlive;
     return { cont: [+ca2.cont.x.toFixed(3), +ca2.cont.y.toFixed(3), +ca2.cont.w.toFixed(3), +ca2.cont.h.toFixed(3)], n: out.length, cells: out }; }
   const cv = doc.getElementById('c');
   const fire = (t, x, y) => { const e = { type: t, clientX: x, clientY: y, buttons: t === 'mouseup' ? 0 : 1, target: cv, preventDefault() {}, stopPropagation() {}, stopImmediatePropagation() {} }; cv.dispatchEvent(e); fireWin(t, e); };
   const frames = [];
+  if (REPLAY_ROWS) { replayOn = true; meta.replayScript = process.env.T130_REPLAY; } // replay starts with the first post-inject frame; boot untouched
   pump(); frames.push(snapshot());
   if (process.env.T130_STEPLOG) console.error(label + ": STEP dragstart");
   if (process.env.T130_BOUNDARY) { pump(); frames.push(snapshot()); pump(); frames.push(snapshot()); } else {
@@ -229,9 +237,10 @@ function metrics(run) {
   if (process.env.T130_MOTION && A.motionRows && B.motionRows) {
     fs.writeFileSync('/tmp/t130-motion-A.json', JSON.stringify({ fields: A.motionFields, rows: A.motionRows }));
     fs.writeFileSync('/tmp/t130-motion-B.json', JSON.stringify({ fields: B.motionFields, rows: B.motionRows }));
-    const mc = { frames: Math.min(A.motionRows.length, B.motionRows.length), rowsA: A.motionRows.length, rowsB: B.motionRows.length, exactEqualFrames: 0, firstDiffFrame: null, firstDiffField: null, firstDiffValues: null, maxAbsDiff: 0, fields: A.motionFields };
+    const nfA = (A.meta && A.meta.replayFields) || 8, nfB = (B.meta && B.meta.replayFields) || 8, nf = Math.min(nfA, nfB, 8);
+    const mc = { frames: Math.min(A.motionRows.length, B.motionRows.length), rowsA: A.motionRows.length, rowsB: B.motionRows.length, exactEqualFrames: 0, firstDiffFrame: null, firstDiffField: null, firstDiffValues: null, maxAbsDiff: 0, fields: A.motionFields.slice(0, nf), unavailableFields: A.motionFields.slice(nf), note: nf < 8 ? 'fields past ' + nf + ' compared as UNAVAILABLE (no consumer in at least one build), not zero' : undefined };
     for (let i = 0; i < mc.frames; i++) { const ra = A.motionRows[i], rb = B.motionRows[i]; let feq = true;
-      for (let k = 0; k < 8; k++) { const d = Math.abs(ra[k] - rb[k]); if (d > mc.maxAbsDiff) mc.maxAbsDiff = d;
+      for (let k = 0; k < nf; k++) { const d = Math.abs(ra[k] - rb[k]); if (d > mc.maxAbsDiff) mc.maxAbsDiff = d;
         if (ra[k] !== rb[k]) { feq = false; if (mc.firstDiffFrame === null) { mc.firstDiffFrame = i; mc.firstDiffField = mc.fields[k]; mc.firstDiffValues = [ra[k], rb[k]]; } } }
       if (feq) mc.exactEqualFrames++; }
     motionCompare = mc;
