@@ -46,3 +46,16 @@ finalWallClamp then computes pen from the stale virtual position -> wrong dampin
   - wasm mirror: sim.rs keep_in (wasm/src/sim.rs:245-256) has no receipt concept;
     parity decision is a writer/owner topic. sim.rs lives at wasm/src/sim.rs.
   - 77d gaps unchanged: explicit motion-script pin/replay absent; prod-vs-candidate not run.
+
+## Update: solver breakdown (test 7fb9473a, independently reproduced F70)
+  E multi-cell, solverOverlap=0 (third wall clamp ONLY, no pair push):
+    3000 scenarios, 12034 cells, 0 mismatch — the third centre clamp ALONE is exact.
+  B pair push ON: 3378/12125 (27.9%) — the POSITION-DEPENDENT PAIR PUSH is the
+    breaker: it makes the receipt's virtual counterfactual stale.
+  F direction check (|dv|+|env|, 3000 overlap scenarios): equal 8809, cand larger
+    1578, base larger 1591, mean base 0.896 vs cand 0.929 — MIXED direction, not a
+    uniform damping loss; synthetic means are NOT engine effect.
+  v3's exact-damping-preservation claim is WITHDRAWN under pair contacts.
+  "Exact base behaviour" and "removing the duel" may be incompatible — this is not
+  proof the duel is unimportant. 77d gaps (explicit motion replay, prod-vs-candidate)
+  are distinct and remain open.
