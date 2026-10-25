@@ -72,6 +72,12 @@ setTimeout(function(){var j=0;var iv2=setInterval(function(){j++;if(j<=steps){__
   await wait('window.__done', 25);
   if (TAILMS > 0) { const frBase = await evG('window.__fr.length'); for (let tw = 0; tw < 90; tw++) { await c.sleep(2000); const fn2 = await evG('window.__fr.length'); if (fn2 >= frBase + TAILMS) break; } } // bounded: up to 180s for TAILMS extra sim frames
   console.error(el() + 's drag done');
+  const stepped = TAILMS > 0 ? await evG(`(function(){ window.__ca2NoDraw = 1; var series = [];
+    for (var b = 0; b < 10; b++) { __ca2.stepN(12, 83.33); var cs = __ca2.getCells(), cx = __ca2.cont.x, same = 0, zvx = 0, alive = 0, mv = 0;
+      for (var i = 0; i < cs.length; i++) { var q = cs[i]; if (!q.alive) continue; alive++; if (q.x - cx < 3) { same++; if (Math.abs(q.vx) < 0.05) zvx++; else mv++; } }
+      series.push({ step: (b + 1) * 12, alive: alive, sameAtWall: same, zeroVx: zvx, moving: mv, deaths: __ca2.deaths, trans: __ca2.trans }); }
+    window.__ca2NoDraw = 0; return JSON.stringify(series); })()`) : '[]'; // sim-stepped long tail (120 steps = 10s sim at 12fps), NOT real rAF timing (main 25 Oct); render skipped, physics path unchanged, separators off
+  console.error(el() + 's stepped tail: ' + String(stepped).slice(0, 120));
   if (SHOT) await c.shot(SHOT + '-after.png');
   const out = await evG(`(function(){window.__recOn = 0; var fr = __fr.slice(${fr0});
 var mean = function (a) { return a.length ? a.reduce(function (s, v) { return s + v; }, 0) / a.length : 0; };
@@ -139,7 +145,8 @@ return JSON.stringify({ initFP: window.__initFP, frames: fr.length, transEnd: tr
   ledgerLoss: +ledgerLoss.toFixed(4), ledgerN: ledgerN, lossByCell: lossByCell.slice(0, 8), shrinkRep: shrinkRep.slice(0, 8), deaths: __ca2.deaths, deadRep: deadRep.slice(0, 12), liveMinLoss: +liveMinLoss.toFixed(4),
   killReasons: (function () { if (!__ca2.killReasons) return null; var k1 = __ca2.killReasons(), k0 = window.__kr0 || { select: 0, energy0: 0, crowd: 0, genebound: 0 }; return { select: k1.select - k0.select, energy0: k1.energy0 - k0.energy0, crowd: k1.crowd - k0.crowd, genebound: k1.genebound - k0.genebound }; })(), deathLog: (__ca2.deathLog || []).slice(-32), transFrames: fr.filter(function (f) { return f.tr; }).length, frameWallSpanMs: fr.length > 1 ? fr[fr.length - 1].t - fr[0].t : 0, sepJitter: sepJit, viol: viol, maxSameTail: maxSameTail, wallTail: wallTail, violFrames: violFrames, reactN: rr.length, reactFrameSd: +rfSd.toFixed(2), reactDirSpread: +dirSpread.toFixed(3) });})()`);
   const TREE = (process.argv[2] || '').includes('ca2base') ? 'base' : 'branch';
+  let steppedArr = []; try { steppedArr = JSON.parse(stepped); } catch (e) {}
   let outP = {}; try { outP = JSON.parse(out === 'EV-TIMEOUT' ? '{}' : out); } catch (e) { console.error('EVAL-EXC raw:', String(out).slice(0, 600)); }
-  console.log(JSON.stringify(Object.assign({ fps: FPS, sep: SEP, iso: ISO, tree: TREE, runs: 'independent-bounded (unmatched populations)', errs: c.errs.length }, outP)));
+  console.log(JSON.stringify(Object.assign({ fps: FPS, sep: SEP, iso: ISO, tree: TREE, runs: 'independent-bounded (unmatched populations)', errs: c.errs.length }, outP, { steppedTail: steppedArr })));
   c.close(); s.close(); process.exit(0);
 })().catch(e => { console.log('FATAL', e.message); process.exit(1); });
