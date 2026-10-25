@@ -1,0 +1,113 @@
+--- base.js	2026-10-25 13:44:58.111831891 +0300
++++ ca2-v3.js	2026-10-25 13:46:02.630973614 +0300
+@@ -316,20 +316,40 @@
+   }
+   // the boundary-morph rule for ANY body: a wall that moved past it pulls it back gradually (no teleport);
+   // a plain wall hit reflects. Shared by cells (keepIn) and every food kind (owner 21 Oct: one mechanism, no copies)
++  // the ONE wall box for a body of contact radius r (wallPull and the early clamps share it)
++  function wallBox(r) {
++    var gap = Math.max(0, P.boundGap || 0), rFit = Math.max(8, Math.min(cont.w, cont.h) / 2 - gap), rr = Math.min(r, rFit);
++    var x0 = cont.x + rr + gap, x1 = cont.x + cont.w - rr - gap, y0 = cont.y + rr + gap, y1 = cont.y + cont.h - rr - gap;
++    var fits = r <= rFit && x1 >= x0 && y1 >= y0; // false: wider than the plate, the box collapses and wallPull alone resolves it
++    if (x1 < x0) { x0 = x1 = (x0 + x1) / 2; }
++    if (y1 < y0) { y0 = y1 = (y0 + y1) / 2; }
++    return [x0, x1, y0, y1, fits];
++  }
++  // early clamps park a body that fits the plate on the wall box; an oversize body keeps the old centre clamp
++  function wallBoxFit(r, bg) {
++    var w = wallBox(r);
++    return w[4] ? w : [cont.x + bg, cont.x + cont.w - bg, cont.y + bg, cont.y + cont.h - bg];
++  }
++  // Overrun receipt. An early clamp that parks a body on the wall box would hide the overrun the frame's one wall stage
++  // (wallPull -> carrySide) acts on. The receipt keeps the offset between the real position and the position the old
++  // centre clamp would have left (the "virtual" position). wallPull reads it ONCE, then clears it. Every early-clamp site is
++  // followed by finalWallClamp in the same frame (sim step: separatorPass..finalWallClamp; render path: re-resolve..finalWallClamp),
++  // so the first wallPull after a clamp is that frame's one wall stage. A body the clamp never reached keeps no receipt.
++  function ovVirt(c) { return [c.x - (c._ovDx || 0), c.y - (c._ovDy || 0)]; }
++  function ovSet(c, dx, dy) { c._ovDx = dx; c._ovDy = dy; }
+   function wallPull(p, r, vel) {
+     // absolute wall (owner 22 Oct): nothing is ever outside, in any state - a wall that moved past a body
+     // carries it (that carry IS the sweep), a plain hit reflects. Supersedes the 21 Oct gradual no-teleport pull.
+     // Wall push (owner 25 Oct block 73d-1): a wall that advanced past a body resolves it to the contact
+     // line and pushes it as a force (impulse proportional to the overrun depth) - it does not carry the
+     // body with it; a hit with a static wall reflects at 0.7 as before.
+-    var gap = Math.max(0, P.boundGap || 0), rFit = Math.max(8, Math.min(cont.w, cont.h) / 2 - gap), rr = Math.min(r, rFit);
+-    var x0 = cont.x + rr + gap, x1 = cont.x + cont.w - rr - gap, y0 = cont.y + rr + gap, y1 = cont.y + cont.h - rr - gap;
+-    if (x1 < x0) { x0 = x1 = (x0 + x1) / 2; }
+-    if (y1 < y0) { y0 = y1 = (y0 + y1) / 2; }
+-    if (p.x < x0) carrySide(p, 'x', 'vx', p.y, x0, cont.wvx0, 1, vel);
+-    else if (p.x > x1) carrySide(p, 'x', 'vx', p.y, x1, cont.wvx1, -1, vel);
+-    if (p.y < y0) carrySide(p, 'y', 'vy', p.x, y0, cont.wvy0, 1, vel);
+-    else if (p.y > y1) carrySide(p, 'y', 'vy', p.x, y1, cont.wvy1, -1, vel);
++    var wb = wallBox(r), x0 = wb[0], x1 = wb[1], y0 = wb[2], y1 = wb[3];
++    var rv = ovVirt(p), lx = Math.min(p.x, rv[0]), hx = Math.max(p.x, rv[0]), ly = Math.min(p.y, rv[1]), hy = Math.max(p.y, rv[1]); // the receipt's virtual position is the more extreme one; no receipt: both are p
++    if (lx < x0) carrySide(p, 'x', 'vx', p.y, x0, cont.wvx0, 1, vel, lx);
++    else if (hx > x1) carrySide(p, 'x', 'vx', p.y, x1, cont.wvx1, -1, vel, hx);
++    if (ly < y0) carrySide(p, 'y', 'vy', p.x, y0, cont.wvy0, 1, vel, ly);
++    else if (hy > y1) carrySide(p, 'y', 'vy', p.x, y1, cont.wvy1, -1, vel, hy);
++    if (p._ovDx !== undefined) { p._ovDx = 0; p._ovDy = 0; } // consumed
+   }
+   // item 64 directive 2: one eased squash state per cell. The target is PRESSURE SIGNALS ONLY (piston
+   // carry, zone press, separator/solver overload via sqS, the crowding field) - a geometric target
+@@ -358,9 +378,9 @@
+   // the one eased squash state, contact side: bodies feel and draw the same squashed radius (item 64 directive 2)
+   function effR(c) { return c.radius * (1 - (P.squashMax === undefined ? 0.18 : P.squashMax) * (c.sq || 0)); }
+   // one wall side of wallPull: force-push when the wall advanced inward past the body this frame (block 73d-1), else reflect
+-  function carrySide(p, ax, vax, along, line, wv, side, vel) {
++  function carrySide(p, ax, vax, along, line, wv, side, vel, pos) {
+     if (P.wallCarry > 0 && wv * side > 0) {
+-      var pen = side * (line - p[ax]); if (pen < 0) pen = 0; // owner 25 Oct block 73d-1: a moving wall pushes bodies as a FORCE, it does not carry them - position resolves to the contact line only (non-penetration), never placed ahead at wall speed
++      var pen = side * (line - (pos === undefined ? p[ax] : pos)); if (pen < 0) pen = 0; // owner 25 Oct block 73d-1: a moving wall pushes bodies as a FORCE, it does not carry them - position resolves to the contact line only (non-penetration), never placed ahead at wall speed
+       p[ax] = line;
+       if (vel) { // v2 (owner 25 Oct: v1 slingshot rejected): pressure-proportional approach toward at most the wall's own speed - a deep press firms the push, a light brush barely nudges, and the body can never be driven faster than the wall; momentum settles on release via the decaying env channel
+         var sqm3 = P.squashMax === undefined ? 0.18 : P.squashMax, rr3 = p.radius * (1 - sqm3 * (p.sq || 0));
+@@ -1428,10 +1448,34 @@
+         }
+       }
+       // the plate wall stays absolute (owner 22 Oct): a separator or ink push may slide a body along the wall but never past it
+-      var bg0 = Math.max(0, P.boundGap || 0), bx0 = cont.x + bg0, bx1 = cont.x + cont.w - bg0, by0 = cont.y + bg0, by1 = cont.y + cont.h - bg0;
++      inkWallClamp(c);
++    }
++  }
++  // ink re-resolve clamp (separatorPass): the old centre clamp and its reflect run on the virtual (old-clamp) position; the real position of a fitting body is also kept on the wall box
++  function inkWallClamp(c) {
++    var bg0 = Math.max(0, P.boundGap || 0), bx0 = cont.x + bg0, bx1 = cont.x + cont.w - bg0, by0 = cont.y + bg0, by1 = cont.y + cont.h - bg0;
++    if (!P.boundAware) {
++      c._ovDx = 0; c._ovDy = 0;
+       if (c.x < bx0) { c.x = bx0; if (c.vx < 0) c.vx = -c.vx * 0.7; } else if (c.x > bx1) { c.x = bx1; if (c.vx > 0) c.vx = -c.vx * 0.7; }
+       if (c.y < by0) { c.y = by0; if (c.vy < 0) c.vy = -c.vy * 0.7; } else if (c.y > by1) { c.y = by1; if (c.vy > 0) c.vy = -c.vy * 0.7; }
++      return;
+     }
++    var v = ovVirt(c), vx = v[0], vy = v[1], w = wallBoxFit(effR(c), bg0);
++    if (vx < bx0) { vx = bx0; if (c.vx < 0) c.vx = -c.vx * 0.7; } else if (vx > bx1) { vx = bx1; if (c.vx > 0) c.vx = -c.vx * 0.7; }
++    if (vy < by0) { vy = by0; if (c.vy < 0) c.vy = -c.vy * 0.7; } else if (vy > by1) { vy = by1; if (c.vy > 0) c.vy = -c.vy * 0.7; }
++    c.x = clamp(c.x, w[0], w[1]); c.y = clamp(c.y, w[2], w[3]); // real position: wall box; a body already inside it does not move
++    ovSet(c, c.x - vx, c.y - vy);
++  }
++  // collective pass target: [real tx, real ty, virtual start x, y, virtual target x, y]
++  function collectiveTarget(c, m, bg) {
++    var cx0 = cont.x + bg, cx1 = cont.x + cont.w - bg, cy0 = cont.y + bg, cy1 = cont.y + cont.h - bg;
++    if (!P.boundAware) { c._ovDx = 0; c._ovDy = 0; return [clamp(c.x + m[0], cx0, cx1), clamp(c.y + m[1], cy0, cy1)]; }
++    var v = ovVirt(c), w = wallBoxFit(effR(c), bg);
++    return [clamp(c.x + m[0], w[0], w[1]), clamp(c.y + m[1], w[2], w[3]), v[0], v[1], clamp(v[0] + m[0], cx0, cx1), clamp(v[1] + m[1], cy0, cy1)];
++  }
++  function collectiveCommit(c, et, fraction) {
++    if (et.length < 6) return;
++    ovSet(c, c.x - (et[2] + (et[4] - et[2]) * fraction), c.y - (et[3] + (et[5] - et[3]) * fraction));
+   }
+   function separatorCollectivePass() {
+     if (!P.separatorOn) return;
+@@ -1472,11 +1516,11 @@
+       if(!usedW)for(var pi=0;pi<points.length;pi+=4)sample(points[pi],points[pi+1],points[pi+2]||points[pi+3]?points[pi+2]:null,points[pi+3]);
+       if(!hit)break;
+       for(var k=0;k<active.length;k++){
+-        var c=active[k],m=moves[k],bg=Math.max(0,P.boundGap||0),tx=clamp(c.x+m[0],cont.x+bg,cont.x+cont.w-bg),ty=clamp(c.y+m[1],cont.y+bg,cont.y+cont.h-bg),fraction=1;
++        var c=active[k],m=moves[k],bg=Math.max(0,P.boundGap||0),et=collectiveTarget(c,m,bg),tx=et[0],ty=et[1],fraction=1;
+         // A collective correction must stay on this cell's side of every finite wall.
+         for(var j=0;j<segs.length;j++){var sg=segs[j],ex=sg[2]-sg[0],ey=sg[3]-sg[1],d0=(c.x-sg[0])*ey-(c.y-sg[1])*ex,d1=(tx-sg[0])*ey-(ty-sg[1])*ex;
+           if(d0*d1<0){var t=d0/(d0-d1),hx=c.x+(tx-c.x)*t,hy=c.y+(ty-c.y)*t,ll=ex*ex+ey*ey,along=ll?((hx-sg[0])*ex+(hy-sg[1])*ey)/ll:-1;if(along>=0&&along<=1)fraction=Math.min(fraction,Math.max(0,t-.001));}}
+-        c._sepX=c.x;c._sepY=c.y;c.x+=(tx-c.x)*fraction;c.y+=(ty-c.y)*fraction;
++        c._sepX=c.x;c._sepY=c.y;c.x+=(tx-c.x)*fraction;c.y+=(ty-c.y)*fraction;collectiveCommit(c,et,fraction);
+         if(pass>=3&&(m[0]||m[1])){
+           var pressure=Math.min(1,Math.hypot(m[0],m[1])/Math.max(1,bodies[k].bound));
+           // item 64: overload reads as reversible squash, never permanent radius loss (radiusLoss stays 0)
