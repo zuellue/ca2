@@ -39,6 +39,7 @@ cs.push(mk2(5, 150, 20), mk2(12, 250, 20)); // 2 at the left wall
     const buf = E.memory.buffer, cf = new Float64Array(buf, cp, cap * 25), p = new Float64Array(buf, pp, 93);
     cs.forEach((c, i) => { const b = i * 25, g = c.g; cf.set([c.x, c.y, c.vx, c.vy, c.radius, c.energy, c.gene, 1, c.maxSpeed, c.speedModifier, c.hostility, c.mutationRate, c.sv, c.cl || 0, -1, g.spd, g.app, g.bnd, g.col[0], g.col[1], g.col[2], c.comp || 0, 0, 0, c.sq || 0], b); });
     E.sim_set_n(n); E.sim_set_nf(0); E.sim_cm_count(0);
+    p[7] = 1; // genomeOn (P_GENOME=7): without it wasm pins bnd to 1 while JS uses c.g.bnd
     p[0] = J.P.interactionRadius; p[9] = 0; p[12] = 0.001; p[13] = J.P.foodEnergyValue; p[16] = J.P.CELL_RADIUS; p[17] = J.P.foodGrowMax; p[18] = 0; p[20] = J.P.UNIVERSE_SIZE; p[22] = 1; p[23] = 70; p[24] = 0.8; p[25] = J.P.restless; p[28] = J.P.mergeGene; p[29] = 0; p[30] = 0; p[31] = J.P.energyGainFromInteraction; p[32] = J.P.GENE_MIN; p[33] = J.P.GENE_MAX; p[34] = 1e9; p[35] = J.P.clusterMax; p[36] = J.P.genomeMut; p[37] = J.P.mutationRateRange; p[38] = J.P.metaballStrength;
     p[39] = 1; p[40] = 0.5; p[41] = 1; p[49] = 0; p[50] = 0; p[51] = 400; p[52] = 400; p[53] = 0; p[54] = 0; p[56] = 0;
     p[57] = 0; p[58] = J.P.reproMinAgeMs || 0; p[59] = 0; p[60] = J.P.crowdTol; p[61] = J.P.orgLifeDie; p[62] = J.P.orgLifeGrow; p[63] = J.P.orgBirth; p[64] = J.P.orgDead; p[65] = J.P.orgBrain; p[66] = J.P.orgR90; p[67] = J.P.symEnergy; p[68] = J.P.symBreak; p[69] = J.P.symBreakDist; p[70] = J.P.eatDistF; p[71] = J.P.fuseDistF; p[72] = J.P.symDistF;
