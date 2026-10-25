@@ -31,7 +31,7 @@
   };
   // owner's chosen defaults (23:04)
   P.audioFadeMs = 5000;
-  P.typeSlider = 1; P.cfgFont = 0; P.cfgFontSize = 13; P.cfgCase = 0; P.lineColor = '#111111'; P.autoInvert = 1; P.axisColor = ''; P.circColor = ''; P.ruleColor = ''; P.dragMargin = 8; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000;
+  P.typeSlider = 1; P.cfgFont = 0; P.cfgFontSize = 13; P.cfgCase = 0; P.lineColor = '#111111'; P.autoInvert = 1; P.axisColor = ''; P.circColor = ''; P.ruleColor = ''; P.dragMargin = 8; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000; P.wallSmoothMs = 60; P.wallCarry = 1; P.wallSpread = 0.5;
   P.foodMode = 2; P.foodBlobR = 70; P.foodBlobDots = 8; P.foodLife = 1; P.foodLifeMs = 300; P.foodLifeCell = 4; P.foodEatR = 0.4;
   Object.assign(P, {"UNIVERSE_SIZE": 55.95868745026389, "baseMutationRate": 9.628232288701716, "mutationRateRange": 2.6268439511457253, "interactionRadius": 12.016352372548786, "CELL_RADIUS": 34.57106164334512, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 50, "maxRadius": 150, "baseMaxSpeed": 2, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 2.5, "THRESHOLD": 0.19, "metaballStrength": 0.024, "foodDensity": 0.023801395385356694, "foodEnergyValue": 20, "minRefreshInterval": 2, "maxRefreshInterval": 9, "slowDownRadius": 9, "speedReductionFactor": 37.5, "grain": 1, "grainAmount": 1.22, "grainStrength": 9.2, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 12, "fps": 12, "containerCorner": 29, "resolution": 1, "margin": 10, "gap": 26, "textScale": 0.8, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.74, "morphEase": 0.7, "pixelRatio": 2, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 1, "axisLayer": 0, "genomeOn": 1, "genomeMut": 0.5, "divideOn": 1, "divideAt": 3, "eatMergeOn": 1, "eatRatio": 3, "eatChance": 1, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.35, "clusterMax": 10, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 8, "foodShrink": 0.1, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 2350, "boundAware": 1, "boundZone": 20, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 2.3, "panelAlpha": 0, "panelWidth": 340, "blurWidth": 340, "cursorSens": 0.75, "cursorSize": 0.31, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 0.53, "audioMode": 1, "audioTone": 2120, "audioMod": 1, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#000000", "foodAlpha": 1, "foodSize": 3.5, "foodShow": 0.51, "audioFadeMs": 5000, "dragMargin": 24, "edgeGrab": 20, "restless": 3, "edgeFit": 0.3, "boundZoneR": 0.1, "blobOutline": 1, "plateOverlap": 0.5, "parasiteHard": 39.5, "parasiteSight": 4000, "parasiteNerv": 1, "parasiteHardMs": 20000, "foodMode": 3, "foodBlobR": 70, "foodBlobDots": 8, "foodLife": 1, "foodLifeMs": 300, "foodLifeCell": 4, "foodEatR": 0.26});
   // eating radius is a fixed px distance, independent of cell radius (owner 20 Oct: no factor); migrate the stored factor with the preset radius
@@ -61,7 +61,7 @@
   
   var ready = false, parasites = [], clusterSeq = 0, env = { spd: 1, app: 0.5, bnd: 1, col: null }, cmean = {};
   var cells = [], food = [], ev = { birth: 0, death: 0, hit: 0, oob: 0 }, maxOut = 0;
-  var cont = { x: 0, y: 0, w: 0, h: 0, tw: 0, th: 0, ew: 0, eh: 0, rawW: 0, rawH: 0 };
+  var cont = { x: 0, y: 0, w: 0, h: 0, tw: 0, th: 0, ew: 0, eh: 0, rawW: 0, rawH: 0, wvx0: 0, wvx1: 0, wvy0: 0, wvy1: 0 };
   var mouse = { x: 0, y: 0, over: false };
   var hovering = false, hoverCol = [255,255,255];
   var refreshInterval = 10, lastRefresh = performance.now();
@@ -221,14 +221,28 @@
   function wallPull(p, r, vel) {
     // absolute wall (owner 22 Oct): nothing is ever outside, in any state - a wall that moved past a body
     // carries it (that carry IS the sweep), a plain hit reflects. Supersedes the 21 Oct gradual no-teleport pull.
+    // Piston carry (owner 25 Oct, findings 1+2): a wall that advanced past a body gives it the wall's own
+    // velocity and a deterministic golden-ratio spread off the line (no RNG, wasm-parity safe) instead of
+    // stacking every carried body on one pixel line; a hit with a static wall reflects at 0.7 as before.
     var gap = Math.max(0, P.boundGap || 0), rFit = Math.max(8, Math.min(cont.w, cont.h) / 2 - gap), rr = Math.min(r, rFit);
     var x0 = cont.x + rr + gap, x1 = cont.x + cont.w - rr - gap, y0 = cont.y + rr + gap, y1 = cont.y + cont.h - rr - gap;
     if (x1 < x0) { x0 = x1 = (x0 + x1) / 2; }
     if (y1 < y0) { y0 = y1 = (y0 + y1) / 2; }
-    if (p.x < x0) { p.x = x0; if (vel) p.vx = Math.abs(p.vx) * 0.7; }
-    else if (p.x > x1) { p.x = x1; if (vel) p.vx = -Math.abs(p.vx) * 0.7; }
-    if (p.y < y0) { p.y = y0; if (vel) p.vy = Math.abs(p.vy) * 0.7; }
-    else if (p.y > y1) { p.y = y1; if (vel) p.vy = -Math.abs(p.vy) * 0.7; }
+    if (p.x < x0) carrySide(p, 'x', 'vx', p.y, x0, cont.wvx0, 1, vel);
+    else if (p.x > x1) carrySide(p, 'x', 'vx', p.y, x1, cont.wvx1, -1, vel);
+    if (p.y < y0) carrySide(p, 'y', 'vy', p.x, y0, cont.wvy0, 1, vel);
+    else if (p.y > y1) carrySide(p, 'y', 'vy', p.x, y1, cont.wvy1, -1, vel);
+  }
+  // one wall side of wallPull: piston carry when the wall advanced inward past the body this frame, else reflect
+  function carrySide(p, ax, vax, along, line, wv, side, vel) {
+    if (P.wallCarry > 0 && wv * side > 0) {
+      var frac = along * 0.6180339 - Math.floor(along * 0.6180339);
+      p[ax] = line + side * Math.abs(wv) * P.wallSpread * frac;
+      if (vel) p[vax] = wv * P.wallCarry;
+    } else {
+      p[ax] = line;
+      if (vel) p[vax] = side * Math.abs(p[vax]) * 0.7;
+    }
   }
   function divide(c) {
     var ang = Math.random() * 6.2832, nr = Math.max(P.CELL_RADIUS, c.radius * 0.62);
@@ -789,7 +803,7 @@
       var t0 = performance.now(), n = cells.length, cap = n + 256, nf = food.length, cl = Object.keys(cmean), ncm = cl.length, i, c, b;
       E.sim_cells(cap); E.sim_food(nf + 1); E.sim_cm(ncm + 1);
       var cp = E.sim_cells(cap), fxp = E.sim_food(nf + 1), fyp = E.sim_food_y(), fgp = E.sim_food_gone(), cmp = E.sim_cm(ncm + 1), cip = E.sim_cm_ids(), pp = E.sim_params();
-      var buf = WC.mem.buffer, cf = new Float64Array(buf, cp, cap * 24), fx = new Float64Array(buf, fxp, nf + 1), fy = new Float64Array(buf, fyp, nf + 1), cmf = new Float64Array(buf, cmp, (ncm + 1) * 5), cid = new Float64Array(buf, cip, ncm + 1), p = new Float64Array(buf, pp, 80);
+      var buf = WC.mem.buffer, cf = new Float64Array(buf, cp, cap * 24), fx = new Float64Array(buf, fxp, nf + 1), fy = new Float64Array(buf, fyp, nf + 1), cmf = new Float64Array(buf, cmp, (ncm + 1) * 5), cid = new Float64Array(buf, cip, ncm + 1), p = new Float64Array(buf, pp, 88);
       simStamp++;
       for (i = 0; i < n; i++) {
         c = cells[i]; c._i = i; c._f = simStamp;
@@ -808,6 +822,7 @@
       p[20] = P.UNIVERSE_SIZE; p[21] = P.foodShrink; p[22] = P.boundAware ? 1 : 0; p[23] = P.boundZone; p[24] = P.boundForce; p[25] = P.restless; p[26] = P.eatRatio; p[27] = P.eatChance; p[28] = P.mergeGene; p[29] = P.mergeChance; p[30] = P.symbiogenesisOn ? 1 : 0; p[31] = P.energyGainFromInteraction; p[32] = P.GENE_MIN; p[33] = P.GENE_MAX; p[34] = P.minEnergyForReproduction; p[35] = P.clusterMax; p[36] = P.genomeMut; p[37] = P.mutationRateRange; p[38] = P.metaballStrength;
       p[39] = env.spd; p[40] = env.app; p[41] = env.bnd; p[42] = env.col ? 1 : 0; if (env.col) { p[43] = env.col[0]; p[44] = env.col[1]; p[45] = env.col[2]; }
       p[46] = mouse.x; p[47] = mouse.y; p[48] = mouse.over ? 1 : 0; p[49] = cont.x; p[50] = cont.y; p[51] = cont.w; p[52] = cont.h; p[53] = resizeDrag ? 1 : 0; p[54] = clusterSeq;
+      p[80] = cont.wvx0 || 0; p[81] = cont.wvx1 || 0; p[82] = cont.wvy0 || 0; p[83] = cont.wvy1 || 0; p[84] = P.wallCarry === undefined ? 1 : P.wallCarry; p[85] = P.wallSpread === undefined ? 0.5 : P.wallSpread; // 80-85: piston carry edge velocities + factors (owner 25 Oct)
       p[78] = frameDtf; p[79] = P.foodEatRate === undefined ? 1.5 : P.foodEatRate; // frame dt ms + grazing rate for sim.rs eat roll - 55/56 are NCM/ONLYINT, never pack them (6d7a61a collision disabled update() sitewide)
       p[57] = P.boundGap || 0; p[58] = P.reproMinAgeMs || 0; p[59] = P.reproChance === undefined ? 0.02 : P.reproChance; // 58: juvenile gate ms, 59: contact birth chance // boundGap slot for sim.rs keep_in (625f4e8 port); 44/45 are env.col
       p[60] = P.crowdTol; p[61] = P.orgLifeDie; p[62] = P.orgLifeGrow; p[63] = P.orgBirth; p[64] = P.orgDead; p[65] = P.orgBrain; p[66] = P.orgR90;
@@ -1841,9 +1856,13 @@
     var t0 = performance.now(); pfT = t0; frameT = t0; var dtf = Math.min(100, t0 - lastFrameT); lastFrameT = t0; frameDtf = dtf;
     if (resizeDrag) lastRefresh = t0;
     var pk = trans ? 1 - Math.exp(-dtf * 3 / trans.dur) : P.morphEase;
+    if (resizeDrag) pk = 1 - Math.exp(-dtf / Math.max(1, P.wallSmoothMs)); // drag follow: time-based easing, frame-rate independent (owner 25 Oct organic walls)
+    var pw0 = cont.ew, ph0 = cont.eh, px0 = cont.x, py0 = cont.y;
     cont.ew += (cont.tw - cont.ew) * pk; cont.eh += (cont.th - cont.eh) * pk;
     if (Math.abs(cont.ew - cont.tw) < 0.1) cont.ew = cont.tw; if (Math.abs(cont.eh - cont.th) < 0.1) cont.eh = cont.th;
-    cont.w = Math.floor(cont.ew); cont.h = Math.floor(cont.eh); cont.x = Math.floor((W - cont.w) / 2); cont.y = Math.floor((H - cont.h) / 2);
+    // float wall geometry: physics and drawing share the exact wall; per-frame floor() was the 1px jitter (owner 25 Oct, finding 6)
+    cont.w = cont.ew; cont.h = cont.eh; cont.x = (W - cont.w) / 2; cont.y = (H - cont.h) / 2;
+    cont.wvx0 = cont.x - px0; cont.wvx1 = cont.x + cont.w - (px0 + pw0); cont.wvy0 = cont.y - py0; cont.wvy1 = cont.y + cont.h - (py0 + ph0); // px/frame edge velocities for the piston carry
 
     if (pendingSpawn) { // batched first spawn: a few cells per frame after the UI intro, food after the cells
       var el0 = t0 - fadeT0;
@@ -2419,7 +2438,8 @@
       ['symEnergy', 'symbiosis feed', 0, 0.01, 0.00025], ['symBreak', 'whim break', 0, 0.01, 0.0001], ['symBreakDist', 'distance break', 1, 10, 0.1],
       ['eatDistF', 'eat contact', 0.1, 2, 0.05], ['fuseDistF', 'fusion contact', 0.1, 2, 0.05], ['symDistF', 'pair contact', 0.1, 3, 0.05]]],
     ['life', [
-      ['spawnProtect', 'spawn protect', 0, 1, 1], ['boundGap', 'wall gap', 0, 200, 1], ['boundZone', 'awareness zone', 0, 200, 1], ['dragMargin', 'drag margin', 0, 100, 1], ['edgeGrab', 'border grab', 3, 40, 1], ['restless', 'restlessness', 0, 3, 0.05], ['boundForce', 'push', 0, 3, 0.05], ['cellMorphMs', 'morph time', 100, 6000, 50]]],
+      ['spawnProtect', 'spawn protect', 0, 1, 1], ['boundGap', 'wall gap', 0, 200, 1], ['boundZone', 'awareness zone', 0, 200, 1], ['dragMargin', 'drag margin', 0, 100, 1], ['edgeGrab', 'border grab', 3, 40, 1], ['restless', 'restlessness', 0, 3, 0.05], ['boundForce', 'push', 0, 3, 0.05], ['cellMorphMs', 'morph time', 100, 6000, 50],
+      ['wallSmoothMs', 'wall follow', 0, 400, 5], ['wallCarry', 'wall carry', 0, 2, 0.05], ['wallSpread', 'wall spread', 0, 2, 0.05]]],
     ['sound', [
       ['audioVol', 'volume', 0, 1, 0.01], ['audioTone', 'tone', 200, 8000, 10], ['audioMod', 'modulation', 0, 1, 0.01],
       ['audioCrackle', 'micro events', 0, 1, 0.01], ['audioMicroPitch', 'micro pitch', 200, 4000, 10], ['audioMicroDecay', 'micro decay', 10, 400, 1], ['audioMicroRand', 'randomness', 0, 1, 0.01], ['audioWidth', 'stereo width', 0, 1, 0.01]]],
@@ -3370,7 +3390,7 @@
     cont.user = true;
     if (resizeDrag.h) cont.rawW = Math.max(60, 2 * Math.abs(e.clientX - W / 2));
     if (resizeDrag.v) cont.rawH = Math.max(60, 2 * Math.abs(e.clientY - H / 2));
-    clampTargets(); cont.ew = cont.tw; cont.eh = cont.th;
+    clampTargets(); // no ew=tw snap: frame() eases toward the target over wallSmoothMs (owner 25 Oct, finding 1: teleporting wall)
   });
   window.addEventListener('mouseup', function () { targetCursorScale = 1; resizeDrag = null; });  // A + drag spray: continuous spawns along the held-drag trail, paced by preset knobs (owner 21 Oct). spawnAt stays the single spawn path (click / spray / mobile touch)
   var sprayOn = false, sprayMoved = false, sprayT = 0, sprayX = 0, sprayY = 0, spraySrc = '', sprayLX = 0, sprayLY = 0; // sprayLX/LY: last SPAWN point - the gap measures distance since the last birth, not since the last event
@@ -3419,7 +3439,7 @@
     cont.user = true;
     if (resizeDrag.h) cont.rawW = Math.max(60, 2 * Math.abs(t.clientX - W / 2));
     if (resizeDrag.v) cont.rawH = Math.max(60, 2 * Math.abs(t.clientY - H / 2));
-    clampTargets(); cont.ew = cont.tw; cont.eh = cont.th;
+    clampTargets(); // no ew=tw snap: frame() eases toward the target over wallSmoothMs (owner 25 Oct, finding 1: teleporting wall)
   }, { passive: true });
   window.addEventListener('touchend', function () { targetCursorScale = 1; resizeDrag = null; mouse.over = false; sprayOn = false; }, { passive: true });
   window.addEventListener('touchcancel', function () { targetCursorScale = 1; resizeDrag = null; mouse.over = false; sprayOn = false; }, { passive: true });

@@ -18,7 +18,7 @@ pub static mut SIM: Option<Sim> = None;
 pub fn sim() -> &'static mut Sim {
     unsafe {
         let s = &mut *std::ptr::addr_of_mut!(SIM);
-        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 80], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new() }); }
+        if s.is_none() { *s = Some(Sim { cells: vec![], n: 0, cap: 0, fx: vec![], fy: vec![], fgone: vec![], nf: 0, cm_id: vec![], cm: vec![], p: vec![0.0; 88], out: vec![0.0; 32], s0: 0x9E3779B97F4A7C15, s1: 0xD1B54A32D192ED03, live: 0, log: Vec::new() }); }
         s.as_mut().unwrap()
     }
 }
@@ -41,7 +41,9 @@ const P_SYMEN: usize = 67; const P_SYMBRK: usize = 68; const P_SYMBRKD: usize = 
 const P_DTF: usize = 78; const P_FERATE: usize = 79; // frame dt ms + grazing rate (dots/s per touched dot) - moved off 55/56: those belong to P_NCM/P_ONLYINT, and foodEatRate!=0 read as ONLYINT disabled update()/check_survival() for every cell (divide/graze/shrink/keepIn all dead)
 const P_EATDF: usize = 70; const P_FUSEDF: usize = 71; const P_SYMDF: usize = 72; // eat/fuse/pair contact distance (x radii sum)
 const P_HABON: usize = 73; const P_HABCAP: usize = 74;
-const P_DIVMODE: usize = 75; const P_DIVAGE: usize = 76; const P_DIVEN: usize = 77; // 75: 0 = legacy radius gate, 1 = age+mass; 76: min age ms; 77: min energy // habitat soft birth cap (habitat-gated): over habitatBirthCap x UNIVERSE_SIZE the birth chance scales cap/n, never a hard wall
+const P_DIVMODE: usize = 75; const P_DIVAGE: usize = 76; const P_DIVEN: usize = 77;
+const P_WVX0: usize = 80; const P_WVX1: usize = 81; const P_WVY0: usize = 82; const P_WVY1: usize = 83;
+const P_WCARRY: usize = 84; const P_WSPREAD: usize = 85; // 80-85: piston carry - wall edge velocities px/frame + carry/spread factors (owner 25 Oct) // 75: 0 = legacy radius gate, 1 = age+mass; 76: min age ms; 77: min energy // habitat soft birth cap (habitat-gated): over habitatBirthCap x UNIVERSE_SIZE the birth chance scales cap/n, never a hard wall
 // out indices
 // 0 birth 1 divide 2 eaten 3 merge 4 fuse 5 pair 6 hit 7 oob 8 ate 9 death 10 clusterSeq 11 hovering 12-14 hoverCol 15 n_final
 
@@ -191,10 +193,14 @@ impl Sim {
         // absolute wall (owner 22 Oct): nothing is ever outside; a moved wall carries the body, a hit reflects.
         let (x0, x1) = if x1 < x0 { let m = (x0 + x1) / 2.0; (m, m) } else { (x0, x1) };
         let (y0, y1) = if y1 < y0 { let m = (y0 + y1) / 2.0; (m, m) } else { (y0, y1) };
-        if x < x0 { x = x0; vx = vx.abs() * 0.7; }
-        else if x > x1 { x = x1; vx = -vx.abs() * 0.7; }
-        if y < y0 { y = y0; vy = vy.abs() * 0.7; }
-        else if y > y1 { y = y1; vy = -vy.abs() * 0.7; }
+        // piston carry (owner 25 Oct): 1:1 with ca2.js wallPull - an inward-moving wall gives the carried
+        // body the wall's velocity and a deterministic golden-ratio spread; a static wall reflects at 0.7
+        let (wcar, wspr) = (self.p[P_WCARRY], self.p[P_WSPREAD]);
+        let (wvx0, wvx1, wvy0, wvy1) = (self.p[P_WVX0], self.p[P_WVX1], self.p[P_WVY0], self.p[P_WVY1]);
+        if x < x0 { let fr = y * 0.6180339 - (y * 0.6180339).floor(); if wcar > 0.0 && wvx0 > 0.0 { x = x0 + wvx0.abs() * wspr * fr; vx = wvx0 * wcar; } else { x = x0; vx = vx.abs() * 0.7; } }
+        else if x > x1 { let fr = y * 0.6180339 - (y * 0.6180339).floor(); if wcar > 0.0 && wvx1 < 0.0 { x = x1 - wvx1.abs() * wspr * fr; vx = wvx1 * wcar; } else { x = x1; vx = -vx.abs() * 0.7; } }
+        if y < y0 { let fr = x * 0.6180339 - (x * 0.6180339).floor(); if wcar > 0.0 && wvy0 > 0.0 { y = y0 + wvy0.abs() * wspr * fr; vy = wvy0 * wcar; } else { y = y0; vy = vy.abs() * 0.7; } }
+        else if y > y1 { let fr = x * 0.6180339 - (x * 0.6180339).floor(); if wcar > 0.0 && wvy1 < 0.0 { y = y1 - wvy1.abs() * wspr * fr; vy = wvy1 * wcar; } else { y = y1; vy = -vy.abs() * 0.7; } }
         self.set(c, X, x); self.set(c, Y, y); self.set(c, VX, vx); self.set(c, VY, vy);
     }
     fn update(&mut self, c: usize) {

@@ -6,14 +6,14 @@ const fs=require('fs'),path=require('path');
 const src=fs.readFileSync(path.join(__dirname,'..','ca2.js'),'utf8');
 function fn(name){const i=src.indexOf('function '+name+'(');if(i<0)throw name;let j=src.indexOf('{',i),d=0,k=j;for(;k<src.length;k++){if(src[k]=='{')d++;else if(src[k]=='}'){d--;if(!d)break;}}return src.slice(i,k+1);}
 function vr(name){const i=src.indexOf('var '+name+' = ');let j=src.indexOf('{',i),d=0,k=j;for(;k<src.length;k++){if(src[k]=='{')d++;else if(src[k]=='}'){d--;if(!d)break;}}return src.slice(i,k+1)+';';}
-const names=['rand2D','normCol','speedOf','mutGenome','mixGenome','newShape','mixShape','mutateGene','Cell','clusterSize','joinCluster','fuseCells','interact','reproduce','checkSurvival','limit','misfit','update','organic','keepIn','divide','wallPull'];
+const names=['rand2D','normCol','speedOf','mutGenome','mixGenome','newShape','mixShape','mutateGene','Cell','clusterSize','joinCluster','fuseCells','interact','reproduce','checkSurvival','limit','misfit','update','organic','keepIn','divide','wallPull','carrySide'];
 const code=`var UI_END=800,CELL_END=1300;
 var rnd=function(a,b){if(b===undefined){b=a;a=0;}return a+Math.random()*(b-a);};var clamp=function(v,a,b){return v<a?a:v>b?b:v;};var lerp=function(a,b,t){return a+(b-a)*t;};var map=function(v,a,b,c,d){return c+(d-c)*(v-a)/(b-a);};
 ${vr('P')}
-P.habitatOn=0;P.habitatBirthCap=2;P.cellLife=0;P.cellLifeVar=0.3;P.habitatFedDecay=0.2;P.crowdTol=0.5;P.orgLifeDie=-0.005;P.orgLifeGrow=1.0025;P.orgBirth=1.005;P.orgDead=-0.0025;P.orgBrain=0.008;P.orgR90=0.0025;P.symEnergy=0.00075;P.symBreak=0.0002;P.symBreakDist=3;P.eatDistF=0.85;P.fuseDistF=0.6;P.symDistF=1.1;
+P.wallCarry=1;P.wallSpread=0.5;P.wallSmoothMs=60;P.habitatOn=0;P.habitatBirthCap=2;P.cellLife=0;P.cellLifeVar=0.3;P.habitatFedDecay=0.2;P.crowdTol=0.5;P.orgLifeDie=-0.005;P.orgLifeGrow=1.0025;P.orgBirth=1.005;P.orgDead=-0.0025;P.orgBrain=0.008;P.orgR90=0.0025;P.symEnergy=0.00075;P.symBreak=0.0002;P.symBreakDist=3;P.eatDistF=0.85;P.fuseDistF=0.6;P.symDistF=1.1;
 function habAte(){}function habReap(){}
 var cells=[],food=[],ev={birth:0,death:0,hit:0,oob:0},clusterSeq=0,env={spd:1,app:0.5,bnd:1,col:null},cmean={};
-var cont={x:0,y:0,w:0,h:0},mouse={x:-1e9,y:-1e9,over:false},resizeDrag=false;
+var cont={x:0,y:0,w:0,h:0,wvx0:0,wvx1:0,wvy0:0,wvy1:0},mouse={x:-1e9,y:-1e9,over:false},resizeDrag=false;
 var frameT=0; // stub for the Cell ctor bornAt read (desktop team AGE slot)
 function birthCapF(){ if(!P.habitatOn||!(P.habitatBirthCap>0)) return 1; var cap=P.habitatBirthCap*P.UNIVERSE_SIZE; return cells.length>cap?cap/cells.length:1; }
 ${names.map(fn).join('\n')}
