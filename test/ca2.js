@@ -453,8 +453,10 @@
     var nl = dist || 1, nx = dx / nl, ny = dy / nl, sep = (rab - dist) * 0.5;
     // f9 (73d-1, 1:1 sim.rs): a squeeze pushes as a force, it never carries - a pressed pair separates at the cells' own quantum over the next frames
     if (a.__ccT !== frameT) { a.__ccT = frameT; a.__ccU = 0; } if (b.__ccT !== frameT) { b.__ccT = frameT; b.__ccU = 0; }
-    var spa9 = Math.min(sep, Math.max(0, (a.maxSpeed || 0) + 1 - a.__ccU)), spb9 = Math.min(sep, Math.max(0, (b.maxSpeed || 0) + 1 - b.__ccU));
-    a.x -= nx * spa9; a.y -= ny * spa9; a.__ccU += spa9; b.x += nx * spb9; b.y += ny * spb9; b.__ccU += spb9;
+    // f9 mirror of sim.rs pair-resolve: the budget spends magnitude - sep<0 (apart, inside interaction radius) pulls the pair together,
+    // that motion is capped by the remaining budget too and must never refund it (was: unbudgeted full-strength pull + __ccU refund)
+    var spa9 = Math.sign(sep) * Math.min(Math.abs(sep), Math.max(0, (a.maxSpeed || 0) + 1 - a.__ccU)), spb9 = Math.sign(sep) * Math.min(Math.abs(sep), Math.max(0, (b.maxSpeed || 0) + 1 - b.__ccU));
+    a.x -= nx * spa9; a.y -= ny * spa9; a.__ccU += Math.abs(spa9); b.x += nx * spb9; b.y += ny * spb9; b.__ccU += Math.abs(spb9);
     var ad = a.vx * nx + a.vy * ny, bd = b.vx * nx + b.vy * ny;
     a.vx = lerp(a.vx, a.vx - nx * 2 * ad, 0.8); a.vy = lerp(a.vy, a.vy - ny * 2 * ad, 0.8);
     b.vx = lerp(b.vx, b.vx - nx * 2 * bd, 0.8); b.vy = lerp(b.vy, b.vy - ny * 2 * bd, 0.8);
