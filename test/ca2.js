@@ -872,7 +872,7 @@
   var coarseUI = window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches;
   function onClick(e) {
     if (e.target !== cv) return;
-    if (coarseUI && (panel.classList.contains('open') || panel.classList.contains('hov'))) { panel.classList.remove('open'); panel.classList.remove('hov'); return; }
+    if (coarseUI && performance.now() - (window.__ca2HoldT || 0) > 700 && (panel.classList.contains('open') || panel.classList.contains('hov'))) { panel.classList.remove('open'); panel.classList.remove('hov'); return; }
     var k = keyHeld;
     if ((k === 'a' || coarseUI) && sprayMoved) { sprayMoved = false; return; } // the drag already sprayed; the release click adds no extra cell (touch holds no keys, same guard)
     // touch has no held keys: a coarse tap is the A+click equivalent - one tap, one overlap-free cell at the tap point
@@ -892,7 +892,7 @@
   var WC = { ok: false, off: false }, MB = { ms: 0, path: '-' };
   if (window.WebAssembly && !/[?&]nowasm=1/.test(location.search)) {
     var simd = false; try { simd = WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11])); } catch (e) {} WC.simd = simd && !/[?&]nosimd=1/.test(location.search);
-    fetch(window.__caRelease ? window.__caRelease.assetURL((WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610261550') : (WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610221624').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, {}); }).then(function (m) {
+    fetch(window.__caRelease ? window.__caRelease.assetURL((WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610261733') : (WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610221624').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, {}); }).then(function (m) {
       var e = m.instance.exports; WC.mem = e.memory; WC.cells = e.cells_ptr; WC.out = e.out_ptr; WC.fieldX = e.mb_field; WC.field = e.mb_field_f32; WC.fieldF = e.mb_field_f32; if (e.sim_step) WC.e = e; WC.ok = true;
     }).catch(function (e) { WC.err = String(e); });
   }
@@ -3643,8 +3643,27 @@
     // the blinking caret lives on the circle that takes the next digit, only while the hidden input really has focus (owner 22 Oct)
     var updateCur = function () { var on = armT && document.activeElement === box; for (var i = 0; i < 4; i++) { if (on && i === box.value.length) acs[i].classList.add('cur'); else acs[i].classList.remove('cur'); } };
     var disarm = function () { armT = 0; box.value = ''; clearGlyphs(); eg.classList.remove('on'); eg.classList.remove('err'); box.blur(); updateCur(); };
-    var arm = function () { if (window.__adminOn) return; armT = Date.now(); box.value = ''; clearGlyphs(); eg.classList.remove('err'); eg.classList.add('on'); box.focus(); updateCur(); }; // programmatic focus is not a gesture on phones - a tap on the circles re-focuses
+    var arm = function () { if (window.__adminOn) return; panel.classList.add('open'); armT = Date.now(); box.value = ''; clearGlyphs(); eg.classList.remove('err'); eg.classList.add('on'); box.focus(); updateCur(); }; // programmatic focus is not a gesture on phones - a tap on the circles re-focuses
     var holdStop = function () { if (holdIv) { clearInterval(holdIv); holdIv = null; } };
+    // a completed 5s hold on the title dots: signed out -> the code circles AND the config column come up and stay; signed in -> the admin module's quit
+    // (A B D U column fades first), then the config column hides EXIT_CFG_MS later if it was open. Any touch of the config or the tab cancels the pending hide.
+    var EXIT_CFG_MS = 2500, exitT = 0, exitIv = 0;
+    var exitCancel = function () { clearTimeout(exitT); exitT = 0; clearInterval(exitIv); exitIv = 0; };
+    var holdDone = function () {
+      window.__ca2HoldT = performance.now(); exitCancel();
+      if (!window.__adminOn) { arm(); return; }
+      var q = window.__ca2AdminMorph && window.__ca2AdminMorph.quit; if (!q) return;
+      var wasOpen = panel.classList.contains('open') || panel.classList.contains('hov'), tries = 0;
+      q();
+      exitIv = setInterval(function () { // the module signs out asynchronously (a failed save keeps the session: then nothing hides)
+        if (++tries > 150) { exitCancel(); return; }
+        if (window.__adminOn) return;
+        clearInterval(exitIv); exitIv = 0; if (!wasOpen) return;
+        exitT = setTimeout(function () { exitT = 0; panel.classList.remove('open'); panel.classList.remove('hov'); }, EXIT_CFG_MS);
+      }, 100);
+    };
+    document.addEventListener('pointerdown', function (e) { if ((exitT || exitIv) && e.target && e.target.closest && e.target.closest('#panel,#tab')) exitCancel(); }, true);
+    window.addEventListener('keydown', function (e) { if ((exitT || exitIv) && String(e.key).toLowerCase() === 'c') exitCancel(); }, true);
     window.addEventListener('pointermove', function (e) { px = e.clientX; py = e.clientY; }, { passive: true });
     window.addEventListener('pointerdown', function (e) {
       holdStop(); px = e.clientX; py = e.clientY;
@@ -3654,13 +3673,13 @@
       holdIv = setInterval(function () {
         if (!dotHit(px, py)) { holdStop(); return; }
         if (performance.now() - holdT0 < 5000) return;
-        holdStop(); arm();
+        holdStop(); holdDone();
       }, 100);
     });
     window.addEventListener('pointerup', function (e) {
       if (!holdIv) return;
       holdStop();
-      if (performance.now() - holdT0 >= 5000 && dotHit(e.clientX, e.clientY)) arm();
+      if (performance.now() - holdT0 >= 5000 && dotHit(e.clientX, e.clientY)) holdDone();
     });
     window.addEventListener('pointercancel', holdStop);
     eg.addEventListener('click', function () { box.focus(); });
