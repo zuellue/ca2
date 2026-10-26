@@ -58,10 +58,10 @@
   }).catch(function () { return null; });
   Promise.race([pull, first]).then(function (g) {
     clearTimeout(timeout); selected = preview || online(g); ready = true;
-    return loadSession().then(function(){return load('grain.js?v=202610222334');}).then(function () {
-      return load('audio.js?v=202610222334');
+    return loadSession().then(function(){return load('https://ca.abdupala.com/test/grain.js?v=202610222334');}).then(function () {
+      return load('https://ca.abdupala.com/test/audio.js?v=202610222334');
     }).then(function () {
       return load('https://cdn.jsdelivr.net/gh/zuellue/ca2@q483-cursor-fixture/test/ca2.js');
-    }).then(function () { return load('favicon.js?v=202610222334'); });
+    }).then(function () { return load('https://ca.abdupala.com/test/favicon.js?v=202610222334'); });
   }).catch(function (e) { console.error('CA release load failed', e); });
 })();
