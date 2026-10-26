@@ -11,6 +11,8 @@ const body=src.slice(i0,i0+9000);const hard=[...body.matchAll(/(?:cap|i) \* (\d{
 const rs=fs.readFileSync(path.join(__dirname,'..','wasm','src','sim.rs'),'utf8').match(/pub const ST: usize = (\d+)/);
 const rustST=rs?+rs[1]:NaN;
 let fail=false;console.log('page SIM_STRIDE',pageST,'| sim.rs ST',rustST,'| hardcoded stride literals left in simW:',hard.length);
+const swallowed=body.split('\n').some(l=>{const k=l.indexOf('//');return k>=0&&/if \(!E \|\|/.test(l.slice(k));});
+if(swallowed){console.log('FAIL static: simW early-return guard is inside a // comment');fail=true;}
 if(!(pageST===rustST)){console.log('FAIL static: page stride and sim.rs ST differ');fail=true;}
 if(hard.length){console.log('FAIL static: simW still has literal strides',hard.join(' '));fail=true;}
 const ST=pageST;
