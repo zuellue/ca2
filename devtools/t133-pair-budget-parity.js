@@ -25,7 +25,7 @@ function pack(cs){const n=cs.length,cap=n+256;E.sim_cells(cap);E.sim_food(2);E.s
  const buf=E.memory.buffer,cf=new Float64Array(buf,cp,cap*24),p=new Float64Array(buf,pp,80);
  cs.forEach((c,i)=>{const b=i*24,g=c.g;cf.set([c.x,c.y,c.vx,c.vy,c.radius,c.energy,c.gene,1,c.maxSpeed,c.speedModifier,c.hostility,c.mutationRate,c.sv,c.cl||0,-1,g.spd,g.app,g.bnd,g.col[0],g.col[1],g.col[2],c.comp||0,0,0],b);});
  E.sim_set_n(n);E.sim_set_nf(0);E.sim_cm_count(0);
- PI.forEach((k,i)=>{let v=P[k];p[i]=typeof v==='boolean'?(v?1:0):v;});p[39]=1;p[40]=0.5;p[41]=1;p[42]=0;p[46]=-1e9;p[47]=-1e9;p[48]=0;p[49]=0;p[50]=0;p[51]=1e9;p[52]=1e9;p[53]=0;p[54]=SEQ;p[56]=1;}
+ PI.forEach((k,i)=>{let v=P[k];p[i]=typeof v==='boolean'?(v?1:0):v;});p[39]=1;p[40]=0.5;p[41]=1;p[42]=0;p[46]=-1e9;p[47]=-1e9;p[48]=0;p[49]=0;p[50]=0;p[51]=1e9;p[52]=1e9;p[53]=0;p[54]=SEQ;p[56]=1;(process.env.OFFP||"").split(",").filter(Boolean).forEach(i=>p[+i]=0);}
 const nStates=+process.argv[5]||10;
 // t133: per-cell positional displacement budget of pair resolve. One interact-only step (p[56]=1) on dense identical states per engine;
 // per-cell |dx,dy| must stay <= maxSpeed+1 (+eps) for the budgeted binary. Reports raw per-run values for both binaries (A = reference, B = candidate); metrics only.
