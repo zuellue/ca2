@@ -953,7 +953,8 @@
   var SIM_STRIDE = 30; // f64 per cell in the wasm cell buffer (wasm/src/sim.rs ST); simW asserts it through sim_stride()
   var WDRSN = {2: 'energy0', 3: 'crowd', 4: 'genebound', 5: 'oob', 6: 'select'}; // wasm sim.rs DRSN codes -> deathLog reasons (item 64, main 25 Oct)
   function simW(tmpRef) {
-    var E = WC.e, ST = SIM_STRIDE; if (E && E.sim_stride && E.sim_stride() !== SIM_STRIDE) { SIMW.on = false; WC.simOff = 1; SIMW.abiBad = E.sim_stride(); return false; } // ABI guard: wasm cell stride must equal the page pack/read stride, otherwise fall back to JS if (E && /[?&]simab=1/.test(location.search) && (SIMW.t = !SIMW.t)) return false; if (!E || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) { SIMW.on = false; return false; }
+    var E = WC.e, ST = SIM_STRIDE; if (E && E.sim_stride && E.sim_stride() !== SIM_STRIDE) { SIMW.on = false; WC.simOff = 1; SIMW.abiBad = E.sim_stride(); return false; } // ABI guard: wasm cell stride must equal the page pack/read stride, otherwise fall back to JS
+    if (E && /[?&]simab=1/.test(location.search) && (SIMW.t = !SIMW.t)) return false; if (!E || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) { SIMW.on = false; return false; }
     try {
       var t0 = performance.now(), n = cells.length, cap = n + 256, nf = food.length, cl = Object.keys(cmean), ncm = cl.length, i, c, b;
       E.sim_cells(cap); E.sim_food(nf + 1); E.sim_cm(ncm + 1);
