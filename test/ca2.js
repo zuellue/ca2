@@ -950,20 +950,21 @@
     c.vx += -Math.sin(sh2.dir) * swk; c.vy += Math.cos(sh2.dir) * swk;
     var vv = Math.hypot(c.vx, c.vy); if (vv > 0.05) { c.vx = lerp(c.vx, Math.cos(sh2.dir) * vv, 0.04); c.vy = lerp(c.vy, Math.sin(sh2.dir) * vv, 0.04); }
   }
+  var SIM_STRIDE = 30; // f64 per cell in the wasm cell buffer (wasm/src/sim.rs ST); simW asserts it through sim_stride()
   var WDRSN = {2: 'energy0', 3: 'crowd', 4: 'genebound', 5: 'oob', 6: 'select'}; // wasm sim.rs DRSN codes -> deathLog reasons (item 64, main 25 Oct)
   function simW(tmpRef) {
-    var E = WC.e; if (E && /[?&]simab=1/.test(location.search) && (SIMW.t = !SIMW.t)) return false; if (!E || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) { SIMW.on = false; return false; }
+    var E = WC.e, ST = SIM_STRIDE; if (E && E.sim_stride && E.sim_stride() !== SIM_STRIDE) { SIMW.on = false; WC.simOff = 1; SIMW.abiBad = E.sim_stride(); return false; } // ABI guard: wasm cell stride must equal the page pack/read stride, otherwise fall back to JS if (E && /[?&]simab=1/.test(location.search) && (SIMW.t = !SIMW.t)) return false; if (!E || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) { SIMW.on = false; return false; }
     try {
       var t0 = performance.now(), n = cells.length, cap = n + 256, nf = food.length, cl = Object.keys(cmean), ncm = cl.length, i, c, b;
       E.sim_cells(cap); E.sim_food(nf + 1); E.sim_cm(ncm + 1);
       var cp = E.sim_cells(cap), fxp = E.sim_food(nf + 1), fyp = E.sim_food_y(), fgp = E.sim_food_gone(), cmp = E.sim_cm(ncm + 1), cip = E.sim_cm_ids(), pp = E.sim_params();
-      var buf = WC.mem.buffer, cf = new Float64Array(buf, cp, cap * 30), fx = new Float64Array(buf, fxp, nf + 1), fy = new Float64Array(buf, fyp, nf + 1), cmf = new Float64Array(buf, cmp, (ncm + 1) * 5), cid = new Float64Array(buf, cip, ncm + 1), p = new Float64Array(buf, pp, 97);
+      var buf = WC.mem.buffer, cf = new Float64Array(buf, cp, cap * ST), fx = new Float64Array(buf, fxp, nf + 1), fy = new Float64Array(buf, fyp, nf + 1), cmf = new Float64Array(buf, cmp, (ncm + 1) * 5), cid = new Float64Array(buf, cip, ncm + 1), p = new Float64Array(buf, pp, 97);
       simStamp++;
       for (i = 0; i < n; i++) {
         c = cells[i]; c._i = i; c._f = simStamp;
       }
       for (i = 0; i < n; i++) {
-        c = cells[i]; b = i * 30; var g = c.g;
+        c = cells[i]; b = i * ST; var g = c.g;
         cf[b] = c.x; cf[b + 1] = c.y; cf[b + 2] = c.vx; cf[b + 3] = c.vy; cf[b + 4] = c.radius; cf[b + 5] = c.energy; cf[b + 6] = c.gene; cf[b + 7] = c.alive ? 1 : 0; cf[b + 8] = c.maxSpeed; cf[b + 9] = c.speedModifier; cf[b + 10] = c.hostility; cf[b + 11] = c.mutationRate; cf[b + 12] = c.sv; cf[b + 13] = c.cl || 0;
         cf[b + 14] = (c.sym && c.sym._f === simStamp) ? c.sym._i : -1; cf[b + 15] = g.spd; cf[b + 16] = g.app; cf[b + 17] = g.bnd; cf[b + 18] = g.col[0]; cf[b + 19] = g.col[1]; cf[b + 20] = g.col[2]; cf[b + 21] = c.comp || 0; cf[b + 22] = 0; cf[b + 23] = frameT - (c.bornAt || 0); cf[b + 24] = c.sq || 0; cf[b + 25] = c.crowd || 0; cf[b + 26] = c.envVx || 0; cf[b + 27] = c.envVy || 0; cf[b + 28] = 0; cf[b + 29] = 0; // slot 23: age ms in, -1 = absorbed out; 22 is the wasm REM flag; 24: eased squash state, 25: crowd field (item 64); 26-27: environmental velocity (directive 3); 28: wasm wall-press signal out (the squash ease is a JS post-pass for both engines)
       }
@@ -990,14 +991,14 @@
       var o = new Float64Array(WC.mem.buffer, E.sim_out(), 32), nf2 = o[15];
       var kids = [];
       if (E.sim_cap && E.sim_cap() !== cap) { cap = E.sim_cap(); cp = E.sim_cells_ptr(); } // wasm grew its cell buffer on a birth burst: re-anchor before reading back
-      cf = new Float64Array(WC.mem.buffer, cp, cap * 30);
+      cf = new Float64Array(WC.mem.buffer, cp, cap * ST);
       for (i = 0; i < nf2; i++) {
-        b = i * 30; c = i < n ? cells[i] : new Cell(cf[b], cf[b + 1], cf[b + 6], cf[b + 11]);
+        b = i * ST; c = i < n ? cells[i] : new Cell(cf[b], cf[b + 1], cf[b + 6], cf[b + 11]);
         if (i >= n) { cells.push(c); c._i = i; c._f = simStamp; }
         c.x = cf[b]; c.y = cf[b + 1]; c.vx = cf[b + 2]; c.vy = cf[b + 3]; c.radius = cf[b + 4]; c.energy = cf[b + 5]; c.gene = cf[b + 6]; c.alive = cf[b + 7] !== 0; c.maxSpeed = cf[b + 8]; c.speedModifier = cf[b + 9]; c.hostility = cf[b + 10]; c.mutationRate = cf[b + 11]; c.sv = cf[b + 12]; c.cl = cf[b + 13];
         var gg = c.g; gg.spd = cf[b + 15]; gg.app = cf[b + 16]; gg.bnd = cf[b + 17]; gg.col = [cf[b + 18], cf[b + 19], cf[b + 20]]; if (cf[b + 21] > 0) c.comp = cf[b + 21]; c.absorbed = cf[b + 23] < 0 ? 1 : 0; c.sq = cf[b + 24]; c.crowd = cf[b + 25]; c.envVx = cf[b + 26]; c.envVy = cf[b + 27]; c.sqS = Math.max(c.sqS || 0, cf[b + 28]); c.wasmDr = cf[b + 29];
       }
-      for (i = 0; i < nf2; i++) { var sy = cf[i * 30 + 14]; cells[i].sym = sy >= 0 ? cells[sy] : null; }
+      for (i = 0; i < nf2; i++) { var sy = cf[i * ST + 14]; cells[i].sym = sy >= 0 ? cells[sy] : null; }
       var fg = new Float64Array(WC.mem.buffer, fgp, nf + 1);
       var lg = new Float64Array(WC.mem.buffer, E.sim_log(), o[17]); // births / fusions: body plans stay in JS (newShape/mixShape), the wasm core only reports who came from whom
       for (i = 0; i < lg.length; i += 4) { var kd = lg[i + 3], k0 = cells[lg[i]], p0 = cells[lg[i + 1]], p1 = lg[i + 2] >= 0 ? cells[lg[i + 2]] : null; if (kd === 1) k0.shp = newShape(p0.shp); else if (kd === 2) k0.shp = mixShape(p0.shp, p1.shp); else k0.shp = mixShape(k0.shp, p0.shp); }
