@@ -91,7 +91,7 @@
     return loadSession().then(function(){return load('grain.js?v=202610222334');}).then(function () {
       return load('audio.js?v=202610222334');
     }).then(function () {
-      return load('ca2.js?v=' + (selected ? '202610261702' : '202610261409'));
+      return load('ca2.js?v=' + (selected ? '202610262342' : '202610261409'));
     }).then(function () { return load('favicon.js?v=202610222334'); });
   }).catch(function (e) { console.error('CA release load failed', e); });
 })();

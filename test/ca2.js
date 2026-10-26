@@ -2966,11 +2966,13 @@
     c.addEventListener('change', function () { b.textContent = c.checked ? words[0] : words[1]; var bef = Object.assign({}, P); fn(c.checked); for (var k in P) if (P[k] !== bef[k]) touched[k] = 1; save(); });
     ctl.appendChild(l); return { box: c, val: b, el: l };
   }
+  var choiceRows = []; // every choice label re-reads P on syncUI, so a pulled global preset cannot leave a stale label
   function choice(label, key, opts, fn) {
     var l = document.createElement('label'); l.className = 'chk';
     l.innerHTML = '<span>' + label + '</span><b>' + opts[P[key]] + '</b>';
     var b = l.querySelector('b');
     l.addEventListener('click', function () { P[key] = (P[key] + 1) % opts.length; touched[key] = 1; b.textContent = opts[P[key]]; if (fn) fn(P[key]); save(); });
+    choiceRows.push({ b: b, key: key, opts: opts });
     ctl.appendChild(l); return { el: l };
   }
   var typeToggle = toggle('type slider', !!P.typeSlider, function (v) { P.typeSlider = v ? 1 : 0; document.getElementById('panel').classList.toggle('type-slider', !!v); });
@@ -3744,6 +3746,7 @@
     // perf labels longer than the pinned label column shrink individually; base rows keep their font
     var ls2 = statsEl.querySelectorAll('span:nth-child(odd)');
     for (ni2 = 0; ni2 < ls2.length; ni2++) { var lsp = ls2[ni2]; lsp.style.fontSize = ''; var nat = lsp.scrollWidth, box = lsp.clientWidth; if (ni2 >= 5 && box > 0 && nat > box + 1) lsp.style.fontSize = Math.max(7, Math.floor(labPx * box / nat * 10) / 10) + 'px'; }
+    choiceRows.forEach(function (c) { var t = c.opts[P[c.key]]; if (t !== undefined && c.b.textContent !== t) c.b.textContent = t; });
     for (var lk in live) { var lr = rows[lk]; lr.inp.value = P[lk]; lr.val.textContent = fmt(P[lk]); }
     if (panel.matches(':hover')) return;
     GROUPS.forEach(function (g) { g[1].forEach(function (q) { var r = rows[q[0]], v = P[q[0]]; r.inp.value = v; r.val.textContent = fmt(v); }); });
