@@ -884,7 +884,7 @@
   var WC = { ok: false, off: false }, MB = { ms: 0, path: '-' };
   if (window.WebAssembly && !/[?&]nowasm=1/.test(location.search)) {
     var simd = false; try { simd = WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11])); } catch (e) {} WC.simd = simd && !/[?&]nosimd=1/.test(location.search);
-    fetch(window.__caRelease ? window.__caRelease.assetURL((WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610261540') : (WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610221624').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, {}); }).then(function (m) {
+    fetch(window.__caRelease ? window.__caRelease.assetURL((WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610261550') : (WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610221624').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, {}); }).then(function (m) {
       var e = m.instance.exports; WC.mem = e.memory; WC.cells = e.cells_ptr; WC.out = e.out_ptr; WC.fieldX = e.mb_field; WC.field = e.mb_field_f32; WC.fieldF = e.mb_field_f32; if (e.sim_step) WC.e = e; WC.ok = true;
     }).catch(function (e) { WC.err = String(e); });
   }
@@ -1074,7 +1074,34 @@
         if (py2 < bh - 1 && lab[p + bw] === 0) { lab[p + bw] = n; st[sp++] = p + bw; } // 4-connected label fill: the wall is watertight for edge-sharing pixels; diagonal leaks are reported separately by the audit (spanning8)
       }
     }
-    for (p0 = 0; p0 < bw * bh; p0++) if (lab[p0] === 255) lab[p0] = 0;
+    // owner 26 Oct (axis line): no white strips beside the axisline - the visible zero band is exactly the stroke
+    // width. The thick (1.5*lw) wall above still drives the watertight region split; wall pixels BEYOND the stroke's
+    // own half-width join their nearest region and render their own side's field right up to the line. Only the band
+    // the stroke itself covers stays zero (lab 0). Separator collision (separatorPass hairline) is untouched, and
+    // cross-line metaball merging stays cut: every pixel still sums sources of its own label only.
+    var zw = 0.5 * lw, zw2 = zw * zw, ring = [];
+    for (p0 = 0; p0 < bw * bh; p0++) {
+      if (lab[p0] !== 255) continue;
+      var wx = (p0 % bw + 0.5) * inv, wy = (((p0 / bw) | 0) + 0.5) * inv, wd = 1e18;
+      for (j = 0; j < list.length; j++) {
+        var sg2 = list[j], ddx = sg2[2] - sg2[0], ddy = sg2[3] - sg2[1], ll2 = ddx * ddx + ddy * ddy, tt2 = ll2 ? Math.max(0, Math.min(1, ((wx - sg2[0]) * ddx + (wy - sg2[1]) * ddy) / ll2)) : 0, ex2 = sg2[0] + ddx * tt2 - wx, ey2 = sg2[1] + ddy * tt2 - wy, dd2 = ex2 * ex2 + ey2 * ey2;
+        if (dd2 < wd) wd = dd2;
+      }
+      if (wd > zw2) { lab[p0] = 254; ring.push(p0); } else lab[p0] = 0;
+    }
+    for (var ap = 0; ap < 16 && ring.length; ap++) { // absorb the outer wall ring into the adjacent regions (few px thick)
+      var nxt = [];
+      for (var ri = 0; ri < ring.length; ri++) {
+        var rp = ring[ri], rx = rp % bw, ry = (rp / bw) | 0, got = 0;
+        if (rx > 0 && lab[rp - 1] > 0 && lab[rp - 1] < 254) got = lab[rp - 1];
+        else if (rx < bw - 1 && lab[rp + 1] > 0 && lab[rp + 1] < 254) got = lab[rp + 1];
+        else if (ry > 0 && lab[rp - bw] > 0 && lab[rp - bw] < 254) got = lab[rp - bw];
+        else if (ry < bh - 1 && lab[rp + bw] > 0 && lab[rp + bw] < 254) got = lab[rp + bw];
+        if (got) lab[rp] = got; else nxt.push(rp);
+      }
+      ring = nxt;
+    }
+    for (p0 = 0; p0 < bw * bh; p0++) if (lab[p0] === 254) lab[p0] = 0; // unreachable leftover: fail closed (zero, never a cross-region sum)
     REG.key = key; REG.lab = lab; REG.w = bw; REG.h = bh; REG.S = S; REG.n = n; return lab;
   }
   function regionOf(lab, bw, bh, S, sx, sy) { // label of the region holding a source centre; a centre inside the wall/margin takes the nearest labelled pixel
@@ -2941,7 +2968,7 @@
   var _toggle = toggle, _choice = choice;
   toggle = function () { var r = _toggle.apply(null, arguments); swSec.els.push(r.el); return r; };
   choice = function () { var r = _choice.apply(null, arguments); swSec.els.push(r.el); return r; };
-  choice('axis layering', 'axisLayer', ['above', 'behind']);
+  choice('axis layering', 'axisLayer', ['behind', 'above']);
   choice('micro sound', 'audioMicro', ['click', 'tick', 'drop', 'bubble', 'wood', 'bloom']);
   choice('sound mode', 'audioMode', ['soft white', 'pink', 'brown', 'micro crackle', 'membrane']);
   toggle('sound', !!P.audioOn, function (v) { P.audioOn = v ? 1 : 0; if (window.CA2Audio) CA2Audio.enable(v); });
