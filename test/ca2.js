@@ -58,6 +58,14 @@
   // title-circle hover colors: the palette's own black (22,22,22 - not pitch black) and white, plus its R G B (owner 21 Oct)
   var CIRCLE_COLS = [[22,22,22],[255,255,255],[255,0,0],[0,255,0],[0,0,255]];
   var bgIndex = 0, bg = [255,255,255], bgTarget = [233,233,233];
+  // food dots at the default colour (the 'food dots' switch off) stay black on light grounds and turn white on dark ones, so they never vanish into the background.
+  // The flip is where black and white have equal contrast against the ground (relative luminance .179, WCAG), eased over the .13-.23 band so a bg change fades; a colour set on the switch is never touched.
+  function foodInk() {
+    if (P.swFoodColor) return P.foodColor;
+    var f = function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    var L = 0.2126 * f(bg[0]) + 0.7152 * f(bg[1]) + 0.0722 * f(bg[2]), t = Math.max(0, Math.min(1, (0.229 - L) / 0.1)), v = Math.round(255 * t);
+    return 'rgb(' + v + ',' + v + ',' + v + ')';
+  }
   
   var ready = false, parasites = [], clusterSeq = 0, env = { spd: 1, app: 0.5, bnd: 1, col: null }, cmean = {};
   var cells = [], food = [], ev = { birth: 0, death: 0, hit: 0, oob: 0 }, maxOut = 0;
@@ -1765,7 +1773,7 @@
     }
   }
   function drawBlobs() {
-    var ol = P.blobOutline; if (ol && !(P.axisWidth > 0)) return; ctx.fillStyle = P.foodColor; ctx.strokeStyle = P.foodColor; ctx.lineWidth = LW(); ctx.lineCap = 'round'; ctx.globalAlpha = P.foodAlpha;
+    var ol = P.blobOutline; if (ol && !(P.axisWidth > 0)) return; var fInk = foodInk(); ctx.fillStyle = fInk; ctx.strokeStyle = fInk; ctx.lineWidth = LW(); ctx.lineCap = 'round'; ctx.globalAlpha = P.foodAlpha;
     for (var i = 0; i < blobs.length; i++) {
       var b = blobs[i], d = b.d; if (!introOn(CELL_END + ((i * 0.6180339) % 1) * (FOOD_END - CELL_END))) continue; if (d.length < 3) { for (var q = 0; q < d.length; q++) { if (ol) ctx.strokeRect(d[q].x - P.foodSize / 2, d[q].y - P.foodSize / 2, P.foodSize, P.foodSize); else ctx.fillRect(d[q].x - P.foodSize / 2, d[q].y - P.foodSize / 2, P.foodSize, P.foodSize); } continue; }
       var pts = d.slice().sort(function (u, v) { return Math.atan2(u.y - b.y, u.x - b.x) - Math.atan2(v.y - b.y, v.x - b.x); }), n = pts.length;
@@ -1901,7 +1909,7 @@
   }
   function drawWorms() {
     var ol = P.blobOutline; if (ol && !(P.axisWidth > 0)) return;
-    ctx.strokeStyle = P.foodColor; ctx.fillStyle = P.foodColor; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = P.foodAlpha;
+    var fInk = foodInk(); ctx.strokeStyle = fInk; ctx.fillStyle = fInk; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = P.foodAlpha;
     ctx.lineWidth = ol ? LW() : Math.max(1.5, P.foodSize * 1.1);
     for (var i = 0; i < worms.length; i++) {
       var w = worms[i], d = w.d; if (d.length < 2) continue;
@@ -1976,7 +1984,7 @@
   }
   function drawSpores() {
     var ol = P.blobOutline; if (ol && !(P.axisWidth > 0)) return;
-    var now = performance.now(); ctx.strokeStyle = P.foodColor; ctx.fillStyle = P.foodColor; ctx.lineWidth = Math.max(1, LW());
+    var now = performance.now(), fInk = foodInk(); ctx.strokeStyle = fInk; ctx.fillStyle = fInk; ctx.lineWidth = Math.max(1, LW());
     ctx.globalAlpha = P.foodAlpha;
     for (var i = 0; i < spores.length; i++) {
       var s = spores[i]; if (s.r >= P.foodShow) continue;
@@ -2364,7 +2372,7 @@
     }
     foodInkGuard(); // the boundary carry above can move dots onto ink: re-resolve before the dots are drawn
     if (window.__ca2NoDraw) return; // measurement harness mode 2 (main 25 Oct): full sim step + aging/habitat + fresh ink mask + food boundary carry ran; only pure drawing/audio below is skipped (faithful separator-on stepped path)
-    if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 4) drawWorms(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 5) drawSpores(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = P.foodColor; var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) { var fd2 = food[i]; if (fd2.r < P.foodShow && introOn(CELL_END + fd2.r * (FOOD_END - CELL_END))) { var fs2 = fd2.fed > 0 && P.habitatFedShow > 0 ? fs * (1 + Math.min(3, fd2.fed * P.habitatFedShow)) : fs, fh2 = fs2 / 2; ctx.fillRect(fd2.x - fh2, fd2.y - fh2, fs2, fs2); } } ctx.globalAlpha = 1; } // food first: it sits under the cells
+    if (P.showFood && P.foodAlpha > 0 && P.foodMode === 2) drawBlobs(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 4) drawWorms(); else if (P.showFood && P.foodAlpha > 0 && P.foodMode === 5) drawSpores(); else if (P.showFood && P.foodAlpha > 0) { ctx.globalAlpha = P.foodAlpha; ctx.fillStyle = foodInk(); var fs = P.foodSize, fh = fs / 2; for (i = 0; i < food.length; i++) { var fd2 = food[i]; if (fd2.r < P.foodShow && introOn(CELL_END + fd2.r * (FOOD_END - CELL_END))) { var fs2 = fd2.fed > 0 && P.habitatFedShow > 0 ? fs * (1 + Math.min(3, fd2.fed * P.habitatFedShow)) : fs, fh2 = fs2 / 2; ctx.fillRect(fd2.x - fh2, fd2.y - fh2, fs2, fs2); } } ctx.globalAlpha = 1; } // food first: it sits under the cells
     pfm('sim+ui draw'); curS = DPR * res; if (cells.length || t0 - fadeT0 > INTRO_MS) { var tmb = performance.now(); drawMetaballs(curS); MB.ms = MB.ms * 0.9 + (performance.now() - tmb) * 0.1; MB.path = gOn ? 'GPU' : (WC.ok && !WC.off ? (WC.simd ? 'wasm-simd' : 'wasm') : 'JS'); } pfm('metaballs total'); // an empty intro plate skips the full-buffer pass
     if (P.parasiteOn && parasites.length) { var pc = css(eased.title, 1); ctx.fillStyle = pc; for (i = 0; i < parasites.length; i++) { var pp2 = parasites[i]; if (!fadeA('pa' + i)) continue;
       // owner 22 Oct: parasites are triangles, not dots - the circle blurred into small cells. Same ink area as the r2.2
