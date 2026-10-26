@@ -855,7 +855,7 @@
   var WC = { ok: false, off: false }, MB = { ms: 0, path: '-' };
   if (window.WebAssembly && !/[?&]nowasm=1/.test(location.search)) {
     var simd = false; try { simd = WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11])); } catch (e) {} WC.simd = simd && !/[?&]nosimd=1/.test(location.search);
-    fetch(window.__caRelease ? window.__caRelease.assetURL((WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610261520') : (WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610221624').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, {}); }).then(function (m) {
+    fetch(window.__caRelease ? window.__caRelease.assetURL((WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610261525') : (WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610221624').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, {}); }).then(function (m) {
       var e = m.instance.exports; WC.mem = e.memory; WC.cells = e.cells_ptr; WC.out = e.out_ptr; WC.fieldX = e.mb_field; WC.field = e.mb_field_f32; WC.fieldF = e.mb_field_f32; if (e.sim_step) WC.e = e; WC.ok = true;
     }).catch(function (e) { WC.err = String(e); });
   }
@@ -1009,6 +1009,60 @@
       SIMW.ms = SIMW.ms * 0.9 + (performance.now() - t0) * 0.1; SIMW.on = true; return true;
     } catch (e) { WC.simOff = true; WC.simErr = String(e); SIMW.on = false; return false; }
   }
+
+  // ---- separator regions (owner 96c / 96c-1): the metaball field never bridges a separator. A label map (0 = separator wall + margin) is
+  // built from the SAME segments drawAxis strokes (same snapping, same LW()); margin = one line thickness on each side of the stroke edge,
+  // so the zero-field half-width from the centre line is LW/2 + LW. Each source carries the label of the region its centre lies in and a
+  // pixel only sums sources of its own label. Openings (centerGap) join regions by construction: the segments stop there.
+  var REG = { key: '', lab: null, w: 0, h: 0, S: 0, n: 0, regs: new Uint8Array(512) };
+  function regionMap(bw, bh, S) {
+    var segs = (P.separatorOn && P.showAxis && P.axisWidth > 0 && axisInfo.segs && axisInfo.segs.length) ? axisInfo.segs : null;
+    if (!segs) { REG.key = ''; REG.lab = null; return null; }
+    var SX = P.axisLayer === 0 ? DPR : DD, lw = LW(), hw = 1.5 * lw, list = [], j, q; // hw = LW/2 + one line thickness, always exact (never widened at low resolution)
+    for (j = 0; j < segs.length; j++) { var a = segs[j].slice(); if (a[0] === a[2] || a[1] === a[3]) for (q = 0; q < 4; q++) a[q] = snapC(a[q], SX); list.push([a[0] - cont.x, a[1] - cont.y, a[2] - cont.x, a[3] - cont.y]); }
+    var key = bw + 'x' + bh + '@' + S + '|' + hw + '|' + list.map(function (l) { return l.map(function (v) { return Math.round(v * 64); }).join(','); }).join(';');
+    if (key === REG.key && REG.lab) return REG.lab;
+    var lab = new Uint8Array(bw * bh), inv = 1 / S, hw2 = hw * hw, x, y;
+    for (j = 0; j < list.length; j++) {
+      var l = list[j], dx = l[2] - l[0], dy = l[3] - l[1], l2 = dx * dx + dy * dy;
+      var bx0 = Math.max(0, Math.floor((Math.min(l[0], l[2]) - hw) * S) - 1), bx1 = Math.min(bw - 1, Math.ceil((Math.max(l[0], l[2]) + hw) * S) + 1);
+      var by0 = Math.max(0, Math.floor((Math.min(l[1], l[3]) - hw) * S) - 1), by1 = Math.min(bh - 1, Math.ceil((Math.max(l[1], l[3]) + hw) * S) + 1);
+      for (y = by0; y <= by1; y++) for (x = bx0; x <= bx1; x++) {
+        var px = (x + 0.5) * inv, py = (y + 0.5) * inv, t = l2 ? Math.max(0, Math.min(1, ((px - l[0]) * dx + (py - l[1]) * dy) / l2)) : 0, ex = l[0] + dx * t - px, ey = l[1] + dy * t - py;
+        if (ex * ex + ey * ey <= hw2) lab[y * bw + x] = 255;
+      }
+    }
+    var n = 0, st = new Int32Array(bw * bh > 0 ? bw * bh : 1), p0, sp;
+    for (p0 = 0; p0 < bw * bh; p0++) {
+      if (lab[p0] !== 0) continue;
+      if (n >= 250) { lab[p0] = 250; continue; } // never more than 250 regions; overflow joins the last one
+      n++; sp = 0; st[sp++] = p0; lab[p0] = n;
+      while (sp) {
+        var p = st[--sp], px2 = p % bw, py2 = (p / bw) | 0;
+        if (px2 > 0 && lab[p - 1] === 0) { lab[p - 1] = n; st[sp++] = p - 1; }
+        if (px2 < bw - 1 && lab[p + 1] === 0) { lab[p + 1] = n; st[sp++] = p + 1; }
+        if (py2 > 0 && lab[p - bw] === 0) { lab[p - bw] = n; st[sp++] = p - bw; }
+        if (py2 < bh - 1 && lab[p + bw] === 0) { lab[p + bw] = n; st[sp++] = p + bw; } // 4-connected label fill: the wall is watertight for edge-sharing pixels; diagonal leaks are reported separately by the audit (spanning8)
+      }
+    }
+    for (p0 = 0; p0 < bw * bh; p0++) if (lab[p0] === 255) lab[p0] = 0;
+    REG.key = key; REG.lab = lab; REG.w = bw; REG.h = bh; REG.S = S; REG.n = n; return lab;
+  }
+  function regionOf(lab, bw, bh, S, sx, sy) { // label of the region holding a source centre; a centre inside the wall/margin takes the nearest labelled pixel
+    var ix = Math.max(0, Math.min(bw - 1, Math.floor(sx * S))), iy = Math.max(0, Math.min(bh - 1, Math.floor(sy * S))), v = lab[iy * bw + ix];
+    if (v) return v;
+    for (var r = 1, R = Math.ceil(8 * S + 4 * LW() * S); r <= R; r++) {
+      var best = 0, bd = 1e9;
+      for (var dy = -r; dy <= r; dy++) for (var dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        var xx = ix + dx, yy = iy + dy; if (xx < 0 || yy < 0 || xx >= bw || yy >= bh) continue;
+        var q = lab[yy * bw + xx]; if (q && dx * dx + dy * dy < bd) { bd = dx * dx + dy * dy; best = q; }
+      }
+      if (best) return best;
+    }
+    return 0;
+  }
+  function sourceRegions(src, n, lab, bw, bh, S) { if (REG.regs.length < n) REG.regs = new Uint8Array(Math.max(n, REG.regs.length * 2)); for (var i = 0; i < n; i++) REG.regs[i] = regionOf(lab, bw, bh, S, src.x[i], src.y[i]); return REG.regs; }
   function drawMetaballsCPU(S) {
     var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
     if (bw !== bufW || bh !== bufH) {
@@ -1017,10 +1071,12 @@
     } else { fSum.fill(0); fR.fill(0); fG.fill(0); fB.fill(0); }
     var ms = P.metaballStrength, TH = P.THRESHOLD, inv = 1 / S;
     var src = buildSources(), sn = src.n; // the squash ease runs once per frame in frame() (both engines): draw never mutates sim state
+    var rlab = regionMap(bw, bh, S), rreg = rlab ? sourceRegions(src, sn, rlab, bw, bh, S) : null;
     if (WC.ok && !WC.off) { // Rust/wasm path (ca2core): same field + pixel pass, JS below stays as the fallback
       try {
         var nw = sn, cp = WC.cells(nw), cf = new Float64Array(WC.mem.buffer, cp, nw * 6);
         for (var i = 0; i < nw; i++) { var o6 = i * 6; cf[o6] = src.x[i]; cf[o6 + 1] = src.y[i]; cf[o6 + 2] = src.r[i]; cf[o6 + 3] = src.wr[i]; cf[o6 + 4] = src.wg[i]; cf[o6 + 5] = src.wb[i]; }
+        if (WC.e.lab_on) { if (rlab) { new Uint8Array(WC.mem.buffer, WC.e.lab_ptr(bw * bh), bw * bh).set(rlab); new Uint8Array(WC.mem.buffer, WC.e.reg_ptr(nw), nw).set(rreg.subarray(0, nw)); cp = WC.cells(nw); cf = new Float64Array(WC.mem.buffer, cp, nw * 6); for (var i = 0; i < nw; i++) { var o6 = i * 6; cf[o6] = src.x[i]; cf[o6 + 1] = src.y[i]; cf[o6 + 2] = src.r[i]; cf[o6 + 3] = src.wr[i]; cf[o6 + 4] = src.wg[i]; cf[o6 + 5] = src.wb[i]; } } WC.e.lab_on(rlab ? 1 : 0); } else if (rlab) throw new Error('wasm without lab_on'); // an old wasm cannot gate: fall to the JS path rather than bridge
         WC.field(nw, bw, bh, S, ms, TH, bg[0] | 0, bg[1] | 0, bg[2] | 0); pfm('mb:field');
         img.data.set(new Uint8ClampedArray(WC.mem.buffer, WC.out(), bw * bh * 4)); pfm('mb:pixel loop');
         octx.putImageData(img, 0, 0); pfm('mb:putImageData');
@@ -1033,10 +1089,11 @@
       var Rc = crd * Math.max(3, Math.sqrt(ms / (TH * 0.03)));
       var x0 = Math.max(0, Math.floor((cx - Rc) * S)), x1 = Math.min(bw - 1, Math.ceil((cx + Rc) * S));
       var y0 = Math.max(0, Math.floor((cy - Rc) * S)), y1 = Math.min(bh - 1, Math.ceil((cy + Rc) * S));
-      var wr = src.wr[i], wg = src.wg[i], wb = src.wb[i];
+      var wr = src.wr[i], wg = src.wg[i], wb = src.wb[i], rg = rreg ? rreg[i] : 0;
       for (var y = y0; y <= y1; y++) {
         var dy = (y + 0.5) * inv - cy, row = y * bw;
         for (var x = x0; x <= x1; x++) {
+          if (rlab && rlab[row + x] !== rg) continue;
           var dx = (x + 0.5) * inv - cx, inf = r2 / (dx * dx + dy * dy + 0.0001);
           var i2 = inf * inf; fSum[row + x] += inf; if (wr) fR[row + x] += i2 * wr; if (wg) fG[row + x] += i2 * wg; if (wb) fB[row + x] += i2 * wb;
         }
@@ -1069,9 +1126,9 @@
       var dbg = gl.getExtension('WEBGL_debug_renderer_info'), rn = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) : '';
       if (/swiftshader|llvmpipe|software|softpipe/i.test(rn) && !/[?&]gpu=1/.test(location.search)) { gl = null; return; } // a software GL is slower than the CPU splat
       var vs = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0., 1.); }';
-      function fs(gm) { return 'precision highp float;\n#define GMAX ' + gm + '\nuniform vec4 uC[GMAX]; uniform vec4 uW[GMAX]; uniform int uN; uniform float uS; uniform float uH; uniform float uTH; uniform float uBand;\n' +
-        'void main(){ float px = gl_FragCoord.x / uS, py = (uH - gl_FragCoord.y) / uS; float s = 0.; vec3 w = vec3(0.);\n' +
-        ' for (int i = 0; i < GMAX; i++) { if (i >= uN) break; vec4 c = uC[i]; float dx = px - c.x, dy = py - c.y; if (abs(dx) > c.w || abs(dy) > c.w) continue;\n' +
+      function fs(gm) { return 'precision highp float;\n#define GMAX ' + gm + '\nuniform vec4 uC[GMAX]; uniform vec4 uW[GMAX]; uniform int uN; uniform float uS; uniform float uH; uniform float uTH; uniform float uBand; uniform sampler2D uL; uniform float uLon; uniform vec2 uBW;\n' +
+        'void main(){ float px = gl_FragCoord.x / uS, py = (uH - gl_FragCoord.y) / uS; float s = 0.; vec3 w = vec3(0.); float lb = uLon > 0.5 ? floor(texture2D(uL, vec2(gl_FragCoord.x / uBW.x, (uH - gl_FragCoord.y) / uBW.y)).r * 255. + 0.5) : 0.;\n' +
+        ' for (int i = 0; i < GMAX; i++) { if (i >= uN) break; vec4 c = uC[i]; float dx = px - c.x, dy = py - c.y; if (abs(dx) > c.w || abs(dy) > c.w) continue; if (uLon > 0.5 && abs(lb - uW[i].w) > 0.5) continue;\n' +
         '  float inf = c.z / (dx*dx + dy*dy + 0.0001); s += inf; w += uW[i].xyz * (inf*inf); }\n' +
         ' float lim = uTH * 0.96; if (s > lim) { float t = w.x + w.y + w.z; vec3 col = t > 0. ? w / t : vec3(0.); float a = min(1., (s - lim) / uBand); gl_FragColor = vec4(col * a, a); } else gl_FragColor = vec4(0.); }'; }
       function sh(t, src) { var o = gl.createShader(t); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; }
@@ -1085,7 +1142,7 @@
       gl.useProgram(gProg);
       var buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
       var loc = gl.getAttribLocation(gProg, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-      ['uC', 'uW', 'uN', 'uS', 'uH', 'uTH', 'uBand'].forEach(function (n) { gU[n] = gl.getUniformLocation(gProg, n); });
+      ['uC', 'uW', 'uN', 'uS', 'uH', 'uTH', 'uBand', 'uL', 'uLon', 'uBW'].forEach(function (n) { gU[n] = gl.getUniformLocation(gProg, n); });
       gOK = true;
     } catch (e) { gOK = false; gl = null; if (window.console) console.warn('ca2: WebGL field off, CPU path', e && e.message); }
   })();
@@ -1101,7 +1158,7 @@
       if (sx + sr < bx0 || sx - sr > bx1 || sy + sr < by0 || sy - sr > by1) continue;
       if (m >= GMAX) break;
       gTC[m * 4] = C[i * 4]; gTC[m * 4 + 1] = C[i * 4 + 1]; gTC[m * 4 + 2] = C[i * 4 + 2]; gTC[m * 4 + 3] = C[i * 4 + 3];
-      gTW[m * 4] = W[i * 4]; gTW[m * 4 + 1] = W[i * 4 + 1]; gTW[m * 4 + 2] = W[i * 4 + 2]; m++;
+      gTW[m * 4] = W[i * 4]; gTW[m * 4 + 1] = W[i * 4 + 1]; gTW[m * 4 + 2] = W[i * 4 + 2]; gTW[m * 4 + 3] = W[i * 4 + 3]; m++;
     }
     if (m >= GMAX && depth < 4) { gTStat.subdiv++; // too many sources reach this tile: quarter it (culling then keeps every contributing source)
       var mx = (bx0 + bx1) >> 1, my = (by0 + by1) >> 1;
@@ -1117,10 +1174,16 @@
     gl.scissor(bx0, gSnapBH - by1, bx1 - bx0, by1 - by0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
-  var gSnapS = 0, gSnapBH = 0, gTiledForce = null;
+  var gSnapS = 0, gSnapBH = 0, gTiledForce = null, gLab = null, gLabTex = null, gLabKey = null, gLabId = 0;
   // shared draw body (full or tiled) so tests can render the SAME source array through both paths
   function gpuDraw(C, W, n, bw, bh, S, tiled) {
     gl.viewport(0, 0, bw, bh); gl.useProgram(gProg);
+    if (gLab) { // separator region labels: one LUMINANCE texel per buffer pixel, region id in uW.w per source
+      if (!gLabTex) gLabTex = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, gLabTex);
+      if (gLabKey !== gLabId) { gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1); gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, bw, bh, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, gLab); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); gLabKey = gLabId; }
+      gl.uniform1i(gU.uL, 0); gl.uniform1f(gU.uLon, 1); gl.uniform2f(gU.uBW, bw, bh);
+    } else gl.uniform1f(gU.uLon, 0);
     gl.uniform1f(gU.uS, S); gl.uniform1f(gU.uH, bh); gl.uniform1f(gU.uTH, P.THRESHOLD); gl.uniform1f(gU.uBand, P.THRESHOLD * 0.08);
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     gSnapS = S; gSnapBH = bh; gOv = 0; gTStat.subdiv = 0; gTStat.leaves = 0; gTStat.sumM = 0; gTStat.maxM = 0; gTStat.clamp = 0;
@@ -1142,11 +1205,12 @@
       for (i = 0; i < src.n; i++) {
         if (n >= GMAX) { n = -1; break; }
         gC[n * 4] = src.x[i]; gC[n * 4 + 1] = src.y[i]; gC[n * 4 + 2] = ms * src.r[i] * src.r[i]; gC[n * 4 + 3] = src.r[i] * Math.max(3, Math.sqrt(ms / (TH * 0.03)));
-        gW[n * 4] = src.wr[i]; gW[n * 4 + 1] = src.wg[i]; gW[n * 4 + 2] = src.wb[i]; n++;
+        gW[n * 4] = src.wr[i]; gW[n * 4 + 1] = src.wg[i]; gW[n * 4 + 2] = src.wb[i]; gW[n * 4 + 3] = 0; n++;
       }
       if (n >= 0) {
         var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
         if (glc.width !== bw || glc.height !== bh) { glc.width = bw; glc.height = bh; }
+        var glab = regionMap(bw, bh, S); if (glab) { var grg = sourceRegions(src, n, glab, bw, bh, S); for (i = 0; i < n; i++) gW[i * 4 + 3] = grg[i]; if (gLab !== glab) { gLab = glab; gLabId++; } } else gLab = null;
         gpuDraw(gC, gW, n, bw, bh, S, gTiledForce !== null ? gTiledForce : Math.ceil(bw / GTILE) * Math.ceil(bh / GTILE) > 1); // tiled beyond one tile; the per-pixel formula is untouched (gTiledForce: harness A/B only)
         if (gOv > 0) { var ov = gOv; gpuDraw(gC, gW, n, bw, bh, S, false); gOv = ov; } // a 16px leaf hit capacity even after subdivision (only possible at n=GMAX fully clustered, m<=n<=GMAX): never show the clamped source-dropping tiles - clear and re-render the SAME packed sources through the full pass, which holds all n<=GMAX<=gShaderMax. gpuDraw resets gOv, so restore the engagement counter.
         pfm('gpu:draw+field'); gT0 = performance.now();
