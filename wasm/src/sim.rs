@@ -385,9 +385,11 @@ impl Sim {
         let (nx, ny) = (dx / nl, dy / nl); let sep = (ra + rb - dist) * 0.5;
         // f9 (73d-1): a squeeze pushes as a force, it never carries - each cell may spend at most MAXS+1 of positional displacement per step
         if self.used.len() <= a.max(b) { let l = a.max(b) + 1; self.used.resize(l, 0.0); }
-        let spa = sep.min((self.g(a, MAXS) + 1.0 - self.used[a]).max(0.0)); let spb = sep.min((self.g(b, MAXS) + 1.0 - self.used[b]).max(0.0));
-        self.set(a, X, self.g(a, X) - nx * spa); self.set(a, Y, self.g(a, Y) - ny * spa); self.used[a] += spa;
-        self.set(b, X, self.g(b, X) + nx * spb); self.set(b, Y, self.g(b, Y) + ny * spb); self.used[b] += spb;
+        // sep < 0 (apart but inside the interaction radius) pulls the pair together: that motion spends the budget too (magnitude), it must never refund it
+        let (ca, cb) = ((self.g(a, MAXS) + 1.0 - self.used[a]).max(0.0), (self.g(b, MAXS) + 1.0 - self.used[b]).max(0.0));
+        let spa = sep.signum() * sep.abs().min(ca); let spb = sep.signum() * sep.abs().min(cb);
+        self.set(a, X, self.g(a, X) - nx * spa); self.set(a, Y, self.g(a, Y) - ny * spa); self.used[a] += spa.abs();
+        self.set(b, X, self.g(b, X) + nx * spb); self.set(b, Y, self.g(b, Y) + ny * spb); self.used[b] += spb.abs();
         let (avx, avy, bvx, bvy) = (self.g(a, VX), self.g(a, VY), self.g(b, VX), self.g(b, VY));
         let ad = avx * nx + avy * ny; let bd = bvx * nx + bvy * ny;
         let (r1x, r1y) = self.rand2d(); let (r2x, r2y) = self.rand2d();
