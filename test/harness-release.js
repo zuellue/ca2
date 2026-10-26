@@ -27,7 +27,7 @@
   };
   window.__caRelease = {
     preview: preview,
-    assetURL: function (name) { return 'https://ca.abdupala.com/test/' + name; },
+    assetURL: function (name) { return /^https?:/.test(name) ? name : 'https://ca.abdupala.com/test/' + name; },
     observeGlobal: function (g) {
       if (!ready || preview || window.__adminOn) return;
       if (online(g) !== selected) location.reload();
