@@ -1,7 +1,7 @@
 // t136: CA-6 step-end velocity bound (f10). Dense fixture (t133-style, N=200 BOX=120), NORMAL step (p[56]=0), 220 steps.
 // Three engines on identical frozen states:
-//   A = baseline wasm (env WASM_A, default test/OLD-f9-ca2core.wasm is NOT it - use a fresh a8368ab build)
-//   B = candidate wasm with f10 (env WASM_B, default wasm/target/.../release/ca2core.wasm)
+//   A = baseline wasm (env WASM_A, REQUIRED - pre-f10 build of the same base commit, e.g. the 3b56151 pack build md5 8d522fe28eaf579e52b825fa460f2063)
+//   B = candidate wasm with f10 (env WASM_B, default test/ca2core.wasm)
 //   J = JS engine: the page's update/checkSurvival/interact/keepIn extracted live from test/ca2.js, frame loop mirrored 1:1 incl. the f10 close
 // Invariant (f10): every processed alive cell ends the step with |v| <= maxSpeed*sm*speedModifier*(restlessDrag?1+restless*1.5:1) + eps.
 // (Cells born mid-step are excluded: both engines deliberately birth at |v| = pre-spd maxSpeed - the Cell ctor and new_kid share that.)
@@ -9,7 +9,7 @@
 // Reports raw max/mean end |v|, overspeed events (|v|>maxSpeed), max single-step displacement, per engine. JS-vs-wasm divergence is
 // descriptive only (RNG streams differ by design).
 // usage: node devtools/t136-vel-step-end-bound.js [steps] [nstates]; env RD=1 restless-drag variant, N/BOX override, WASM_A/WASM_B
-const fs=require('fs'),path=require('path');
+const fs=require('fs'),path=require('path'),crypto=require('crypto');
 const src=fs.readFileSync(path.join(__dirname,'..',process.env.CA_JS||'test/ca2.js'),'utf8');
 function fn(name){const i=src.indexOf('function '+name+'(');if(i<0)throw name;let j=src.indexOf('{',i),d=0,k=j;for(;k<src.length;k++){if(src[k]=='{')d++;else if(src[k]=='}'){d--;if(!d)break;}}return src.slice(i,k+1);}
 function vr(name){const i=src.indexOf('var '+name+' = ');let j=src.indexOf('{',i),d=0,k=j;for(;k<src.length;k++){if(src[k]=='{')d++;else if(src[k]=='}'){d--;if(!d)break;}}return src.slice(i,k+1)+';';}
@@ -36,8 +36,15 @@ const P=J.P;
 const STEPS=+process.argv[2]||220, NSTATES=+process.argv[3]||6;
 const N=+process.env.N||200, BOX=+process.env.BOX||120, RD=process.env.RD?1:0;
 const ST=30;
-const wasmA=process.env.WASM_A||path.join(__dirname,'..','test','ca2core.wasm');
-const wasmB=process.env.WASM_B||path.join(__dirname,'..','wasm','target','wasm32-unknown-unknown','release','ca2core.wasm');
+// WASM_A is REQUIRED: the pre-f10 baseline build of the SAME base commit (never test/ca2core.wasm -
+// the candidate build lands there and a default to it silently self-compares, F70 catch 2026-10-26).
+// Refuse to run when A is unset or when A and B are byte-identical.
+if(!process.env.WASM_A){console.error('FAIL: set WASM_A to the pre-f10 baseline wasm of the same base commit (candidate must not be the default).');process.exit(2);}
+const wasmA=process.env.WASM_A;
+const wasmB=process.env.WASM_B||path.join(__dirname,'..','test','ca2core.wasm');
+{const ha=crypto.createHash('md5').update(fs.readFileSync(wasmA)).digest('hex'),hb=crypto.createHash('md5').update(fs.readFileSync(wasmB)).digest('hex');
+ console.log('A(baseline)',wasmA,'md5',ha);console.log('B(candidate)',wasmB,'md5',hb);
+ if(ha===hb){console.error('FAIL: A and B are byte-identical - non-discriminating comparison, refusing to report PASS.');process.exit(2);}}
 (async()=>{
 const EA=(await WebAssembly.instantiate(fs.readFileSync(wasmA),{})).instance.exports;
 const EB=(await WebAssembly.instantiate(fs.readFileSync(wasmB),{})).instance.exports;
