@@ -843,7 +843,7 @@
     }
   }
   var aev = { b: 0, d: 0, h: 0 };
-  var curInfo3 = {}, curOn0 = false, curInfo2 = {}, curMaxR = 0, lockCell = null, lockT0 = 0, curX = 0, curY = 0, cursorScale = 1, targetCursorScale = 1, curRRnow = 0, curInfo = {}, circlesNow = [], circleCol = {}, lastCircleHit = '';
+  var curInfo3 = {}, curOn0 = false, curInfo2 = {}, curMaxR = 0, lockCell = null, lockT0 = 0, curLockK = 0, curLockR = 0, curX = 0, curY = 0, cursorScale = 1, targetCursorScale = 1, curRRnow = 0, curInfo = {}, circlesNow = [], circleCol = {}, lastCircleHit = '';
   var curEl = document.getElementById('cur'), curDot = curEl.firstElementChild;
   // boundary hover cursor: an open 90-degree angle - two strokes in the plate line's width and colour, a gap where they
   // would meet, each stroke half the logo height, oriented to the hovered edge; corners get the mirrored pair (owner 20 Oct)
@@ -2446,7 +2446,12 @@
     var curOn = false, curRR = 0, curCol = '#000', dotOnly = false;
     if (hovering && mouse.over && hoverCell) { curOn = true; var mxr = 0; for (var q = 0; q < cells.length; q++) { var cq = cells[q]; if (cq.alive && cq.x > cont.x && cq.x < cont.x + cont.w && cq.y > cont.y && cq.y < cont.y + cont.h && cq.radius > mxr) mxr = cq.radius; }
       curMaxR += (mxr - curMaxR) * 0.3; curRR = Math.max(3, curMaxR * P.cursorSize);
-      var tnow = performance.now(); if (hoverCell !== lockCell) { lockCell = hoverCell; lockT0 = tnow; } curCol = css(hoverCol, 1); }
+      var tnow = performance.now(); if (hoverCell !== lockCell) { lockCell = hoverCell; lockT0 = tnow; } curCol = css(hoverCol, 1);
+      // while the cursor is locked on a cell its ring is slightly larger than that cell (tentative factor 1.15); when the lock ends it eases back to the configured size.
+      // The configured size (P.cursorSize) is never written; only this transient render value changes.
+      var lockedNow = P.cursorLockMs > 0 && lockCell && lockCell.alive && tnow - lockT0 < P.cursorLockMs;
+      curLockK += ((lockedNow ? 1 : 0) - curLockK) * 0.3; if (lockedNow) curLockR = Math.max(3, effR(lockCell) * 1.15);
+      curRR += (curLockR - curRR) * curLockK; if (lockedNow) curRR = Math.max(curRR, effR(lockCell) * 1.03); } // never smaller than the locked cell during the lock
     else if (titleHit) { curOn = true; curRR = Math.max(5, titleHit.c.r * 0.55 * (0.8 + 0.2 * cursorScale)); var iv = [255 - titleHit.v[0], 255 - titleHit.v[1], 255 - titleHit.v[2]]; curCol = css(iv); }
     var ringOn = curOn;
     if (!curOn && mouse.over && !panel.matches(':hover')) { curOn = true; dotOnly = true; }
@@ -2459,7 +2464,7 @@
       var sens = clamp(P.cursorSens, 0.05, 1), ke = locked ? Math.min(1, sens + 0.1) : sens; curX = curOn0 ? curX + (tx - curX) * ke : tx; curY = curOn0 ? curY + (ty - curY) * ke : ty; curOn0 = true; curInfo2 = { locked: locked, x: curX, y: curY, lx: lockCell ? lockCell.x : 0, ly: lockCell ? lockCell.y : 0 };
       curEl.style.transform = 'translate(' + (curX - curRR) + 'px,' + (curY - curRR) + 'px)';
       cv.style.cursor = 'none';
-    } else { curEl.style.display = 'none'; cv.style.cursor = 'default'; curOn0 = false; lockCell = null; }
+    } else { curEl.style.display = 'none'; cv.style.cursor = 'default'; curOn0 = false; lockCell = null; curLockK = 0; }
     curInfo = { on: curOn, ring: ringOn, dot: curInfo3.dot, dp: curInfo3.dp, lx: curInfo2.lx, ly: curInfo2.ly, locked: curInfo2.locked, maxR: curMaxR, cx: curX, cy: curY, rr: curRR, col: curCol, title: !!titleHit };
     }
 
