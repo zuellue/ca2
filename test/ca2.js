@@ -170,8 +170,12 @@
     if (P.selectOn && P.genomeOn) { var mf = misfit(c); c.energy -= P.selStrength * mf * 0.05; if (Math.random() < P.selStrength * 0.005 * Math.pow(mf, 1.5)) { c.alive = false; c.__dr = 'select'; } }
     if (c.energy <= 0) { c.alive = false; c.__dr = 'energy0'; }
     if (cm) {
-      var ch = P.clusterCohesion; c.vx = lerp(c.vx, cm.vx, ch); c.vy = lerp(c.vy, cm.vy, ch);
-      c.vx += (cm.x - c.x) * 0.01 * ch; c.vy += (cm.y - c.y) * 0.01 * ch; c.energy += (cm.e - c.energy) * 0.05;
+      // loose following: members keep their own motion (weak velocity alignment) and roam freely inside an area of 3 radii around the
+      // cluster centroid; only the part outside the area pulls back, harder the further a straggler lags, so laggards catch up. Energy sharing unchanged.
+      var ch = P.clusterCohesion; c.vx = lerp(c.vx, cm.vx, ch * 0.15); c.vy = lerp(c.vy, cm.vy, ch * 0.15);
+      var cdx = cm.x - c.x, cdy = cm.y - c.y, cdd = Math.hypot(cdx, cdy), cex = cdd - c.radius * 3;
+      if (cex > 0) { c.vx += cdx / cdd * cex * 0.02 * ch; c.vy += cdy / cdd * cex * 0.02 * ch; }
+      c.energy += (cm.e - c.energy) * 0.05;
     }
     // symbiosis: a bonded pair shares its motion and keeps its distance; the bond feeds both a little and ends
     // when a partner dies, when they drift too far apart, or on a whim
@@ -390,6 +394,31 @@
     if (!P.boundAware) return;
     for (var fci = 0; fci < cells.length; fci++) { var fcc = cells[fci]; if (fcc.alive) wallPull(fcc, effR(fcc), true); }
   }
+  // ---- lobed body plan -> real cells. A lobed body was a main disc (0.78 cr) plus 2-3 drawn lobes (0.30-0.52 cr) at fixed angles: no position, speed, energy or alive state.
+  // Each lobe becomes a real cell tied to the centre by the ordinary cluster (cl). Area and energy are partitioned, not created: radii scale by 1/sqrt(sum of disc areas) so the
+  // total area stays the old cr^2, energy is shared by area. Births are counted and the usual population cap applies (no room: remaining lobes fold into the centre, area and energy kept).
+  function splitLobes() {
+    var cap = Math.max(60, P.UNIVERSE_SIZE * 4), n0 = cells.length, i, q;
+    for (i = 0; i < n0; i++) {
+      var c = cells[i]; if (!c.alive || !c.shp || c.shp.t !== 2) continue;
+      var n = Math.min(4, c.shp.sat | 0), sh = c.shp; if (n < 1) { c.shp = newShape({ t: 0, asp: 1, th: 1, wig: 0, wsp: 1, sat: 0, dir: sh.dir }); c.shp.t = 0; continue; }
+      var room = cap - cells.length; if (room < 0) room = 0; var k = Math.min(n, room); // no room for every lobe: the rest fold into the centre (its area and energy share), so the rigid lobes never remain
+      var cr = c.radius, fr = [], A = 0.78 * 0.78, Ac = 0.78 * 0.78;
+      for (q = 0; q < n; q++) { var f = 0.3 + 0.22 * ((q * 0.377 + sh.ph2) % 1); fr.push(f); A += f * f; if (q >= k) Ac += f * f; }
+      var sc = 1 / Math.sqrt(A), E = c.energy, ex = c.x, ey = c.y, evx = c.vx, evy = c.vy;
+      c.radius = cr * Math.sqrt(Ac) * sc; c.energy = E * Ac / A; n = k;
+      c.shp = { t: 0, asp: 1, th: 1, wig: 0, wsp: 1, sat: 0, ph: sh.ph, ph2: sh.ph2, dir: sh.dir };
+      for (q = 0; q < n; q++) {
+        var ud = (q * 0.731 + sh.ph) % 1, ang = sh.ph2 + q * 2.4, d = cr * sc * (0.95 + 0.5 * ud), rr = cr * fr[q] * sc;
+        var bx0 = cont.x + rr, bx1 = cont.x + cont.w - rr, by0 = cont.y + rr, by1 = cont.y + cont.h - rr;
+        var kx = bx1 >= bx0 ? clamp(ex + Math.cos(ang) * d, bx0, bx1) : (bx0 + bx1) / 2, ky = by1 >= by0 ? clamp(ey + Math.sin(ang) * d, by0, by1) : (by0 + by1) / 2;
+        var ch = new Cell(kx, ky, c.gene, c.mutationRate);
+        ch.radius = rr; ch.energy = E * fr[q] * fr[q] / A; ch.g = mutGenome(c.g, P.genomeMut); ch.maxSpeed = speedOf(ch); ch.vx = evx; ch.vy = evy;
+        ch.shp = { t: 0, asp: 1, th: 1, wig: 0, wsp: 1, sat: 0, ph: rnd(6.2832), ph2: rnd(6.2832), dir: rnd(6.2832) }; ch.bornAt = frameT || 0; ch.popD = c.popD;
+        cells.push(ch); ev.birth++; ev.lobeSplit = (ev.lobeSplit || 0) + 1; joinCluster(c, ch);
+      }
+    }
+  }
   function divide(c) {
     var ang = Math.random() * 6.2832, nr = Math.max(P.CELL_RADIUS, c.radius * 0.62);
     c.radius = nr; c.energy /= 2;
@@ -431,7 +460,7 @@
     if (P.eatMergeOn && dist < (a.radius + b.radius) * P.eatDistF) {
       var big = a.radius >= b.radius ? a : b, sm = big === a ? b : a, ratio = big.radius / Math.max(0.01, sm.radius);
       if (ratio >= P.eatRatio) {
-        if (Math.random() < P.eatChance && (!big.cl || big.cl !== sm.cl)) {
+        if (Math.random() < P.eatChance && true) { // the central (bigger) cell eats a neighbour that gets too close, cluster or not; ratio/chance rules unchanged
           big.radius = Math.min(Math.sqrt(big.radius * big.radius + 0.5 * sm.radius * sm.radius), P.CELL_RADIUS * P.foodGrowMax * 1.2);
           big.energy += sm.energy * 0.6 + 1; sm.alive = false; sm.__dr = 'eaten'; sm.absorbed = 1; ev.eaten = (ev.eaten || 0) + 1; return;
         }
@@ -855,7 +884,7 @@
   var WC = { ok: false, off: false }, MB = { ms: 0, path: '-' };
   if (window.WebAssembly && !/[?&]nowasm=1/.test(location.search)) {
     var simd = false; try { simd = WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11])); } catch (e) {} WC.simd = simd && !/[?&]nosimd=1/.test(location.search);
-    fetch(window.__caRelease ? window.__caRelease.assetURL((WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610261530') : (WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610221624').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, {}); }).then(function (m) {
+    fetch(window.__caRelease ? window.__caRelease.assetURL((WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610261540') : (WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610221624').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, {}); }).then(function (m) {
       var e = m.instance.exports; WC.mem = e.memory; WC.cells = e.cells_ptr; WC.out = e.out_ptr; WC.fieldX = e.mb_field; WC.field = e.mb_field_f32; WC.fieldF = e.mb_field_f32; if (e.sim_step) WC.e = e; WC.ok = true;
     }).catch(function (e) { WC.err = String(e); });
   }
@@ -2157,6 +2186,7 @@
 
     if (trans) stepTrans(t0, dtf);
     pfm('stepTrans');
+    splitLobes();
     // cluster state: shared motion and energy; a cluster of one dissolves, members sometimes leave on their own
     cmean = {};
     if (P.eatMergeOn) {
