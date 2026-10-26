@@ -50,7 +50,7 @@
       s.onload = resolve; s.onerror = reject; document.body.appendChild(s);
     });
   }
-  function loadSession(){return new Promise(function(ok,no){var s=document.createElement('script');s.src='https://ca.abdupala.com/test/admin-session.js?v=202610261420';s.onload=ok;s.onerror=no;document.body.appendChild(s);});}
+  function loadSession(){return new Promise(function(ok,no){var s=document.createElement('script');s.src='https://ca.abdupala.com/admin-session.js?v=202610261420';s.onload=ok;s.onerror=no;document.body.appendChild(s);});}
   var timeout;
   var first = new Promise(function (resolve) { timeout = setTimeout(function () { resolve(null); }, 3000); });
   var pull = rawFetch(WK + '?release=' + Date.now(), { cache: 'no-store' }).then(function (r) {
