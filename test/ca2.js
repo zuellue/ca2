@@ -2122,6 +2122,9 @@
       for (var k = i - 1; k >= 0; k--) interact(c, cells[k]);
       if (resizeDrag && c.alive) { var ms2 = (c.maxSpeed + 1) * P.restless; c.vx += (Math.random() - 0.5) * ms2 * 2; c.vy += (Math.random() - 0.5) * ms2 * 2; }
       if (P.boundAware && c.alive) keepIn(c);
+      // f10 (CA-6): close the step at the cell's own speed limit - 1:1 sim.rs step() (the pair reflect/kick,
+      // restless and wall channels after update()'s clamp otherwise keep adding past it)
+      if (c.alive) { var dmE = Math.hypot(c.x - mouse.x, c.y - mouse.y), smE = dmE < P.slowDownRadius ? P.speedReductionFactor : 1; limit(c, c.maxSpeed * smE * c.speedModifier * (resizeDrag ? 1 + P.restless * 1.5 : 1)); }
       if (!c.alive) { ev.death++; logDeath(c, c.__dr || 'untagged-js'); habReap(c); cells.splice(i, 1); }
     }
     if (!simDone) SIMW.js = (SIMW.js || 0) * 0.9 + (performance.now() - tj0) * 0.1;

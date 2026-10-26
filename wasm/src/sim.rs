@@ -493,6 +493,16 @@ impl Sim {
                 self.set(i, VX, self.g(i, VX) + (a1 - 0.5) * ms2 * 2.0); self.set(i, VY, self.g(i, VY) + (a2 - 0.5) * ms2 * 2.0);
             }
             if self.p[P_BOUND] != 0.0 && self.p[P_ONLYINT] != 1.0 && self.alive(i) { self.keep_in(i); }
+            // f10 (CA-6): close the step at the cell's own speed limit - update() clamps at its start, but the
+            // pair reflect/kick, restless and wall channels after it keep adding past it (t135-vel-attribution
+            // dense fixture 3b56151, 220 normal steps: 15.9% of cell-steps end |v|>maxSpeed, restless-on 96.4%).
+            // Same lim formula update() uses: MAXS * sm * SPM * (restless drag ? 1 + restless*1.5 : 1).
+            if self.p[P_ONLYINT] == 0.0 && self.alive(i) {
+                let dm = hyp(self.g(i, X) - self.p[P_MX], self.g(i, Y) - self.p[P_MY]);
+                let sm = if dm < self.p[P_SLOWR] { self.p[P_SLOWF] } else { 1.0 };
+                let lim = self.g(i, MAXS) * sm * self.g(i, SPM) * if self.p[P_RDRAG] != 0.0 { 1.0 + self.p[P_RESTL] * 1.5 } else { 1.0 };
+                self.limit(i, lim);
+            }
             if !self.alive(i) { self.out[9] += 1.0; self.set(i, REM, 1.0); self.live -= 1; }
         }
         self.out[10] = self.p[P_CLSEQ]; self.out[11] = if hovering { 1.0 } else { 0.0 };
