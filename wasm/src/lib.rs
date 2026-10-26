@@ -16,6 +16,14 @@ static mut F_R: Vec<f32> = Vec::new();
 static mut F_G: Vec<f32> = Vec::new();
 static mut F_B: Vec<f32> = Vec::new();
 static mut OUT: Vec<u8> = Vec::new();
+// separator region gate (owner 96c): LAB = per-pixel region label (0 = separator wall + margin, no ink), REGS = per-source region.
+// A pixel only sums sources of its own region, so the field cannot bridge a separator. LABON=false: ungated (identical to before).
+static mut LAB: Vec<u8> = Vec::new();
+static mut REGS: Vec<u8> = Vec::new();
+static mut LABON: bool = false;
+#[no_mangle] pub extern "C" fn lab_ptr(np: usize) -> *mut u8 { unsafe { let l = &mut *std::ptr::addr_of_mut!(LAB); l.resize(np, 0); l.as_mut_ptr() } }
+#[no_mangle] pub extern "C" fn reg_ptr(n: usize) -> *mut u8 { unsafe { let l = &mut *std::ptr::addr_of_mut!(REGS); l.resize(n, 0); l.as_mut_ptr() } }
+#[no_mangle] pub extern "C" fn lab_on(v: u32) { unsafe { LABON = v != 0; } }
 
 #[no_mangle]
 pub extern "C" fn cells_ptr(n: usize) -> *mut f64 {
@@ -49,6 +57,7 @@ pub extern "C" fn mb_field(n: usize, bw: usize, bh: usize, s: f64, ms: f64, th: 
         if fs.len() != np { fs.clear(); fs.resize(np, 0.0); fr.clear(); fr.resize(np, 0.0); fg.clear(); fg.resize(np, 0.0); fb.clear(); fb.resize(np, 0.0); out.clear(); out.resize(np * 4, 0); }
         else { fs.fill(0.0); fr.fill(0.0); fg.fill(0.0); fb.fill(0.0); }
         let cells = &*std::ptr::addr_of!(CELLS);
+        let (laboon, lab, regs) = (LABON, &*std::ptr::addr_of!(LAB), &*std::ptr::addr_of!(REGS));
         let inv = 1.0 / s;
         let k = (ms / (th * 0.03)).sqrt().max(3.0);
         for i in 0..n {
@@ -76,7 +85,7 @@ pub extern "C" fn mb_field(n: usize, bw: usize, bh: usize, s: f64, ms: f64, th: 
                     let vinv = f64x2_splat(inv);
                     let vcx = f64x2_splat(cx);
                     let vh = f64x2_splat(0.5);
-                    while x + 1 <= x1 {
+                    while !laboon && x + 1 <= x1 {
                         let vx = f64x2((x as f64) + 0.0, (x as f64) + 1.0);
                         let dx = f64x2_sub(f64x2_mul(f64x2_add(vx, vh), vinv), vcx);
                         let inf = f64x2_div(vr2, f64x2_add(f64x2_add(f64x2_mul(dx, dx), vdy2), veps));
@@ -96,6 +105,7 @@ pub extern "C" fn mb_field(n: usize, bw: usize, bh: usize, s: f64, ms: f64, th: 
                     let inf = r2 / (dx * dx + dy * dy + 0.0001);
                     let i2 = inf * inf;
                     let p = row + x;
+                    if laboon && lab[p] != regs[i] { x += 1; continue; }
                     fs[p] = (fs[p] as f64 + inf) as f32;
                     if wr != 0.0 { fr[p] = (fr[p] as f64 + i2 * wr) as f32; }
                     if wg != 0.0 { fg[p] = (fg[p] as f64 + i2 * wg) as f32; }
@@ -131,6 +141,7 @@ pub extern "C" fn mb_field_f32(n: usize, bw: usize, bh: usize, s: f64, ms: f64, 
         let (acc, out) = (&mut *std::ptr::addr_of_mut!(ACC), &mut *std::ptr::addr_of_mut!(OUT));
         if acc.len() != np * 4 { acc.clear(); acc.resize(np * 4, 0.0); out.clear(); out.resize(np * 4, 0); } else { acc.fill(0.0); }
         let cells = &*std::ptr::addr_of!(CELLS);
+        let (laboon, lab, regs) = (LABON, &*std::ptr::addr_of!(LAB), &*std::ptr::addr_of!(REGS));
         let sf = s as f32;
         let invf = (1.0 / s) as f32;
         let k = (ms / (th * 0.03)).sqrt().max(3.0);
@@ -154,6 +165,7 @@ pub extern "C" fn mb_field_f32(n: usize, bw: usize, bh: usize, s: f64, ms: f64, 
                 let row = y * bw;
                 let mut dx = (x0 as f32 + 0.5) * invf - cxf;
                 for x in x0..=x1 {
+                    if laboon && lab[row + x] != regs[i] { dx += invf; continue; }
                     let inf = r2 / (dx * dx + dy2);
                     let i2 = inf * inf;
                     let a = &mut acc[(row + x) * 4..(row + x) * 4 + 4];
