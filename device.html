@@ -127,7 +127,7 @@
     cur = i; try { localStorage.setItem('ca2.device', String(i)); } catch (e) {}
     links.forEach(function (a, j) { a.classList.toggle('on', j === i); });
     var d = DEVS[i];
-    if (nav || !fr.src) fr.src = 'index.html?mobile=1&dpr=' + d[3];
+    if (nav || !fr.src) fr.src = (/[?&]test=1/.test(location.search) ? '/test/' : '/') + 'index.html?mobile=1&dpr=' + d[3];
     fit();
   }
   scalea.addEventListener('click', function () {

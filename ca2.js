@@ -690,7 +690,7 @@
   var WC = { ok: false, off: false }, MB = { ms: 0, path: '-' };
   if (window.WebAssembly && !/[?&]nowasm=1/.test(location.search)) {
     var simd = false; try { simd = WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11])); } catch (e) {} WC.simd = simd && !/[?&]nosimd=1/.test(location.search);
-    fetch((WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610221624').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, {}); }).then(function (m) {
+    fetch(window.__caRelease ? window.__caRelease.assetURL((WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610261410') : (WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610221624').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, {}); }).then(function (m) {
       var e = m.instance.exports; WC.mem = e.memory; WC.cells = e.cells_ptr; WC.out = e.out_ptr; WC.fieldX = e.mb_field; WC.field = e.mb_field_f32; WC.fieldF = e.mb_field_f32; if (e.sim_step) WC.e = e; WC.ok = true;
     }).catch(function (e) { WC.err = String(e); });
   }
@@ -3203,6 +3203,7 @@
     }
     function pullG(first) {
       fetch(WK + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (g) {
+        if (window.__caRelease && g && g._v) window.__caRelease.observeGlobal(g);
         if (!g || !g._v || g._v === lastV) return; lastV = g._v;
         try { localStorage.setItem(GK, JSON.stringify(g)); } catch (e) {}
         if (window.__adminOn) return;
@@ -3217,6 +3218,14 @@
   // capability hooks the server-verified admin module builds on (owner 21 Oct): handles only - no admin UI,
   // strings or logic ships publicly; everything user-visible comes down after the Worker verifies the code.
   window.__ca2x = {
+    mountRelease: function (on, change) {
+      if (!window.__adminOn) return;
+      var row = _toggle('test online', on, change);
+      ctl.insertBefore(row.el, swSec.hdr.nextSibling); swSec.els.unshift(row.el);
+      window.addEventListener('ca2logout', function () {
+        row.el.remove(); var i = swSec.els.indexOf(row.el); if (i >= 0) swSec.els.splice(i, 1);
+      }, { once: true });
+    },
     admCircles: admCircles, hookHov: hookHov,
     rePlace: function () { circSig = ''; placeCircles(); },
     modeSel: function () { return modeSel; }, modeSet: function (v) { modeSel = v; modePub(); },
@@ -3267,10 +3276,11 @@
     // an iOS long-press menu would cancel the 5s hold
     document.addEventListener('contextmenu', function (e) { if ((window.__ca2Mode ? window.__ca2Mode() : 'd') === 'm') e.preventDefault(); }, true);
     var verify = function (code) {
-      fetch(WK, { method: 'POST', keepalive: true, body: JSON.stringify({ code: code, admin: true }) }).then(function (r) { return r.json(); }).then(function (r) {
+      fetch(WK, { method: 'POST', keepalive: true, body: JSON.stringify({ code: code, admin: true, persist: true }) }).then(function (r) { return r.json(); }).then(async function (r) {
         if (r && r.ok && typeof r.js === 'string') {
+          if(window.__caAdminSession) { try { await window.__caAdminSession.accept(r); } catch(e) { window.__adminSessionErr='session not retained'; } }
           disarm(); // the Worker-served module takes over the column with its own A B D U
-          try { (new Function('code', 'X', r.js))(code, window.__ca2x); } catch (e) {}
+          try { (new Function('code', 'X', r.js))(code, window.__ca2x); if (window.__caRelease) window.__caRelease.mountAdmin(); } catch (e) {}
         } else {
           eg.classList.add('err'); box.value = ''; setTimeout(function () { eg.classList.remove('err'); clearGlyphs(); }, 600);
         }
@@ -3573,7 +3583,7 @@
     window.addEventListener('ca2mode', function (e) {
       lane = true; if (!e.detail || !e.detail.mode) return;
       // B picked on a wide desktop window opens the phone-frame preview (owner 21 Oct); the frame is device.html
-      if (e.detail.sel === 'm' && !MODE_Q && !coarse && window.innerWidth > AUTO_W && !/device\.html/.test(location.pathname)) { location.href = 'device.html'; return; }
+      if (e.detail.sel === 'm' && !MODE_Q && !coarse && window.innerWidth > AUTO_W && !/device\.html/.test(location.pathname)) { location.href = '/device.html' + (window.__caRelease && window.__caRelease.preview ? '?test=1' : ''); return; }
       refresh(e.detail.mode);
     });
     window.addEventListener('resize', function () { if (applying || lane || window.__ca2Mode || lsSel) return; refresh(); }); // fallback auto-switch only while no lane module and no explicit pick
@@ -3755,3 +3765,5 @@
   })();
 
 })();
+
+if(window.__caAdminSession)window.__caAdminSession.restore();
