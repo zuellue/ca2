@@ -196,6 +196,7 @@ pub extern "C" fn mb_field_f32(n: usize, bw: usize, bh: usize, s: f64, ms: f64, 
 #[no_mangle] pub extern "C" fn sim_step(s0: f64, s1: f64) { sim::sim().step(s0, s1); }
 #[no_mangle] pub extern "C" fn sim_log() -> *const f64 { sim::sim().log.as_ptr() }
 #[no_mangle] pub extern "C" fn sim_cap() -> usize { sim::sim().cap }
+#[no_mangle] pub extern "C" fn sim_stride() -> usize { sim::ST } // f64 per cell: the page asserts it equals its own pack/read stride at boot
 #[no_mangle] pub extern "C" fn sim_cells_ptr() -> *mut f64 { sim::sim().cells.as_mut_ptr() }
 
 #[no_mangle] pub extern "C" fn sp_in(n: usize) -> *mut f64 { let s = spores::sp(); s.inb.resize(n * 9 + 9, 0.0); s.inb.as_mut_ptr() }
