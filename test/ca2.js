@@ -26,14 +26,14 @@
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
     bgColor: '', grainStock: 0, grainMono: 0, grainSkew: 0, grainResAdapt: 0, grainShadow: 1.8, grainMid: 1.5, grainHigh: 2.7, grainFineRatio: 0.5, grainCloudRatio: 2.2, grainDebug: 0, parasiteSize: 1,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
-    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, divideMode: 0, divideAgeMs: 20000, divideEnergy: 40, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, separatorOn: 0, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, panelRowGap: 11, spawnProtect: 1, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, sprayMs: 120, sprayGapPx: 26, sprayBurst: 3, sprayRadius: 90, titleCircles: 1, circleHold: 1, titleLead: 1.3, titleTrack: 1,
+    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, divideMode: 0, divideAgeMs: 20000, divideEnergy: 40, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, separatorOn: 0, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, panelRowGap: 11, spawnProtect: 1, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, sprayMs: 120, sprayGapPx: 26, sprayBurst: 3, sprayRadius: 90, titleCircles: 1, circleHold: 1, titleLead: 1.3, titleTrack: 1,
     audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, audioMicro: 0, audioMicroPitch: 1200, audioMicroDecay: 70, audioMicroRand: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1, foodReseed: 1, foodReseedFloor: 0.2, foodReseedMin: 40, foodReseedMax: 900, foodReseedTries: 8, foodEatRate: 1.5, refreshResetEnergy: 1
   };
   // owner's chosen defaults (23:04)
   P.audioFadeMs = 5000;
   P.typeSlider = 1; P.cfgFont = 0; P.cfgFontSize = 13; P.cfgCase = 0; P.lineColor = '#111111'; P.autoInvert = 1; P.axisColor = ''; P.circColor = ''; P.ruleColor = ''; P.dragMargin = 8; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000; P.wallSmoothMs = 60; P.wallCarry = 1; P.wallSpread = 0.5; P.squashMax = 0.18; P.squashIn = 0.45; P.squashOut = 0.08; P.senseR = 1.6; P.senseSlow = 0.25; P.senseTurn = 0.12; P.senseDelay = 0.5; P.wallSubStep = 0.5; P.wallSubMax = 8; P.crowdGain = 0.12; P.crowdRel = 0.02; P.crowdSlow = 0.5; P.crowdPush = 0.3; P.habRate = 0.02; P.habDecay = 0.005; P.habMax = 0.6; P.solverIters = 0; P.solverOverlap = 1;
   P.foodMode = 2; P.foodBlobR = 70; P.foodBlobDots = 8; P.foodLife = 1; P.foodLifeMs = 300; P.foodLifeCell = 4; P.foodEatR = 0.4;
-  Object.assign(P, {"UNIVERSE_SIZE": 55.95868745026389, "baseMutationRate": 9.628232288701716, "mutationRateRange": 2.6268439511457253, "interactionRadius": 12.016352372548786, "CELL_RADIUS": 34.57106164334512, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 50, "maxRadius": 150, "baseMaxSpeed": 2, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 2.5, "THRESHOLD": 0.19, "metaballStrength": 0.024, "foodDensity": 0.023801395385356694, "foodEnergyValue": 20, "minRefreshInterval": 2, "maxRefreshInterval": 9, "slowDownRadius": 9, "speedReductionFactor": 37.5, "grain": 1, "grainAmount": 1.22, "grainStrength": 9.2, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 12, "fps": 12, "containerCorner": 29, "resolution": 1, "margin": 10, "gap": 26, "textScale": 0.8, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.74, "morphEase": 0.7, "pixelRatio": 2, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 1, "axisLayer": 0, "genomeOn": 1, "genomeMut": 0.5, "divideOn": 1, "divideAt": 3, "eatMergeOn": 1, "eatRatio": 3, "eatChance": 1, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.35, "clusterMax": 10, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 8, "foodShrink": 0.1, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 2350, "boundAware": 1, "boundZone": 20, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 2.3, "panelAlpha": 0, "panelWidth": 340, "blurWidth": 340, "cursorSens": 0.75, "cursorSize": 0.31, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 0.53, "audioMode": 1, "audioTone": 2120, "audioMod": 1, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#000000", "foodAlpha": 1, "foodSize": 3.5, "foodShow": 0.51, "audioFadeMs": 5000, "dragMargin": 24, "edgeGrab": 20, "restless": 3, "edgeFit": 0.3, "boundZoneR": 0.1, "blobOutline": 1, "plateOverlap": 0.5, "parasiteHard": 39.5, "parasiteSight": 4000, "parasiteNerv": 1, "parasiteHardMs": 20000, "foodMode": 3, "foodBlobR": 70, "foodBlobDots": 8, "foodLife": 1, "foodLifeMs": 300, "foodLifeCell": 4, "foodEatR": 0.26});
+  Object.assign(P, {"UNIVERSE_SIZE": 55.95868745026389, "baseMutationRate": 9.628232288701716, "mutationRateRange": 2.6268439511457253, "interactionRadius": 12.016352372548786, "CELL_RADIUS": 34.57106164334512, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 50, "maxRadius": 150, "baseMaxSpeed": 2, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 2.5, "THRESHOLD": 0.19, "metaballStrength": 0.024, "foodDensity": 0.023801395385356694, "foodEnergyValue": 20, "minRefreshInterval": 2, "maxRefreshInterval": 9, "slowDownRadius": 9, "speedReductionFactor": 37.5, "grain": 1, "grainAmount": 1.22, "grainStrength": 9.2, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 12, "fps": 12, "containerCorner": 29, "resolution": 1, "margin": 10, "gap": 26, "textScale": 0.8, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.74, "morphEase": 0.7, "pixelRatio": 2, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 1, "genomeOn": 1, "genomeMut": 0.5, "divideOn": 1, "divideAt": 3, "eatMergeOn": 1, "eatRatio": 3, "eatChance": 1, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.35, "clusterMax": 10, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 8, "foodShrink": 0.1, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 2350, "boundAware": 1, "boundZone": 20, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 2.3, "panelAlpha": 0, "panelWidth": 340, "blurWidth": 340, "cursorSens": 0.75, "cursorSize": 0.31, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 0.53, "audioMode": 1, "audioTone": 2120, "audioMod": 1, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#000000", "foodAlpha": 1, "foodSize": 3.5, "foodShow": 0.51, "audioFadeMs": 5000, "dragMargin": 24, "edgeGrab": 20, "restless": 3, "edgeFit": 0.3, "boundZoneR": 0.1, "blobOutline": 1, "plateOverlap": 0.5, "parasiteHard": 39.5, "parasiteSight": 4000, "parasiteNerv": 1, "parasiteHardMs": 20000, "foodMode": 3, "foodBlobR": 70, "foodBlobDots": 8, "foodLife": 1, "foodLifeMs": 300, "foodLifeCell": 4, "foodEatR": 0.26});
   // eating radius is a fixed px distance, independent of cell radius (owner 20 Oct: no factor); migrate the stored factor with the preset radius
   P.foodEatR = Math.round(P.foodEatR * P.CELL_RADIUS * 100) / 100;
   // micro habitat (pilot): the nutrient cycle between cells and the food field - death returns biomass and colour to the
@@ -1054,8 +1054,8 @@
   var REG = { key: '', lab: null, w: 0, h: 0, S: 0, n: 0, regs: new Uint8Array(512) };
   function regionMap(bw, bh, S) {
     var segs = (P.separatorOn && P.showAxis && P.axisWidth > 0 && axisInfo.segs && axisInfo.segs.length) ? axisInfo.segs : null;
-    if (!segs) { REG.key = ''; REG.lab = null; return null; }
-    var SX = P.axisLayer === 0 ? DPR : DD, lw = LW(), hw = 1.5 * lw, list = [], j, q; // hw = LW/2 + one line thickness, always exact (never widened at low resolution)
+    if (!segs) { REG.key = ''; REG.lab = null; REG.membership = null; return null; }
+    var SX = DPR, lw = LW(), hw = 1.5 * lw, list = [], j, q; // hw = LW/2 + one line thickness, always exact (never widened at low resolution)
     for (j = 0; j < segs.length; j++) { var a = segs[j].slice(); if (a[0] === a[2] || a[1] === a[3]) for (q = 0; q < 4; q++) a[q] = snapC(a[q], SX); list.push([a[0] - cont.x, a[1] - cont.y, a[2] - cont.x, a[3] - cont.y]); }
     var key = bw + 'x' + bh + '@' + S + '|' + hw + '|' + list.map(function (l) { return l.map(function (v) { return Math.round(v * 64); }).join(','); }).join(';');
     if (key === REG.key && REG.lab) return REG.lab;
@@ -1110,23 +1110,53 @@
       ring = nxt;
     }
     for (p0 = 0; p0 < bw * bh; p0++) if (lab[p0] === 254) lab[p0] = 0; // unreachable leftover: fail closed (zero, never a cross-region sum)
+    // Physical source membership remains byte-identical to the separator map.
+    // Only the image coverage closes its zero stroke band: one region per pixel,
+    // never summing cells across region membership or changing collision rules.
+    REG.membership = lab.slice();
+    var coverageQueue = new Int32Array(lab.length), head = 0, tail = 0;
+    for (p0 = 0; p0 < lab.length; p0++) if (lab[p0] > 0 && lab[p0] < 254) coverageQueue[tail++] = p0;
+    while (head < tail) {
+      var cp = coverageQueue[head++], cx = cp % bw, cy = (cp / bw) | 0, region = lab[cp];
+      var ns = [cx > 0 ? cp - 1 : -1, cx + 1 < bw ? cp + 1 : -1, cy > 0 ? cp - bw : -1, cy + 1 < bh ? cp + bw : -1];
+      for (var ni = 0; ni < ns.length; ni++) if (ns[ni] >= 0 && lab[ns[ni]] === 0) { lab[ns[ni]] = region; coverageQueue[tail++] = ns[ni]; }
+    }
     REG.key = key; REG.lab = lab; REG.w = bw; REG.h = bh; REG.S = S; REG.n = n; return lab;
   }
   function regionOf(lab, bw, bh, S, sx, sy) { // label of the region holding a source centre; a centre inside the wall/margin takes the nearest labelled pixel
     var ix = Math.max(0, Math.min(bw - 1, Math.floor(sx * S))), iy = Math.max(0, Math.min(bh - 1, Math.floor(sy * S))), v = lab[iy * bw + ix];
-    if (v) return v;
+    if (v && v < 254) return v;
     for (var r = 1, R = Math.ceil(8 * S + 4 * LW() * S); r <= R; r++) {
       var best = 0, bd = 1e9;
       for (var dy = -r; dy <= r; dy++) for (var dx = -r; dx <= r; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
         var xx = ix + dx, yy = iy + dy; if (xx < 0 || yy < 0 || xx >= bw || yy >= bh) continue;
-        var q = lab[yy * bw + xx]; if (q && dx * dx + dy * dy < bd) { bd = dx * dx + dy * dy; best = q; }
+        var q = lab[yy * bw + xx]; if (q && q < 254 && dx * dx + dy * dy < bd) { bd = dx * dx + dy * dy; best = q; }
       }
       if (best) return best;
     }
     return 0;
   }
   function sourceRegions(src, n, lab, bw, bh, S) { if (REG.regs.length < n) REG.regs = new Uint8Array(Math.max(n, REG.regs.length * 2)); for (var i = 0; i < n; i++) REG.regs[i] = regionOf(lab, bw, bh, S, src.x[i], src.y[i]); return REG.regs; }
+  function wallCoverage(src, n, bw, bh, S, regions) {
+    // The visual wall belongs to the strongest INDEPENDENT region field at
+    // that pixel. Never add fields across the separator. This permits either
+    // side's cell to occlude the underlay without a transparent fake-above cut.
+    if (!REG.membership) return;
+    var totals = new Float64Array(REG.n + 1), inv = 1 / S;
+    for (var p = 0; p < REG.membership.length; p++) {
+      if (REG.membership[p]) continue;
+      totals.fill(0); var x = (p % bw + .5) * inv, y = (((p / bw) | 0) + .5) * inv;
+      for (var i = 0; i < n; i++) {
+        var dx = x-src.x[i], dy = y-src.y[i], r = src.r[i], reach = r * Math.max(3, Math.sqrt(P.metaballStrength / (P.THRESHOLD * .03)));
+        if (Math.abs(dx)>reach || Math.abs(dy)>reach) continue;
+        totals[regions[i]] += P.metaballStrength*r*r/(dx*dx+dy*dy+.0001);
+      }
+      var best = REG.lab[p], score = -1;
+      for (var j = 1; j < totals.length; j++) if (totals[j] > score) { score = totals[j]; best = j; }
+      REG.lab[p] = best;
+    }
+  }
   function drawMetaballsCPU(S) {
     var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
     if (bw !== bufW || bh !== bufH) {
@@ -1135,7 +1165,8 @@
     } else { fSum.fill(0); fR.fill(0); fG.fill(0); fB.fill(0); }
     var ms = P.metaballStrength, TH = P.THRESHOLD, inv = 1 / S;
     var src = buildSources(), sn = src.n; // the squash ease runs once per frame in frame() (both engines): draw never mutates sim state
-    var rlab = regionMap(bw, bh, S), rreg = rlab ? sourceRegions(src, sn, rlab, bw, bh, S) : null;
+    var rlab = regionMap(bw, bh, S), rreg = rlab ? sourceRegions(src, sn, REG.membership, bw, bh, S) : null;
+    if (rlab) wallCoverage(src, sn, bw, bh, S, rreg);
     if (WC.ok && !WC.off) { // Rust/wasm path (ca2core): same field + pixel pass, JS below stays as the fallback
       try {
         var nw = sn, cp = WC.cells(nw), cf = new Float64Array(WC.mem.buffer, cp, nw * 6);
@@ -1274,7 +1305,7 @@
       if (n >= 0) {
         var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
         if (glc.width !== bw || glc.height !== bh) { glc.width = bw; glc.height = bh; }
-        var glab = regionMap(bw, bh, S); if (glab) { var grg = sourceRegions(src, n, glab, bw, bh, S); for (i = 0; i < n; i++) gW[i * 4 + 3] = grg[i]; if (gLab !== glab) { gLab = glab; gLabId++; } } else gLab = null;
+        var glab = regionMap(bw, bh, S); if (glab) { var grg = sourceRegions(src, n, REG.membership, bw, bh, S); wallCoverage(src, n, bw, bh, S, grg); for (i = 0; i < n; i++) gW[i * 4 + 3] = grg[i]; gLab = glab; gLabId++; } else gLab = null;
         gpuDraw(gC, gW, n, bw, bh, S, gTiledForce !== null ? gTiledForce : Math.ceil(bw / GTILE) * Math.ceil(bh / GTILE) > 1); // tiled beyond one tile; the per-pixel formula is untouched (gTiledForce: harness A/B only)
         if (gOv > 0) { var ov = gOv; gpuDraw(gC, gW, n, bw, bh, S, false); gOv = ov; } // a 16px leaf hit capacity even after subdivision (only possible at n=GMAX fully clustered, m<=n<=GMAX): never show the clamped source-dropping tiles - clear and re-render the SAME packed sources through the full pass, which holds all n<=GMAX<=gShaderMax. gpuDraw resets gOv, so restore the engagement counter.
         pfm('gpu:draw+field'); gT0 = performance.now();
@@ -1324,7 +1355,7 @@
     ctx.font = fs + 'px "Ca2-Thin", monospace';
     ctx.textAlign = 'left'; var lrT = inkLR(sT), lrX = inkLR(sX);
     var hL = M + (lrT[1] - lrT[0]) + G, hR = (W - M) - (lrX[1] - lrX[0]) - G, vTop = M + dh + L.row + G, vBot = H - M - dh - G, g = P.centerGap;
-    var X = P.axisLayer === 0 ? ctx : lctx, S = P.axisLayer === 0 ? DPR : DD; // axis behind the cells lives on the plate canvas (cells cover it); on top it uses the exact-resolution layer
+    var X = ctx, S = DPR; // All axis segments are always below the cell image; legacy axisLayer never selects a layer.
     X.strokeStyle = P.axisColor || css(eased.axis, 1); X.lineWidth = LW(); // visual stroke follows line width; separator collision remains a hairline
     X.lineCap = 'butt';
     var segs = [];
@@ -2269,7 +2300,7 @@
     eased.total = lerpA(eased.total, tt, k2); eased.title = lerpA(eased.title, tl, k2); eased.coor = lerpA(eased.coor, tc, k2);
     eased.axis = lerpA(eased.axis, ta, k2); eased.r = lerpA(eased.r, trr, k2); eased.g = lerpA(eased.g, tgg, k2); eased.b = lerpA(eased.b, tbb, k2);
 
-    if (P.axisLayer === 0 && P.showAxis) drawAxis(Lx, sT0, sX0);
+    if (P.showAxis) drawAxis(Lx, sT0, sX0);
     var rc = 0, gc = 0, bc = 0, inN = 0;
     for (i = 0; i < cells.length; i++) { var gn = cells[i].gene; if (gn > 2) rc++; else if (gn < -2) gc++; else bc++; var ci = cells[i]; if (ci.alive && ci.x > cont.x && ci.x < cont.x + cont.w && ci.y > cont.y && ci.y < cont.y + cont.h) inN++; }
     // owner 22 Oct: when the boundary stroke would be the selected background colour itself it becomes invisible -
@@ -2406,7 +2437,6 @@
     var bxs = [[cont.x + cr, cont.y, cont.x + cont.w - cr, cont.y], [cont.x + cont.w, cont.y + cr, cont.x + cont.w, cont.y + cont.h - cr], [cont.x + cont.w - cr, cont.y + cont.h, cont.x + cr, cont.y + cont.h], [cont.x, cont.y + cont.h - cr, cont.x, cont.y + cr]];
     for (var bi = 0; bi < 4; bi++) if (P.axisWidth > 0 && fadeA('bx' + bi)) { var bq = bxs[bi].map(snapC); lctx.beginPath(); lctx.moveTo(bq[0], bq[1]); lctx.lineTo(bq[2], bq[3]); lctx.stroke(); }
 
-    if (P.axisLayer !== 0 && P.showAxis) drawAxis(L, sT, sX);
     // cursor: ring + dot drawn as a DOM overlay that follows the pointer (identical in every browser); the system cursor is hidden only while it shows
     var eHit = resizeDrag || (mouse.over && !panel.matches(':hover') ? edgeHit(mouse.x, mouse.y) : null);
     if (eHit) {
@@ -2983,7 +3013,6 @@
   var _toggle = toggle, _choice = choice;
   toggle = function () { var r = _toggle.apply(null, arguments); swSec.els.push(r.el); return r; };
   choice = function () { var r = _choice.apply(null, arguments); swSec.els.push(r.el); return r; };
-  choice('axis layering', 'axisLayer', ['behind', 'above']);
   choice('micro sound', 'audioMicro', ['click', 'tick', 'drop', 'bubble', 'wood', 'bloom']);
   choice('sound mode', 'audioMode', ['soft white', 'pink', 'brown', 'micro crackle', 'membrane']);
   toggle('sound', !!P.audioOn, function (v) { P.audioOn = v ? 1 : 0; if (window.CA2Audio) CA2Audio.enable(v); });

@@ -26,14 +26,14 @@
     grain: 1, grainAmount: 1, grainStrength: 4.8, grainSize: 1.2, grainSoft: 0.5, grainChroma: 0.5, grainDev: 0.4, grainFine: 0.25, grainCrystal: 0.4, grainCloud: 0.45, grainFps: 24, fps: 60, containerCorner: 18,
     bgColor: '', grainStock: 0, grainMono: 0, grainSkew: 0, grainResAdapt: 0, grainShadow: 1.8, grainMid: 1.5, grainHigh: 2.7, grainFineRatio: 0.5, grainCloudRatio: 2.2, grainDebug: 0, parasiteSize: 1,
     resolution: 1, margin: 28, gap: 14, textScale: 1, areaMin: 0.3, areaMax: 1,
-    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, axisLayer: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, divideMode: 0, divideAgeMs: 20000, divideEnergy: 40, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, separatorOn: 0, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, panelRowGap: 11, spawnProtect: 1, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, sprayMs: 120, sprayGapPx: 26, sprayBurst: 3, sprayRadius: 90, titleCircles: 1, circleHold: 1, titleLead: 1.3, titleTrack: 1,
+    colorSpeed: 0.5, morphEase: 0.5, pixelRatio: 0, autoQuality: 1, showHud: 1, showAxis: 1, showFood: 0, genomeOn: 1, genomeMut: 0.12, divideOn: 1, divideAt: 2.2, divideMode: 0, divideAgeMs: 20000, divideEnergy: 40, eatMergeOn: 1, eatRatio: 1.3, eatChance: 0.15, mergeChance: 0.03, mergeGene: 8, symbiosisOn: 1, symbiogenesisOn: 1, clusterCohesion: 0.35, clusterMax: 8, parasiteOn: 1, parasiteFrac: 0.06, parasiteDrain: 0.02, parasiteEff: 0.8, selectOn: 1, selStrength: 1, foodGrow: 1, foodGrowAmt: 0.6, foodGrowMax: 3, foodShrink: 0.01, cellMorph: 1, respawnMorph: 1, cellMorphMs: 1200, boundAware: 1, separatorOn: 0, boundGap: 0, boundZone: 70, boundForce: 0.8, centerGap: 18, diagLen: 0.9, axisWidth: 1, panelAlpha: 1, panelWidth: 340, blurWidth: 340, blurStrength: 16, panelRowGap: 11, spawnProtect: 1, cursorSens: 0.75, cursorSize: 1, cursorLockMs: 900, sprayMs: 120, sprayGapPx: 26, sprayBurst: 3, sprayRadius: 90, titleCircles: 1, circleHold: 1, titleLead: 1.3, titleTrack: 1,
     audioOn: 1, audioVol: 0.15, audioMode: 0, audioTone: 1600, audioMod: 0.6, audioCrackle: 0.5, audioWidth: 0.5, audioMicro: 0, audioMicroPitch: 1200, audioMicroDecay: 70, audioMicroRand: 0.5, foodColor: '#c86400', foodAlpha: 1, foodSize: 1, foodShow: 1, foodReseed: 1, foodReseedFloor: 0.2, foodReseedMin: 40, foodReseedMax: 900, foodReseedTries: 8, foodEatRate: 1.5, refreshResetEnergy: 1
   };
   // owner's chosen defaults (23:04)
   P.audioFadeMs = 5000;
   P.typeSlider = 1; P.cfgFont = 0; P.cfgFontSize = 13; P.cfgCase = 0; P.lineColor = '#111111'; P.autoInvert = 1; P.axisColor = ''; P.circColor = ''; P.ruleColor = ''; P.dragMargin = 8; P.edgeGrab = 10; P.restless = 0.8; P.edgeFit = 1; P.boundZoneR = 1.5; P.blobOutline = 1; P.plateOverlap = 0.25; P.parasiteHard = 12; P.parasiteSight = 4000; P.parasiteNerv = 0.6; P.parasiteHardMs = 20000;
   P.foodMode = 2; P.foodBlobR = 70; P.foodBlobDots = 8; P.foodLife = 1; P.foodLifeMs = 300; P.foodLifeCell = 4; P.foodEatR = 0.4;
-  Object.assign(P, {"UNIVERSE_SIZE": 55.95868745026389, "baseMutationRate": 9.628232288701716, "mutationRateRange": 2.6268439511457253, "interactionRadius": 12.016352372548786, "CELL_RADIUS": 34.57106164334512, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 50, "maxRadius": 150, "baseMaxSpeed": 2, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 2.5, "THRESHOLD": 0.19, "metaballStrength": 0.024, "foodDensity": 0.023801395385356694, "foodEnergyValue": 20, "minRefreshInterval": 2, "maxRefreshInterval": 9, "slowDownRadius": 9, "speedReductionFactor": 37.5, "grain": 1, "grainAmount": 1.22, "grainStrength": 9.2, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 12, "fps": 12, "containerCorner": 29, "resolution": 1, "margin": 10, "gap": 26, "textScale": 0.8, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.74, "morphEase": 0.7, "pixelRatio": 2, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 1, "axisLayer": 0, "genomeOn": 1, "genomeMut": 0.5, "divideOn": 1, "divideAt": 3, "eatMergeOn": 1, "eatRatio": 3, "eatChance": 1, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.35, "clusterMax": 10, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 8, "foodShrink": 0.1, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 2350, "boundAware": 1, "boundZone": 20, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 2.3, "panelAlpha": 0, "panelWidth": 340, "blurWidth": 340, "cursorSens": 0.75, "cursorSize": 0.31, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 0.53, "audioMode": 1, "audioTone": 2120, "audioMod": 1, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#000000", "foodAlpha": 1, "foodSize": 3.5, "foodShow": 0.51, "audioFadeMs": 5000, "dragMargin": 24, "edgeGrab": 20, "restless": 3, "edgeFit": 0.3, "boundZoneR": 0.1, "blobOutline": 1, "plateOverlap": 0.5, "parasiteHard": 39.5, "parasiteSight": 4000, "parasiteNerv": 1, "parasiteHardMs": 20000, "foodMode": 3, "foodBlobR": 70, "foodBlobDots": 8, "foodLife": 1, "foodLifeMs": 300, "foodLifeCell": 4, "foodEatR": 0.26});
+  Object.assign(P, {"UNIVERSE_SIZE": 55.95868745026389, "baseMutationRate": 9.628232288701716, "mutationRateRange": 2.6268439511457253, "interactionRadius": 12.016352372548786, "CELL_RADIUS": 34.57106164334512, "GENE_MIN": -18, "GENE_MAX": 18, "minRadius": 50, "maxRadius": 150, "baseMaxSpeed": 2, "maxSpeedVariation": 30, "energyConsumptionRate": 0.058, "energyGainFromInteraction": 0.004, "minEnergyForReproduction": 2.5, "THRESHOLD": 0.19, "metaballStrength": 0.024, "foodDensity": 0.023801395385356694, "foodEnergyValue": 20, "minRefreshInterval": 2, "maxRefreshInterval": 9, "slowDownRadius": 9, "speedReductionFactor": 37.5, "grain": 1, "grainAmount": 1.22, "grainStrength": 9.2, "grainSize": 0.3, "grainSoft": 0.82, "grainChroma": 1, "grainDev": 0.23, "grainFine": 0.25, "grainCrystal": 0.4, "grainCloud": 0.45, "grainFps": 12, "fps": 12, "containerCorner": 29, "resolution": 1, "margin": 10, "gap": 26, "textScale": 0.8, "areaMin": 0.1, "areaMax": 1, "colorSpeed": 0.74, "morphEase": 0.7, "pixelRatio": 2, "autoQuality": 1, "showHud": 1, "showAxis": 1, "showFood": 1, "genomeOn": 1, "genomeMut": 0.5, "divideOn": 1, "divideAt": 3, "eatMergeOn": 1, "eatRatio": 3, "eatChance": 1, "mergeChance": 0.03, "mergeGene": 8, "clusterCohesion": 0.35, "clusterMax": 10, "parasiteOn": 1, "parasiteFrac": 0.32, "parasiteDrain": 0.02, "parasiteEff": 1, "selectOn": 1, "selStrength": 4, "foodGrow": 1, "foodGrowAmt": 5, "foodGrowMax": 8, "foodShrink": 0.1, "cellMorph": 1, "respawnMorph": 1, "cellMorphMs": 2350, "boundAware": 1, "boundZone": 20, "boundForce": 3, "centerGap": 120, "diagLen": 0.83, "axisWidth": 2.3, "panelAlpha": 0, "panelWidth": 340, "blurWidth": 340, "cursorSens": 0.75, "cursorSize": 0.31, "cursorLockMs": 3000, "titleCircles": 1, "circleHold": 1, "audioOn": 1, "audioVol": 0.53, "audioMode": 1, "audioTone": 2120, "audioMod": 1, "audioCrackle": 1, "audioWidth": 1, "audioMicro": 3, "audioMicroPitch": 380, "audioMicroDecay": 400, "audioMicroRand": 1, "foodColor": "#000000", "foodAlpha": 1, "foodSize": 3.5, "foodShow": 0.51, "audioFadeMs": 5000, "dragMargin": 24, "edgeGrab": 20, "restless": 3, "edgeFit": 0.3, "boundZoneR": 0.1, "blobOutline": 1, "plateOverlap": 0.5, "parasiteHard": 39.5, "parasiteSight": 4000, "parasiteNerv": 1, "parasiteHardMs": 20000, "foodMode": 3, "foodBlobR": 70, "foodBlobDots": 8, "foodLife": 1, "foodLifeMs": 300, "foodLifeCell": 4, "foodEatR": 0.26});
   // eating radius is a fixed px distance, independent of cell radius (owner 20 Oct: no factor); migrate the stored factor with the preset radius
   P.foodEatR = Math.round(P.foodEatR * P.CELL_RADIUS * 100) / 100;
   // micro habitat (pilot): the nutrient cycle between cells and the food field - death returns biomass and colour to the
@@ -838,6 +838,116 @@
       SIMW.ms = SIMW.ms * 0.9 + (performance.now() - t0) * 0.1; SIMW.on = true; return true;
     } catch (e) { WC.simOff = true; WC.simErr = String(e); SIMW.on = false; return false; }
   }
+  // ---- separator regions (owner 96c / 96c-1): the metaball field never bridges a separator. A label map (0 = separator wall + margin) is
+  // built from the SAME segments drawAxis strokes (same snapping, same LW()); margin = one line thickness on each side of the stroke edge,
+  // so the zero-field half-width from the centre line is LW/2 + LW. Each source carries the label of the region its centre lies in and a
+  // pixel only sums sources of its own label. Openings (centerGap) join regions by construction: the segments stop there.
+  var REG = { key: '', lab: null, w: 0, h: 0, S: 0, n: 0, regs: new Uint8Array(512) };
+  function regionMap(bw, bh, S) {
+    var segs = (P.separatorOn && P.showAxis && P.axisWidth > 0 && axisInfo.segs && axisInfo.segs.length) ? axisInfo.segs : null;
+    if (!segs) { REG.key = ''; REG.lab = null; REG.membership = null; return null; }
+    var SX = DPR, lw = LW(), hw = 1.5 * lw, list = [], j, q; // hw = LW/2 + one line thickness, always exact (never widened at low resolution)
+    for (j = 0; j < segs.length; j++) { var a = segs[j].slice(); if (a[0] === a[2] || a[1] === a[3]) for (q = 0; q < 4; q++) a[q] = snapC(a[q], SX); list.push([a[0] - cont.x, a[1] - cont.y, a[2] - cont.x, a[3] - cont.y]); }
+    var key = bw + 'x' + bh + '@' + S + '|' + hw + '|' + list.map(function (l) { return l.map(function (v) { return Math.round(v * 64); }).join(','); }).join(';');
+    if (key === REG.key && REG.lab) return REG.lab;
+    var lab = new Uint8Array(bw * bh), inv = 1 / S, hw2 = hw * hw, x, y;
+    for (j = 0; j < list.length; j++) {
+      var l = list[j], dx = l[2] - l[0], dy = l[3] - l[1], l2 = dx * dx + dy * dy;
+      var bx0 = Math.max(0, Math.floor((Math.min(l[0], l[2]) - hw) * S) - 1), bx1 = Math.min(bw - 1, Math.ceil((Math.max(l[0], l[2]) + hw) * S) + 1);
+      var by0 = Math.max(0, Math.floor((Math.min(l[1], l[3]) - hw) * S) - 1), by1 = Math.min(bh - 1, Math.ceil((Math.max(l[1], l[3]) + hw) * S) + 1);
+      for (y = by0; y <= by1; y++) for (x = bx0; x <= bx1; x++) {
+        var px = (x + 0.5) * inv, py = (y + 0.5) * inv, t = l2 ? Math.max(0, Math.min(1, ((px - l[0]) * dx + (py - l[1]) * dy) / l2)) : 0, ex = l[0] + dx * t - px, ey = l[1] + dy * t - py;
+        if (ex * ex + ey * ey <= hw2) lab[y * bw + x] = 255;
+      }
+    }
+    var n = 0, st = new Int32Array(bw * bh > 0 ? bw * bh : 1), p0, sp;
+    for (p0 = 0; p0 < bw * bh; p0++) {
+      if (lab[p0] !== 0) continue;
+      if (n >= 250) { lab[p0] = 250; continue; } // never more than 250 regions; overflow joins the last one
+      n++; sp = 0; st[sp++] = p0; lab[p0] = n;
+      while (sp) {
+        var p = st[--sp], px2 = p % bw, py2 = (p / bw) | 0;
+        if (px2 > 0 && lab[p - 1] === 0) { lab[p - 1] = n; st[sp++] = p - 1; }
+        if (px2 < bw - 1 && lab[p + 1] === 0) { lab[p + 1] = n; st[sp++] = p + 1; }
+        if (py2 > 0 && lab[p - bw] === 0) { lab[p - bw] = n; st[sp++] = p - bw; }
+        if (py2 < bh - 1 && lab[p + bw] === 0) { lab[p + bw] = n; st[sp++] = p + bw; } // 4-connected label fill: the wall is watertight for edge-sharing pixels; diagonal leaks are reported separately by the audit (spanning8)
+      }
+    }
+    // owner 26 Oct (axis line): no white strips beside the axisline - the visible zero band is exactly the stroke
+    // width. The thick (1.5*lw) wall above still drives the watertight region split; wall pixels BEYOND the stroke's
+    // own half-width join their nearest region and render their own side's field right up to the line. Only the band
+    // the stroke itself covers stays zero (lab 0). Separator collision (separatorPass hairline) is untouched, and
+    // cross-line metaball merging stays cut: every pixel still sums sources of its own label only.
+    var zw = 0.5 * lw, zw2 = zw * zw, ring = [];
+    for (p0 = 0; p0 < bw * bh; p0++) {
+      if (lab[p0] !== 255) continue;
+      var wx = (p0 % bw + 0.5) * inv, wy = (((p0 / bw) | 0) + 0.5) * inv, wd = 1e18;
+      for (j = 0; j < list.length; j++) {
+        var sg2 = list[j], ddx = sg2[2] - sg2[0], ddy = sg2[3] - sg2[1], ll2 = ddx * ddx + ddy * ddy, tt2 = ll2 ? Math.max(0, Math.min(1, ((wx - sg2[0]) * ddx + (wy - sg2[1]) * ddy) / ll2)) : 0, ex2 = sg2[0] + ddx * tt2 - wx, ey2 = sg2[1] + ddy * tt2 - wy, dd2 = ex2 * ex2 + ey2 * ey2;
+        if (dd2 < wd) wd = dd2;
+      }
+      if (wd > zw2) { lab[p0] = 254; ring.push(p0); } else lab[p0] = 0;
+    }
+    for (var ap = 0; ap < 16 && ring.length; ap++) { // absorb the outer wall ring into the adjacent regions (few px thick)
+      var nxt = [];
+      for (var ri = 0; ri < ring.length; ri++) {
+        var rp = ring[ri], rx = rp % bw, ry = (rp / bw) | 0, got = 0;
+        if (rx > 0 && lab[rp - 1] > 0 && lab[rp - 1] < 254) got = lab[rp - 1];
+        else if (rx < bw - 1 && lab[rp + 1] > 0 && lab[rp + 1] < 254) got = lab[rp + 1];
+        else if (ry > 0 && lab[rp - bw] > 0 && lab[rp - bw] < 254) got = lab[rp - bw];
+        else if (ry < bh - 1 && lab[rp + bw] > 0 && lab[rp + bw] < 254) got = lab[rp + bw];
+        if (got) lab[rp] = got; else nxt.push(rp);
+      }
+      ring = nxt;
+    }
+    for (p0 = 0; p0 < bw * bh; p0++) if (lab[p0] === 254) lab[p0] = 0; // unreachable leftover: fail closed (zero, never a cross-region sum)
+    // Physical source membership remains byte-identical to the separator map.
+    // Only the image coverage closes its zero stroke band: one region per pixel,
+    // never summing cells across region membership or changing collision rules.
+    REG.membership = lab.slice();
+    var coverageQueue = new Int32Array(lab.length), head = 0, tail = 0;
+    for (p0 = 0; p0 < lab.length; p0++) if (lab[p0] > 0 && lab[p0] < 254) coverageQueue[tail++] = p0;
+    while (head < tail) {
+      var cp = coverageQueue[head++], cx = cp % bw, cy = (cp / bw) | 0, region = lab[cp];
+      var ns = [cx > 0 ? cp - 1 : -1, cx + 1 < bw ? cp + 1 : -1, cy > 0 ? cp - bw : -1, cy + 1 < bh ? cp + bw : -1];
+      for (var ni = 0; ni < ns.length; ni++) if (ns[ni] >= 0 && lab[ns[ni]] === 0) { lab[ns[ni]] = region; coverageQueue[tail++] = ns[ni]; }
+    }
+    REG.key = key; REG.lab = lab; REG.w = bw; REG.h = bh; REG.S = S; REG.n = n; return lab;
+  }
+  function regionOf(lab, bw, bh, S, sx, sy) { // label of the region holding a source centre; a centre inside the wall/margin takes the nearest labelled pixel
+    var ix = Math.max(0, Math.min(bw - 1, Math.floor(sx * S))), iy = Math.max(0, Math.min(bh - 1, Math.floor(sy * S))), v = lab[iy * bw + ix];
+    if (v && v < 254) return v;
+    for (var r = 1, R = Math.ceil(8 * S + 4 * LW() * S); r <= R; r++) {
+      var best = 0, bd = 1e9;
+      for (var dy = -r; dy <= r; dy++) for (var dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        var xx = ix + dx, yy = iy + dy; if (xx < 0 || yy < 0 || xx >= bw || yy >= bh) continue;
+        var q = lab[yy * bw + xx]; if (q && q < 254 && dx * dx + dy * dy < bd) { bd = dx * dx + dy * dy; best = q; }
+      }
+      if (best) return best;
+    }
+    return 0;
+  }
+  function sourceRegions(src, n, lab, bw, bh, S) { if (REG.regs.length < n) REG.regs = new Uint8Array(Math.max(n, REG.regs.length * 2)); for (var i = 0; i < n; i++) REG.regs[i] = regionOf(lab, bw, bh, S, src.x[i], src.y[i]); return REG.regs; }
+  function wallCoverage(src, n, bw, bh, S, regions) {
+    // The visual wall belongs to the strongest INDEPENDENT region field at
+    // that pixel. Never add fields across the separator. This permits either
+    // side's cell to occlude the underlay without a transparent fake-above cut.
+    if (!REG.membership) return;
+    var totals = new Float64Array(REG.n + 1), inv = 1 / S;
+    for (var p = 0; p < REG.membership.length; p++) {
+      if (REG.membership[p]) continue;
+      totals.fill(0); var x = (p % bw + .5) * inv, y = (((p / bw) | 0) + .5) * inv;
+      for (var i = 0; i < n; i++) {
+        var dx = x-src.x[i], dy = y-src.y[i], r = src.r[i], reach = r * Math.max(3, Math.sqrt(P.metaballStrength / (P.THRESHOLD * .03)));
+        if (Math.abs(dx)>reach || Math.abs(dy)>reach) continue;
+        totals[regions[i]] += P.metaballStrength*r*r/(dx*dx+dy*dy+.0001);
+      }
+      var best = REG.lab[p], score = -1;
+      for (var j = 1; j < totals.length; j++) if (totals[j] > score) { score = totals[j]; best = j; }
+      REG.lab[p] = best;
+    }
+  }
   function drawMetaballsCPU(S) {
     var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
     if (bw !== bufW || bh !== bufH) {
@@ -845,11 +955,14 @@
       fSum = new Float32Array(bw * bh); fR = new Float32Array(bw * bh); fG = new Float32Array(bw * bh); fB = new Float32Array(bw * bh);
     } else { fSum.fill(0); fR.fill(0); fG.fill(0); fB.fill(0); }
     var ms = P.metaballStrength, TH = P.THRESHOLD, inv = 1 / S;
-    var src = buildSources(), sn = src.n;
+    var src = buildSources(), sn = src.n; // the squash ease runs once per frame in frame() (both engines): draw never mutates sim state
+    var rlab = regionMap(bw, bh, S), rreg = rlab ? sourceRegions(src, sn, REG.membership, bw, bh, S) : null;
+    if (rlab) wallCoverage(src, sn, bw, bh, S, rreg);
     if (WC.ok && !WC.off) { // Rust/wasm path (ca2core): same field + pixel pass, JS below stays as the fallback
       try {
         var nw = sn, cp = WC.cells(nw), cf = new Float64Array(WC.mem.buffer, cp, nw * 6);
         for (var i = 0; i < nw; i++) { var o6 = i * 6; cf[o6] = src.x[i]; cf[o6 + 1] = src.y[i]; cf[o6 + 2] = src.r[i]; cf[o6 + 3] = src.wr[i]; cf[o6 + 4] = src.wg[i]; cf[o6 + 5] = src.wb[i]; }
+        if (WC.e.lab_on) { if (rlab) { var lbp = WC.e.lab_ptr(bw * bh), rgp = WC.e.reg_ptr(nw); cp = WC.cells(nw); var wmb = WC.mem.buffer; new Uint8Array(wmb, lbp, bw * bh).set(rlab); new Uint8Array(wmb, rgp, nw).set(rreg.subarray(0, nw)); cf = new Float64Array(wmb, cp, nw * 6); for (var i = 0; i < nw; i++) { var o6 = i * 6; cf[o6] = src.x[i]; cf[o6 + 1] = src.y[i]; cf[o6 + 2] = src.r[i]; cf[o6 + 3] = src.wr[i]; cf[o6 + 4] = src.wg[i]; cf[o6 + 5] = src.wb[i]; } } WC.e.lab_on(rlab ? 1 : 0); } else if (rlab) throw new Error('wasm without lab_on'); // an old wasm cannot gate: fall to the JS path rather than bridge
         WC.field(nw, bw, bh, S, ms, TH, bg[0] | 0, bg[1] | 0, bg[2] | 0); pfm('mb:field');
         img.data.set(new Uint8ClampedArray(WC.mem.buffer, WC.out(), bw * bh * 4)); pfm('mb:pixel loop');
         octx.putImageData(img, 0, 0); pfm('mb:putImageData');
@@ -862,10 +975,11 @@
       var Rc = crd * Math.max(3, Math.sqrt(ms / (TH * 0.03)));
       var x0 = Math.max(0, Math.floor((cx - Rc) * S)), x1 = Math.min(bw - 1, Math.ceil((cx + Rc) * S));
       var y0 = Math.max(0, Math.floor((cy - Rc) * S)), y1 = Math.min(bh - 1, Math.ceil((cy + Rc) * S));
-      var wr = src.wr[i], wg = src.wg[i], wb = src.wb[i];
+      var wr = src.wr[i], wg = src.wg[i], wb = src.wb[i], rg = rreg ? rreg[i] : 0;
       for (var y = y0; y <= y1; y++) {
         var dy = (y + 0.5) * inv - cy, row = y * bw;
         for (var x = x0; x <= x1; x++) {
+          if (rlab && rlab[row + x] !== rg) continue;
           var dx = (x + 0.5) * inv - cx, inf = r2 / (dx * dx + dy * dy + 0.0001);
           var i2 = inf * inf; fSum[row + x] += inf; if (wr) fR[row + x] += i2 * wr; if (wg) fG[row + x] += i2 * wg; if (wb) fB[row + x] += i2 * wb;
         }
@@ -898,9 +1012,9 @@
       var dbg = gl.getExtension('WEBGL_debug_renderer_info'), rn = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) : '';
       if (/swiftshader|llvmpipe|software|softpipe/i.test(rn) && !/[?&]gpu=1/.test(location.search)) { gl = null; return; } // a software GL is slower than the CPU splat
       var vs = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0., 1.); }';
-      function fs(gm) { return 'precision highp float;\n#define GMAX ' + gm + '\nuniform vec4 uC[GMAX]; uniform vec4 uW[GMAX]; uniform int uN; uniform float uS; uniform float uH; uniform float uTH; uniform float uBand;\n' +
-        'void main(){ float px = gl_FragCoord.x / uS, py = (uH - gl_FragCoord.y) / uS; float s = 0.; vec3 w = vec3(0.);\n' +
-        ' for (int i = 0; i < GMAX; i++) { if (i >= uN) break; vec4 c = uC[i]; float dx = px - c.x, dy = py - c.y; if (abs(dx) > c.w || abs(dy) > c.w) continue;\n' +
+      function fs(gm) { return 'precision highp float;\n#define GMAX ' + gm + '\nuniform vec4 uC[GMAX]; uniform vec4 uW[GMAX]; uniform int uN; uniform float uS; uniform float uH; uniform float uTH; uniform float uBand; uniform sampler2D uL; uniform float uLon; uniform vec2 uBW;\n' +
+        'void main(){ float px = gl_FragCoord.x / uS, py = (uH - gl_FragCoord.y) / uS; float s = 0.; vec3 w = vec3(0.); float lb = uLon > 0.5 ? floor(texture2D(uL, vec2(gl_FragCoord.x / uBW.x, (uH - gl_FragCoord.y) / uBW.y)).r * 255. + 0.5) : 0.;\n' +
+        ' for (int i = 0; i < GMAX; i++) { if (i >= uN) break; vec4 c = uC[i]; float dx = px - c.x, dy = py - c.y; if (abs(dx) > c.w || abs(dy) > c.w) continue; if (uLon > 0.5 && abs(lb - uW[i].w) > 0.5) continue;\n' +
         '  float inf = c.z / (dx*dx + dy*dy + 0.0001); s += inf; w += uW[i].xyz * (inf*inf); }\n' +
         ' float lim = uTH * 0.96; if (s > lim) { float t = w.x + w.y + w.z; vec3 col = t > 0. ? w / t : vec3(0.); float a = min(1., (s - lim) / uBand); gl_FragColor = vec4(col * a, a); } else gl_FragColor = vec4(0.); }'; }
       function sh(t, src) { var o = gl.createShader(t); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; }
@@ -914,7 +1028,7 @@
       gl.useProgram(gProg);
       var buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
       var loc = gl.getAttribLocation(gProg, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-      ['uC', 'uW', 'uN', 'uS', 'uH', 'uTH', 'uBand'].forEach(function (n) { gU[n] = gl.getUniformLocation(gProg, n); });
+      ['uC', 'uW', 'uN', 'uS', 'uH', 'uTH', 'uBand', 'uL', 'uLon', 'uBW'].forEach(function (n) { gU[n] = gl.getUniformLocation(gProg, n); });
       gOK = true;
     } catch (e) { gOK = false; gl = null; if (window.console) console.warn('ca2: WebGL field off, CPU path', e && e.message); }
   })();
@@ -930,7 +1044,7 @@
       if (sx + sr < bx0 || sx - sr > bx1 || sy + sr < by0 || sy - sr > by1) continue;
       if (m >= GMAX) break;
       gTC[m * 4] = C[i * 4]; gTC[m * 4 + 1] = C[i * 4 + 1]; gTC[m * 4 + 2] = C[i * 4 + 2]; gTC[m * 4 + 3] = C[i * 4 + 3];
-      gTW[m * 4] = W[i * 4]; gTW[m * 4 + 1] = W[i * 4 + 1]; gTW[m * 4 + 2] = W[i * 4 + 2]; m++;
+      gTW[m * 4] = W[i * 4]; gTW[m * 4 + 1] = W[i * 4 + 1]; gTW[m * 4 + 2] = W[i * 4 + 2]; gTW[m * 4 + 3] = W[i * 4 + 3]; m++;
     }
     if (m >= GMAX && depth < 4) { gTStat.subdiv++; // too many sources reach this tile: quarter it (culling then keeps every contributing source)
       var mx = (bx0 + bx1) >> 1, my = (by0 + by1) >> 1;
@@ -946,10 +1060,16 @@
     gl.scissor(bx0, gSnapBH - by1, bx1 - bx0, by1 - by0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
-  var gSnapS = 0, gSnapBH = 0, gTiledForce = null;
+  var gSnapS = 0, gSnapBH = 0, gTiledForce = null, gLab = null, gLabTex = null, gLabKey = null, gLabId = 0;
   // shared draw body (full or tiled) so tests can render the SAME source array through both paths
   function gpuDraw(C, W, n, bw, bh, S, tiled) {
     gl.viewport(0, 0, bw, bh); gl.useProgram(gProg);
+    if (gLab) { // separator region labels: one LUMINANCE texel per buffer pixel, region id in uW.w per source
+      if (!gLabTex) gLabTex = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, gLabTex);
+      if (gLabKey !== gLabId) { gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1); gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, bw, bh, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, gLab); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); gLabKey = gLabId; }
+      gl.uniform1i(gU.uL, 0); gl.uniform1f(gU.uLon, 1); gl.uniform2f(gU.uBW, bw, bh);
+    } else gl.uniform1f(gU.uLon, 0);
     gl.uniform1f(gU.uS, S); gl.uniform1f(gU.uH, bh); gl.uniform1f(gU.uTH, P.THRESHOLD); gl.uniform1f(gU.uBand, P.THRESHOLD * 0.08);
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     gSnapS = S; gSnapBH = bh; gOv = 0; gTStat.subdiv = 0; gTStat.leaves = 0; gTStat.sumM = 0; gTStat.maxM = 0; gTStat.clamp = 0;
@@ -971,11 +1091,12 @@
       for (i = 0; i < src.n; i++) {
         if (n >= GMAX) { n = -1; break; }
         gC[n * 4] = src.x[i]; gC[n * 4 + 1] = src.y[i]; gC[n * 4 + 2] = ms * src.r[i] * src.r[i]; gC[n * 4 + 3] = src.r[i] * Math.max(3, Math.sqrt(ms / (TH * 0.03)));
-        gW[n * 4] = src.wr[i]; gW[n * 4 + 1] = src.wg[i]; gW[n * 4 + 2] = src.wb[i]; n++;
+        gW[n * 4] = src.wr[i]; gW[n * 4 + 1] = src.wg[i]; gW[n * 4 + 2] = src.wb[i]; gW[n * 4 + 3] = 0; n++;
       }
       if (n >= 0) {
         var bw = Math.max(1, Math.ceil(cont.w * S)), bh = Math.max(1, Math.ceil(cont.h * S));
         if (glc.width !== bw || glc.height !== bh) { glc.width = bw; glc.height = bh; }
+        var glab = regionMap(bw, bh, S); if (glab) { var grg = sourceRegions(src, n, REG.membership, bw, bh, S); wallCoverage(src, n, bw, bh, S, grg); for (i = 0; i < n; i++) gW[i * 4 + 3] = grg[i]; gLab = glab; gLabId++; } else gLab = null;
         gpuDraw(gC, gW, n, bw, bh, S, gTiledForce !== null ? gTiledForce : Math.ceil(bw / GTILE) * Math.ceil(bh / GTILE) > 1); // tiled beyond one tile; the per-pixel formula is untouched (gTiledForce: harness A/B only)
         if (gOv > 0) { var ov = gOv; gpuDraw(gC, gW, n, bw, bh, S, false); gOv = ov; } // a 16px leaf hit capacity even after subdivision (only possible at n=GMAX fully clustered, m<=n<=GMAX): never show the clamped source-dropping tiles - clear and re-render the SAME packed sources through the full pass, which holds all n<=GMAX<=gShaderMax. gpuDraw resets gOv, so restore the engagement counter.
         pfm('gpu:draw+field'); gT0 = performance.now();
@@ -1025,7 +1146,7 @@
     ctx.font = fs + 'px "Ca2-Thin", monospace';
     ctx.textAlign = 'left'; var lrT = inkLR(sT), lrX = inkLR(sX);
     var hL = M + (lrT[1] - lrT[0]) + G, hR = (W - M) - (lrX[1] - lrX[0]) - G, vTop = M + dh + L.row + G, vBot = H - M - dh - G, g = P.centerGap;
-    var X = P.axisLayer === 0 ? ctx : lctx, S = P.axisLayer === 0 ? DPR : DD; // axis behind the cells lives on the plate canvas (cells cover it); on top it uses the exact-resolution layer
+    var X = ctx, S = DPR; // All axis segments are always below the cell image; legacy axisLayer never selects a layer.
     X.strokeStyle = P.axisColor || css(eased.axis, 1); X.lineWidth = LW(); // visual stroke follows line width; separator collision remains a hairline
     X.lineCap = 'butt';
     var segs = [];
@@ -1913,7 +2034,7 @@
     eased.total = lerpA(eased.total, tt, k2); eased.title = lerpA(eased.title, tl, k2); eased.coor = lerpA(eased.coor, tc, k2);
     eased.axis = lerpA(eased.axis, ta, k2); eased.r = lerpA(eased.r, trr, k2); eased.g = lerpA(eased.g, tgg, k2); eased.b = lerpA(eased.b, tbb, k2);
 
-    if (P.axisLayer === 0 && P.showAxis) drawAxis(Lx, sT0, sX0);
+    if (P.showAxis) drawAxis(Lx, sT0, sX0);
     var rc = 0, gc = 0, bc = 0, inN = 0;
     for (i = 0; i < cells.length; i++) { var gn = cells[i].gene; if (gn > 2) rc++; else if (gn < -2) gc++; else bc++; var ci = cells[i]; if (ci.alive && ci.x > cont.x && ci.x < cont.x + cont.w && ci.y > cont.y && ci.y < cont.y + cont.h) inN++; }
     // owner 22 Oct: when the boundary stroke would be the selected background colour itself it becomes invisible -
@@ -2048,7 +2169,6 @@
     var bxs = [[cont.x + cr, cont.y, cont.x + cont.w - cr, cont.y], [cont.x + cont.w, cont.y + cr, cont.x + cont.w, cont.y + cont.h - cr], [cont.x + cont.w - cr, cont.y + cont.h, cont.x + cr, cont.y + cont.h], [cont.x, cont.y + cont.h - cr, cont.x, cont.y + cr]];
     for (var bi = 0; bi < 4; bi++) if (P.axisWidth > 0 && fadeA('bx' + bi)) { var bq = bxs[bi].map(snapC); lctx.beginPath(); lctx.moveTo(bq[0], bq[1]); lctx.lineTo(bq[2], bq[3]); lctx.stroke(); }
 
-    if (P.axisLayer !== 0 && P.showAxis) drawAxis(L, sT, sX);
     // cursor: ring + dot drawn as a DOM overlay that follows the pointer (identical in every browser); the system cursor is hidden only while it shows
     var eHit = resizeDrag || (mouse.over && !panel.matches(':hover') ? edgeHit(mouse.x, mouse.y) : null);
     if (eHit) {
@@ -2614,7 +2734,6 @@
   var _toggle = toggle, _choice = choice;
   toggle = function () { var r = _toggle.apply(null, arguments); swSec.els.push(r.el); return r; };
   choice = function () { var r = _choice.apply(null, arguments); swSec.els.push(r.el); return r; };
-  choice('axis layering', 'axisLayer', ['above', 'behind']);
   choice('micro sound', 'audioMicro', ['click', 'tick', 'drop', 'bubble', 'wood', 'bloom']);
   choice('sound mode', 'audioMode', ['soft white', 'pink', 'brown', 'micro crackle', 'membrane']);
   toggle('sound', !!P.audioOn, function (v) { P.audioOn = v ? 1 : 0; if (window.CA2Audio) CA2Audio.enable(v); });
