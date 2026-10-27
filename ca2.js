@@ -404,12 +404,17 @@
       fs *= fit; dh = 0.666 * fs; ctx.font = fs + 'px "Ca2-Thin", monospace';
       tm = titleMetrics(fs); ex = tm.trk * (P.titleTrack - 1); inkTLe = tm.inkTL + (TL.length - 1) * ex; inkTRe = tm.inkTR + (TR.length - 1) * ex; trkE = tm.trk + ex; inkMax = Math.max(inkTLe, inkTRe) + ovsCache * fs; fit = inkMax > 0 ? (W - 2 * M) / inkMax : 1; if (fit < 1) { fs *= fit; dh = 0.666 * fs; ctx.font = fs + 'px "Ca2-Thin", monospace'; tm = titleMetrics(fs); ex = tm.trk * (P.titleTrack - 1); inkTLe = tm.inkTL + (TL.length - 1) * ex; inkTRe = tm.inkTR + (TR.length - 1) * ex; trkE = tm.trk + ex; }
     }
-    // the title goes three centred lines (word / word / mouse-y) when the two words no longer fit side by side:
-    // decided from the measured ink widths and the live margin, not a fixed ratio, so any margin/window works (owner 21 Oct:
-    // they must never overlap; the switch is when the gap between them closes to one letter space, the 1.217 point on his screen)
+    // Wrap from the actual ink gaps, never from the type-size control. First the
+    // coordinate leaves the shared row; only then do the two title words split.
+    // The same letter-space-based leading applies on desktop and mobile, in
+    // both the two-row and three-row arrangements.
+    var clear = Math.max(0, trkE), lead = dh + clear * P.titleLead;
     var wordGap = W - 2 * M - inkTLe - inkTRe;
-    var three = wordGap < trkE, lead = three ? dh + trkE * P.titleLead : 0;
-    var row = three ? 2 * lead : P.textScale > 1.03 ? dh + 15 * P.titleLead : 0; // above type size 1.03 the mouse-y value drops one row and the vertical axis starts below it
+    var three = wordGap <= clear;
+    var yInk = inkLR(String(Math.round(mouse.y))), yW = yInk[1] - yInk[0];
+    var yLeft = W / 2 - yW / 2, yRight = W / 2 + yW / 2;
+    var coorGap = Math.min(yLeft - (M + inkTLe), (W - M - inkTRe) - yRight);
+    var row = three ? 2 * lead : coorGap <= clear ? lead : 0;
     var lr3 = inkLR('3333'), sideW = lr3[1] - lr3[0]; // widest 4-digit number, ink width
     var halfW = W / 2 - (M + sideW + G), halfH = H / 2 - (M + dh + row + G);
     return { row: row, three: three, lead: lead, fs: fs, dh: dh, M: M, G: G, ex: ex, sideW: sideW, safeW: Math.max(60, halfW * 2), safeH: Math.max(60, halfH * 2) };
@@ -3734,7 +3739,24 @@
     var prof = profLoad(); // active: pinned pick or null (= follow the window aspect)
     function profSave() { try { localStorage.setItem(PROF_KEY, JSON.stringify(prof)); } catch (e) {} }
     function profActive() { if (prof.active) return prof.active; return window.innerWidth > window.innerHeight ? 'L' : 'P'; }
-    function landMap() { var mb = mobOf(storedG() || {}); var gl = (mb._land && typeof mb._land === 'object') ? mb._land : {}; return Object.assign({}, gl, prof.land); }
+    // An owner-approved landscape restore supersedes only the older local
+    // landscape mirror. Preserve its exact bytes privately before adopting it.
+    function adoptLandRestore(g) {
+      var epoch = g && g._landRestoreEpoch;
+      if (!prof || !Number.isSafeInteger(epoch) || epoch <= 0 || prof.landRestoreEpoch === epoch) return;
+      if (prof.landRestoreEpoch > epoch) return; // never replay an older restore
+      try {
+        var recovery = { epoch: epoch, profile: localStorage.getItem(PROF_KEY), config: localStorage.getItem('ca2.config.m'), pending: localStorage.getItem('ca2.pending'), pendingMode: localStorage.getItem('ca2.pending.mode') };
+        var key = 'ca2.landscape-recovery.' + epoch;
+        if (localStorage.getItem(key) === null) localStorage.setItem(key, JSON.stringify(recovery));
+        // If backup fails (quota/private mode), do not destroy the local draft.
+        var next = Object.assign({}, prof, {land: {}, landRestoreEpoch: epoch});
+        localStorage.setItem(PROF_KEY, JSON.stringify(next));
+        prof = next;
+        if (diffBase) diffBase = readCfgP();
+      } catch (e) { return; }
+    }
+    function landMap() { var global = storedG() || {}; adoptLandRestore(global); var mb = mobOf(global); var gl = (mb._land && typeof mb._land === 'object') ? mb._land : {}; return Object.assign({}, gl, prof.land); }
     var curProf = null, entryVals = null, diffBase = null, keepP = {};
     // the PORTRAIT value of a key = an unsaved portrait edit, else the global _mobile layer, else the seed. Never read it back from P while
     // LANDSCAPE is active: applyMode has already seeded the landscape bucket into P (also on a boot straight into landscape).
