@@ -2567,7 +2567,7 @@
     else if (k === 'minRadius' || k === 'maxRadius') { P.CELL_RADIUS = clamp(P.CELL_RADIUS, P.minRadius, Math.max(P.minRadius, P.maxRadius)); cells.forEach(function (c) { c.radius = P.CELL_RADIUS; }); }
     else if (k === 'pixelRatio') resizeCanvas();
     else if (k === 'panelWidth' && panel) panel.style.width = v + 'px';
-    else if (k === 'blurWidth') { if (blurEl) blurEl.style.width = v + 'px'; if (blurLEl) blurLEl.style.width = v + 'px'; }
+    else if (k === 'blurWidth') { if (blurEl) blurEl.style.width = v + 'px'; if (blurLEl) blurLEl.style.width = v + 'px'; document.documentElement.style.setProperty('--bwc', v + 'px'); }
     else if (k === 'blurStrength') document.documentElement.style.setProperty('--bmax', v + 'px');
     else if (k === 'margin') document.documentElement.style.setProperty('--m', v + 'px');
     else if (k === 'panelRowGap') document.documentElement.style.setProperty('--rg', v + 'px');
@@ -2844,6 +2844,7 @@
   function applyLineColor() { invertTick(); var rt = document.documentElement.style; rt.setProperty('--kl', P.lineColor); if (P.ruleColor) rt.setProperty('--kr', P.ruleColor); else rt.removeProperty('--kr'); if (P.circColor) rt.setProperty('--kc', P.circColor); else rt.removeProperty('--kc'); }
   var panel = document.getElementById('panel'), blurEl = document.getElementById('blur'), blurLEl = document.getElementById('blurl');
   panel.style.width = P.panelWidth + 'px'; blurEl.style.width = P.blurWidth + 'px'; blurLEl.style.width = P.blurWidth + 'px';
+  document.documentElement.style.setProperty('--bwc', P.blurWidth + 'px');
   document.documentElement.style.setProperty('--bmax', P.blurStrength + 'px');
 
   // ---- section circles: one per config section in the panel's right lane ----
@@ -3202,16 +3203,21 @@
     var on = false, i;
     for (i = 0; i < 4; i++) if (dofK[i] > 0.004) on = true;
     if (!on) return;
-    var bw = Math.min(P.blurWidth, W / 2), hs = 0.5; // half-res scratch: blur is a low-pass, the softness hides the scale
-    var sw = Math.max(1, Math.ceil(bw * DPR * hs)), sh = Math.max(1, Math.ceil(H * DPR * hs));
+    // owner 2026-11-02 17:15 (phonemsg-01M6E9TY56CM9XN2ARWFY30FNJ; clarified 17:15:58 phonemsg-01M6E9VW47KRAV3RVHXT846GGH):
+    // mobile runs the same depth blur from the top/bottom edges instead of left/right; width, strength,
+    // timings and band stops stay identical, desktop is untouched.
+    var vert = !!(document.body && document.body.dataset && document.body.dataset.camode === 'm');
+    var bw = Math.min(P.blurWidth, (vert ? H : W) / 2), hs = 0.5; // half-res scratch: blur is a low-pass, the softness hides the scale
+    var sw = Math.max(1, Math.ceil((vert ? W : bw) * DPR * hs)), sh = Math.max(1, Math.ceil((vert ? bw : H) * DPR * hs));
     if (!dofCv) { dofCv = document.createElement('canvas'); dofLay = document.createElement('canvas'); }
     if (dofCv.width !== sw || dofCv.height !== sh) { dofCv.width = sw; dofCv.height = sh; dofLay.width = sw; dofLay.height = sh; }
     var MSK = [[0.55, 1], [0.35, 0.75], [0.15, 0.5], [0, 0.25]]; // the CSS mask stops: strongest at the screen edge
     for (var side = 0; side < 2; side++) {
-      var sx = side === 0 ? W - bw : 0; // right strip first (the config side), then its left twin
+      var sx = vert ? 0 : (side === 0 ? W - bw : 0); // the config-side strip first, then its twin (top/bottom on mobile)
+      var sy = vert ? (side === 0 ? 0 : H - bw) : 0;
       var c2 = dofCv.getContext('2d'), l2 = dofLay.getContext('2d');
       c2.setTransform(1, 0, 0, 1, 0, 0); c2.globalCompositeOperation = 'source-over'; c2.filter = 'none';
-      c2.drawImage(cv, sx * DPR, 0, bw * DPR, H * DPR, 0, 0, sw, sh);
+      c2.drawImage(cv, sx * DPR, sy * DPR, (vert ? W : bw) * DPR, (vert ? bw : H) * DPR, 0, 0, sw, sh);
       for (i = 0; i < 4; i++) {
         var bl = P.blurStrength * (i + 1) / 4 * dofK[i] * DPR * hs;
         if (bl < 0.05) continue;
@@ -3219,13 +3225,14 @@
         l2.filter = 'blur(' + bl.toFixed(2) + 'px)';
         l2.drawImage(dofCv, 0, 0);
         l2.filter = 'none'; l2.globalCompositeOperation = 'destination-in';
-        var gr = side === 0 ? l2.createLinearGradient(sw, 0, 0, 0) : l2.createLinearGradient(0, 0, sw, 0);
+        var gr = vert ? (side === 0 ? l2.createLinearGradient(0, 0, 0, sh) : l2.createLinearGradient(0, sh, 0, 0))
+                      : (side === 0 ? l2.createLinearGradient(sw, 0, 0, 0) : l2.createLinearGradient(0, 0, sw, 0));
         gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(MSK[i][0], 'rgba(0,0,0,1)'); gr.addColorStop(MSK[i][1], 'rgba(0,0,0,0)');
         l2.fillStyle = gr; l2.fillRect(0, 0, sw, sh);
         c2.drawImage(dofLay, 0, 0);
       }
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.drawImage(dofCv, 0, 0, sw, sh, sx * DPR, 0, bw * DPR, H * DPR);
+      ctx.drawImage(dofCv, 0, 0, sw, sh, sx * DPR, sy * DPR, (vert ? W : bw) * DPR, (vert ? bw : H) * DPR);
       ctx.restore();
     }
   }
