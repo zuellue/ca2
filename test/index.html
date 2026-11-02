@@ -50,6 +50,17 @@
   #blurl .bf2 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .5 * var(--bk2, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .5 * var(--bk2, 0))); -webkit-mask-image: linear-gradient(to right, #000 35%, rgba(0,0,0,0) 75%); mask-image: linear-gradient(to right, #000 35%, rgba(0,0,0,0) 75%); }
   #blurl .bf3 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * .75 * var(--bk3, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * .75 * var(--bk3, 0))); -webkit-mask-image: linear-gradient(to right, #000 15%, rgba(0,0,0,0) 50%); mask-image: linear-gradient(to right, #000 15%, rgba(0,0,0,0) 50%); }
   #blurl .bf4 { -webkit-backdrop-filter: blur(calc(var(--bmax, 16px) * var(--bk4, 0))); backdrop-filter: blur(calc(var(--bmax, 16px) * var(--bk4, 0))); -webkit-mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,0) 25%); mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,0) 25%); }
+  /* mobile (body[data-camode="m"]): the same four bands come from the top/bottom edges instead; only the direction changes (owner 2026-11-02 17:15, phonemsg-01M6E9TY56CM9XN2ARWFY30FNJ) */
+  body[data-camode="m"] #blur { top: 0; bottom: auto; left: 0; right: 0; width: auto !important; height: var(--bwc, 340px); }
+  body[data-camode="m"] #blur .bf1 { -webkit-mask-image: linear-gradient(to bottom, #000 55%, rgba(0,0,0,0) 100%); mask-image: linear-gradient(to bottom, #000 55%, rgba(0,0,0,0) 100%); }
+  body[data-camode="m"] #blur .bf2 { -webkit-mask-image: linear-gradient(to bottom, #000 35%, rgba(0,0,0,0) 75%); mask-image: linear-gradient(to bottom, #000 35%, rgba(0,0,0,0) 75%); }
+  body[data-camode="m"] #blur .bf3 { -webkit-mask-image: linear-gradient(to bottom, #000 15%, rgba(0,0,0,0) 50%); mask-image: linear-gradient(to bottom, #000 15%, rgba(0,0,0,0) 50%); }
+  body[data-camode="m"] #blur .bf4 { -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,0) 25%); mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,0) 25%); }
+  body[data-camode="m"] #blurl { top: auto; bottom: 0; left: 0; right: 0; width: auto !important; height: var(--bwc, 340px); }
+  body[data-camode="m"] #blurl .bf1 { -webkit-mask-image: linear-gradient(to top, #000 55%, rgba(0,0,0,0) 100%); mask-image: linear-gradient(to top, #000 55%, rgba(0,0,0,0) 100%); }
+  body[data-camode="m"] #blurl .bf2 { -webkit-mask-image: linear-gradient(to top, #000 35%, rgba(0,0,0,0) 75%); mask-image: linear-gradient(to top, #000 35%, rgba(0,0,0,0) 75%); }
+  body[data-camode="m"] #blurl .bf3 { -webkit-mask-image: linear-gradient(to top, #000 15%, rgba(0,0,0,0) 50%); mask-image: linear-gradient(to top, #000 15%, rgba(0,0,0,0) 50%); }
+  body[data-camode="m"] #blurl .bf4 { -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0,0,0,0) 25%); mask-image: linear-gradient(to top, #000 0%, rgba(0,0,0,0) 25%); }
 
   @keyframes ca2in { from { opacity: 0 } to { opacity: 1 } }
   #panel h1 { margin: 0 0 6px; font-weight: normal; font-size: 13px; letter-spacing: calc(.3em + 1px); font-family: 'Times New Roman', Times, serif; }
@@ -175,6 +186,6 @@ try { var s0 = JSON.parse(localStorage.getItem('ca2.config') || 'null'); if (s0 
 </div>
 <div id="blur"><div class="bf bf1"></div><div class="bf bf2"></div><div class="bf bf3"></div><div class="bf bf4"></div></div>
 <div id="blurl"><div class="bf bf1"></div><div class="bf bf2"></div><div class="bf bf3"></div><div class="bf bf4"></div></div>
-<script src="/release.js?v=202610271205" data-preview="1"></script>
+<script src="/release.js?v=202611021720" data-preview="1"></script>
 </body>
 </html>
