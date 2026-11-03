@@ -490,8 +490,10 @@
     var nl = dist || 1, nx = dx / nl, ny = dy / nl, sep = (rab - dist) * 0.5;
     // f9 (73d-1, 1:1 sim.rs): a squeeze pushes as a force, it never carries - a pressed pair separates at the cells' own quantum over the next frames
     if (a.__ccT !== frameT) { a.__ccT = frameT; a.__ccU = 0; } if (b.__ccT !== frameT) { b.__ccT = frameT; b.__ccU = 0; }
-    var spa9 = Math.min(sep, Math.max(0, (a.maxSpeed || 0) + 1 - a.__ccU)), spb9 = Math.min(sep, Math.max(0, (b.maxSpeed || 0) + 1 - b.__ccU));
-    a.x -= nx * spa9; a.y -= ny * spa9; a.__ccU += spa9; b.x += nx * spb9; b.y += ny * spb9; b.__ccU += spb9;
+    // f9 mirror of sim.rs pair-resolve: the budget spends magnitude - sep<0 (apart, inside interaction radius) pulls the pair together,
+    // that motion is capped by the remaining budget too and must never refund it (was: unbudgeted full-strength pull + __ccU refund)
+    var spa9 = Math.sign(sep) * Math.min(Math.abs(sep), Math.max(0, (a.maxSpeed || 0) + 1 - a.__ccU)), spb9 = Math.sign(sep) * Math.min(Math.abs(sep), Math.max(0, (b.maxSpeed || 0) + 1 - b.__ccU));
+    a.x -= nx * spa9; a.y -= ny * spa9; a.__ccU += Math.abs(spa9); b.x += nx * spb9; b.y += ny * spb9; b.__ccU += Math.abs(spb9);
     var ad = a.vx * nx + a.vy * ny, bd = b.vx * nx + b.vy * ny;
     a.vx = lerp(a.vx, a.vx - nx * 2 * ad, 0.8); a.vy = lerp(a.vy, a.vy - ny * 2 * ad, 0.8);
     b.vx = lerp(b.vx, b.vx - nx * 2 * bd, 0.8); b.vy = lerp(b.vy, b.vy - ny * 2 * bd, 0.8);
@@ -897,7 +899,7 @@
   var WC = { ok: false, off: false }, MB = { ms: 0, path: '-' };
   if (window.WebAssembly && !/[?&]nowasm=1/.test(location.search)) {
     var simd = false; try { simd = WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11])); } catch (e) {} WC.simd = simd && !/[?&]nosimd=1/.test(location.search);
-    fetch(window.__caRelease ? window.__caRelease.assetURL((WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610261733') : (WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610221624').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, {}); }).then(function (m) {
+    fetch(window.__caRelease ? window.__caRelease.assetURL((WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202611031536') : (WC.simd ? 'ca2core-simd.wasm' : 'ca2core.wasm') + '?v=202610221624').then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, {}); }).then(function (m) {
       var e = m.instance.exports; WC.mem = e.memory; WC.cells = e.cells_ptr; WC.out = e.out_ptr; WC.fieldX = e.mb_field; WC.field = e.mb_field_f32; WC.fieldF = e.mb_field_f32; if (e.sim_step) WC.e = e; WC.ok = true;
     }).catch(function (e) { WC.err = String(e); });
   }
@@ -990,20 +992,22 @@
     c.vx += -Math.sin(sh2.dir) * swk; c.vy += Math.cos(sh2.dir) * swk;
     var vv = Math.hypot(c.vx, c.vy); if (vv > 0.05) { c.vx = lerp(c.vx, Math.cos(sh2.dir) * vv, 0.04); c.vy = lerp(c.vy, Math.sin(sh2.dir) * vv, 0.04); }
   }
+  var SIM_STRIDE = 30; // f64 per cell in the wasm cell buffer (wasm/src/sim.rs ST); simW asserts it through sim_stride()
   var WDRSN = {2: 'energy0', 3: 'crowd', 4: 'genebound', 5: 'oob', 6: 'select'}; // wasm sim.rs DRSN codes -> deathLog reasons (item 64, main 25 Oct)
   function simW(tmpRef) {
-    var E = WC.e; if (E && /[?&]simab=1/.test(location.search) && (SIMW.t = !SIMW.t)) return false; if (!E || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) { SIMW.on = false; return false; }
+    var E = WC.e, ST = SIM_STRIDE; if (E && (!E.sim_stride || E.sim_stride() !== SIM_STRIDE)) { SIMW.on = false; WC.simOff = 1; SIMW.abiBad = E.sim_stride ? E.sim_stride() : -1; return false; } // ABI guard: wasm cell stride must equal the page pack/read stride, otherwise fall back to JS (fail-closed: missing export = mismatch, a474509)
+    if (E && /[?&]simab=1/.test(location.search) && (SIMW.t = !SIMW.t)) return false; if (!E || !WC.ok || WC.off || WC.simOff || /[?&]nosim=1/.test(location.search)) { SIMW.on = false; return false; }
     try {
       var t0 = performance.now(), n = cells.length, cap = n + 256, nf = food.length, cl = Object.keys(cmean), ncm = cl.length, i, c, b;
       E.sim_cells(cap); E.sim_food(nf + 1); E.sim_cm(ncm + 1);
       var cp = E.sim_cells(cap), fxp = E.sim_food(nf + 1), fyp = E.sim_food_y(), fgp = E.sim_food_gone(), cmp = E.sim_cm(ncm + 1), cip = E.sim_cm_ids(), pp = E.sim_params();
-      var buf = WC.mem.buffer, cf = new Float64Array(buf, cp, cap * 30), fx = new Float64Array(buf, fxp, nf + 1), fy = new Float64Array(buf, fyp, nf + 1), cmf = new Float64Array(buf, cmp, (ncm + 1) * 5), cid = new Float64Array(buf, cip, ncm + 1), p = new Float64Array(buf, pp, 97);
+      var buf = WC.mem.buffer, cf = new Float64Array(buf, cp, cap * ST), fx = new Float64Array(buf, fxp, nf + 1), fy = new Float64Array(buf, fyp, nf + 1), cmf = new Float64Array(buf, cmp, (ncm + 1) * 5), cid = new Float64Array(buf, cip, ncm + 1), p = new Float64Array(buf, pp, 97);
       simStamp++;
       for (i = 0; i < n; i++) {
         c = cells[i]; c._i = i; c._f = simStamp;
       }
       for (i = 0; i < n; i++) {
-        c = cells[i]; b = i * 30; var g = c.g;
+        c = cells[i]; b = i * ST; var g = c.g;
         cf[b] = c.x; cf[b + 1] = c.y; cf[b + 2] = c.vx; cf[b + 3] = c.vy; cf[b + 4] = c.radius; cf[b + 5] = c.energy; cf[b + 6] = c.gene; cf[b + 7] = c.alive ? 1 : 0; cf[b + 8] = c.maxSpeed; cf[b + 9] = c.speedModifier; cf[b + 10] = c.hostility; cf[b + 11] = c.mutationRate; cf[b + 12] = c.sv; cf[b + 13] = c.cl || 0;
         cf[b + 14] = (c.sym && c.sym._f === simStamp) ? c.sym._i : -1; cf[b + 15] = g.spd; cf[b + 16] = g.app; cf[b + 17] = g.bnd; cf[b + 18] = g.col[0]; cf[b + 19] = g.col[1]; cf[b + 20] = g.col[2]; cf[b + 21] = c.comp || 0; cf[b + 22] = 0; cf[b + 23] = frameT - (c.bornAt || 0); cf[b + 24] = c.sq || 0; cf[b + 25] = c.crowd || 0; cf[b + 26] = c.envVx || 0; cf[b + 27] = c.envVy || 0; cf[b + 28] = 0; cf[b + 29] = 0; // slot 23: age ms in, -1 = absorbed out; 22 is the wasm REM flag; 24: eased squash state, 25: crowd field (item 64); 26-27: environmental velocity (directive 3); 28: wasm wall-press signal out (the squash ease is a JS post-pass for both engines)
       }
@@ -1030,14 +1034,14 @@
       var o = new Float64Array(WC.mem.buffer, E.sim_out(), 32), nf2 = o[15];
       var kids = [];
       if (E.sim_cap && E.sim_cap() !== cap) { cap = E.sim_cap(); cp = E.sim_cells_ptr(); } // wasm grew its cell buffer on a birth burst: re-anchor before reading back
-      cf = new Float64Array(WC.mem.buffer, cp, cap * 30);
+      cf = new Float64Array(WC.mem.buffer, cp, cap * ST);
       for (i = 0; i < nf2; i++) {
-        b = i * 30; c = i < n ? cells[i] : new Cell(cf[b], cf[b + 1], cf[b + 6], cf[b + 11]);
+        b = i * ST; c = i < n ? cells[i] : new Cell(cf[b], cf[b + 1], cf[b + 6], cf[b + 11]);
         if (i >= n) { cells.push(c); c._i = i; c._f = simStamp; }
         c.x = cf[b]; c.y = cf[b + 1]; c.vx = cf[b + 2]; c.vy = cf[b + 3]; c.radius = cf[b + 4]; c.energy = cf[b + 5]; c.gene = cf[b + 6]; c.alive = cf[b + 7] !== 0; c.maxSpeed = cf[b + 8]; c.speedModifier = cf[b + 9]; c.hostility = cf[b + 10]; c.mutationRate = cf[b + 11]; c.sv = cf[b + 12]; c.cl = cf[b + 13];
         var gg = c.g; gg.spd = cf[b + 15]; gg.app = cf[b + 16]; gg.bnd = cf[b + 17]; gg.col = [cf[b + 18], cf[b + 19], cf[b + 20]]; if (cf[b + 21] > 0) c.comp = cf[b + 21]; c.absorbed = cf[b + 23] < 0 ? 1 : 0; c.sq = cf[b + 24]; c.crowd = cf[b + 25]; c.envVx = cf[b + 26]; c.envVy = cf[b + 27]; c.sqS = Math.max(c.sqS || 0, cf[b + 28]); c.wasmDr = cf[b + 29];
       }
-      for (i = 0; i < nf2; i++) { var sy = cf[i * 30 + 14]; cells[i].sym = sy >= 0 ? cells[sy] : null; }
+      for (i = 0; i < nf2; i++) { var sy = cf[i * ST + 14]; cells[i].sym = sy >= 0 ? cells[sy] : null; }
       var fg = new Float64Array(WC.mem.buffer, fgp, nf + 1);
       var lg = new Float64Array(WC.mem.buffer, E.sim_log(), o[17]); // births / fusions: body plans stay in JS (newShape/mixShape), the wasm core only reports who came from whom
       for (i = 0; i < lg.length; i += 4) { var kd = lg[i + 3], k0 = cells[lg[i]], p0 = cells[lg[i + 1]], p1 = lg[i + 2] >= 0 ? cells[lg[i + 2]] : null; if (kd === 1) k0.shp = newShape(p0.shp); else if (kd === 2) k0.shp = mixShape(p0.shp, p1.shp); else k0.shp = mixShape(k0.shp, p0.shp); }
@@ -1435,7 +1439,7 @@
     }
     return false;
   }
-  // ---- food and typography (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02): food obeys the cells' letter exclusion. Same mask (SEP.img via sepDiskHit), same
+  // ---- food and typography (user 23 Oct request): food obeys the cells' letter exclusion. Same mask (SEP.img via sepDiskHit), same
   // switch (separatorOn + HUD). Spawns resample on the real mask; motion that would enter ink is stopped like a wall (slide
   // along the free axis, else hold, velocity reflected); no teleport search. Parasites fly and are exempt.
   function foodInkOn() { return !!(P.separatorOn && P.showHud && SEP.img); }
@@ -2062,7 +2066,7 @@
       parasites = out; WC.fwPa = (WC.fwPa || 0) + 1; return true;
     } catch (e) { WC.fwPaErr = String(e && e.stack || e); return false; }
   }
-  // ---- parasites and letter circles (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02): when the plate grows over the title, a circle of a glyph (its real
+  // ---- parasites and letter circles (user 23 Oct request): when the plate grows over the title, a circle of a glyph (its real
   // font-outline circle from circlesNow) that lies inside the plate looks like a cell to a hostless parasite. A hostless
   // parasite whose nearest candidate is such a circle (with the same distance rule as cells) takes it for a host and rides it
   // like a cell body; a real cell closer than the circle, or the circle leaving the plate, ends the mistake. It feeds nothing, so
@@ -2284,6 +2288,9 @@
       for (var k = i - 1; k >= 0; k--) interact(c, cells[k]);
       if (resizeDrag && c.alive) { var ms2 = (c.maxSpeed + 1) * P.restless; c.vx += (Math.random() - 0.5) * ms2 * 2; c.vy += (Math.random() - 0.5) * ms2 * 2; }
       if (P.boundAware && c.alive) keepIn(c);
+      // f10 (CA-6): close the step at the cell's own speed limit - 1:1 sim.rs step() (the pair reflect/kick,
+      // restless and wall channels after update()'s clamp otherwise keep adding past it)
+      if (c.alive) { var dmE = Math.hypot(c.x - mouse.x, c.y - mouse.y), smE = dmE < P.slowDownRadius ? P.speedReductionFactor : 1; limit(c, c.maxSpeed * smE * c.speedModifier * (resizeDrag ? 1 + P.restless * 1.5 : 1)); }
       if (!c.alive) { ev.death++; logDeath(c, c.__dr || 'untagged-js'); habReap(c); cells.splice(i, 1); }
     }
     if (!simDone) SIMW.js = (SIMW.js || 0) * 0.9 + (performance.now() - tj0) * 0.1;
@@ -2421,7 +2428,7 @@
       var dh2 = ta2 - pp2.h; while (dh2 > 3.1416) dh2 -= 6.2832; while (dh2 < -3.1416) dh2 += 6.2832;
       pp2.h += dh2 * (1 - Math.exp(-dtf * 0.012)); pp2.px = pp2.x; pp2.py = pp2.y;
       var psz = P.parasiteSize > 0 ? P.parasiteSize : 1; // owner 22 Oct: size knob, 1 = the shipped size; manual entry is never clamped
-      // user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02: wing tips slightly rounded, flap more apparent and coordinated with the motion.
+      // user 23 Oct request: wing tips slightly rounded, flap more apparent and coordinated with the motion.
       // Speed (smoothed px/frame) scales both beat rate and depth; at rest the beat is the shipped ~9 Hz, only a bit deeper (12% -> 22%).
       var spd2 = pp2.fx === undefined ? 0 : Math.hypot(pp2.x - pp2.fx, pp2.y - pp2.fy); pp2.fx = pp2.x; pp2.fy = pp2.y;
       pp2.sp = (pp2.sp || 0) + (Math.min(spd2, 6) - (pp2.sp || 0)) * 0.15;
@@ -3506,7 +3513,7 @@
     var on = false, i;
     for (i = 0; i < 4; i++) if (dofK[i] > 0.004) on = true;
     if (!on) return;
-    // owner 2026-11-02 17:15 (phonemsg-01M6E9TY56CM9XN2ARWFY30FNJ; clarified 17:15:58 phonemsg-01M6E9VW47KRAV3RVHXT846GGH):
+    // owner 2026-11-02 17:15 (clarified 17:15:58):
     // mobile runs the same depth blur from the top/bottom edges instead of left/right; width, strength,
     // timings and band stops stay identical, desktop is untouched.
     var vert = !!(document.body && document.body.dataset && document.body.dataset.camode === 'm');
@@ -3979,7 +3986,7 @@
         var v;
         if (mob) v = (mb2[k] !== undefined) ? mb2[k] : MOBILE_SEED[k];
         else v = (g[k] !== undefined) ? g[k] : MOBILE_SEED[k]; // no desktop source offline: keep the seed value
-        if (mob && profActive() === 'L') { var lmz = landMap(); if (lmz[k] !== undefined) v = lmz[k]; } // the LANDSCAPE mirror wins over the portrait layer (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02)
+        if (mob && profActive() === 'L') { var lmz = landMap(); if (lmz[k] !== undefined) v = lmz[k]; } // the LANDSCAPE mirror wins over the portrait layer (user 23 Oct request)
         if (v === undefined) return;
         // device-profile default, NOT a user edit: seedKey. setKey would mark the key touched and pin it against
         // the bounded morph deal forever (CR never moved on mobile / small viewports - measured tg.cr frozen at the seed).
@@ -4060,7 +4067,7 @@
       if (c.w > bw.hi) c.w = bw.hi;
       if (c.h > bh.hi) c.h = bh.hi;
     })();
-    // ---- orientation profiles (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02): PORTRAIT is the existing mobile layer, unchanged. LANDSCAPE is a
+    // ---- orientation profiles (user 23 Oct request): PORTRAIT is the existing mobile layer, unchanged. LANDSCAPE is a
     // mirror profile: only the parameters changed while in LANDSCAPE are overridden; everything else follows
     // PORTRAIT live. Overrides travel inside the global's _mobile._land (the Worker merges _mobile whole) with the
     // device-local mirror on top, so a phone keeps its unsaved landscape edits across reloads.
@@ -4128,7 +4135,7 @@
       if (curProf === 'L') diffBase = readCfgP(); // my own save above must not read back as edits
       lpPaint();
     }
-    // edits made while LANDSCAPE is active are the mirror's content (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02). Capture = keys the core marked
+    // edits made while LANDSCAPE is active are the mirror's content (user 23 Oct request). Capture = keys the core marked
     // touched whose persisted (save()-written, morph-target) value changed: user edits only. Layer seeds, global
     // pulls, boot deals and in-flight morphs neither mark touched nor call save, so they can never pollute the mirror.
     function captureLand() { // returns true when the mirror changed; safe to call any time, cheap
@@ -4143,7 +4150,7 @@
     }
     setInterval(function () { captureLand(); }, 400); // the cadence for unsaved edits; saves sweep synchronously below
     window.addEventListener('resize', function () { if (mode === 'm' && !prof.active) applyProf(); }); // unpinned: follow the window aspect
-    // ---- L / P circles (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02): top-left corner, same family as the login circles - hover (or the touch
+    // ---- L / P circles (user 23 Oct request): top-left corner, same family as the login circles - hover (or the touch
     // press) paints a random RGB and grows the circle into a pill spelling the full word; a tap switches profile
     var lpw = null, lpEls = {};
     window.__ca2ProfFollow = function () { prof.active = null; profSave(); applyProf(); }; // device.html: the frame's viewport aspect decides the profile
@@ -4175,7 +4182,7 @@
         function rgb() { return 'rgb(' + Math.floor(Math.random() * 256) + ',' + Math.floor(Math.random() * 256) + ',' + Math.floor(Math.random() * 256) + ')'; }
         function grow() { if (b.classList.contains('x')) return; b.classList.add('x'); b.style.width = (Math.max(28, b.querySelector('s').getBoundingClientRect().width + 24)) + 'px'; var c = rgb(); b.style.background = c; b.style.borderColor = c; var m = /rgb\((\d+),(\d+),(\d+)\)/.exec(c); var lum = m ? (0.299 * m[1] + 0.587 * m[2] + 0.114 * m[3]) : 0; b.style.color = lum > 150 ? '#111' : '#fff'; }
         function shrink() { b.classList.remove('x'); b.style.width = ''; b.style.background = ''; b.style.borderColor = ''; b.style.color = ''; }
-        b.addEventListener('pointerenter', grow); // the login-circle hover language: random colour + the full word (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02)
+        b.addEventListener('pointerenter', grow); // the login-circle hover language: random colour + the full word (user 23 Oct request)
         b.addEventListener('pointerleave', shrink);
         b.addEventListener('click', function () {
           var k = pair[0];
@@ -4185,7 +4192,7 @@
           setTimeout(function () { if (!b.matches(':hover')) shrink(); }, 900);
         });
       });
-      // the profile switcher is an admin instrument (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02): it mounts with admin and leaves with ca2logout
+      // the profile switcher is an admin instrument (user 23 Oct request): it mounts with admin and leaves with ca2logout
       var lpOn = false;
       var inFrame = MODE_Q && window.parent !== window; // the device.html host owns the P/L circles (top-left of its black screen); nothing inside the preview
       function lpMount() { if (lpOn || inFrame) return; lpOn = true; document.body.appendChild(lpw); lpPaint(); }
@@ -4194,19 +4201,19 @@
       setInterval(function () { if (window.__adminOn) lpMount(); else lpDrop(); }, 500);
     })();
     // admin saves reroute into _mobile (owner 21 Oct): the desktop lane's Worker module calls this hook right
-    // before POSTing an admin save (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02 contract). Sync, never mutates its argument, never throws:
+    // before POSTing an admin save (user 23 Oct request contract). Sync, never mutates its argument, never throws:
     // null = post the original body, an object = post it as the full replacement body (a Promise of either is
     // accepted by the caller). PORTRAIT keeps the 21 Oct shape: the whole effective mobile config into _mobile,
     // sent whole because the Worker merges shallowly. LANDSCAPE writes the same whole portrait config PLUS
-    // _mobile._land = only the keys actually changed while in LANDSCAPE - the mirror (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02).
+    // _mobile._land = only the keys actually changed while in LANDSCAPE - the mirror (user 23 Oct request).
     // admin saves reroute into _mobile (owner 21 Oct): the desktop lane's Worker module calls this hook right
-    // before POSTing an admin save (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02 contract). body = the full POST object {code, patch:{...}};
+    // before POSTing an admin save (user 23 Oct request contract). body = the full POST object {code, patch:{...}};
     // returns null (= post the original) or a full replacement body - never mutates, never throws, sync (a
     // returned Promise is also accepted by the caller). Mobile shape: the patch's config keys collapse into
     // patch._mobile as a JSON STRING (the Worker merges patches shallowly, so _mobile travels whole, like
     // _live). PORTRAIT keeps the 21 Oct whole-config shape; LANDSCAPE writes the whole PORTRAIT-effective
     // config with the mirror backed out PLUS _mobile._land = only the keys actually changed in LANDSCAPE
-    // (user 23 Oct phonemsg-01M5MCY74RD2TRF90TZFQEXJ02). A PORTRAIT save preserves the stored mirror. Desktop saves pass through (null).
+    // (user 23 Oct request). A PORTRAIT save preserves the stored mirror. Desktop saves pass through (null).
     window.__ca2RewriteAdminPatch = function (body, ctx) {
       try {
         if (!body || typeof body !== 'object' || !body.patch || typeof body.patch !== 'object') return null;
