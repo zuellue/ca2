@@ -1,0 +1,159 @@
+T launched 0.6 att 0
+T framegate 12.8 fps 0.4 r 43.9
+T launched 13.5 att 1
+T setup retry 0 {"err":"no cell outside panel","alive":63,"VW":1300,"VH":657}
+T framegate 28.4 fps 11.6 r 36.417139773442074
+T entered 29
+T plateauA 31.8 {"ms":5998,"rr":41.83226422058146,"ring":true,"locked":true,"maxR":36.416942694966856,"col":"rgba(38,41,174,1)","cx":604.5668117326385,"cy":231.21555725270233,"cs":0.8,"lms":4000,"pinR":36.417139773442074,"pinX":604.5668117326385,"pinY":231.21555725270233,"alive":1,"aliveMaxR":36.417139773442074,"domRect":{"x":562.7,"y":189.4,"w":83.7,"h":83.7},"domDisp":"block","domBorder":"rgb(38, 41, 174)","domBW":"2px","elt":"c"}
+T shotA 32.2 {"ms":6431,"rr":41.86212042448957,"ring":true,"locked":true,"maxR":36.41710665046274,"col":"rgba(38,41,174,1)","cx":604.5668117326385,"cy":231.21555725270233,"cs":0.8,"lms":4000,"pinR":36.417139773442074,"pinX":604.5668117326385,"pinY":231.21555725270233,"alive":1,"aliveMaxR":36.417139773442074,"domRect":{"x":562.7,"y":189.4,"w":83.7,"h":83.7},"domDisp":"block","domBorder":"rgb(38, 41, 174)","domBW":"2px","elt":"c"}
+T plateauB 35.6 {"ms":9792,"rr":29.160847187377158,"ring":true,"locked":false,"maxR":36.417139773431735,"col":"rgba(38,41,174,1)","cx":605,"cy":231,"cs":0.8,"lms":4000,"pinR":36.417139773442074,"pinX":604.5668117326385,"pinY":231.21555725270233,"alive":1,"aliveMaxR":36.417139773442074,"domRect":{"x":575.8,"y":201.8,"w":58.3,"h":58.3},"domDisp":"block","domBorder":"rgb(38, 41, 174)","domBW":"2px","elt":"c"}
+T shotB 36 {"ms":10227,"rr":29.143771981060553,"ring":true,"locked":false,"maxR":36.41713977344034,"col":"rgba(38,41,174,1)","cx":605,"cy":231,"cs":0.8,"lms":4000,"pinR":36.417139773442074,"pinX":604.5668117326385,"pinY":231.21555725270233,"alive":1,"aliveMaxR":36.417139773442074,"domRect":{"x":575.9,"y":201.9,"w":58.3,"h":58.3},"domDisp":"block","domBorder":"rgb(38, 41, 174)","domBW":"2px","elt":"c"}
+{
+ "assertions": {
+  "pointerReal": true,
+  "frameGate": true,
+  "grownPlateau": true,
+  "grownBracket": true,
+  "returnedPlateau": true,
+  "returnedBracket": true,
+  "domRingMatchesGrown": true,
+  "domRingMatchesReturned": true
+ },
+ "pick": {
+  "x": 604.6,
+  "y": 231.2,
+  "r": 36.42,
+  "cursorSize": 0.8,
+  "lockMs": 4000,
+  "fps": 11.6,
+  "viewport": {
+   "w": 1300,
+   "h": 657
+  },
+  "panel": {
+   "l": 1300,
+   "r": 1620
+  },
+  "cont": {
+   "x": 276,
+   "y": 152,
+   "w": 748,
+   "h": 353
+  },
+  "eltAtPick": "c"
+ },
+ "grown": {
+  "pre": {
+   "ms": 5998,
+   "rr": 41.83226422058146,
+   "ring": true,
+   "locked": true,
+   "maxR": 36.416942694966856,
+   "col": "rgba(38,41,174,1)",
+   "cx": 604.5668117326385,
+   "cy": 231.21555725270233,
+   "cs": 0.8,
+   "lms": 4000,
+   "pinR": 36.417139773442074,
+   "pinX": 604.5668117326385,
+   "pinY": 231.21555725270233,
+   "alive": 1,
+   "aliveMaxR": 36.417139773442074,
+   "domRect": {
+    "x": 562.7,
+    "y": 189.4,
+    "w": 83.7,
+    "h": 83.7
+   },
+   "domDisp": "block",
+   "domBorder": "rgb(38, 41, 174)",
+   "domBW": "2px",
+   "elt": "c"
+  },
+  "post": {
+   "ms": 6431,
+   "rr": 41.86212042448957,
+   "ring": true,
+   "locked": true,
+   "maxR": 36.41710665046274,
+   "col": "rgba(38,41,174,1)",
+   "cx": 604.5668117326385,
+   "cy": 231.21555725270233,
+   "cs": 0.8,
+   "lms": 4000,
+   "pinR": 36.417139773442074,
+   "pinX": 604.5668117326385,
+   "pinY": 231.21555725270233,
+   "alive": 1,
+   "aliveMaxR": 36.417139773442074,
+   "domRect": {
+    "x": 562.7,
+    "y": 189.4,
+    "w": 83.7,
+    "h": 83.7
+   },
+   "domDisp": "block",
+   "domBorder": "rgb(38, 41, 174)",
+   "domBW": "2px",
+   "elt": "c"
+  }
+ },
+ "returned": {
+  "pre": {
+   "ms": 9792,
+   "rr": 29.160847187377158,
+   "ring": true,
+   "locked": false,
+   "maxR": 36.417139773431735,
+   "col": "rgba(38,41,174,1)",
+   "cx": 605,
+   "cy": 231,
+   "cs": 0.8,
+   "lms": 4000,
+   "pinR": 36.417139773442074,
+   "pinX": 604.5668117326385,
+   "pinY": 231.21555725270233,
+   "alive": 1,
+   "aliveMaxR": 36.417139773442074,
+   "domRect": {
+    "x": 575.8,
+    "y": 201.8,
+    "w": 58.3,
+    "h": 58.3
+   },
+   "domDisp": "block",
+   "domBorder": "rgb(38, 41, 174)",
+   "domBW": "2px",
+   "elt": "c"
+  },
+  "post": {
+   "ms": 10227,
+   "rr": 29.143771981060553,
+   "ring": true,
+   "locked": false,
+   "maxR": 36.41713977344034,
+   "col": "rgba(38,41,174,1)",
+   "cx": 605,
+   "cy": 231,
+   "cs": 0.8,
+   "lms": 4000,
+   "pinR": 36.417139773442074,
+   "pinX": 604.5668117326385,
+   "pinY": 231.21555725270233,
+   "alive": 1,
+   "aliveMaxR": 36.417139773442074,
+   "domRect": {
+    "x": 575.9,
+    "y": 201.9,
+    "w": 58.3,
+    "h": 58.3
+   },
+   "domDisp": "block",
+   "domBorder": "rgb(38, 41, 174)",
+   "domBW": "2px",
+   "elt": "c"
+  }
+ },
+ "errors": [],
+ "verdict": "CAPTURED"
+}
