@@ -10,6 +10,10 @@ const diff=(a,b)=>[...a].filter(x=>!b.has(x)).sort();
  const fr=fns(R),ft=fns(T);console.log('functions: root',fr.size,'test',ft.size,'| only in test',diff(ft,fr).length,'| only in root',diff(fr,ft).length);
  console.log(' only in test:',diff(ft,fr).join(' '));console.log(' only in root:',diff(fr,ft).join(' ')||'(none)');
  const pr=pk(R),pt=pk(T);console.log('P assignments: root',pr.size,'test',pt.size,'| only in test',diff(pt,pr).length,':',diff(pt,pr).join(' '));console.log(' only in root:',diff(pr,pt).join(' ')||'(none)');
+ // shared functions whose bodies differ (brace-matched body text, whitespace-normalised)
+ const body=(src,n)=>{const i=src.search(new RegExp('function\\s+'+n+'\\s*\\('));if(i<0)return null;let k=src.indexOf('{',i),d=0,e=k;for(;e<src.length;e++){if(src[e]=='{')d++;else if(src[e]=='}'&&!--d)break}return src.slice(i,e+1).replace(/\s+/g,' ')};
+ const shared=[...fr].filter(n=>ft.has(n)),changed=shared.filter(n=>body(R,n)!==body(T,n)).map(n=>n+'('+(body(T,n).length-body(R,n).length>=0?'+':'')+(body(T,n).length-body(R,n).length)+')');
+ console.log('shared functions',shared.length,'| body differs',changed.length,'(name(char delta test-root)):',changed.join(' '));
  const ex=async f=>new Set(Object.keys((await WebAssembly.instantiate(fs.readFileSync(f),{})).instance.exports));
  const er=await ex('ca2core.wasm'),et=await ex('test/ca2core.wasm');console.log('wasm exports: root',er.size,'test',et.size,'| only in test:',diff(et,er).join(' '),'| only in root:',diff(er,et).join(' ')||'(none)');
  })();
