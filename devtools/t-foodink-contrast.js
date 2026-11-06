@@ -1,4 +1,4 @@
-// KNOWN FAILING on main f8ff9d96 test/ca2.js (exit 1): documents that the eased black/white flip leaves default food near-invisible on mid-grey grounds. No production change made.
+// Regression test for foodInk() in test/ca2.js: default food ink must keep >= MIN (default 3) contrast against every grey ground. Fails on main f8ff9d96 (eased flip, 1.06:1 at grey 118); passes with the hard-pick fix on this branch.
 // Node test of the REAL foodInk() in test/ca2.js (text-extracted): WCAG contrast of the default food ink against every grey/colour ground.
 // Reports the minimum contrast ratio and the grounds where food is effectively invisible (ratio < MIN, default 3). Run: node devtools/t-foodink-contrast.js [file] [MIN]
 const fs=require('fs'),file=process.argv[2]||'test/ca2.js',MIN=+process.argv[3]||3,src=fs.readFileSync(file,'utf8');

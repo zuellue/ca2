@@ -63,7 +63,7 @@
   function foodInk() {
     if (P.swFoodColor) return P.foodColor;
     var f = function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
-    var L = 0.2126 * f(bg[0]) + 0.7152 * f(bg[1]) + 0.0722 * f(bg[2]), t = Math.max(0, Math.min(1, (0.229 - L) / 0.1)), v = Math.round(255 * t);
+    var L = 0.2126 * f(bg[0]) + 0.7152 * f(bg[1]) + 0.0722 * f(bg[2]), v = L > 0.179 ? 0 : 255; // hard pick of the higher-contrast ink (min 4.58:1 at the flip); the former .13-.23 ease passed through mid grey and hit 1.06:1 at grey 118 (devtools/t-foodink-contrast.js)
     return 'rgb(' + v + ',' + v + ',' + v + ')';
   }
   
