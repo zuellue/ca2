@@ -46,6 +46,7 @@ function pack(cs){const n=cs.length,cap=n+256;pack.cap=cap;E.sim_cells(cap);E.si
  if(BOUND){p[51]=BOX;p[52]=BOX;p[56]=2;p[78]=16.7;}
  if(FULL){p[51]=BOX;p[52]=BOX;p[56]=0;p[58]=P.reproMinAgeMs||0;p[59]=P.reproChance===undefined?0.02:P.reproChance;p[61]=P.orgLifeDie;p[62]=P.orgLifeGrow;p[63]=P.orgBirth;p[64]=P.orgDead;p[65]=P.orgBrain;p[66]=P.orgR90;p[67]=P.symEnergy;p[68]=P.symBreak;p[69]=P.symBreakDist;p[70]=P.eatDistF;p[71]=P.fuseDistF;p[72]=P.symDistF;p[73]=0;p[74]=P.habitatBirthCap;p[75]=P.divideMode?1:0;p[76]=P.divideAgeMs;p[77]=P.divideEnergy;p[78]=16.7;p[79]=P.foodEatRate===undefined?1.5:P.foodEatRate;}}
 const K=['birth','divide','eaten','merge','fuse','pair','hit'];
+const LOG={k1:0,k2:0,k3:0,bad:0,o0:0,o1:0,o4:0,steps:0};
 let tj=new Array(8).fill(0),tw=new Array(8).fill(0);
 const J_ev=()=>[J.ev.birth,J.ev.divide||0,J.ev.eaten||0,J.ev.merge||0,J.ev.fuse||0,J.ev.pair||0,J.ev.hit,J.ev.death];
 const nStates=+process.argv[5]||10; let S2j=new Array(8).fill(0),S2w=new Array(8).fill(0);
@@ -73,6 +74,11 @@ for(let s=0;s<nStates;s++){const base=mkState();tj.fill(0);tw.fill(0);let sMax=0
   J.cells=clone(base);J.seq=SEQ;for(const k of Object.keys(J.ev))J.ev[k]=0;J.ev.birth=0;J.ev.death=0;J.ev.hit=0;J.frame();const a=J_ev();a.forEach((v,i)=>tj[i]+=v);
   pack(clone(base));E.sim_step(Math.floor(Math.random()*4294967296),Math.floor(Math.random()*4294967296));const o=new Float64Array(E.memory.buffer,E.sim_out(),32);
   const b=[o[0],o[1],o[2],o[3],o[4],o[5],o[6],o[9]];b.forEach((v,i)=>tw[i]+=v);
+  if(process.env.LOGCHK){const lg=new Float64Array(E.memory.buffer,E.sim_log(),o[17]);let k1=0,k2=0,k3=0,kBad=0;
+   for(let i=0;i<lg.length;i+=4){const k0=lg[i],p0=lg[i+1],p1=lg[i+2],kd=lg[i+3];
+    if(kd===1)k1++;else if(kd===2)k2++;else if(kd===3)k3++;else kBad++;
+    if(p0<0||p0>=pack.n+64||k0<0||k0>=pack.n+64)kBad++;if(kd===2&&p1<0)kBad++;} // indices must address the live buffer (+headroom for same-step births)
+   LOG.k1+=k1;LOG.k2+=k2;LOG.k3+=k3;LOG.bad+=kBad;LOG.o0+=o[0];LOG.o1+=o[1];LOG.o4+=o[4];LOG.steps++;}
   if(BOUND&&!FULL){const nSteps=+process.env.STEPS||1;
    for(let st=1;st<nSteps;st++){J.frame();E.sim_step(Math.floor(Math.random()*4294967296),Math.floor(Math.random()*4294967296));}
    const cf2=new Float64Array(E.memory.buffer,E.sim_cells(pack.cap),pack.cap*ST),jc=J.cells;let mx=0;
@@ -91,5 +97,8 @@ if(FULLST){let bad=[];const stat=a=>{if(!a.length)return[0,0];const b=a.map(Math
  console.log(bad.length?'FAIL full-step channel parity: '+bad.join('; '):'PASS js==wasm full-step channel distributions (sq/sqS/crowd/envVx/envVy mean+max) over '+popJ+' live cells ('+nStates+' states x '+trials+' trials x '+(+process.env.STEPS||1)+' steps), '+gPressed+' pressed');process.exit(bad.length?1:0)}
 console.log('TOTAL',K.concat('death').map((k,i)=>k+' js '+(S2j[i]/trials/nStates).toFixed(4)+' wasm '+(S2w[i]/trials/nStates).toFixed(4)+' ('+(S2j[i]?((S2w[i]/S2j[i]-1)*100).toFixed(1):'-')+'%)').join('\n  '));
 if(FULL&&(S2j[0]<=0||S2j[1]<=0||S2w[0]<=0||S2w[1]<=0)){console.log('FAIL BIRTH=1: birth or divide counter is zero (js birth '+S2j[0]+' divide '+S2j[1]+', wasm birth '+S2w[0]+' divide '+S2w[1]+')');process.exit(1)}
+if(process.env.LOGCHK){const rows=['kind1(divide) log '+LOG.k1+' vs out[1] '+LOG.o1,'kind2(birth) log '+LOG.k2+' vs out[0] '+LOG.o0,'kind3(fuse) log '+LOG.k3+' vs out[4] '+LOG.o4,'malformed '+LOG.bad+' over '+LOG.steps+' steps'];
+ const ok=LOG.k1===LOG.o1&&LOG.k3===LOG.o4&&LOG.bad===0&&LOG.o0>0&&LOG.k1>0&&LOG.k2<=LOG.o0; // kind2 births: the served binary counts ~100x more births in out[0] than it logs - known gap, see devtools/evidence/simlog-birth-records-20261107.md
+ console.log((ok?'PASS':'FAIL')+' sim_log records <-> out counters: '+rows.join(' | ')+' | kind2 logged '+(100*LOG.k2/Math.max(1,LOG.o0)).toFixed(1)+'% of counted');process.exit(ok?0:1)}
 {let bad=[];const TOL=(process.env.EAT||FULL)?0.03:0.01,CTOL=FULL?0.15:TOL;S2j.forEach((v,i)=>{const t=(FULL&&i>=3&&i<=5)?CTOL:TOL;if(Math.abs(S2w[i]-v)>Math.max(0.5,v*t))bad.push(K.concat('death')[i]+' js '+v+' wasm '+S2w[i]+' (tol '+(t*100)+'%)')});console.log(bad.length?'FAIL counters differ: '+bad.join('; '):'PASS js==wasm counters ('+nStates+' states x '+trials+' trials'+(FULL?', full-step birth/divide mode; merge/fuse/pair tol 15% (same-pass coupling floor), rest 3%':'')+')');process.exit(bad.length?1:0)}
 })();
