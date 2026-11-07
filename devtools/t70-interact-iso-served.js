@@ -18,6 +18,130 @@ function habAte(){}function habReap(){}
 ${names.map(fn).join('\n')}
 return {P:P,Cell:Cell,cont:cont,get cells(){return cells;},set cells(v){cells=v;},ev:ev,get seq(){return clusterSeq;},set seq(v){clusterSeq=v;},stepSquash:stepSquash,get frameT(){return frameT;},set frameT(v){frameT=v;},
  frame:function(){frameT+=frameDtf;for(var i=cells.length-1;i>=0;i--){var c=cells[i];if(${FULL}){update(c);checkSurvival(c);}if(!${BOUND}){for(var k=i-1;k>=0;k--)interact(c,cells[k]);}if((${FULL}||${BOUND})&&P.boundAware&&c.alive){var ev0x=c.envVx,ev0y=c.envVy;keepIn(c);var dInx=Math.abs(c.envVx-ev0x),dIny=Math.abs(c.envVy-ev0y);if(dInx>1e-12){globalThis.__DJ.nx++;globalThis.__DJ.sx+=dInx;}if(dIny>1e-12){globalThis.__DJ.ny++;globalThis.__DJ.sy+=dIny;}}if(${FULL}&&c.alive)limit(c,c.maxSpeed*c.speedModifier);if(!c.alive)ev.death++;}for(var i2=cells.length-1;i2>=0;i2--)if(!cells[i2].alive)cells.splice(i2,1);}};`; // 1:1 sim.rs step() + the CA-13 JS loop: deaths counted in-pass, removal deferred to a post-pass (a mid-pass splice was the eaten/death drift); f10 limit() closes the step like the app (mouse far away, resizeDrag off -> factors 1)
+
+// CA-30: bit-exact JS port of rust-lang/libm pow (FreeBSD e_pow.c) - the served wasm32
+// binary's f64::powf. JS Math.pow differs by 1 ulp on some inputs; this port matches the
+// Rust algorithm exactly (all arithmetic f64, bit ops via typed-array views).
+const _pwBuf=new ArrayBuffer(8),_pwF=new Float64Array(_pwBuf),_pwU=new Uint32Array(_pwBuf);
+function _hi(v){_pwF[0]=v;return _pwU[1]|0;}
+function _lo(v){_pwF[0]=v;return _pwU[0]>>>0;}
+function _setLo(v,w){_pwF[0]=v;_pwU[0]=w>>>0;return _pwF[0];}
+function _setHi(v,w){_pwF[0]=v;_pwU[1]=w>>>0;return _pwF[0];}
+function rustScalbn(x,n){ // fdlibm s_scalbn.c 1:1
+ const TWO54=1.80143985094819840000e+16,TWOM54=5.55111512312578270212e-17,HUGE=1.0e300,TINY=1.0e-300;
+ let hx=_hi(x),lx=_lo(x);let k=(hx&0x7ff00000)>>20;
+ if(k===0){if(((lx|(hx&0xfffff))>>>0)===0)return x;x*=TWO54;hx=_hi(x);k=((hx&0x7ff00000)>>20)-54;if(n<-50000)return TINY*x;}
+ if(k===0x7ff)return x+x;
+ k=k+n|0;
+ const cs=v=>hx<0?-v:v;
+ if(k>0x7fe)return HUGE*cs(HUGE);
+ if(k>0)return _setHi(x,((hx&0x800fffff)|(k<<20))>>>0);
+ if(k<=-54)return n>50000?HUGE*cs(HUGE):TINY*cs(TINY);
+ k=k+54|0;return _setHi(x,((hx&0x800fffff)|(k<<20))>>>0)*TWOM54;}
+function rustPow(x,y){ // rust-lang/libm src/math/pow.rs 1:1
+ const BP=[1.0,1.5],DP_H=[0.0,5.84962487220764160156e-01],DP_L=[0.0,1.35003920212974897128e-08];
+ const TWO53=9007199254740992.0,HUGE=1.0e300,TINY=1.0e-300;
+ const L1=5.99999999999994648725e-01,L2=4.28571428578550184252e-01,L3=3.33333329818377432918e-01,L4=2.72728123808534006489e-01,L5=2.30660745775561754067e-01,L6=2.06975017800338417784e-01;
+ const P1=1.66666666666666019037e-01,P2=-2.77777777770155933842e-03,P3=6.61375632143793436117e-05,P4=-1.65339022054652515390e-06,P5=4.13813679705723846039e-08;
+ const LG2=6.93147180559945286227e-01,LG2_H=6.93147182464599609375e-01,LG2_L=-1.90465429995776804525e-09,OVT=8.0085662595372944372e-017;
+ const CP=9.61796693925975554329e-01,CP_H=9.61796700954437255859e-01,CP_L=-7.02846165095275826516e-09;
+ const IVLN2=1.44269504088896338700e+00,IVLN2_H=1.44269502162933349609e+00,IVLN2_L=1.92596299112661746887e-08;
+ let t1,t2;
+ const hx=_hi(x),lx=_lo(x),hy=_hi(y),ly=_lo(y);
+ let ix=hx&0x7fffffff;const iy=hy&0x7fffffff;
+ if(((iy>>>0)|ly)===0)return 1.0;
+ if(hx===0x3ff00000&&lx===0)return 1.0;
+ if(ix>0x7ff00000||(ix===0x7ff00000&&lx!==0)||iy>0x7ff00000||(iy===0x7ff00000&&ly!==0))return x+y;
+ let yisint=0,k,j;
+ if(hx<0){
+  if(iy>=0x43400000)yisint=2;
+  else if(iy>=0x3ff00000){k=(iy>>20)-0x3ff;
+   if(k>20){j=(ly>>>(52-k))|0;if(((j<<(52-k))|0)===(ly|0))yisint=2-(j&1);}
+   else if(ly===0){j=iy>>(20-k);if(((j<<(20-k))|0)===iy)yisint=2-(j&1);}}}
+ if(ly===0){
+  if(iy===0x7ff00000){
+   if(((ix-0x3ff00000)|(lx|0))===0)return 1.0;
+   else if(ix>=0x3ff00000)return hy>=0?y:0.0;
+   else return hy>=0?0.0:-y;}
+  if(iy===0x3ff00000)return hy>=0?x:1.0/x;
+  if(hy===0x40000000)return x*x;
+  if(hy===0x3fe00000&&hx>=0)return Math.sqrt(x);}
+ let ax=Math.abs(x);
+ if(lx===0&&(ix===0x7ff00000||ix===0||ix===0x3ff00000)){
+  let z=ax;if(hy<0)z=1.0/z;
+  if(hx<0){if(((ix-0x3ff00000)|yisint)===0)z=(z-z)/(z-z);else if(yisint===1)z=-z;}
+  return z;}
+ let s=1.0;
+ if(hx<0){if(yisint===0)return (x-x)/(x-x);if(yisint===1)s=-1.0;}
+ if(iy>0x41e00000){
+  if(iy>0x43f00000){
+   if(ix<=0x3fefffff)return hy<0?HUGE*HUGE:TINY*TINY;
+   if(ix>=0x3ff00000)return hy>0?HUGE*HUGE:TINY*TINY;}
+  if(ix<0x3fefffff)return hy<0?s*HUGE*HUGE:s*TINY*TINY;
+  if(ix>0x3ff00000)return hy>0?s*HUGE*HUGE:s*TINY*TINY;
+  const t=ax-1.0,w=(t*t)*(0.5-t*(0.3333333333333333333333-t*0.25));
+  const u=IVLN2_H*t,v=t*IVLN2_L-w*IVLN2;
+  t1=_setLo(u+v,0);t2=v-(t1-u);
+ }else{
+  let n=0;
+  if(ix<0x00100000){ax*=TWO53;n-=53;ix=_hi(ax);}
+  n+=((ix>>20)-0x3ff);j=ix&0x000fffff;
+  let kk;
+  ix=(j|0x3ff00000)|0;
+  if(j<=0x3988E)kk=0;
+  else if(j<0xBB67A)kk=1;
+  else{kk=0;n+=1;ix=(ix-0x00100000)|0;}
+  ax=_setHi(ax,ix>>>0);
+  const u=ax-BP[kk],v=1.0/(ax+BP[kk]);
+  const ss=u*v,s_h=_setLo(ss,0);
+  const t_h=_setHi(0.0,((((ix>>>0)>>1)|0x20000000)+0x00080000+((kk<<18)>>>0))>>>0);
+  const t_l=ax-(t_h-BP[kk]);
+  const s_l=v*((u-s_h*t_h)-s_h*t_l);
+  const s2a=ss*ss;
+  let r=s2a*s2a*(L1+s2a*(L2+s2a*(L3+s2a*(L4+s2a*(L5+s2a*L6)))));
+  r+=s_l*(s_h+ss);
+  const s2=s_h*s_h;
+  const t_h2=_setLo(3.0+s2+r,0);
+  const t_l2=r-((t_h2-3.0)-s2);
+  const u2=s_h*t_h2,v2=s_l*t_h2+t_l2*ss;
+  const p_h=_setLo(u2+v2,0),p_l=v2-(p_h-u2);
+  const z_h=CP_H*p_h,z_l=CP_L*p_h+p_l*CP+DP_L[kk];
+  const t=n*1.0;
+  t1=_setLo(((z_h+z_l)+DP_H[kk])+t,0);
+  t2=z_l-(((t1-t)-DP_H[kk])-z_h);}
+ const y1=_setLo(y,0);
+ const p_l=(y-y1)*t1+y*t2;
+ let p_h=y1*t1;
+ let z=p_l+p_h;
+ j=_hi(z);const ii=_lo(z)|0;
+ if(j>=0x40900000){
+  if((((j-0x40900000)|0)|ii)!==0)return s*HUGE*HUGE;
+  if(p_l+OVT>z-p_h)return s*HUGE*HUGE;
+ }else if((j&0x7fffffff)>=0x4090cc00){
+  if((((j>>>0)-0xc090cc00)|(ii>>>0))!==0)return s*TINY*TINY;
+  if(p_l<=z-p_h)return s*TINY*TINY;}
+ const iu=j&0x7fffffff;
+ k=(iu>>20)-0x3ff;let n=0;
+ if(iu>0x3fe00000){
+  n=(j+(0x00100000>>(k+1)))|0;
+  k=(((n&0x7fffffff)>>20)-0x3ff)|0;
+  const t=_setHi(0.0,(n&~((0x000fffff>>k)>>>0))>>>0);
+  n=(((n&0x000fffff)|0x00100000)>>(20-k))|0;
+  if(j<0)n=-n;
+  p_h-=t;}
+ const t=_setLo(p_l+p_h,0);
+ const u=t*LG2_H,v=(p_l-(t-p_h))*LG2+t*LG2_L;
+ z=u+v;
+ const w=v-(z-u);
+ const tt=z*z;
+ const t1b=z-tt*(P1+tt*(P2+tt*(P3+tt*(P4+tt*P5))));
+ const r=(z*t1b)/(t1b-2.0)-(w+z*w);
+ z=1.0-(r-z);
+ j=(_hi(z)+(n<<20))|0;
+ if((j>>20)<=0)z=rustScalbn(z,n);
+ else z=_setHi(z,j>>>0);
+ return s*z;}
+if(process.env.POWRUST)Math.pow=rustPow; // CA-30 probe
 if(process.env.HYSQRT)Math.hypot=(a,b)=>Math.sqrt(a*a+b*b); // CA-29 probe: Rust hyp() is (a*a+b*b).sqrt() (sim.rs:67), Math.hypot scales and rounds differently ~37% of draws
 const J=new Function(code)();
 const P=J.P;

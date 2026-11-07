@@ -36,3 +36,10 @@ Render/separator/UI call sites untouched (not in the engine path).
 - Residual: the crowd pow channel remains a ~1-ulp noise source (CA-30, optional: port
   Rust's libm pow bit-exactly to JS - not worth it; FULLST distribution tolerance is the
   right gate past the bit-exact horizon).
+
+## CORRECTION (2026-11-07, CA-30 follow-up)
+The 'crowd pow' attribution above is imprecise: kg/kr/edk pow inputs are CONSTANTS and
+Math.pow matches the served binary on all of them (BOUND bit-exact); ZERO=crowdGain
+skips the whole crowd feedback block. The residual seed is a rare (~0.04%/draw)
+transcendental mismatch on a varying input, most likely cos/sin argument reduction -
+see rustpow-port-20261107.md. The hypot finding and patch stand as written.
