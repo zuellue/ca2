@@ -12,5 +12,8 @@ Written 2026-11-07 11:43 +03 under owner block 190 S1/S2 as relayed by Main. Sou
 | CA-6 | Real-GPU render check of /test in Safari and Chrome on the owner's Mac, screenshots saved to files | screenshots of /test and / at pin 3693b53d plus fps readout recorded in devtools/evidence | devtools/evidence/ | yes |
 | CA-7 | PORT test to root on a NEW branch (ca/port-test-to-root), per-tree node tests rerun | all node tests PASS per tree on that branch | ca2.js, ca2core*.wasm, index.html (branch only) | no - GATED: owner/goreda port-or-revert ruling pending; skip until ruled |
 | CA-8 | Attribute PR #2 budget claim (96-109 px): needs a Rust/wasm rebuild of sim.rs | rebuilt wasm vs served wasm per-cell budget, measured line in evidence | wasm/src/sim.rs, devtools/evidence/ | no - BLOCKED: no cargo in the sandbox; needs a toolchain route |
+| CA-9 | Glue/binary skew guard for the ROOT tree after a port: t-glue-wasm-exports must also flag guarded-but-missing exports as a count that must be 0 for the test tree | `node devtools/t-glue-wasm-exports.js test --strict` exits 0 on test/, exits 1 on root (3 optional missing); mutation fails | devtools/t-glue-wasm-exports.js | no |
+| CA-10 | Lang-scan covers devtools/*.js and plan/*.md for Turkish characters (repo comments are English-only per repo rule, unverified) | `node devtools/lang-scan.js --all` clean on branch, mutation fails with file:line | devtools/lang-scan.js | no |
+| CA-11 | Interact parity for P_ONLYINT=2 and boundary (keep_in) paths of the served wasm vs JS | `BOUND=1 node devtools/t70-interact-iso-served.js` PASS within 3%, mutation fails | devtools/t70-interact-iso-served.js | no |
 
-Linux-only ready items: CA-1, CA-2, CA-3, CA-4, CA-5 (5). Native: CA-6. Gated/blocked: CA-7, CA-8.
+Ready now: CA-2, CA-3, CA-4, CA-5, CA-9, CA-10, CA-11 (7 linux-only) + CA-6 (native) = 8 ready. Done: CA-1 (04aa0514). Gated/blocked: CA-7 (port ruling), CA-8 (no cargo).
