@@ -23,6 +23,8 @@ const P=J.P;
 if(process.env.EAT){P.eatMergeOn=1;P.symbiosisOn=1;P.symbiogenesisOn=1;P.divideOn=1;P.eatChance=1;P.mergeChance=1;P.reproChance=1;P.clusterCohesion=1;P.eatDistF=0.85;P.fuseDistF=0.6;P.symDistF=1.1;}
 if(FULL||BOUND){if(P.wallCarry===undefined)P.wallCarry=1;if(P.wallSpread===undefined)P.wallSpread=0.5;if(P.squashMax===undefined)P.squashMax=0.18;if(P.squashIn===undefined)P.squashIn=0.45;if(P.squashOut===undefined)P.squashOut=0.08;if(P.senseR===undefined)P.senseR=1.6;if(P.senseSlow===undefined)P.senseSlow=0.25;if(P.senseTurn===undefined)P.senseTurn=0.12;if(P.senseDelay===undefined)P.senseDelay=0.5;if(P.crowdGain===undefined)P.crowdGain=0.12;if(P.crowdRel===undefined)P.crowdRel=0.02;if(P.crowdSlow===undefined)P.crowdSlow=0.5;if(P.crowdPush===undefined)P.crowdPush=0.3;}
 if(FULL){P.reproChance=Math.max(P.reproChance||0,0.5);P.reproMinAgeMs=0;P.divideOn=1;P.divideAt=1.5;P.orgLifeDie=-0.005;P.orgLifeGrow=1.0025;P.orgBirth=1.005;P.orgDead=-0.0025;P.orgBrain=0.008;P.orgR90=0.0025;P.symEnergy=0.00075;P.symBreak=0.0002;P.symBreakDist=3;if(P.eatDistF===undefined)P.eatDistF=0.85;if(P.fuseDistF===undefined)P.fuseDistF=0.6;if(P.symDistF===undefined)P.symDistF=1.1;P.habitatOn=0;P.habitatBirthCap=2;}
+if(process.env.ZERO){process.env.ZERO.split(',').forEach(k=>{P[k]=0;});}
+if(process.env.SET){process.env.SET.split(',').forEach(kv=>{const a=kv.split('=');P[a[0]]=+a[1];});} // symmetric override for bisection // symmetric gate: zero a P key on BOTH engines (JS reads J.P===P, wasm pack reads P) to bisect a drift to one subpath
 const [trials,N,BOX]=[+process.argv[2]||3000,+process.argv[3]||75,+process.argv[4]||160];
 J.cont.w=BOX;J.cont.h=BOX;
 const wasm=fs.readFileSync(path.join(__dirname,'..',process.env.WASM||'test/ca2core.wasm'));
