@@ -158,3 +158,15 @@ before. OFF battery: default/EAT/BIRTH 800x4/BOUND/FULLST10/LOGCHK PASS (BOUND m
 0.00), teeth (fuse-gate x2 via CA_JS) FAIL as required. One BIRTH 800x4 run failed on
 eaten/death/fuse (3.9/4.4/18.6%) then passed 3/3 reruns - unseeded-mkState noise; the
 flag-free path is bit-identical by construction.
+
+## CA-36 (2026-11-08): the "third seed" was CA-35 fallout; horizon now bounded by state starvation
+
+The crowdGain=0 step-7 divergence seen during CA-35 isolation was measured on the pre-fix
+tree and is gone with the association fix: post-fix, both default and SET=crowdGain=0 aligned
+runs (TRACE2=1 CA2TRIG=1 FULLST=1 STEPS=200) show ZERO exact-threshold divergence over
+3 states x 2 trials each, FULLST channel parity PASS. Extending the horizon past 200 steps
+hits a state-construction wall, not an engine mismatch: FULLST states carry no food, initial
+energy 3-15/cell (mkState) starves the population between steps ~200 and 250 ("no pressed
+cells" precondition), and STEPS=1000 runs stay bit-exact through the collapse. A longer
+horizon needs fed/longer-lived FULLST states (mkState energy or a food-enabled aligned mode),
+not further engine work.
