@@ -435,7 +435,7 @@
     var ch = new Cell(kx, ky, rnd(100) < c.mutationRate ? mutateGene(c.gene) : c.gene, c.mutationRate);
     ch.radius = nr; ch.energy = c.energy; ch.g = mutGenome(c.g, P.genomeMut); ch.shp = newShape(c.shp); ch.maxSpeed = speedOf(ch); ch.cl = c.cl; ev.birth++; ev.divide = (ev.divide || 0) + 1; cells.push(ch);
   }
-  function clusterSize(id) { var n = 0; for (var i = 0; i < cells.length; i++) if (cells[i].cl === id) n++; return n; }
+  function clusterSize(id) { var n = 0; for (var i = 0; i < cells.length; i++) if (cells[i].cl === id && (cells[i].alive || cells[i].absorbed)) n++; return n; } // 1:1 sim.rs count_slots REM window: pair-killed (absorbed) cells still count until the post-pass removes them; survival-killed cells do not (CA-13)
   function joinCluster(a, b) {
     if (a.cl && b.cl) { if (a.cl === b.cl) return; var from = b.cl, to = a.cl; if (clusterSize(to) + clusterSize(from) > P.clusterMax) return; cells.forEach(function (c) { if (c.cl === from) c.cl = to; }); }
     else if (a.cl) { if (clusterSize(a.cl) >= P.clusterMax) return; b.cl = a.cl; } else if (b.cl) { if (clusterSize(b.cl) >= P.clusterMax) return; a.cl = b.cl; }
@@ -2291,8 +2291,9 @@
       // f10 (CA-6): close the step at the cell's own speed limit - 1:1 sim.rs step() (the pair reflect/kick,
       // restless and wall channels after update()'s clamp otherwise keep adding past it)
       if (c.alive) { var dmE = Math.hypot(c.x - mouse.x, c.y - mouse.y), smE = dmE < P.slowDownRadius ? P.speedReductionFactor : 1; limit(c, c.maxSpeed * smE * c.speedModifier * (resizeDrag ? 1 + P.restless * 1.5 : 1)); }
-      if (!c.alive) { ev.death++; logDeath(c, c.__dr || 'untagged-js'); habReap(c); cells.splice(i, 1); }
+      // CA-13: death removal is deferred to the post-pass below - 1:1 sim.rs step() (REM flag + readback sweep). A mid-pass splice let an eaten cell's earlier-in-pass partners vanish before their own turns, skewing every chance-gated counter vs the wasm engine.
     }
+    if (!simDone) for (var di = cells.length - 1; di >= 0; di--) if (!cells[di].alive) { ev.death++; logDeath(cells[di], cells[di].__dr || 'untagged-js'); habReap(cells[di]); cells.splice(di, 1); }
     if (!simDone) SIMW.js = (SIMW.js || 0) * 0.9 + (performance.now() - tj0) * 0.1;
     if (subN > 1) wallSubPass(subN, subX0, subY0, subW0, subH0);
     if (P.separatorOn) { ctx.save(); drawAxis(lay(), String(cells.length), String(Math.round(mouse.x)), true); ctx.restore(); separatorPass(); pfm('separator'); } // one mechanism after both engines: identical enforcement for wasm and JS (1:1 by construction)
