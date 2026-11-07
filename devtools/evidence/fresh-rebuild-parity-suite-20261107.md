@@ -1,3 +1,16 @@
+# CORRECTION (2026-11-07 23:08): the table below is INVALID
+
+The runs used `CA_WASM=<path>`, but the harness override variable is `WASM` (devtools/t70-interact-iso-served.js:31). Every "fresh build" row actually ran the SERVED binary - the 7/7 verdict match was circular. Corrected finding from re-running with the real override:
+
+- The true fresh 51dce62 build (sha256 0c08ab5e) EXPLODES in FULLST30: sq mean 64.6, crowd mean 48.2 (JS: 0.40/0.35) - physically impossible values (sq,crowd in [0,1]), a genuine source-level bug in the FULLST path.
+- The served binary does NOT explode - so the served binary carries the v6/v8b fixes on top of 51dce62 in this path, confirming the CA-12 side finding as the MAIN finding: in the crowdPush/sq/envV region, NO repo source reproduces the served binary.
+- Non-FULLST verdicts with the real override: see the corrected re-run in devtools/evidence/crowdpush-drift-injection-ledger-20261107.md.
+- Consequence for gap2: the 51dce62 source cannot be used to study or reproduce the served binary's crowdPush behavior; alignment needs either the v6/v8b source or behavioral fitting against the served binary.
+
+Original (invalid) text preserved below for provenance.
+
+---
+
 # CA-22 FINDING: fresh 51dce62-source rebuild reproduces EVERY served-binary verdict (2026-11-07)
 
 Build: cargo build --release --target wasm32-unknown-unknown from extracted 51dce62 source (/tmp/served-src/wasm), sha256 0c08ab5e... vs served test/ca2core.wasm sha256 54f02eee....
