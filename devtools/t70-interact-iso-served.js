@@ -176,9 +176,26 @@ const TR=!!process.env.TRACE,trJ=[],trW=[],DW={nx:0,sx:0,ny:0,sy:0};
 const TR2=!!process.env.TRACE2; // aligned-RNG per-cell trace: identical xorshift128+ streams on both engines, per-step snapshot diff
 function makeRng(s0,s1){const M=0xFFFFFFFFFFFFFFFFn;let X=((BigInt(s0)<<32n)|0x9E3779B9n)&M,Y=((BigInt(s1)<<32n)|0x85EBCA6Bn)&M;return function(){let x=X;const y=Y;X=y;x^=(x<<23n)&M;Y=(x^y^(x>>17n)^(y>>26n))&M;return Number(((Y+y)&M)>>11n)/9007199254740992;};}
 const snap=c=>({x:c.x,y:c.y,vx:c.vx,vy:c.vy,ex:c.envVx||0,ey:c.envVy||0,cr:c.crowd||0,sq:c.sq||0,r:c.radius,en:c.energy,g:c.gene});globalThis.__DJ={nx:0,sx:0,ny:0,sy:0};const DJ=globalThis.__DJ;function meanEnv(cs){let s=0,n=0;for(const c of cs){if(!c.alive)continue;s+=Math.abs(c.envVx||0)+Math.abs(c.envVy||0);n++;}return n?s/n:0;}function meanKey(cs,k){let s=0,n=0;for(const c of cs){if(!c.alive)continue;s+=c[k]||0;n++;}return n?s/n:0;}function liveN(cs){let n=0;for(const c of cs)if(c.alive)n++;return n;}
+// CA-33: modern FreeBSD-msun cos/sin bit-exact port (r = z*(C1+z*(C2+z*C3)) + w*w*(C4+z*(C5+z*C6)), no-qx kcos,
+// direct 1..4 x pio2_1 splits) - the served binary's trig family (40/40 uniquely-attributed CA-32 cells).
+// COSMSUN=1 swaps Math.cos/sin around the JS frame only: raw 1-step seed rate must collapse if the attribution is right.
+const MSUN=(()=>{const _ab=new ArrayBuffer(8),_af=new Float64Array(_ab),_au=new Uint32Array(_ab);
+ const hi=x=>{_af[0]=x;return _au[1];};
+ const S1=-1.66666666666666324348e-01,S2=8.33333333332248946124e-03,S3=-1.98412698298579493134e-04,S4=2.75573137070700676789e-06,S5=-2.50507602534068634195e-08,S6=1.58969099521155010221e-10;
+ const C1=4.16666666666666019037e-02,C2=-1.38888888888741095749e-03,C3=2.48015872894767294178e-05,C4=-2.75573143513906633035e-07,C5=2.08757232129817482790e-09,C6=-1.13596475577881948265e-11;
+ const pio2_1=1.57079632673412561417e+00,pio2_1t=6.07710050650619224932e-11;
+ const ksin=(x,y,iy)=>{const z=x*x,w=z*z,r=S2+z*(S3+z*S4)+z*w*(S5+z*S6),v=z*x;return iy===0?x+v*(S1+z*r):x-((z*(0.5*y-v*r)-y)-v*S1);};
+ const kcos=(x,y)=>{const z=x*x;let w=z*z;const r=z*(C1+z*(C2+z*C3))+w*w*(C4+z*(C5+z*C6)),hz=0.5*z;w=1.0-hz;return w+(((1.0-w)-hz)+(z*r-x*y));};
+ const rem=x=>{const hx=hi(x),ix=hx&0x7fffffff;let z,y0,y1;
+  if(ix<=0x400f6a7a){if(ix<=0x4002d97c){if(hx>0){z=x-pio2_1;y0=z-pio2_1t;y1=(z-y0)-pio2_1t;return[1,y0,y1];}z=x+pio2_1;y0=z+pio2_1t;y1=(z-y0)+pio2_1t;return[-1,y0,y1];}
+   if(hx>0){z=x-2*pio2_1;y0=z-2*pio2_1t;y1=(z-y0)-2*pio2_1t;return[2,y0,y1];}z=x+2*pio2_1;y0=z+2*pio2_1t;y1=(z-y0)+2*pio2_1t;return[-2,y0,y1];}
+  if(ix<=0x4015fdbc){if(hx>0){z=x-3*pio2_1;y0=z-3*pio2_1t;y1=(z-y0)-3*pio2_1t;return[3,y0,y1];}z=x+3*pio2_1;y0=z+3*pio2_1t;y1=(z-y0)+3*pio2_1t;return[-3,y0,y1];}
+  if(hx>0){z=x-4*pio2_1;y0=z-4*pio2_1t;y1=(z-y0)-4*pio2_1t;return[4,y0,y1];}z=x+4*pio2_1;y0=z+4*pio2_1t;y1=(z-y0)+4*pio2_1t;return[-4,y0,y1];};
+ return {cos:x=>{const ix=hi(x)&0x7fffffff;if(ix<=0x3fe921fb)return kcos(x,0);const[n,y0,y1]=rem(x);switch(n&3){case 0:return kcos(y0,y1);case 1:return -ksin(y0,y1,1);case 2:return -kcos(y0,y1);default:return ksin(y0,y1,1);}},
+         sin:x=>{const ix=hi(x)&0x7fffffff;if(ix<=0x3fe921fb)return ksin(x,0,0);const[n,y0,y1]=rem(x);switch(n&3){case 0:return ksin(y0,y1,1);case 1:return kcos(y0,y1);case 2:return -ksin(y0,y1,1);default:return -kcos(y0,y1);}}};})();
 if(process.env.ORACLE){ // CA-31/32: aligned-stream sweep over real mkState states, one step per seed; raw AND post-stepSquash bit compare; DRAWLOG=1: per-cell draw-boundary marks + full draw recording for seed attribution
  const N2=+process.env.ORACLE||200,DL=!!process.env.DRAWLOG;
- let rawMism=0,postMism=0,cellsN=0;const samples=[],attr=[],SOLVE={};
+ let rawMism=0,postMism=0,cellsN=0;const samples=[],attr=[],SOLVE={},REQ=[];
  const _bb=new ArrayBuffer(8),_bf=new Float64Array(_bb),_bu=new Uint32Array(_bb);
  const bits=v=>{_bf[0]=v;return (BigInt(_bu[1])<<32n)|BigInt(_bu[0]);};
  const snapC=c=>[c.x,c.y,c.vx,c.vy,c.energy];
@@ -189,7 +206,8 @@ if(process.env.ORACLE){ // CA-31/32: aligned-stream sweep over real mkState stat
   if(DL)J.cells.forEach((c,j)=>c.__bi=j);
   globalThis.DRAWS=[];globalThis.__CM=[];
   const rng0=makeRng(s0,s1);Math.random=DL?()=>{const v=rng0();globalThis.DRAWS.push(v);return v;}:rng0;
-  J.frame();
+  if(process.env.COSMSUN){const oc=Math.cos,os=Math.sin;Math.cos=MSUN.cos;Math.sin=MSUN.sin;J.frame();Math.cos=oc;Math.sin=os;}
+  else J.frame();
   const rawJ=J.cells.map(snapC);const Jcells_raw=clone(J.cells);
   J.stepSquash();const postJ=J.cells.map(snapC);
   J.cells=clone(base);J.seq=0;J.frameT=0;for(const c of J.cells)c.bornAt=0;pack(J.cells);E.sim_step(s0,s1);
@@ -242,6 +260,12 @@ if(process.env.ORACLE){ // CA-31/32: aligned-stream sweep over real mkState stat
      const marg=[[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]];
      let minnz=99;for(const h of hits){let nz=0;for(let k=0;k<6;k++){marg[k][h[k]+2]=1;if(h[k]!==0)nz++;}if(nz<minnz)minnz=nz;}
      for(let k=0;k<6;k++)for(let sh=0;sh<5;sh++)if(marg[k][sh])SOLVE['m'+k+'s'+(sh-2)]=(SOLVE['m'+k+'s'+(sh-2)]||0)+1;
+     // CA-33: required channels = shift 0 inadmissible (every hit perturbs that channel). Exactly one required channel + a single-draw hit = unique attribution: that channel's trig differs at that angle.
+     const req=[];for(let k=0;k<6;k++)if(hits.length&&!marg[k][2])req.push(k);
+     if(req.length===1&&minnz===1){
+      const k=req[0],angs=[a1,a1,a2,a2,a3,a3][k];
+      const shset={};for(const h of hits){let nz=0,nk=-1;for(let q=0;q<6;q++)if(h[q]!==0){nz++;nk=q;}if(nz===1&&nk===k)shset[h[k]]=1;}
+      REQ.push({ch:'wC wS oC oS qC qS'.split(' ')[k],ang:angs,shifts:Object.keys(shset).map(Number).sort((a,b)=>a-b)});}
      const key=(jok?'':'CHAINFAIL! ')+(hits.length?('hits='+hits.length+' minnz='+minnz):'UNSOLVED');
      SOLVE[key]=(SOLVE[key]||0)+1;SOLVE.n=(SOLVE.n||0)+1;if(jok)SOLVE.jok=(SOLVE.jok||0)+1;
      if(hits.length)SOLVE['hitsAny']=(SOLVE['hitsAny']||0)+1;else SOLVE['unsolved']=(SOLVE['unsolved']||0)+1;
@@ -257,6 +281,9 @@ if(process.env.DRAWLOG)attr.push(' draws JS='+globalThis.DRAWS.length+' replay='
  for(const t of attr.slice(0,60))console.log(t);
  const sk=Object.keys(SOLVE).filter(k=>k!=='n'&&k!=='jok').sort((a,b)=>SOLVE[b]-SOLVE[a]);
  console.log('SOLVE tally over '+(SOLVE.n||0)+' clean isolated divergent cells (chain-validated JS '+(SOLVE.jok||0)+'):');for(const k of sk.slice(0,25))console.log('  '+SOLVE[k]+'x [wC,wS,oC,oS,qC,qS] '+k);
+ console.log('REQ uniquely-attributed cells: '+REQ.length);
+ const rq={};for(const r of REQ)rq[r.ch]=(rq[r.ch]||0)+1;console.log('REQ by channel: '+JSON.stringify(rq));
+ for(const r of REQ.slice(0,40))console.log('  REQ '+r.ch+' ang='+r.ang.toPrecision(17)+' shifts='+r.shifts.join(','));
  process.exit(0);}
 let tj=new Array(8).fill(0),tw=new Array(8).fill(0);
 const J_ev=()=>[J.ev.birth,J.ev.divide||0,J.ev.eaten||0,J.ev.merge||0,J.ev.fuse||0,J.ev.pair||0,J.ev.hit,J.ev.death];

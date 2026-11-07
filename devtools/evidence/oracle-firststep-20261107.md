@@ -81,3 +81,35 @@ This is a libm-level difference between the JS engine's platform trig and the se
 compiled-in trig, not a logic difference in ca2.js. As with CA-30 (pow), no ca2.js change is
 warranted: shipping a private trig implementation would import behavior that is neither V8's nor
 verifiably the served binary's, and the divergence is below every flag-free behavioral tolerance.
+
+## CA-33 served-trig fingerprint + end-to-end collapse (2026-11-08)
+
+REQ extension of the CA-32 solver: a channel is "required" when shift 0 is inadmissible over all
+15625 combos (every bit-exact explanation perturbs that channel); with a single-draw hit the cell
+is uniquely attributed: that channel's trig differs at that recorded angle. 99 uniquely-attributed
+cells over ORACLE=1500 (channels wC 20, wS 17, oC 7, oS 3, qC 18, qS 34; angles spread over
+[0, 2pi], shifts +-1, both signs - a spread polynomial-level difference, not a reduction boundary).
+
+Candidate libm ports (bit-exact JS, all basic f64 ops):
+- ORIGINAL netlib fdlibm (k_sin/k_cos with qx branch, fully-nested polynomials, fn-based e_rem_pio2
+  medium path): matches V8 Math.sin/cos on 400000/400000 angles in [0, 2pi] (0.000%). V8 ships
+  original fdlibm, bit for bit.
+- MODERN FreeBSD msun (no-qx kernel_cos, split r = z*(C1+z*(C2+z*C3)) + w*w*(C4+z*(C5+z*C6)),
+  direct 1..4xpio2_1 reduction branches): mismatches V8 on 0.897% (sin) / 0.925% (cos) of angles,
+  always +-1 ulp, both signs - and its value at each of the 40 checked uniquely-attributed REQ
+  angles equals V8 + the required shift, 40/40. The served binary's trig is the modern
+  FreeBSD-msun-derived family (consistent with the Rust libm crate sourcing sin/cos from FreeBSD
+  msun; musl/original-fdlibm excluded because they are bit-identical to V8).
+
+End-to-end confirmation: COSMSUN=1 (harness probe swapping Math.cos/sin for the modern port around
+the JS frame only) collapses the ORACLE raw 1-step mismatch from 29.88% (239/800) to 0.00% (0/800)
+at 60 cells/state. Every observed raw 1-step seed is the V8-vs-served trig difference; no other
+divergence source exists at step 1 in this mode.
+
+Landing option (needs direction): replacing Math.cos/Math.sin at the sim-path call sites in ca2.js
+with this port (same shape as the CA-29 hypot patch) would make the JS engine bit-identical to the
+served binary in oracle mode. Not landed: ca2.js is the shipped app and the port costs ~50 lines +
+per-draw overhead for a difference that is below every flag-free behavioral tolerance; the served
+binary may also be rebuilt at any time (it already predates Rust 1.99.1's libm, whose trig differs
+again - a rebuild would re-open the gap in the other direction). Harness probe COSMSUN=1 retains
+the capability.
