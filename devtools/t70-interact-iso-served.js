@@ -312,6 +312,7 @@ for(let s=0;s<nStates;s++){const base=mkState();tj.fill(0);tw.fill(0);let sMax=0
      if(TR&&preEnv[i]&&preEnv[i].a){const ddx=cf2[bb+26]-preEnv[i].x*edkT,ddy=cf2[bb+27]-preEnv[i].y*edkT;if(Math.abs(ddx)>1e-9){DW.nx++;DW.sx+=Math.abs(ddx);}if(Math.abs(ddy)>1e-9){DW.ny++;DW.sy+=Math.abs(ddy);}}
      c.sq=cf2[bb+24];c.crowd=cf2[bb+25];c.envVx=cf2[bb+26];c.envVy=cf2[bb+27];c.sqS=Math.max(c.sqS||0,cf2[bb+28]);}
     for(let i2=J.cells.length-1;i2>=0;i2--)if(!J.cells[i2].alive)J.cells.splice(i2,1);
+    if(process.env.BORN){let live=0,top=-1;for(let i=0;i<pack.cap;i++){if(cf2[i*ST+7]!==0){live++;top=i;}}console.log('BORN st='+st+' pack.n='+pack.n+' aliveSlots='+live+' topAlive='+top);}
     J.stepSquash();if(TR2)snW.push(J.cells.map(snap));if(TR)trW.push(liveN(J.cells)+':'+meanEnv(J.cells).toFixed(3)+'/'+meanKey(J.cells,'maxSpeed').toFixed(2)+'/'+meanKey(J.cells,'crowd').toFixed(3)+'/'+meanKey(J.cells,'sq').toFixed(3));}
    if(TR2){let firstDiv=-1;const seq=[];
     for(let st=0;st<snJ.length;st++){let mx=0,mi=-1;for(let i=0;i<snJ[st].length&&i<snW[st].length;i++){const a=snJ[st][i],b=snW[st][i];const d=Math.abs(a.x-b.x)+Math.abs(a.y-b.y)+Math.abs(a.en-b.en)+Math.abs(a.g-b.g)+Math.abs(a.vx-b.vx)+Math.abs(a.vy-b.vy);if(d>mx){mx=d;mi=i;}}seq.push(mx.toFixed(4));if(firstDiv<0&&mx>0){firstDiv=st;const a=snJ[st][mi],b=snW[st][mi];console.log('TR2 FIRST DIVERGENCE step '+st+' cell '+mi+' |dp| '+mx.toExponential(2));console.log('  js   '+JSON.stringify(a));console.log('  wasm '+JSON.stringify(b));
