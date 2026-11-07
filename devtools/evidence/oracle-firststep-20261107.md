@@ -52,3 +52,32 @@ update/interact/keepIn path; FULLST distribution parity absorbs them.
 - Quantify how stepSquash masks raw seeds (compare raw vs post-stepSquash mismatch rates
   on the same states).
 - FULLST distribution parity (the shipped gate) is unaffected throughout: PASS.
+
+## CA-32 draw-level attribution (2026-11-07, oracle DRAWLOG + chain solver)
+
+Method: ORACLE mode with DRAWLOG=1 records every aligned-stream draw plus per-cell draw-boundary
+marks (frame template injection, inert unless DRAWLOG set). For each first-divergent cell in the raw
+1-step bit-compare, the cell is matched back to its base slot (tagged __bi), and only isolated
+(nn=0 within interactionRadius) wall-inert cells are solved: keepIn disabled via SET=boundAware=0,
+so the post-step velocity is an exact f64 chain of the six per-cell trig evals:
+wander cos/sin(a1) -> limit -> organic cos/sin(a2)*t -> lerp toward cos/sin(a3)*maxSpeed at 0.04 ->
+limit -> f10 limit. The solver replays the chain in JS for all 5^6 = 15625 combinations of
+{-2,-1,0,+1,+2} ulp shifts on the six V8 trig values and records which combos reproduce the wasm
+post-step velocity bits exactly. Zero-shift chain validated against the JS engine bits first.
+
+Measurement (FULLST=1 ORACLE=600 DRAWLOG=1 SET=boundAware=0, 40-60 cells in a 400 box):
+- 71 clean isolated divergent cells; 65/71 chain-validated (6 minor model gaps, e.g. oob-death races).
+- 65/65 validated cells have at least one admissible trig-shift combo (hitsAny).
+- 63/65 (97%) are explained by a SINGLE trig draw differing by <=2 ulp.
+- Channel marginals: the organic-d channel (scale t~0.1) is permissive for any shift; the
+  discriminative wander (0.2) and organic-q (0.04*maxSpeed) channels require the nonzero shifts.
+
+Conclusion: the residual raw seed (~0.7%/cell-step, 22.5-30.5% of mkState states at step 1, 0.0%
+masked by stepSquash) is a single 1-ulp cos/sin difference between V8's Math.cos/Math.sin and the
+served binary's libm on one of the six per-cell RNG-angle evals (wander, organic direction, organic
+lerp heading). Draw order, draw counts and all basic-op paths are bit-identical; single-axis or
+both-axis velocity deltas follow from which draw differs and whether a speed limit couples the axes.
+This is a libm-level difference between the JS engine's platform trig and the served binary's
+compiled-in trig, not a logic difference in ca2.js. As with CA-30 (pow), no ca2.js change is
+warranted: shipping a private trig implementation would import behavior that is neither V8's nor
+verifiably the served binary's, and the divergence is below every flag-free behavioral tolerance.

@@ -17,7 +17,7 @@ var cells=[],food=[],ev={birth:0,death:0,hit:0,oob:0},clusterSeq=0,cmean={},cont
 function habAte(){}function habReap(){}
 ${names.map(fn).join('\n')}
 return {P:P,Cell:Cell,cont:cont,get cells(){return cells;},set cells(v){cells=v;},ev:ev,get seq(){return clusterSeq;},set seq(v){clusterSeq=v;},stepSquash:stepSquash,get frameT(){return frameT;},set frameT(v){frameT=v;},
- frame:function(){frameT+=frameDtf;for(var i=cells.length-1;i>=0;i--){var c=cells[i];if(${FULL}){update(c);checkSurvival(c);}if(!${BOUND}){for(var k=i-1;k>=0;k--)interact(c,cells[k]);}if((${FULL}||${BOUND})&&P.boundAware&&c.alive){var ev0x=c.envVx,ev0y=c.envVy;keepIn(c);var dInx=Math.abs(c.envVx-ev0x),dIny=Math.abs(c.envVy-ev0y);if(dInx>1e-12){globalThis.__DJ.nx++;globalThis.__DJ.sx+=dInx;}if(dIny>1e-12){globalThis.__DJ.ny++;globalThis.__DJ.sy+=dIny;}}if(${FULL}&&c.alive)limit(c,c.maxSpeed*c.speedModifier);if(!c.alive)ev.death++;}for(var i2=cells.length-1;i2>=0;i2--)if(!cells[i2].alive)cells.splice(i2,1);}};`; // 1:1 sim.rs step() + the CA-13 JS loop: deaths counted in-pass, removal deferred to a post-pass (a mid-pass splice was the eaten/death drift); f10 limit() closes the step like the app (mouse far away, resizeDrag off -> factors 1)
+ frame:function(){frameT+=frameDtf;for(var i=cells.length-1;i>=0;i--){var c=cells[i];${process.env.DRAWLOG?'globalThis.__CM.push([i,globalThis.DRAWS.length]);':''}if(${FULL}){update(c);checkSurvival(c);}if(!${BOUND}){for(var k=i-1;k>=0;k--)interact(c,cells[k]);}if((${FULL}||${BOUND})&&P.boundAware&&c.alive){var ev0x=c.envVx,ev0y=c.envVy;keepIn(c);var dInx=Math.abs(c.envVx-ev0x),dIny=Math.abs(c.envVy-ev0y);if(dInx>1e-12){globalThis.__DJ.nx++;globalThis.__DJ.sx+=dInx;}if(dIny>1e-12){globalThis.__DJ.ny++;globalThis.__DJ.sy+=dIny;}}if(${FULL}&&c.alive)limit(c,c.maxSpeed*c.speedModifier);if(!c.alive)ev.death++;}for(var i2=cells.length-1;i2>=0;i2--)if(!cells[i2].alive)cells.splice(i2,1);}};`; // 1:1 sim.rs step() + the CA-13 JS loop: deaths counted in-pass, removal deferred to a post-pass (a mid-pass splice was the eaten/death drift); f10 limit() closes the step like the app (mouse far away, resizeDrag off -> factors 1)
 
 // CA-30: bit-exact JS port of rust-lang/libm pow (FreeBSD e_pow.c) - the served wasm32
 // binary's f64::powf. JS Math.pow differs by 1 ulp on some inputs; this port matches the
@@ -176,16 +176,21 @@ const TR=!!process.env.TRACE,trJ=[],trW=[],DW={nx:0,sx:0,ny:0,sy:0};
 const TR2=!!process.env.TRACE2; // aligned-RNG per-cell trace: identical xorshift128+ streams on both engines, per-step snapshot diff
 function makeRng(s0,s1){const M=0xFFFFFFFFFFFFFFFFn;let X=((BigInt(s0)<<32n)|0x9E3779B9n)&M,Y=((BigInt(s1)<<32n)|0x85EBCA6Bn)&M;return function(){let x=X;const y=Y;X=y;x^=(x<<23n)&M;Y=(x^y^(x>>17n)^(y>>26n))&M;return Number(((Y+y)&M)>>11n)/9007199254740992;};}
 const snap=c=>({x:c.x,y:c.y,vx:c.vx,vy:c.vy,ex:c.envVx||0,ey:c.envVy||0,cr:c.crowd||0,sq:c.sq||0,r:c.radius,en:c.energy,g:c.gene});globalThis.__DJ={nx:0,sx:0,ny:0,sy:0};const DJ=globalThis.__DJ;function meanEnv(cs){let s=0,n=0;for(const c of cs){if(!c.alive)continue;s+=Math.abs(c.envVx||0)+Math.abs(c.envVy||0);n++;}return n?s/n:0;}function meanKey(cs,k){let s=0,n=0;for(const c of cs){if(!c.alive)continue;s+=c[k]||0;n++;}return n?s/n:0;}function liveN(cs){let n=0;for(const c of cs)if(c.alive)n++;return n;}
-if(process.env.ORACLE){ // CA-31/32: aligned-stream sweep over real mkState states, one step per seed; raw (pre-stepSquash) AND post-stepSquash (app frame order) bit compare, mirror = fresh clone with FULLST-style readback+splice
- const N2=+process.env.ORACLE||200;
- let rawMism=0,postMism=0,cellsN=0;const samples=[];
+if(process.env.ORACLE){ // CA-31/32: aligned-stream sweep over real mkState states, one step per seed; raw AND post-stepSquash bit compare; DRAWLOG=1: per-cell draw-boundary marks + full draw recording for seed attribution
+ const N2=+process.env.ORACLE||200,DL=!!process.env.DRAWLOG;
+ let rawMism=0,postMism=0,cellsN=0;const samples=[],attr=[],SOLVE={};
+ const _bb=new ArrayBuffer(8),_bf=new Float64Array(_bb),_bu=new Uint32Array(_bb);
+ const bits=v=>{_bf[0]=v;return (BigInt(_bu[1])<<32n)|BigInt(_bu[0]);};
  const snapC=c=>[c.x,c.y,c.vx,c.vy,c.energy];
  for(let i=0;i<N2;i++){
   const base=mkState();
   const s0=1000+i*2,s1=5000+i*2;
   J.cells=clone(base);J.seq=0;J.frameT=0;for(const c of J.cells)c.bornAt=0;for(const k of Object.keys(J.ev))J.ev[k]=0;
-  Math.random=makeRng(s0,s1);J.frame();
-  const rawJ=J.cells.map(snapC);
+  if(DL)J.cells.forEach((c,j)=>c.__bi=j);
+  globalThis.DRAWS=[];globalThis.__CM=[];
+  const rng0=makeRng(s0,s1);Math.random=DL?()=>{const v=rng0();globalThis.DRAWS.push(v);return v;}:rng0;
+  J.frame();
+  const rawJ=J.cells.map(snapC);const Jcells_raw=clone(J.cells);
   J.stepSquash();const postJ=J.cells.map(snapC);
   J.cells=clone(base);J.seq=0;J.frameT=0;for(const c of J.cells)c.bornAt=0;pack(J.cells);E.sim_step(s0,s1);
   const cf2=new Float64Array(E.memory.buffer,E.sim_cells(pack.cap),pack.cap*ST);
@@ -193,17 +198,65 @@ if(process.env.ORACLE){ // CA-31/32: aligned-stream sweep over real mkState stat
    c.x=cf2[bb];c.y=cf2[bb+1];c.vx=cf2[bb+2];c.vy=cf2[bb+3];c.radius=cf2[bb+4];c.energy=cf2[bb+5];c.gene=cf2[bb+6];c.alive=cf2[bb+7]!==0;c.maxSpeed=cf2[bb+8];c.speedModifier=cf2[bb+9];c.hostility=cf2[bb+10];c.mutationRate=cf2[bb+11];c.sv=cf2[bb+12];c.cl=cf2[bb+13];
    c.sq=cf2[bb+24];c.crowd=cf2[bb+25];c.envVx=cf2[bb+26];c.envVy=cf2[bb+27];c.sqS=Math.max(c.sqS||0,cf2[bb+28]);}
   for(let k=J.cells.length-1;k>=0;k--)if(!J.cells[k].alive)J.cells.splice(k,1);
-  const rawW=J.cells.map(snapC);
+  const rawW=J.cells.map(snapC);const Wcells_raw=clone(J.cells);
   J.stepSquash();const postW=J.cells.map(snapC);
   cellsN+=Math.min(rawJ.length,rawW.length);
   const cmp=(A,B)=>{if(A.length!==B.length)return -2;for(let k=0;k<A.length;k++)for(let q=0;q<5;q++)if(A[k][q]!==B[k][q])return k;return -1;};
   const rb=cmp(rawJ,rawW),pb=cmp(postJ,postW);
-  if(rb>=-0){} // len-mismatch counts below
-  if(rb!==-1){rawMism++;if(samples.length<6&&rb>=0){const k=rb;samples.push(' seed#='+i+' cell='+k+' raw dvx='+(rawJ[k][2]-rawW[k][2]).toExponential(2)+' dvy='+(rawJ[k][3]-rawW[k][3]).toExponential(2)+' den='+(rawJ[k][4]-rawW[k][4]).toExponential(2)+(pb===-1?' MASKED':''));}}
+  if(rb!==-1){rawMism++;if(samples.length<6&&rb>=0){const k=rb;samples.push(' seed#='+i+' cell='+k+' raw dvx='+(rawJ[k][2]-rawW[k][2]).toExponential(2)+' dvy='+(rawJ[k][3]-rawW[k][3]).toExponential(2)+' den='+(rawJ[k][4]-rawW[k][4]).toExponential(2));}}
   if(pb!==-1)postMism++;
+  if(DL&&rb>=0){ // CA-32 draw-level attribution: match rb back to its base index by position, then brute-force which trig evals (wander/organic-d/organic-q cos+sin, shifts 0/+-1/+-2 ulp, 5^6 chains) reproduce the wasm post-step velocity bits exactly. Only nn=0 wall-clean cells (chain = wander -> limit1 -> organic t-bump -> q-lerp -> limit2 -> f10 limit; keepIn/interact provably inert there).
+   const bj=Jcells_raw[rb].__bi!==undefined?Jcells_raw[rb].__bi:-1;
+   const mk2=bj>=0?globalThis.__CM.find(e=>e[0]===bj):null;
+   if(mk2){
+    const d0=mk2[1],D=globalThis.DRAWS,b=base[bj];
+    const a1=D[d0]*6.283185307,a2=D[d0+1]*6.283185307,uu=D[d0+2],a3=D[d0+3]*6.283185307;
+    let nn=0;for(const o of base){if(o!==b&&o.alive){const ddx=o.x-b.x,ddy=o.y-b.y;if(ddx*ddx+ddy*ddy<P.interactionRadius*P.interactionRadius)nn++;}}
+    const dx=rawJ[rb][2]-rawW[rb][2],dy=rawJ[rb][3]-rawW[rb][3];
+    const Jc=Jcells_raw[rb],Wc=Wcells_raw[rb];
+    const chd=[];for(const k in Jc){const va=Jc[k],vb=Wc[k];if(typeof va==='number'&&typeof vb==='number'&&va!==vb&&!(va!==va&&vb!==vb))chd.push(k+'='+va.toExponential(3)+'/'+vb.toExponential(3));}
+    const z=Math.max(0,Math.min(P.boundZone*(P.genomeOn?b.g.bnd:1),BOX/2.5,BOX/2.5)),zs=z*(P.senseR===undefined?1.6:P.senseR);
+    const mg=Math.max(zs,b.radius+2);
+    const wallok=!P.boundAware||process.env.CLEANBB?(true):(b.x>mg&&BOX-b.x>mg&&b.y>mg&&BOX-b.y>mg);
+    if(nn===0&&wallok){
+     const frombits=bb=>{_bu[0]=Number(bb&0xFFFFFFFFn);_bu[1]=Number((bb>>32n)&0xFFFFFFFFn);return _bf[0];};
+     const shifts=v=>{const b0=bits(v),o=[];for(const k of[-2n,-1n,0n,1n,2n])o.push(frombits(b0+k));return o;};
+     const lim=(vx,vy,m)=>{const s2=Math.sqrt(vx*vx+vy*vy);if(s2>m&&s2>0){const f=m/s2;return[vx*f,vy*f];}return[vx,vy];};
+     const spm=b.speedModifier,ms=b.maxSpeed;
+     const t=P.orgLifeDie+(-0.1+uu*(0.1-(-0.1))); // nn=0: brain=r90=0 (exact adds), life=orgLifeDie
+     const chain=(C1,S1,C2,S2,C3,S3)=>{
+      let vx=b.vx+C1*0.2*1,vy=b.vy+S1*0.2*1,r2=lim(vx,vy,ms*1*spm*1);vx=r2[0];vy=r2[1];
+      vx=vx+C2*t;vy=vy+S2*t;
+      vx=vx+(C3*ms-vx)*0.04;vy=vy+(S3*ms-vy)*0.04;
+      r2=lim(vx,vy,ms*1);vx=r2[0];vy=r2[1];
+      r2=lim(vx,vy,ms*spm);vx=r2[0];vy=r2[1];
+      return[vx,vy];};
+     const C1a=shifts(Math.cos(a1)),S1a=shifts(Math.sin(a1)),C2a=shifts(Math.cos(a2)),S2a=shifts(Math.sin(a2)),C3a=shifts(Math.cos(a3)),S3a=shifts(Math.sin(a3));
+     const z0=chain(C1a[2],S1a[2],C2a[2],S2a[2],C3a[2],S3a[2]);
+     const jok=z0[0]===rawJ[rb][2]&&z0[1]===rawJ[rb][3];
+     const hits=[];
+     for(let i1=0;i1<5;i1++)for(let i2=0;i2<5;i2++)for(let i3=0;i3<5;i3++)for(let i4=0;i4<5;i4++)for(let i5=0;i5<5;i5++)for(let i6=0;i6<5;i6++){
+      const r2=chain(C1a[i1],S1a[i2],C2a[i3],S2a[i4],C3a[i5],S3a[i6]);
+      if(r2[0]===rawW[rb][2]&&r2[1]===rawW[rb][3])hits.push([i1-2,i2-2,i3-2,i4-2,i5-2,i6-2]);}
+     // marginal admissibility: per channel, which shifts appear in some hit; and simplest-hit complexity (min # nonzero channels)
+     const marg=[[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]];
+     let minnz=99;for(const h of hits){let nz=0;for(let k=0;k<6;k++){marg[k][h[k]+2]=1;if(h[k]!==0)nz++;}if(nz<minnz)minnz=nz;}
+     for(let k=0;k<6;k++)for(let sh=0;sh<5;sh++)if(marg[k][sh])SOLVE['m'+k+'s'+(sh-2)]=(SOLVE['m'+k+'s'+(sh-2)]||0)+1;
+     const key=(jok?'':'CHAINFAIL! ')+(hits.length?('hits='+hits.length+' minnz='+minnz):'UNSOLVED');
+     SOLVE[key]=(SOLVE[key]||0)+1;SOLVE.n=(SOLVE.n||0)+1;if(jok)SOLVE.jok=(SOLVE.jok||0)+1;
+     if(hits.length)SOLVE['hitsAny']=(SOLVE['hitsAny']||0)+1;else SOLVE['unsolved']=(SOLVE['unsolved']||0)+1;
+     if(minnz===0)SOLVE['zero-shift-explains']=(SOLVE['zero-shift-explains']||0)+1;
+     if(minnz===1)SOLVE['single-draw-explains']=(SOLVE['single-draw-explains']||0)+1;
+     if(attr.length<200)attr.push(' SOLVE seed#='+i+' cell='+bj+' dx='+dx.toExponential(2)+' dy='+dy.toExponential(2)+' -> '+key+' || '+chd.join(' '));
+    } else {
+     attr.push(' SKIP seed#='+i+' cell='+bj+' nn='+nn+' (not isolated/wall-clean) '+chd.join(' '));}}}
+if(process.env.DRAWLOG)attr.push(' draws JS='+globalThis.DRAWS.length+' replay='+globalThis.DRAWLEN);
  }
- console.log('ORACLE '+N2+' seeds x '+(cellsN/N2).toFixed(1)+' cells: raw mismatched states '+rawMism+' ('+(100*rawMism/N2).toFixed(2)+'%); post-stepSquash mismatched states '+postMism+' ('+(100*postMism/N2).toFixed(2)+'%); masked '+(rawMism?((1-postMism/rawMism)*100).toFixed(1):'-')+'%');
+ console.log('ORACLE '+N2+' seeds x '+(cellsN/N2).toFixed(1)+' cells: raw mismatched states '+rawMism+' ('+(100*rawMism/N2).toFixed(2)+'%); post-stepSquash '+postMism+' ('+(100*postMism/N2).toFixed(2)+'%); masked '+(rawMism?((1-postMism/rawMism)*100).toFixed(1):'-')+'%');
  for(const t of samples)console.log(t);
+ for(const t of attr.slice(0,60))console.log(t);
+ const sk=Object.keys(SOLVE).filter(k=>k!=='n'&&k!=='jok').sort((a,b)=>SOLVE[b]-SOLVE[a]);
+ console.log('SOLVE tally over '+(SOLVE.n||0)+' clean isolated divergent cells (chain-validated JS '+(SOLVE.jok||0)+'):');for(const k of sk.slice(0,25))console.log('  '+SOLVE[k]+'x [wC,wS,oC,oS,qC,qS] '+k);
  process.exit(0);}
 let tj=new Array(8).fill(0),tw=new Array(8).fill(0);
 const J_ev=()=>[J.ev.birth,J.ev.divide||0,J.ev.eaten||0,J.ev.merge||0,J.ev.fuse||0,J.ev.pair||0,J.ev.hit,J.ev.death];
