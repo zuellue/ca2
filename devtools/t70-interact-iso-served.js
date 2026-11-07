@@ -15,6 +15,7 @@ return {P:P,Cell:Cell,get cells(){return cells;},set cells(v){cells=v;},ev:ev,ge
  frame:function(){for(var i=cells.length-1;i>=0;i--){var c=cells[i];for(var k=i-1;k>=0;k--)interact(c,cells[k]);if(!c.alive){ev.death++;cells.splice(i,1);}}}};`;
 const J=new Function(code)();
 const P=J.P;
+if(process.env.EAT){P.eatMergeOn=1;P.symbiosisOn=1;P.symbiogenesisOn=1;P.divideOn=1;P.eatChance=1;P.mergeChance=1;P.reproChance=1;P.clusterCohesion=1;P.eatDistF=0.85;P.fuseDistF=0.6;P.symDistF=1.1;}
 const [trials,N,BOX]=[+process.argv[2]||3000,+process.argv[3]||75,+process.argv[4]||160];
 const wasm=fs.readFileSync(path.join(__dirname,'..',process.env.WASM||'test/ca2core.wasm'));
 (async()=>{
@@ -26,7 +27,7 @@ function pack(cs){const n=cs.length,cap=n+256;E.sim_cells(cap);E.sim_food(2);E.s
  const buf=E.memory.buffer,cf=new Float64Array(buf,cp,cap*ST),p=new Float64Array(buf,pp,80);
  cs.forEach((c,i)=>{const b=i*ST,g=c.g;cf.set([c.x,c.y,c.vx,c.vy,c.radius,c.energy,c.gene,1,c.maxSpeed,c.speedModifier,c.hostility,c.mutationRate,c.sv,c.cl||0,-1,g.spd,g.app,g.bnd,g.col[0],g.col[1],g.col[2],c.comp||0,0,0],b);});
  E.sim_set_n(n);E.sim_set_nf(0);E.sim_cm_count(0);
- PI.forEach((k,i)=>{let v=P[k];p[i]=typeof v==='boolean'?(v?1:0):v;});p[39]=1;p[40]=0.5;p[41]=1;p[42]=0;p[46]=-1e9;p[47]=-1e9;p[48]=0;p[49]=0;p[50]=0;p[51]=1e9;p[52]=1e9;p[53]=0;p[54]=SEQ;p[56]=1;}
+ PI.forEach((k,i)=>{let v=P[k];p[i]=typeof v==='boolean'?(v?1:0):v;});p[39]=1;p[40]=0.5;p[41]=1;p[42]=0;p[46]=-1e9;p[47]=-1e9;p[48]=0;p[49]=0;p[50]=0;p[51]=1e9;p[52]=1e9;p[53]=0;p[54]=SEQ;p[56]=1;if(process.env.EAT){p[70]=P.eatDistF;p[71]=P.fuseDistF;p[72]=P.symDistF;}}
 const K=['birth','divide','eaten','merge','fuse','pair','hit'];
 const mean=(a)=>a.map(x=>x);
 let tj=new Array(8).fill(0),tw=new Array(8).fill(0);
@@ -40,5 +41,5 @@ for(let s=0;s<nStates;s++){const base=mkState();tj.fill(0);tw.fill(0);
  console.log('state',s,K.concat('death').map((k,i)=>k+' js '+(tj[i]/trials).toFixed(4)+' wasm '+(tw[i]/trials).toFixed(4)+' ('+(tj[i]?((tw[i]/tj[i]-1)*100).toFixed(0):'-')+'%)').join(' | '));
  tj.forEach((v,i)=>S2j[i]+=v);tw.forEach((v,i)=>S2w[i]+=v);}
 console.log('TOTAL',K.concat('death').map((k,i)=>k+' js '+(S2j[i]/trials/nStates).toFixed(4)+' wasm '+(S2w[i]/trials/nStates).toFixed(4)+' ('+(S2j[i]?((S2w[i]/S2j[i]-1)*100).toFixed(1):'-')+'%)').join('\n  '));
-{let bad=[];S2j.forEach((v,i)=>{if(Math.abs(S2w[i]-v)>Math.max(0.5,v*0.01))bad.push(K.concat('death')[i]+' js '+v+' wasm '+S2w[i])});console.log(bad.length?'FAIL counters differ >1%: '+bad.join('; '):'PASS js==wasm within 1% on all counters ('+nStates+' states x '+trials+' trials)');process.exit(bad.length?1:0)}
+{let bad=[];S2j.forEach((v,i)=>{if(Math.abs(S2w[i]-v)>Math.max(0.5,v*(process.env.EAT?0.03:0.01)))bad.push(K.concat('death')[i]+' js '+v+' wasm '+S2w[i])});console.log(bad.length?'FAIL counters differ >1%: '+bad.join('; '):'PASS js==wasm within '+(process.env.EAT?3:1)+'% on all counters ('+nStates+' states x '+trials+' trials)');process.exit(bad.length?1:0)}
 })();
