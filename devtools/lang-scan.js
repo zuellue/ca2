@@ -3,7 +3,7 @@
 // Run: node devtools/lang-scan.js
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..');
-const FILES = ['index.html', 'ca2.js', 'device.html', 'audio.js', 'grain.js', 'favicon.js'].concat(process.argv.includes('--test') ? ['test/index.html', 'test/ca2.js', 'test/audio.js', 'test/grain.js', 'test/favicon.js'] : []);
+const FILES = ['index.html', 'ca2.js', 'device.html', 'audio.js', 'grain.js', 'favicon.js'].concat(process.argv.includes('--all')?require('fs').readdirSync(path.join(ROOT,'devtools')).filter(f=>/\.js$/.test(f)&&f!=='lang-scan.js').map(f=>'devtools/'+f).concat(['plan/QUEUE.md']):[]).concat(process.argv.includes('--test') ? ['test/index.html', 'test/ca2.js', 'test/audio.js', 'test/grain.js', 'test/favicon.js'] : []);
 const TR_CHARS = /[çğıöşüÇĞİÖŞÜ]/;
 const TR_WORDS = ['kilitli', 'kilit', 'kaydet', 'kayıt', 'tamam', 'iptal', 'şifre', 'parola', 'çıkış', 'dokun', 'dokunma', 'sürükle', 'sıfırla', 'rastgele', 'bekleyin', 'yükleniyor', 'kapat', 'kapalı', 'açık', 'giriş', 'icin', 'tavan', 'kullanici', 'ayni', 'yukseklik', 'gecerli', 'genisletme', 'boyutu', 'degil', 'gibi', 'yok', 'cok', 'diye', 'simdi', 'nasil', 'hangi', 'hepsi', 'sadece', 'böyle', 'şöyle', 'olarak', 'bölünme', 'ayarlar', 'ayarları', 'göster', 'gizle', 'buton', 'sayfa', 'ekran', 'ayar', 'seç', 'sil', 'yeni', 'eski', 'üst', 'alt', 'sağ', 'sol', 'orta', 'geri', 'ileri', 'devre', 'etkin', 'pasif', 'çizgi', 'nokta', 'kenar', 'köşe', 'merkez', 'ölçek', 'oran', 'boyut', 'renk', 'ses', 'dil'];
 const TR_RE = new RegExp('(^|[^a-zA-Z])(' + TR_WORDS.join('|') + ')([^a-zA-Z]|$)', 'i');
