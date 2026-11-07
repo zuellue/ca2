@@ -1,5 +1,7 @@
 # CA root-vs-test ca2.js divergence list (file:line, cause class)
 
+**PIN (goreda decision, 2026-11-07 03:38): 3693b53dbd45b8f05aa33596083ccdf5be36b301.** Verified by `git ls-remote origin refs/heads/ca/187-sep-wasm-parity-tests` at 03:38: the remote tip was ebeb1fbbd494bdcbdb1abddcc637aa6387596f6c (this artifact's first commit), and 3693b53d is its ancestor (`merge-base --is-ancestor` ok). 3693b53d was the tip until the artifact commit; between the pin and the tip only this file was added (ca2.js and test/ diff = 0 lines), so every line number below is valid at the pin and at the tip. bf08237fea4f is superseded.
+
 Repo zuellue/ca2 (public). Branch ca/187-sep-wasm-parity-tests, head at generation: 3693b53dbd45b8f05aa33596083ccdf5be36b301 (earlier head bf08237fea4f7f806af1c6b47427b8b9516f18cb is an ancestor, superseded; both descend from main f8ff9d96ab41f080d151805184d60ca5dd6667ba).
 Generated 2026-11-07 by script (python difflib over brace-matched function bodies). Root = ca2.js, Test = test/ca2.js (branch version: includes the foodInk fix at foodInk(); main test/ca2.js sha256 f762e0d4...).
 sha256 ca2.js df70c064f8643046 | test/ca2.js ac454fc5d9469023
