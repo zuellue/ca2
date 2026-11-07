@@ -25,6 +25,13 @@ first diff lands in crowd at ~1 ulp). The served binary's cos/sin are V8-compati
 overwhelming majority of draws (~99.3%), unlike a Rust 1.99.1 build (~50% mismatch vs V8);
 the served toolchain's libm is close to but not bit-identical with V8's fdlibm.
 
+## STATUS NOTE (same day, post-commit)
+The stepSquash-masking reconciliation above is a HYPOTHESIS, not a measured line: the
+first quantification attempt (extending ORACLE with a post-pass compare) was buggy
+(index misalignment after the JS death-splice + contaminated sqS in the reused mirror)
+and was discarded uncommitted. The masking rate measurement remains open under CA-32
+and must use the FULLST loop's readback+splice handling, not a shortcut.
+
 ## OPEN (next run)
 - Attribute the 1-ulp velocity seed decisively: replay the diverging cell's draws and
   compare wasm-implied cos(a)/sin(a) (needs per-cell draw-index accounting in descending
