@@ -195,6 +195,7 @@ const MSUN=(()=>{const _ab=new ArrayBuffer(8),_af=new Float64Array(_ab),_au=new 
  return {cos:x=>{const ix=hi(x)&0x7fffffff;if(ix<=0x3fe921fb)return kcos(x,0);const[n,y0,y1]=rem(x);switch(n&3){case 0:return kcos(y0,y1);case 1:return -ksin(y0,y1,1);case 2:return -kcos(y0,y1);default:return ksin(y0,y1,1);}},
          sin:x=>{const ix=hi(x)&0x7fffffff;if(ix<=0x3fe921fb)return ksin(x,0,0);const[n,y0,y1]=rem(x);switch(n&3){case 0:return ksin(y0,y1,1);case 1:return kcos(y0,y1);case 2:return -ksin(y0,y1,1);default:return -kcos(y0,y1);}}};})();
 function jframe(){if(process.env.COSMSUN){const oc=Math.cos,os=Math.sin;Math.cos=MSUN.cos;Math.sin=MSUN.sin;J.frame();Math.cos=oc;Math.sin=os;}else J.frame();}
+const TC={c:0,s:0,n:0,byStep:{}};
 if(process.env.ORACLE){ // CA-31/32: aligned-stream sweep over real mkState states, one step per seed; raw AND post-stepSquash bit compare; DRAWLOG=1: per-cell draw-boundary marks + full draw recording for seed attribution
  const N2=+process.env.ORACLE||200,DL=!!process.env.DRAWLOG;
  let rawMism=0,postMism=0,cellsN=0;const samples=[],attr=[],SOLVE={},REQ=[];
@@ -296,7 +297,7 @@ for(let s=0;s<nStates;s++){const base=mkState();tj.fill(0);tw.fill(0);let sMax=0
   if(FULLST){const nSteps=+process.env.STEPS||1;
    J.cells=clone(base);J.seq=SEQ;J.frameT=0;for(const c of J.cells)c.bornAt=0;for(const k of Object.keys(J.ev))J.ev[k]=0;J.ev.birth=0;J.ev.death=0;J.ev.hit=0;
    const snJ=[],snW=[];
-   for(let st=0;st<nSteps;st++){if(TR2)Math.random=makeRng(1000+st*2,5000+st*2);jframe();J.stepSquash();if(TR2)snJ.push(J.cells.map(snap));if(TR)trJ.push(liveN(J.cells)+':'+meanEnv(J.cells).toFixed(3)+'/'+meanKey(J.cells,'maxSpeed').toFixed(2)+'/'+meanKey(J.cells,'crowd').toFixed(3)+'/'+meanKey(J.cells,'sq').toFixed(3));} // app JS-mode order: cell loop, then the squash post-pass (ca2.js:2302)
+   for(let st=0;st<nSteps;st++){if(TR2){const r2=makeRng(1000+st*2,5000+st*2);Math.random=process.env.TRIGCNT?()=>{const v=r2();const a=v*6.283185307;const dc=MSUN.cos(a)!==Math.cos(a)?1:0,ds=MSUN.sin(a)!==Math.sin(a)?1:0;TC.c+=dc;TC.s+=ds;TC.n++;TC.byStep[st]=(TC.byStep[st]||[0,0]);TC.byStep[st][0]+=dc;TC.byStep[st][1]+=ds;return v;}:r2;}jframe();J.stepSquash();if(TR2)snJ.push(J.cells.map(snap));if(TR)trJ.push(liveN(J.cells)+':'+meanEnv(J.cells).toFixed(3)+'/'+meanKey(J.cells,'maxSpeed').toFixed(2)+'/'+meanKey(J.cells,'crowd').toFixed(3)+'/'+meanKey(J.cells,'sq').toFixed(3));} // app JS-mode order: cell loop, then the squash post-pass (ca2.js:2302)
    let nj=0;for(const c of J.cells){if(!c.alive)continue;nj++;chJ.sq.push(c.sq||0);chJ.crowd.push(c.crowd||0);chJ.envVx.push(c.envVx||0);chJ.envVy.push(c.envVy||0);chJ.sqS.push(c.sqS||0);if((c.sq||0)>0.001)gPressed++;} // post-stepSquash sqS is 0 by design; the eased sq carries the press
    popJ+=nj;
    J.cells=clone(base);J.seq=SEQ;J.frameT=0;for(const c of J.cells)c.bornAt=0;
@@ -313,9 +314,10 @@ for(let s=0;s<nStates;s++){const base=mkState();tj.fill(0);tw.fill(0);let sMax=0
     for(let i2=J.cells.length-1;i2>=0;i2--)if(!J.cells[i2].alive)J.cells.splice(i2,1);
     J.stepSquash();if(TR2)snW.push(J.cells.map(snap));if(TR)trW.push(liveN(J.cells)+':'+meanEnv(J.cells).toFixed(3)+'/'+meanKey(J.cells,'maxSpeed').toFixed(2)+'/'+meanKey(J.cells,'crowd').toFixed(3)+'/'+meanKey(J.cells,'sq').toFixed(3));}
    if(TR2){let firstDiv=-1;const seq=[];
-    for(let st=0;st<snJ.length;st++){let mx=0,mi=-1;for(let i=0;i<snJ[st].length&&i<snW[st].length;i++){const a=snJ[st][i],b=snW[st][i];const d=Math.abs(a.x-b.x)+Math.abs(a.y-b.y)+Math.abs(a.en-b.en)+Math.abs(a.g-b.g)+Math.abs(a.vx-b.vx)+Math.abs(a.vy-b.vy);if(d>mx){mx=d;mi=i;}}seq.push(mx.toFixed(4));if(firstDiv<0&&mx>1e-9){firstDiv=st;const a=snJ[st][mi],b=snW[st][mi];console.log('TR2 FIRST DIVERGENCE step '+st+' cell '+mi+' |dp| '+mx.toExponential(2));console.log('  js   '+JSON.stringify(a));console.log('  wasm '+JSON.stringify(b));
+    for(let st=0;st<snJ.length;st++){let mx=0,mi=-1;for(let i=0;i<snJ[st].length&&i<snW[st].length;i++){const a=snJ[st][i],b=snW[st][i];const d=Math.abs(a.x-b.x)+Math.abs(a.y-b.y)+Math.abs(a.en-b.en)+Math.abs(a.g-b.g)+Math.abs(a.vx-b.vx)+Math.abs(a.vy-b.vy);if(d>mx){mx=d;mi=i;}}seq.push(mx.toFixed(4));if(firstDiv<0&&mx>0){firstDiv=st;const a=snJ[st][mi],b=snW[st][mi];console.log('TR2 FIRST DIVERGENCE step '+st+' cell '+mi+' |dp| '+mx.toExponential(2));console.log('  js   '+JSON.stringify(a));console.log('  wasm '+JSON.stringify(b));
      const dvs=snJ[st].map((c2,i)=>{const w=snW[st][i];return w?i+':'+(Math.abs(c2.vx-w.vx)+Math.abs(c2.vy-w.vy)).toFixed(2):'?';});console.log('  per-cell |dv|: '+dvs.join(' '));}}
     console.log('TR2 per-step max|dpos|: '+seq.join(' '));}
+   if(process.env.TRIGCNT){const bs=Object.keys(TC.byStep).map(k=>k+':'+TC.byStep[k][0]+'/'+TC.byStep[k][1]);console.log('TRIGCNT draws='+TC.n+' cos-mism='+TC.c+' ('+(100*TC.c/TC.n).toFixed(3)+'%) sin-mism='+TC.s+' ('+(100*TC.s/TC.n).toFixed(3)+'%)');console.log('TRIGCNT per-step cos/sin: '+bs.join(' '));}
    for(const c of J.cells){chW.sq.push(c.sq||0);chW.crowd.push(c.crowd||0);chW.envVx.push(c.envVx||0);chW.envVy.push(c.envVy||0);chW.sqS.push(c.sqS||0);}
    popW+=J.cells.length;
    if(TR)console.log('KB '+(globalThis.__KB||0)+' KP '+(globalThis.__KP||0)+' KD '+(globalThis.__KD||0));

@@ -24,3 +24,13 @@ distribution-level tolerance is the right gate beyond the bit-exact horizon.
 CA-29: identify the seed rounding difference at step 26 / cell 3 (candidate ops with
 engine-specific libm behavior: hypot, pow, exp, trunc ordering in update/interact/keepIn).
 Closing it would extend the bit-exact horizon past 58 steps.
+
+## Correction (CA-35, 2026-11-08): the "58-step bit-exact" record was a threshold artifact
+
+The 58-step record held only because the TR2 diff threshold was 1e-9. TRIGCNT (per-draw
+MSUN-vs-native cos/sin counting) measured ~8 trig-ulp mismatches per step from step 0; at the
+exact threshold (mx>0) native-trig divergence is visible at step 0-1. The >1e-9 crossings at
+steps 26/49 were amplification of seeds present from step 0. Full story and the second
+(position-sum association) seed: devtools/evidence/oracle-firststep-20261107.md, CA-35
+section. With CA2TRIG=1 plus the gated two-step position sum, the aligned-RNG per-cell diff
+is exactly 0 over 200 steps (3 states x 2 trials).

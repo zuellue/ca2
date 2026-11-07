@@ -124,3 +124,37 @@ initializes, so shipped behavior is bit-identical (verified: ORACLE raw mismatch
 self-contained inside rand2D (the harness brace-extracts functions standalone) and valid only for
 |x| <= 9pi/4; all other Math.cos/sin call sites (swim, easing, placement, render) keep native trig.
 Harness enable: CA2TRIG=1.
+
+## CA-35 (2026-11-08): multi-step horizon past step 1 - the second seed is position-sum ASSOCIATION
+
+The TRACE2 exact threshold (mx>0, was 1e-9) rewrites the CA-27 record: with native trig the
+engines were never bit-exact for 58 steps. TRIGCNT (per-draw MSUN-vs-native cos/sin counting
+inside the TR2 loop) measured ~8 trig-ulp mismatches per step (0.84-0.88% of 27600 draws over
+60 steps) hiding below the old 1e-9 diff threshold; the first >1e-9 crossing (step 26/49) was
+amplification, not the seed. Real first visible divergence with native trig: step 0-1.
+
+With CA2TRIG=1 (CA-34 port ON) step 0 is bit-exact and divergence appeared at step 1 with a
+stable cross-state signature: cr/sq 1-2 ulp, vx/vy ~1e-15, x/y ~1e-14, en/r/g equal, on
+wall-pressed cells. Isolation (all TRACE2=1 CA2TRIG=1 FULLST=1 STEPS=200):
+- SET=boundAware=0: 200 steps BIT-EXACT -> the seed lives in the boundAware cluster.
+- SET=crowdRel=0 and SET=squashIn=0,squashOut=0: still step 1 (kr pow and squash easing
+  cleared).
+- SET=crowdGain=0: first divergence moves to step 7 and the FULLST 200-step check PASSes ->
+  the crowd-block envV drift is the carrier, not the crowd arithmetic itself.
+Root cause: ca2.js update() integrated position as `c.x += c.vx + c.envVx` (x + (vx + envVx));
+the served binary sums in two steps, (x + vx) + envVx. The associations differ by <=1 ulp only
+when envV != 0, which first happens at step 1 (keepIn's crowd drift writes envV after update's
+position integration at step 0). That is why step 0 was clean and every step from 1 onward
+carried a fresh 1-ulp seed, amplifying into the TRACE2+FULLST population drift (js 3400 vs
+wasm 3600 at step 200). A KGMEAS probe (served-side per-cell crowd/press measurement) and a
+two-statement position-sum mutation both confirmed it: with the two-statement sum, 3 runs of
+STEPS=200 showed zero exact-threshold divergence and PASS.
+
+Fix (same gate as CA-34): globalThis.CA2_TRIG_MSUN also selects the two-step position sum in
+update(). The flag-free default stays bit-identical to shipped JS. Verified with the real
+ca2.js: flag ON, TRACE2 FULLST STEPS=200, 3 states x 2 trials x 200 steps, NO exact-threshold
+divergence and channel parity PASS (52 pressed cells); flag OFF diverges at step 0-1 as
+before. OFF battery: default/EAT/BIRTH 800x4/BOUND/FULLST10/LOGCHK PASS (BOUND maxAbsDiff
+0.00), teeth (fuse-gate x2 via CA_JS) FAIL as required. One BIRTH 800x4 run failed on
+eaten/death/fuse (3.9/4.4/18.6%) then passed 3/3 reruns - unseeded-mkState noise; the
+flag-free path is bit-identical by construction.

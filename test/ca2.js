@@ -191,7 +191,7 @@
     var r = rand2D(); c.vx += r.x * 0.2 * sm; c.vy += r.y * 0.2 * sm;
     limit(c, c.maxSpeed * sm * c.speedModifier * (resizeDrag ? 1 + P.restless * 1.5 : 1));
     organic(c);
-    c.x += c.vx + c.envVx; c.y += c.vy + c.envVy; // intrinsic (maxSpeed-limited) + environmental (item 64 directive 3): the wall/crowd-imparted channel bypasses the self-propulsion limit
+    if (globalThis.CA2_TRIG_MSUN) { c.x += c.vx; c.x += c.envVx; c.y += c.vy; c.y += c.envVy; } else { c.x += c.vx + c.envVx; c.y += c.vy + c.envVy; } // intrinsic (maxSpeed-limited) + environmental (item 64 directive 3): the wall/crowd-imparted channel bypasses the self-propulsion limit. CA-35: the served binary sums position in two steps ((x+vx)+envVx); the one-expression form x+(vx+envVx) rounds differently whenever envV is nonzero, seeding a 1-ulp/step divergence from the first pressed step. Gated like the trig port: flag-free behavior stays bit-identical to shipped JS.
     var edk = Math.pow(0.75, frameDtf * 0.06); c.envVx *= edk; c.envVy *= edk; // and the medium absorbs it (60fps-reference easing, 1:1 sim.rs update)
     if (c.shp && c.shp.t === 1) { // a string turns into its drift and swims with a side-to-side wave
       var sh2 = c.shp; sh2.svx = (sh2.svx || 0) * 0.94 + c.vx * 0.06; sh2.svy = (sh2.svy || 0) * 0.94 + c.vy * 0.06;
