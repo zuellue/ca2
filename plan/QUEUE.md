@@ -4,7 +4,7 @@ Written 2026-11-07 11:43 +03 under owner block 190 S1/S2 as relayed by Main. Sou
 
 | id | what | done-when (test or measured line) | files | native |
 |---|---|---|---|---|
-| CA-1 | Commit the PR #2 pair-budget harness (t133) onto this branch with served-build defaults and 4 variants wrapper | `node devtools/t-pair-budget-served.js` prints PASS for plain/CL/CL+ZEROV/RING on test wasm (both binaries), mutation (cap +5) fails | devtools/t-pair-budget-served.js | no |
+| CA-1 (DONE, see commit) | Commit the PR #2 pair-budget harness (t133) onto this branch with served-build defaults and 4 variants wrapper | `node devtools/t-pair-budget-served.js` prints PASS for plain/CL/CL+ZEROV/RING on test wasm (both binaries), mutation (cap +5) fails | devtools/t-pair-budget-served.js | no |
 | CA-2 | foodInk RGB sweep: contrast of food ink on coloured grounds, not only greys | `node devtools/t-foodink-contrast.js --rgb` PASS min ratio >= 3:1 over a 17^3 RGB grid; mutation fails | devtools/t-foodink-contrast.js | no |
 | CA-3 | t70 interact parity: cover birth/divide paths | `EAT=1 BIRTH=1 node devtools/t70-interact-iso-served.js` birth and divide counters nonzero and JS==wasm within 3% | devtools/t70-interact-iso-served.js | no |
 | CA-4 | Real-function tests for stepSquash and finalWallClamp (text-extracted like the apply-step test) | `node devtools/t-wall-squash.js` PASS N cases, mutation fails | devtools/t-wall-squash.js | no |
