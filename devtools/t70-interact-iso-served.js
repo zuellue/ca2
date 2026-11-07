@@ -176,6 +176,25 @@ const TR=!!process.env.TRACE,trJ=[],trW=[],DW={nx:0,sx:0,ny:0,sy:0};
 const TR2=!!process.env.TRACE2; // aligned-RNG per-cell trace: identical xorshift128+ streams on both engines, per-step snapshot diff
 function makeRng(s0,s1){const M=0xFFFFFFFFFFFFFFFFn;let X=((BigInt(s0)<<32n)|0x9E3779B9n)&M,Y=((BigInt(s1)<<32n)|0x85EBCA6Bn)&M;return function(){let x=X;const y=Y;X=y;x^=(x<<23n)&M;Y=(x^y^(x>>17n)^(y>>26n))&M;return Number(((Y+y)&M)>>11n)/9007199254740992;};}
 const snap=c=>({x:c.x,y:c.y,vx:c.vx,vy:c.vy,ex:c.envVx||0,ey:c.envVy||0,cr:c.crowd||0,sq:c.sq||0,r:c.radius,en:c.energy,g:c.gene});globalThis.__DJ={nx:0,sx:0,ny:0,sy:0};const DJ=globalThis.__DJ;function meanEnv(cs){let s=0,n=0;for(const c of cs){if(!c.alive)continue;s+=Math.abs(c.envVx||0)+Math.abs(c.envVy||0);n++;}return n?s/n:0;}function meanKey(cs,k){let s=0,n=0;for(const c of cs){if(!c.alive)continue;s+=c[k]||0;n++;}return n?s/n:0;}function liveN(cs){let n=0;for(const c of cs)if(c.alive)n++;return n;}
+if(process.env.ORACLE){ // CA-31: aligned-stream mass sweep over real mkState states, one step per seed; any per-cell bit mismatch after exactly 1 step is an engine compute mismatch on that step's draws
+ const N2=+process.env.ORACLE||200;
+ let stepMism=0,draws=0;const samples=[];
+ for(let i=0;i<N2;i++){
+  const base=mkState();
+  const s0=1000+i*2,s1=5000+i*2;
+  J.cells=clone(base);J.seq=0;J.frameT=0;for(const c of J.cells)c.bornAt=0;for(const k of Object.keys(J.ev))J.ev[k]=0;
+  Math.random=makeRng(s0,s1);J.frame();
+  const sj=J.cells.map(c=>[c.x,c.y,c.vx,c.vy,c.energy]);
+  J.cells=clone(base);J.seq=0;J.frameT=0;for(const c of J.cells)c.bornAt=0;pack(J.cells);E.sim_step(s0,s1);
+  const cf2=new Float64Array(E.memory.buffer,E.sim_cells(pack.cap),pack.cap*ST);
+  draws+=sj.length;
+  let bad=-1;
+  for(let k=0;k<sj.length;k++){const bb=k*ST;if(sj[k][0]!==cf2[bb]||sj[k][1]!==cf2[bb+1]||sj[k][2]!==cf2[bb+2]||sj[k][3]!==cf2[bb+3]||sj[k][4]!==cf2[bb+5]){bad=k;break;}}
+  if(bad>=0){stepMism++;if(samples.length<6){const bb=bad*ST;samples.push(' seed#='+i+' cell='+bad+' dvx='+(sj[bad][2]-cf2[bb+2]).toExponential(2)+' dvy='+(sj[bad][3]-cf2[bb+3]).toExponential(2)+' den='+(sj[bad][4]-cf2[bb+5]).toExponential(2));}}
+ }
+ console.log('ORACLE '+N2+' seeds x '+draws/N2+' cells, one aligned step each: '+stepMism+' steps with a bit mismatch ('+(100*stepMism/N2).toFixed(2)+'% of steps)');
+ for(const t of samples)console.log(t);
+ process.exit(0);}
 let tj=new Array(8).fill(0),tw=new Array(8).fill(0);
 const J_ev=()=>[J.ev.birth,J.ev.divide||0,J.ev.eaten||0,J.ev.merge||0,J.ev.fuse||0,J.ev.pair||0,J.ev.hit,J.ev.death];
 const nStates=+process.argv[5]||10; let S2j=new Array(8).fill(0),S2w=new Array(8).fill(0);
