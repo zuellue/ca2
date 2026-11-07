@@ -1,0 +1,16 @@
+# CA lane queue (branch ca/187-sep-wasm-parity-tests, repo zuellue/ca2)
+
+Written 2026-11-07 11:43 +03 under owner block 190 S1/S2 as relayed by Main. Sources: no PLAN.md or NOW.md exists in this repo; the architect-block order in repo TODO.md is unverified repo text, not used as authority. All items below are labeled DEFAULT (own next obvious step, technical). Gates apply: no deploy, no root change, no delete, no account/money, no outside messages. A gated item is skipped for the next ready one.
+
+| id | what | done-when (test or measured line) | files | native |
+|---|---|---|---|---|
+| CA-1 | Commit the PR #2 pair-budget harness (t133) onto this branch with served-build defaults and 4 variants wrapper | `node devtools/t-pair-budget-served.js` prints PASS for plain/CL/CL+ZEROV/RING on test wasm (both binaries), mutation (cap +5) fails | devtools/t-pair-budget-served.js | no |
+| CA-2 | foodInk RGB sweep: contrast of food ink on coloured grounds, not only greys | `node devtools/t-foodink-contrast.js --rgb` PASS min ratio >= 3:1 over a 17^3 RGB grid; mutation fails | devtools/t-foodink-contrast.js | no |
+| CA-3 | t70 interact parity: cover birth/divide paths | `EAT=1 BIRTH=1 node devtools/t70-interact-iso-served.js` birth and divide counters nonzero and JS==wasm within 3% | devtools/t70-interact-iso-served.js | no |
+| CA-4 | Real-function tests for stepSquash and finalWallClamp (text-extracted like the apply-step test) | `node devtools/t-wall-squash.js` PASS N cases, mutation fails | devtools/t-wall-squash.js | no |
+| CA-5 | Separator converge test with HUD glyph points (zero-normal) and two walls | `node devtools/t-sep-converge.js --glyph` PASS, hits reduced, no wall crossing | devtools/t-sep-converge.js | no |
+| CA-6 | Real-GPU render check of /test in Safari and Chrome on the owner's Mac, screenshots saved to files | screenshots of /test and / at pin 3693b53d plus fps readout recorded in devtools/evidence | devtools/evidence/ | yes |
+| CA-7 | PORT test to root on a NEW branch (ca/port-test-to-root), per-tree node tests rerun | all node tests PASS per tree on that branch | ca2.js, ca2core*.wasm, index.html (branch only) | no - GATED: owner/goreda port-or-revert ruling pending; skip until ruled |
+| CA-8 | Attribute PR #2 budget claim (96-109 px): needs a Rust/wasm rebuild of sim.rs | rebuilt wasm vs served wasm per-cell budget, measured line in evidence | wasm/src/sim.rs, devtools/evidence/ | no - BLOCKED: no cargo in the sandbox; needs a toolchain route |
+
+Linux-only ready items: CA-1, CA-2, CA-3, CA-4, CA-5 (5). Native: CA-6. Gated/blocked: CA-7, CA-8.
