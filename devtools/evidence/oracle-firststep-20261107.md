@@ -29,8 +29,19 @@ the served toolchain's libm is close to but not bit-identical with V8's fdlibm.
 The stepSquash-masking reconciliation above is a HYPOTHESIS, not a measured line: the
 first quantification attempt (extending ORACLE with a post-pass compare) was buggy
 (index misalignment after the JS death-splice + contaminated sqS in the reused mirror)
-and was discarded uncommitted. The masking rate measurement remains open under CA-32
-and must use the FULLST loop's readback+splice handling, not a shortcut.
+and was discarded uncommitted.
+
+## CA-32 measured line 1 (same day): masking DISPROVEN
+ORACLE rewritten with the FULLST loop's exact mirror handling (fresh clone, readback of
+slots 0-13 + 24-28, dead-splice, then J.stepSquash() on both sides, app frame order):
+FULLST=1 ORACLE=2000: raw mismatched states 577 (28.85%); post-stepSquash mismatched
+states 577 (28.85%); masked 0.0%. stepSquash does NOT mask the raw seeds - the raw and
+post-pass mismatch sets are identical. Seeds remain 1-ulp single-cell single-axis
+velocity diffs (energy exact), e.g. seed#=4 cell=22 dvx +2.22e-16.
+Consequence: TRACE2's 30-step bit-exact run dodged trigger inputs for 30 steps on one
+base state; the underlying raw seed rate is ~0.7% of cell-steps (577/2000 states have
+>=1 seed at step 1). The seeds are real JS-vs-served compute differences in the raw
+update/interact/keepIn path; FULLST distribution parity absorbs them.
 
 ## OPEN (next run)
 - Attribute the 1-ulp velocity seed decisively: replay the diverging cell's draws and
