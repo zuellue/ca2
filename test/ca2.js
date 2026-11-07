@@ -14,7 +14,35 @@
   var clamp = function (v, a, b) { return v < a ? a : v > b ? b : v; };
   var lerp = function (a, b, t) { return a + (b - a) * t; };
   var map = function (v, a, b, c, d) { return c + (d - c) * (v - a) / (b - a); };
-  function rand2D() { var a = Math.random() * 6.283185307; return { x: Math.cos(a), y: Math.sin(a) }; }
+  // CA-34 (devtools/evidence/oracle-firststep-20261107.md): the served binary's libm evaluates
+  // cos/sin with the modern FreeBSD-msun kernel association, which differs from V8's original
+  // netlib fdlibm by 1 ulp on ~0.9% of angles. The lazy port below reproduces the served values
+  // bit-exactly for every rand2D angle ([0, 2pi)); it is NOT valid outside |x| <= 9pi/4, so other
+  // call sites keep native Math.cos/sin. Default OFF: the flag check returns before the port
+  // initializes, so shipped behavior is bit-identical to before this change. Set
+  // globalThis.CA2_TRIG_MSUN = true for bit-exact parity with the served binary's sim_step.
+  function rand2D() {
+    var a = Math.random() * 6.283185307;
+    if (!globalThis.CA2_TRIG_MSUN) return { x: Math.cos(a), y: Math.sin(a) };
+    var M = rand2D._msun || (rand2D._msun = (function () {
+      var ab = new ArrayBuffer(8), af = new Float64Array(ab), au = new Uint32Array(ab);
+      function hi(x) { af[0] = x; return au[1]; }
+      var S1 = -1.66666666666666324348e-01, S2 = 8.33333333332248946124e-03, S3 = -1.98412698298579493134e-04, S4 = 2.75573137070700676789e-06, S5 = -2.50507602534068634195e-08, S6 = 1.58969099521155010221e-10;
+      var C1 = 4.16666666666666019037e-02, C2 = -1.38888888888741095749e-03, C3 = 2.48015872894767294178e-05, C4 = -2.75573143513906633035e-07, C5 = 2.08757232129817482790e-09, C6 = -1.13596475577881948265e-11;
+      var pio2_1 = 1.57079632673412561417e+00, pio2_1t = 6.07710050650619224932e-11;
+      function ksin(x, y, iy) { var z = x * x, w = z * z, r = S2 + z * (S3 + z * S4) + z * w * (S5 + z * S6), v = z * x; return iy === 0 ? x + v * (S1 + z * r) : x - ((z * (0.5 * y - v * r) - y) - v * S1); }
+      function kcos(x, y) { var z = x * x, w = z * z, r = z * (C1 + z * (C2 + z * C3)) + w * w * (C4 + z * (C5 + z * C6)), hz = 0.5 * z; w = 1.0 - hz; return w + (((1.0 - w) - hz) + (z * r - x * y)); }
+      function rem(x) { var hx = hi(x), ix = hx & 0x7fffffff, z, y0, y1;
+        if (ix <= 0x400f6a7a) { if (ix <= 0x4002d97c) { if (hx > 0) { z = x - pio2_1; y0 = z - pio2_1t; y1 = (z - y0) - pio2_1t; return [1, y0, y1]; } z = x + pio2_1; y0 = z + pio2_1t; y1 = (z - y0) + pio2_1t; return [-1, y0, y1]; }
+          if (hx > 0) { z = x - 2 * pio2_1; y0 = z - 2 * pio2_1t; y1 = (z - y0) - 2 * pio2_1t; return [2, y0, y1]; } z = x + 2 * pio2_1; y0 = z + 2 * pio2_1t; y1 = (z - y0) + 2 * pio2_1t; return [-2, y0, y1]; }
+        if (ix <= 0x4015fdbc) { if (hx > 0) { z = x - 3 * pio2_1; y0 = z - 3 * pio2_1t; y1 = (z - y0) - 3 * pio2_1t; return [3, y0, y1]; } z = x + 3 * pio2_1; y0 = z + 3 * pio2_1t; y1 = (z - y0) + 3 * pio2_1t; return [-3, y0, y1]; }
+        if (hx > 0) { z = x - 4 * pio2_1; y0 = z - 4 * pio2_1t; y1 = (z - y0) - 4 * pio2_1t; return [4, y0, y1]; } z = x + 4 * pio2_1; y0 = z + 4 * pio2_1t; y1 = (z - y0) + 4 * pio2_1t; return [-4, y0, y1]; }
+      function mcos(x) { var ix = hi(x) & 0x7fffffff; if (ix <= 0x3fe921fb) return kcos(x, 0); var r = rem(x), n = r[0], y0 = r[1], y1 = r[2]; switch (n & 3) { case 0: return kcos(y0, y1); case 1: return -ksin(y0, y1, 1); case 2: return -kcos(y0, y1); default: return ksin(y0, y1, 1); } }
+      function msin(x) { var ix = hi(x) & 0x7fffffff; if (ix <= 0x3fe921fb) return ksin(x, 0, 0); var r = rem(x), n = r[0], y0 = r[1], y1 = r[2]; switch (n & 3) { case 0: return ksin(y0, y1, 1); case 1: return kcos(y0, y1); case 2: return -ksin(y0, y1, 1); default: return -kcos(y0, y1); } }
+      return { cos: mcos, sin: msin };
+    })());
+    return { x: M.cos(a), y: M.sin(a) };
+  }
 
   // ---- parameters (names follow the pde) ----
   var P = {

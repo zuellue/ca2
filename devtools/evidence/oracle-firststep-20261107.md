@@ -113,3 +113,14 @@ per-draw overhead for a difference that is below every flag-free behavioral tole
 binary may also be rebuilt at any time (it already predates Rust 1.99.1's libm, whose trig differs
 again - a rebuild would re-open the gap in the other direction). Harness probe COSMSUN=1 retains
 the capability.
+
+## CA-34 trig port landed behind a flag (2026-11-08, parent ruling)
+
+ca2.js rand2D (the only per-step RNG-angle trig site) now returns the modern FreeBSD-msun port
+when globalThis.CA2_TRIG_MSUN is truthy; default OFF: the flag check returns before the lazy port
+initializes, so shipped behavior is bit-identical (verified: ORACLE raw mismatch 30.25% OFF vs
+29.88% pre-change baseline; full regression battery PASS). ON: ORACLE raw 1-step mismatch 0.00%
+(0/800 seeds x 60 cells) - bit-exact parity with the served binary's sim_step. The port is
+self-contained inside rand2D (the harness brace-extracts functions standalone) and valid only for
+|x| <= 9pi/4; all other Math.cos/sin call sites (swim, easing, placement, render) keep native trig.
+Harness enable: CA2TRIG=1.

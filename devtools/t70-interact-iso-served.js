@@ -6,6 +6,7 @@
 // usage: node devtools/t70-interact-iso-served.js [trials] [ncells] [box]
 const fs=require('fs'),path=require('path');
 const src=fs.readFileSync(path.join(__dirname,'..',process.env.CA_JS||'test/ca2.js'),'utf8');
+if(process.env.CA2TRIG)globalThis.CA2_TRIG_MSUN=1; // CA-34: enable the ca2.js msunTrig port (bit-exact served parity in rand2D)
 function fn(name){const i=src.indexOf('function '+name+'(');if(i<0)throw name;let j=src.indexOf('{',i),d=0,k=j;for(;k<src.length;k++){if(src[k]=='{')d++;else if(src[k]=='}'){d--;if(!d)break;}}return src.slice(i,k+1);}
 function vr(name){const i=src.indexOf('var '+name+' = ');let j=src.indexOf('{',i),d=0,k=j;for(;k<src.length;k++){if(src[k]=='{')d++;else if(src[k]=='}'){d--;if(!d)break;}}return src.slice(i,k+1)+';';}
 const FULL=!!process.env.BIRTH||!!process.env.FULLST,BOUND=!!process.env.BOUND,FULLST=!!process.env.FULLST; // FULLST (CA-15): full-step multi-step state-channel parity (sq/sqS/crowd/envV distributions over live cells) on wall-fired constant-population states; the wasm side runs the app wasm-mode frame (pack -> step -> readback with sqS=max -> sweep -> stepSquash post-pass). Standard run: FULLST=1 STEPS=10; mutation: JS keepIn press x0.5 must FAIL. RESOLVED (devtools/evidence/trace2-framet-artifact-20261107.md): the STEPS=30 crowdPush/envV '2x drift' was a harness artifact - frameT was frozen, so the JS __ccT/__ccU pair-separation budget never reset (ca2.js:492) while the wasm used[] budget resets per step. The frame template now advances frameT per frame (1:1 app), resets it per trial, and packs cell slot 23 = age ms (1:1 ca2.js:1012). FULLST10/30 PASS vs the served binary; TRACE2 aligned-RNG per-cell diff is exact to the f64 noise floor over 30 steps.
@@ -193,6 +194,7 @@ const MSUN=(()=>{const _ab=new ArrayBuffer(8),_af=new Float64Array(_ab),_au=new 
   if(hx>0){z=x-4*pio2_1;y0=z-4*pio2_1t;y1=(z-y0)-4*pio2_1t;return[4,y0,y1];}z=x+4*pio2_1;y0=z+4*pio2_1t;y1=(z-y0)+4*pio2_1t;return[-4,y0,y1];};
  return {cos:x=>{const ix=hi(x)&0x7fffffff;if(ix<=0x3fe921fb)return kcos(x,0);const[n,y0,y1]=rem(x);switch(n&3){case 0:return kcos(y0,y1);case 1:return -ksin(y0,y1,1);case 2:return -kcos(y0,y1);default:return ksin(y0,y1,1);}},
          sin:x=>{const ix=hi(x)&0x7fffffff;if(ix<=0x3fe921fb)return ksin(x,0,0);const[n,y0,y1]=rem(x);switch(n&3){case 0:return ksin(y0,y1,1);case 1:return kcos(y0,y1);case 2:return -ksin(y0,y1,1);default:return -kcos(y0,y1);}}};})();
+function jframe(){if(process.env.COSMSUN){const oc=Math.cos,os=Math.sin;Math.cos=MSUN.cos;Math.sin=MSUN.sin;J.frame();Math.cos=oc;Math.sin=os;}else J.frame();}
 if(process.env.ORACLE){ // CA-31/32: aligned-stream sweep over real mkState states, one step per seed; raw AND post-stepSquash bit compare; DRAWLOG=1: per-cell draw-boundary marks + full draw recording for seed attribution
  const N2=+process.env.ORACLE||200,DL=!!process.env.DRAWLOG;
  let rawMism=0,postMism=0,cellsN=0;const samples=[],attr=[],SOLVE={},REQ=[];
@@ -206,8 +208,7 @@ if(process.env.ORACLE){ // CA-31/32: aligned-stream sweep over real mkState stat
   if(DL)J.cells.forEach((c,j)=>c.__bi=j);
   globalThis.DRAWS=[];globalThis.__CM=[];
   const rng0=makeRng(s0,s1);Math.random=DL?()=>{const v=rng0();globalThis.DRAWS.push(v);return v;}:rng0;
-  if(process.env.COSMSUN){const oc=Math.cos,os=Math.sin;Math.cos=MSUN.cos;Math.sin=MSUN.sin;J.frame();Math.cos=oc;Math.sin=os;}
-  else J.frame();
+  jframe();
   const rawJ=J.cells.map(snapC);const Jcells_raw=clone(J.cells);
   J.stepSquash();const postJ=J.cells.map(snapC);
   J.cells=clone(base);J.seq=0;J.frameT=0;for(const c of J.cells)c.bornAt=0;pack(J.cells);E.sim_step(s0,s1);
@@ -295,7 +296,7 @@ for(let s=0;s<nStates;s++){const base=mkState();tj.fill(0);tw.fill(0);let sMax=0
   if(FULLST){const nSteps=+process.env.STEPS||1;
    J.cells=clone(base);J.seq=SEQ;J.frameT=0;for(const c of J.cells)c.bornAt=0;for(const k of Object.keys(J.ev))J.ev[k]=0;J.ev.birth=0;J.ev.death=0;J.ev.hit=0;
    const snJ=[],snW=[];
-   for(let st=0;st<nSteps;st++){if(TR2)Math.random=makeRng(1000+st*2,5000+st*2);J.frame();J.stepSquash();if(TR2)snJ.push(J.cells.map(snap));if(TR)trJ.push(liveN(J.cells)+':'+meanEnv(J.cells).toFixed(3)+'/'+meanKey(J.cells,'maxSpeed').toFixed(2)+'/'+meanKey(J.cells,'crowd').toFixed(3)+'/'+meanKey(J.cells,'sq').toFixed(3));} // app JS-mode order: cell loop, then the squash post-pass (ca2.js:2302)
+   for(let st=0;st<nSteps;st++){if(TR2)Math.random=makeRng(1000+st*2,5000+st*2);jframe();J.stepSquash();if(TR2)snJ.push(J.cells.map(snap));if(TR)trJ.push(liveN(J.cells)+':'+meanEnv(J.cells).toFixed(3)+'/'+meanKey(J.cells,'maxSpeed').toFixed(2)+'/'+meanKey(J.cells,'crowd').toFixed(3)+'/'+meanKey(J.cells,'sq').toFixed(3));} // app JS-mode order: cell loop, then the squash post-pass (ca2.js:2302)
    let nj=0;for(const c of J.cells){if(!c.alive)continue;nj++;chJ.sq.push(c.sq||0);chJ.crowd.push(c.crowd||0);chJ.envVx.push(c.envVx||0);chJ.envVy.push(c.envVy||0);chJ.sqS.push(c.sqS||0);if((c.sq||0)>0.001)gPressed++;} // post-stepSquash sqS is 0 by design; the eased sq carries the press
    popJ+=nj;
    J.cells=clone(base);J.seq=SEQ;J.frameT=0;for(const c of J.cells)c.bornAt=0;
@@ -321,7 +322,7 @@ for(let s=0;s<nStates;s++){const base=mkState();tj.fill(0);tw.fill(0);let sMax=0
    if(TR)console.log('DRIFT js nx '+DJ.nx+' sx '+DJ.sx.toFixed(1)+' ny '+DJ.ny+' sy '+DJ.sy.toFixed(1)+' | wasm nx '+DW.nx+' sx '+DW.sx.toFixed(1)+' ny '+DW.ny+' sy '+DW.sy.toFixed(1));
    if(TR)console.log('TRACE per-step n:mean|envV|/maxSpeed/crowd/sq: js ['+trJ.join(' ')+'] wasm ['+trW.join(' ')+']');
    continue;}
-  J.cells=clone(base);J.seq=SEQ;J.frameT=0;for(const c of J.cells)c.bornAt=0;for(const k of Object.keys(J.ev))J.ev[k]=0;J.ev.birth=0;J.ev.death=0;J.ev.hit=0;J.frame();const a=J_ev();a.forEach((v,i)=>tj[i]+=v);
+  J.cells=clone(base);J.seq=SEQ;J.frameT=0;for(const c of J.cells)c.bornAt=0;for(const k of Object.keys(J.ev))J.ev[k]=0;J.ev.birth=0;J.ev.death=0;J.ev.hit=0;jframe();const a=J_ev();a.forEach((v,i)=>tj[i]+=v);
   {const cb=clone(base);for(const c of cb)c.bornAt=0;pack(cb);}E.sim_step(Math.floor(Math.random()*4294967296),Math.floor(Math.random()*4294967296));const o=new Float64Array(E.memory.buffer,E.sim_out(),32);
   const b=[o[0],o[1],o[2],o[3],o[4],o[5],o[6],o[9]];b.forEach((v,i)=>tw[i]+=v);
   if(process.env.LOGCHK){const lg=new Float64Array(E.memory.buffer,E.sim_log(),o[17]);let k1=0,k2=0,k3=0,kBad=0;
@@ -330,7 +331,7 @@ for(let s=0;s<nStates;s++){const base=mkState();tj.fill(0);tw.fill(0);let sMax=0
     if(p0<0||p0>=pack.n+64||k0<0||k0>=pack.n+64)kBad++;if(kd===2&&p1<0)kBad++;} // indices must address the live buffer (+headroom for same-step births)
    LOG.k1+=k1;LOG.k2+=k2;LOG.k3+=k3;LOG.bad+=kBad;LOG.o0+=o[0];LOG.o1+=o[1];LOG.o4+=o[4];LOG.steps++;}
   if(BOUND&&!FULL){const nSteps=+process.env.STEPS||1;
-   for(let st=1;st<nSteps;st++){J.frame();E.sim_step(Math.floor(Math.random()*4294967296),Math.floor(Math.random()*4294967296));}
+   for(let st=1;st<nSteps;st++){jframe();E.sim_step(Math.floor(Math.random()*4294967296),Math.floor(Math.random()*4294967296));}
    const cf2=new Float64Array(E.memory.buffer,E.sim_cells(pack.cap),pack.cap*ST),jc=J.cells;let mx=0;
    {for(let i=0;i<pack.n;i++){const bb=i*ST,c=jc[i];if((c.sqS||0)>0.001)gPressed++;
     const pr=[[c.x,cf2[bb],'x'],[c.y,cf2[bb+1],'y'],[c.vx,cf2[bb+2],'vx'],[c.vy,cf2[bb+3],'vy'],[c.sqS||0,cf2[bb+28],'sqS'],[c.crowd||0,cf2[bb+25],'crowd'],[c.envVx||0,cf2[bb+26],'envVx'],[c.envVy||0,cf2[bb+27],'envVy'],[c.sq||0,cf2[bb+24],'sq'],[c.radius,cf2[bb+4],'radius']];
