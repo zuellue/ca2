@@ -18,6 +18,7 @@ function habAte(){}function habReap(){}
 ${names.map(fn).join('\n')}
 return {P:P,Cell:Cell,cont:cont,get cells(){return cells;},set cells(v){cells=v;},ev:ev,get seq(){return clusterSeq;},set seq(v){clusterSeq=v;},stepSquash:stepSquash,get frameT(){return frameT;},set frameT(v){frameT=v;},
  frame:function(){frameT+=frameDtf;for(var i=cells.length-1;i>=0;i--){var c=cells[i];if(${FULL}){update(c);checkSurvival(c);}if(!${BOUND}){for(var k=i-1;k>=0;k--)interact(c,cells[k]);}if((${FULL}||${BOUND})&&P.boundAware&&c.alive){var ev0x=c.envVx,ev0y=c.envVy;keepIn(c);var dInx=Math.abs(c.envVx-ev0x),dIny=Math.abs(c.envVy-ev0y);if(dInx>1e-12){globalThis.__DJ.nx++;globalThis.__DJ.sx+=dInx;}if(dIny>1e-12){globalThis.__DJ.ny++;globalThis.__DJ.sy+=dIny;}}if(${FULL}&&c.alive)limit(c,c.maxSpeed*c.speedModifier);if(!c.alive)ev.death++;}for(var i2=cells.length-1;i2>=0;i2--)if(!cells[i2].alive)cells.splice(i2,1);}};`; // 1:1 sim.rs step() + the CA-13 JS loop: deaths counted in-pass, removal deferred to a post-pass (a mid-pass splice was the eaten/death drift); f10 limit() closes the step like the app (mouse far away, resizeDrag off -> factors 1)
+if(process.env.HYSQRT)Math.hypot=(a,b)=>Math.sqrt(a*a+b*b); // CA-29 probe: Rust hyp() is (a*a+b*b).sqrt() (sim.rs:67), Math.hypot scales and rounds differently ~37% of draws
 const J=new Function(code)();
 const P=J.P;
 if(process.env.EAT){P.eatMergeOn=1;P.symbiosisOn=1;P.symbiogenesisOn=1;P.divideOn=1;P.eatChance=1;P.mergeChance=1;P.reproChance=1;P.clusterCohesion=1;P.eatDistF=0.85;P.fuseDistF=0.6;P.symDistF=1.1;}

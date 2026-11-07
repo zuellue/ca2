@@ -132,7 +132,7 @@
     return Math.min(1, m);
   }
   function newEnv() { env = { spd: rnd(0.7, 1.35), app: rnd(0.2, 0.9), bnd: rnd(0.7, 1.6), col: normCol([rnd(0.05, 1), rnd(0.05, 1), rnd(0.05, 1)]) }; }
-  function limit(c, m) { var s = Math.hypot(c.vx, c.vy); if (s > m && s > 0) { c.vx *= m / s; c.vy *= m / s; } }
+  function limit(c, m) { var s = (Math.sqrt((c.vx)*(c.vx)+(c.vy)*(c.vy))); if (s > m && s > 0) { c.vx *= m / s; c.vy *= m / s; } }
   function mutateGene(g) {
     var r = Math.random(), a;
     if (r < 0.26) a = Math.random() < 0.5 ? -1 : 1; else if (r < 0.9) a = Math.random() < 0.5 ? -2 : 2; else a = Math.random() < 0.5 ? -3 : 3;
@@ -159,7 +159,7 @@
   }
   function update(c) {
     if (!c.alive) return;
-    var dm = Math.hypot(c.x - mouse.x, c.y - mouse.y), sm = dm < P.slowDownRadius ? P.speedReductionFactor : 1;
+    var dm = (Math.sqrt((c.x - mouse.x)*(c.x - mouse.x)+(c.y - mouse.y)*(c.y - mouse.y))), sm = dm < P.slowDownRadius ? P.speedReductionFactor : 1;
     var r = rand2D(); c.vx += r.x * 0.2 * sm; c.vy += r.y * 0.2 * sm;
     limit(c, c.maxSpeed * sm * c.speedModifier * (resizeDrag ? 1 + P.restless * 1.5 : 1));
     organic(c);
@@ -167,11 +167,11 @@
     var edk = Math.pow(0.75, frameDtf * 0.06); c.envVx *= edk; c.envVy *= edk; // and the medium absorbs it (60fps-reference easing, 1:1 sim.rs update)
     if (c.shp && c.shp.t === 1) { // a string turns into its drift and swims with a side-to-side wave
       var sh2 = c.shp; sh2.svx = (sh2.svx || 0) * 0.94 + c.vx * 0.06; sh2.svy = (sh2.svy || 0) * 0.94 + c.vy * 0.06;
-      var spv = Math.hypot(sh2.svx, sh2.svy);
+      var spv = (Math.sqrt((sh2.svx)*(sh2.svx)+(sh2.svy)*(sh2.svy)));
       if (spv > 0.15) { var wa = Math.atan2(sh2.svy, sh2.svx), daa = wa - sh2.dir; while (daa > 3.1416) daa -= 6.2832; while (daa < -3.1416) daa += 6.2832; sh2.dir += daa * 0.12; }
       var swk = Math.sin(performance.now() / 700 * (1 + sh2.wsp) + sh2.ph) * sh2.wig * 0.05 * (c.maxSpeed * 0.4 + 0.4);
       c.vx += -Math.sin(sh2.dir) * swk; c.vy += Math.cos(sh2.dir) * swk;
-      var vv = Math.hypot(c.vx, c.vy); if (vv > 0.05) { c.vx = lerp(c.vx, Math.cos(sh2.dir) * vv, 0.04); c.vy = lerp(c.vy, Math.sin(sh2.dir) * vv, 0.04); } // it swims where it points
+      var vv = (Math.sqrt((c.vx)*(c.vx)+(c.vy)*(c.vy))); if (vv > 0.05) { c.vx = lerp(c.vx, Math.cos(sh2.dir) * vv, 0.04); c.vy = lerp(c.vy, Math.sin(sh2.dir) * vv, 0.04); } // it swims where it points
     }
     var cm = c.cl && P.eatMergeOn ? cmean[c.cl] : null;
     c.energy -= P.energyConsumptionRate * (cm ? 0.85 : 1);
@@ -181,7 +181,7 @@
       // loose following: members keep their own motion (weak velocity alignment) and roam freely inside an area of 3 radii around the
       // cluster centroid; only the part outside the area pulls back, harder the further a straggler lags, so laggards catch up. Energy sharing unchanged.
       var ch = P.clusterCohesion; c.vx = lerp(c.vx, cm.vx, ch * 0.15); c.vy = lerp(c.vy, cm.vy, ch * 0.15);
-      var cdx = cm.x - c.x, cdy = cm.y - c.y, cdd = Math.hypot(cdx, cdy), cex = cdd - c.radius * 3;
+      var cdx = cm.x - c.x, cdy = cm.y - c.y, cdd = (Math.sqrt((cdx)*(cdx)+(cdy)*(cdy))), cex = cdd - c.radius * 3;
       if (cex > 0) { c.vx += cdx / cdd * cex * 0.02 * ch; c.vy += cdy / cdd * cex * 0.02 * ch; }
       c.energy += (cm.e - c.energy) * 0.05;
     }
@@ -191,7 +191,7 @@
       var sp = c.sym;
       if (sp && (!sp.alive || sp.sym !== c || Math.random() < P.symBreak)) { if (sp.alive && sp.sym === c) sp.sym = null; c.sym = null; }
       else if (sp) {
-        var sdx = sp.x - c.x, sdy = sp.y - c.y, sdd = Math.hypot(sdx, sdy) || 1, sw = (c.radius + sp.radius) * 1.4;
+        var sdx = sp.x - c.x, sdy = sp.y - c.y, sdd = (Math.sqrt((sdx)*(sdx)+(sdy)*(sdy))) || 1, sw = (c.radius + sp.radius) * 1.4;
         if (sdd > sw * P.symBreakDist) { sp.sym = null; c.sym = null; }
         else {
           var coh2 = P.clusterCohesion * 0.25;
@@ -203,7 +203,7 @@
     } else if (c.sym) c.sym = null;
     var reach = P.genomeOn ? c.radius * (2 + 6 * c.g.app) : 0, bestD = 1e9, bx = 0, by = 0;
     for (var i = food.length - 1; i >= 0; i--) {
-      var fd = Math.hypot(c.x - food[i].x, c.y - food[i].y);
+      var fd = (Math.sqrt((c.x - food[i].x)*(c.x - food[i].x)+(c.y - food[i].y)*(c.y - food[i].y)));
       if (fd >= P.foodEatR && fd < reach && fd < bestD) { bestD = fd; bx = food[i].x; by = food[i].y; }
       // eating range reaches from the body EDGE inward: the old centre-based test (foodEatR px from the centre) never fired for bodies larger than foodEatR (owner 21 Oct: cells do not eat)
       if (fd < c.radius + P.foodEatR && Math.random() < 1 - Math.exp(-frameDtf * P.foodEatRate / 1000)) { c.energy += P.foodEnergyValue; habAte(food[i]); food[i].gone = 1; food.splice(i, 1); ev.ate = (ev.ate || 0) + 1; if (P.foodGrow) c.radius = Math.min(c.radius + P.foodGrowAmt, P.CELL_RADIUS * P.foodGrowMax); }
@@ -463,7 +463,7 @@
   }
   function interact(a, b) {
     if (a === b || !a.alive || !b.alive) return;
-    var dx = b.x - a.x, dy = b.y - a.y, dist = Math.hypot(dx, dy);
+    var dx = b.x - a.x, dy = b.y - a.y, dist = (Math.sqrt((dx)*(dx)+(dy)*(dy)));
     if (dist >= P.interactionRadius) return;
     if (P.eatMergeOn && dist < (a.radius + b.radius) * P.eatDistF) {
       var big = a.radius >= b.radius ? a : b, sm = big === a ? b : a, ratio = big.radius / Math.max(0.01, sm.radius);
@@ -514,7 +514,7 @@
     if (!c.alive) return; // 1:1 with sim.rs check_survival: one death is counted once, the first killer keeps the death-log tag (item 64 counter alias)
     if (c.gene <= P.GENE_MIN || c.gene >= P.GENE_MAX) { c.alive = false; c.__dr = 'genebound'; }
     var n = 0, R = P.interactionRadius;
-    for (var i = 0; i < cells.length; i++) { var o = cells[i]; if (o !== c && o.alive && Math.hypot(c.x - o.x, c.y - o.y) < R) n++; }
+    for (var i = 0; i < cells.length; i++) { var o = cells[i]; if (o !== c && o.alive && (Math.sqrt((c.x - o.x)*(c.x - o.x)+(c.y - o.y)*(c.y - o.y))) < R) n++; }
     if (c.energy < n * P.crowdTol) { c.alive = false; c.__dr = 'crowd'; }
   }
 
