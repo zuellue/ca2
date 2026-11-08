@@ -232,13 +232,14 @@
     } else if (c.sym) c.sym = null;
     var reach = P.genomeOn ? c.radius * (2 + 6 * c.g.app) : 0, bestD = 1e9, bx = 0, by = 0;
     for (var i = food.length - 1; i >= 0; i--) {
+      if (food[i].gone) continue; // V1: skip taken dots instead of splicing them out
       var fd = (Math.sqrt((c.x - food[i].x)*(c.x - food[i].x)+(c.y - food[i].y)*(c.y - food[i].y)));
       if (fd >= P.foodEatR && fd < reach && fd < bestD) { bestD = fd; bx = food[i].x; by = food[i].y; }
       // eating range reaches from the body EDGE inward: the old centre-based test (foodEatR px from the centre) never fired for bodies larger than foodEatR (owner 21 Oct: cells do not eat)
-      if (fd < c.radius + P.foodEatR && Math.random() < 1 - Math.exp(-frameDtf * P.foodEatRate / 1000)) { c.energy += P.foodEnergyValue; habAte(food[i]); food[i].gone = 1; food.splice(i, 1); ev.ate = (ev.ate || 0) + 1; if (P.foodGrow) c.radius = Math.min(c.radius + P.foodGrowAmt, P.CELL_RADIUS * P.foodGrowMax); }
+      if (fd < c.radius + P.foodEatR && Math.random() < 1 - Math.exp(-frameDtf * P.foodEatRate / 1000)) { c.energy += P.foodEnergyValue; habAte(food[i]); food[i].gone = 1; ev.ate = (ev.ate || 0) + 1; if (P.foodGrow) c.radius = Math.min(c.radius + P.foodGrowAmt, P.CELL_RADIUS * P.foodGrowMax); } // V1: no splice
       // grazing rate above: a touched dot is taken at foodEatRate dots/s, not in the same frame (measured eat vacuum)
     }
-    if (reach && bestD < 1e9) { if (typeof process !== 'undefined' && process.env.SEEK) console.log('SEEK x='+c.x.toPrecision(17)+' y='+c.y.toPrecision(17)+' bx='+bx.toPrecision(17)+' by='+by.toPrecision(17)+' bd='+bestD.toPrecision(17)+' app='+c.g.app.toPrecision(17)+' ms='+c.maxSpeed.toPrecision(17)+' vx0='+c.vx.toPrecision(17)+' vy0='+c.vy.toPrecision(17)); c.vx += (bx - c.x) * (0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2)) / bestD; c.vy += (by - c.y) * (0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2)) / bestD; } // CAND C/D: pre-multiplied coefficient, division last
+    if (reach && bestD < 1e9) { if (typeof process !== 'undefined' && process.env.SEEK) console.log('SEEK x='+c.x.toPrecision(17)+' y='+c.y.toPrecision(17)+' bx='+bx.toPrecision(17)+' by='+by.toPrecision(17)+' bd='+bestD.toPrecision(17)+' app='+c.g.app.toPrecision(17)+' ms='+c.maxSpeed.toPrecision(17)+' vx0='+c.vx.toPrecision(17)+' vy0='+c.vy.toPrecision(17)); c.vx += (bx - c.x) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); c.vy += (by - c.y) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); }
     if (P.divideOn && P.foodGrow && (globalThis.CA2_TRIG_MSUN ? liveCount() + (c.alive ? 0 : 1) : cells.length) < Math.max(60, P.UNIVERSE_SIZE * 4) && c.energy > 1) { // CA-38c: the served binary removes a dead cell immediately, so its divide gate already excludes cells killed earlier this step; JS defers removal to the post-pass splice. liveCount() matches the served count (an O(n) scan only when the other gate terms pass). Flag-free path keeps the shipped cells.length gate. // divideMode 1: age+mass accumulation instead of the radius threshold (architect 21 Oct: the radius gate is structurally dead)
       if (P.divideMode ? (frameT - (c.bornAt || 0) >= P.divideAgeMs && c.energy >= P.divideEnergy) : (c.radius >= P.CELL_RADIUS * P.divideAt)) divide(c);
     }
