@@ -94,7 +94,18 @@ Measured: eat 30-step config 459-469 divides/run, no-eat 10-step 261 divides/run
 sqS exercised (17354 pressed in FULLST10), SHPGUARD silent on every legit config.
 
 Negative tests: devtools/ca2-sqs-mutant.js (press x1.001) SEEDs at step 0 and is in
-the mutation battery list; ca2-eatrange-mutant.js stays as the residual regression.
+the mutation battery list; ca2-eatrange-mutant.js stays as the residual regression;
+devtools/ca2-shpstring-mutant.js trips SHPGUARD at step 0 (battery requires the
+guard line); devtools/ca2-birthchan-mutant.js (birth hostility x0.5, same draw
+count) SEEDs at step 0 via the hst channel.
+
+Birth-carried channel widening 2026-11-08: the snapshot, metric and pairing key
+gain hst (hostility), sv, mr (mutationRate) and c0/c1/c2 (the mutGenome col draws
+- the served divide's 6 gene draws are spd/app/bnd + col x3, and only the first
+three were compared before). cl/comp are excluded with inert proof: no contacts
+at interactionRadius=0, and TR2CH now prints merge=/fuse= counters (0 on every
+compared run). mr is inherited verbatim at divide (constant per lineage); hst/sv
+are fresh draws per divide, exercised 459-469x per eat run.
 
 Matrix after widening (completed/crashed/unrun): eat x20 STEPS=30 20/0/0 CLEAN;
 no-eat x45 STEPS=10 45/0/0 CLEAN; no-eat interactionRadius=0 x20 STEPS=30 20/0/0
