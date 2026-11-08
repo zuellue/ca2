@@ -110,7 +110,7 @@ are fresh draws per divide, exercised 459-469x per eat run.
 Matrix after widening (completed/crashed/unrun): eat x20 STEPS=30 20/0/0 CLEAN;
 no-eat x45 STEPS=10 45/0/0 CLEAN; no-eat interactionRadius=0 x20 STEPS=30 20/0/0
 CLEAN; eat boundAware=0 x10 TR2-exact (runner ERROR = pressed-cells gate artifact);
-mutation battery baseline CLEAN + 7/7 SEED + eat stanza CLEAN/SEED; selfcheck PASS;
+mutation battery baseline CLEAN + 8/8 fixtures SEED (birth, birthchan, radius, sq, sqs, crowd, envv, age - the count was mis-stated as 7/7 here before goreda round13) + eat stanza CLEAN/SEED; selfcheck PASS;
 OFF battery 4x200 PASS + FULLST10 PASS (17932 live cells, 17354 pressed);
 ORACLE=800 CA2TRIG=1: 0 raw / 0 post-stepSquash mismatches.
 

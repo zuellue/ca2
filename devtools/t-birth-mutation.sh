@@ -29,4 +29,11 @@ SMUT=$(env $ECFG CA_JS=devtools/ca2-shpstring-mutant.js OUT=/tmp/tbm-shp.txt ARG
 echo "ca2-shpstring-mutant: $SMUT"
 case "$SMUT" in CLEAN*) echo "FAIL: shpstring mutant counted clean"; exit 1;; *) :;; esac
 grep -q '^SHPGUARD FAIL' /tmp/tbm-shp.txt || { echo "FAIL: SHPGUARD line missing - the non-clean verdict did not come from the guard"; exit 1; }
+# TRACE smoke (R2AH review of 1c9ebc7): a same-line // comment on the __CT init
+# swallowed the meanEnv/meanKey/liveN declarations; the TRACE=1 FULLST branch calls
+# all three (liveN is not defined). Require the TRACE marker line on a TRACE=1
+# FULLST run - a crash or a silent miss fails the battery.
+TRC=$(TRACE=1 FULLST=1 STEPS=3 node devtools/t70-interact-iso-served.js 2 30 220 1 2>&1)
+echo "$TRC" | grep -q '^TRACE per-step' || { echo "FAIL: TRACE=1 FULLST run produced no TRACE marker line (helper declarations swallowed?)"; echo "$TRC" | tail -3; exit 1; }
+echo "trace smoke: PASS"
 echo "PASS: all mutations detected"

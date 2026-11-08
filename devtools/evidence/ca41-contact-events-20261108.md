@@ -14,12 +14,17 @@ event keys explicitly via SET= and prints non-vacuousness counters.
 Energy transfer, gene drift, hostility push, hit counter and the pair
 iteration order are bit-exact under heavy contact load:
 
-- ir=20, 40 cells: CLEAN 10 steps, contacts=16813, hit=14830
+- ir=20, 40 cells, STEPS=10: CLEAN, contacts=16813, hit=14830
   (FEED=24 TRACE2=1 CA2TRIG=1 FULLST=1 STATESEED=k
    SET=divideOn=1,divideAt=0.5,interactionRadius=20,foodEatR=8 STEPS=10
    ARGV="1 40 160 1")
-- ir=40, 60 cells, 120 steps: CLEAN, contacts=218440, hit=84208
-  (ARGV="1 60 120 1", interactionRadius=40)
+- ir=40, 60 cells, box 120: CLEAN at both measured step counts:
+  - STEPS=10 (the run this file first mislabeled "120 steps" - 120 is the ARGV
+    box size, not the step count): contacts=218440, hit=84208, divide=299
+  - STEPS=120 (goreda round13 config, re-run here on the fixed harness,
+    identical counters): contacts=4799239, hit=3199249, divide=1892
+  (FEED=24 TRACE2=1 CA2TRIG=1 FULLST=1 STATESEED=1
+   SET=divideOn=1,divideAt=0.5,interactionRadius=40,foodEatR=8 ARGV="1 60 120 1")
 
 ## New divergence loci (all flagged CA2TRIG=1, STATESEED=1, 10 steps,
 ## ARGV="1 40 160 1", common SET prefix: divideOn=1,divideAt=0.5,
