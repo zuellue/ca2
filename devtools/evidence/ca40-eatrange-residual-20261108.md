@@ -66,3 +66,34 @@ keeps the shipped live-radius test bit-identical.
 - OFF battery (flag-free): default 4x200 PASS, FULLST10 PASS (17933 live cells,
   16983 pressed) - default behavior bit-unchanged
 - ORACLE=800 CA2TRIG=1: 0 raw / 0 post-stepSquash mismatched states
+
+## Coverage widening 2026-11-08 (same commit series)
+
+The TR2 snapshot and divergence metric now cover every snapshot channel: sqS is
+captured PRE-stepSquash on both sides (the post-pass zeroes it by design; capture
+points are post-dead-sweep on both sides and stepSquash never splices, so index
+alignment holds) and attached to the sorted snapshots; the metric adds |sqS| and
+the post-birth channels spd/app/bnd/maxSpeed/speedModifier, and the pairing key
+gains the same fields so identical-key ties cannot cross-pair. Before this, a
+channel-only divergence on those fields read as mx=0 (masked).
+
+shp (JS-only): the served binary has no shape slots. Coverage is by construction
+plus guard: mkState and every birth path seed shp.t=0, and newShape/mixShape never
+produce t=1 from non-1 parents (body-plan jumps flip 0<->2 only), so the string-swim
+block (shp.t===1) is unreachable in compared configs. The harness prints
+TR2CH shpStrings=<n> per run and flags any n>0 as not served-comparable.
+
+Non-vacuousness markers per TR2 run: TR2CH js divide=<n> birth=<n> shpStrings=<n>
+(divide=0 prints a not-exercised warning) and the existing FEED eats=<n> line.
+Measured: eat 30-step config 459-469 divides/run, no-eat 10-step 261 divides/run,
+sqS exercised (17354 pressed in FULLST10), shpStrings=0 everywhere.
+
+Negative tests: devtools/ca2-sqs-mutant.js (press x1.001) SEEDs at step 0 and is in
+the mutation battery list; ca2-eatrange-mutant.js stays as the residual regression.
+
+Matrix after widening (completed/crashed/unrun): eat x20 STEPS=30 20/0/0 CLEAN;
+no-eat x45 STEPS=10 45/0/0 CLEAN; no-eat interactionRadius=0 x20 STEPS=30 20/0/0
+CLEAN; eat boundAware=0 x10 TR2-exact (runner ERROR = pressed-cells gate artifact);
+mutation battery baseline CLEAN + 7/7 SEED + eat stanza CLEAN/SEED; selfcheck PASS;
+OFF battery 4x200 PASS + FULLST10 PASS (17932 live cells, 17354 pressed);
+ORACLE=800 CA2TRIG=1: 0 raw / 0 post-stepSquash mismatches.
