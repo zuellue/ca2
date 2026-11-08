@@ -513,6 +513,7 @@
     if (a === b || !a.alive || !b.alive) return;
     var dx = b.x - a.x, dy = b.y - a.y, dist = (Math.sqrt((dx)*(dx)+(dy)*(dy)));
     if (dist >= P.interactionRadius) return;
+    if(globalThis.__rc!==undefined)console.log("INTR rc="+globalThis.__rc+" ai="+cells.indexOf(a)+" bi="+cells.indexOf(b)+" dist="+dist.toPrecision(17)+" eb="+((P.eatMergeOn&&dist<(a.radius+b.radius)*P.eatDistF)?1:0)+" er="+((a.radius>=b.radius?a.radius:b.radius)/Math.max(0.01,a.radius>=b.radius?b.radius:a.radius)>=P.eatRatio?1:0)+" mg="+((Math.abs(a.gene-b.gene)<=P.mergeGene)?1:0)+" fb="+((P.symbiogenesisOn&&dist<(a.radius+b.radius)*P.fuseDistF)?1:0)+" pb="+((P.symbiosisOn&&!a.sym&&!b.sym&&dist<(a.radius+b.radius)*P.symDistF)?1:0)+" rb="+((dist<a.radius+b.radius)?1:0));
     if (P.eatMergeOn && dist < (a.radius + b.radius) * P.eatDistF) {
       var big = a.radius >= b.radius ? a : b, sm = big === a ? b : a, ratio = big.radius / Math.max(0.01, sm.radius);
       if (ratio >= P.eatRatio) {
@@ -547,6 +548,7 @@
     b.vx = lerp(b.vx, b.vx - nx * 2 * bd, 0.8); b.vy = lerp(b.vy, b.vy - ny * 2 * bd, 0.8);
     var r1 = rand2D(), r2 = rand2D();
     a.vx += r1.x * 0.3; a.vy += r1.y * 0.3; b.vx += r2.x * 0.3; b.vy += r2.y * 0.3;
+    if(globalThis.__rc!==undefined)console.log("INTE rc="+globalThis.__rc);
   }
   function reproduce(a, b) {
     if (cells.length < P.UNIVERSE_SIZE * 4 && a.hostility < 0.6 && b.hostility < 0.6) {
