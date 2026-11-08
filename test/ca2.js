@@ -231,11 +231,12 @@
       }
     } else if (c.sym) c.sym = null;
     var reach = P.genomeOn ? c.radius * (2 + 6 * c.g.app) : 0, bestD = 1e9, bx = 0, by = 0;
+    var eatR0_ = c.radius + P.foodEatR; // CA-40 residual: the served binary tests the eat range against the radius at loop entry; a mid-loop-grown radius (foodGrow on a successful eat) never widens the range within the same food scan (20/20 seeded eat replays SEED with the live radius on the flagged path, 20/20 CLEAN hoisted; foodGrow=0 control CLEAN either way). Flag-free path keeps the shipped live-radius test bit-identical.
     for (var i = food.length - 1; i >= 0; i--) {
       var fd = (Math.sqrt((c.x - food[i].x)*(c.x - food[i].x)+(c.y - food[i].y)*(c.y - food[i].y)));
       if (fd >= P.foodEatR && fd < reach && fd < bestD) { bestD = fd; bx = food[i].x; by = food[i].y; }
       // eating range reaches from the body EDGE inward: the old centre-based test (foodEatR px from the centre) never fired for bodies larger than foodEatR (owner 21 Oct: cells do not eat)
-      if (fd < c.radius + P.foodEatR && Math.random() < 1 - Math.exp(-frameDtf * P.foodEatRate / 1000)) { c.energy += P.foodEnergyValue; habAte(food[i]); food[i].gone = 1; food.splice(i, 1); ev.ate = (ev.ate || 0) + 1; if (P.foodGrow) c.radius = Math.min(c.radius + P.foodGrowAmt, P.CELL_RADIUS * P.foodGrowMax); }
+      if (fd < (globalThis.CA2_TRIG_MSUN ? eatR0_ : c.radius + P.foodEatR) && Math.random() < 1 - Math.exp(-frameDtf * P.foodEatRate / 1000)) { c.energy += P.foodEnergyValue; habAte(food[i]); food[i].gone = 1; food.splice(i, 1); ev.ate = (ev.ate || 0) + 1; if (P.foodGrow) c.radius = Math.min(c.radius + P.foodGrowAmt, P.CELL_RADIUS * P.foodGrowMax); }
       // grazing rate above: a touched dot is taken at foodEatRate dots/s, not in the same frame (measured eat vacuum)
     }
     if (reach && bestD < 1e9) { if (globalThis.CA2_TRIG_MSUN) { var sk_ = 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); c.vx += (bx - c.x) / bestD * sk_; c.vy += (by - c.y) / bestD * sk_; } else { c.vx += (bx - c.x) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); c.vy += (by - c.y) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); } } // CA-40: the served binary pre-multiplies the seek coefficient k = 0.5*app*(maxSpeed*0.1+0.2) and applies direction/bd * k; the shipped left-to-right chain rounds the nudge 1 ulp off on ~half of lattice-seek inputs (45 seeded captures, 90/90 components fit, devtools/evidence). Flag-free path keeps the shipped association bit-identical.

@@ -231,22 +231,21 @@
       }
     } else if (c.sym) c.sym = null;
     var reach = P.genomeOn ? c.radius * (2 + 6 * c.g.app) : 0, bestD = 1e9, bx = 0, by = 0;
+    var eatR0_ = c.radius + P.foodEatR; // CA-40 residual: the served binary tests the eat range against the radius at loop entry; a mid-loop-grown radius (foodGrow on a successful eat) never widens the range within the same food scan (20/20 seeded eat replays SEED with the live radius on the flagged path, 20/20 CLEAN hoisted; foodGrow=0 control CLEAN either way). Flag-free path keeps the shipped live-radius test bit-identical.
     for (var i = food.length - 1; i >= 0; i--) {
       var fd = (Math.sqrt((c.x - food[i].x)*(c.x - food[i].x)+(c.y - food[i].y)*(c.y - food[i].y)));
       if (fd >= P.foodEatR && fd < reach && fd < bestD) { bestD = fd; bx = food[i].x; by = food[i].y; }
       // eating range reaches from the body EDGE inward: the old centre-based test (foodEatR px from the centre) never fired for bodies larger than foodEatR (owner 21 Oct: cells do not eat)
-      if (fd < c.radius + P.foodEatR && Math.random() < 1 - Math.exp(-frameDtf * P.foodEatRate / 1000)) { c.energy += P.foodEnergyValue; habAte(food[i]); food[i].gone = 1; food.splice(i, 1); ev.ate = (ev.ate || 0) + 1; if (P.foodGrow) c.radius = Math.min(c.radius + P.foodGrowAmt, P.CELL_RADIUS * P.foodGrowMax); }
+      if (fd < (globalThis.CA2_TRIG_MSUN ? eatR0_ : c.radius + P.foodEatR) && Math.random() < 1 - Math.exp(-frameDtf * P.foodEatRate / 1000)) { if (typeof process !== 'undefined' && process.env.EATLOG) console.log('EAT x='+c.x.toPrecision(17)+' y='+c.y.toPrecision(17)+' fd='+fd.toPrecision(17)+' r='+c.radius.toPrecision(17)+' en='+c.energy.toPrecision(17)); c.energy += P.foodEnergyValue; habAte(food[i]); food[i].gone = 1; food.splice(i, 1); ev.ate = (ev.ate || 0) + 1; if (P.foodGrow) c.radius = Math.min(c.radius + P.foodGrowAmt, P.CELL_RADIUS * P.foodGrowMax); }
       // grazing rate above: a touched dot is taken at foodEatRate dots/s, not in the same frame (measured eat vacuum)
     }
-    if (reach && bestD < 1e9) { var kn_ = (c.maxSpeed * 0.1 + 0.2), nx_ = (bx - c.x) / bestD * 0.5 * c.g.app * kn_, ny_ = (by - c.y) / bestD * 0.5 * c.g.app * kn_; if (typeof process !== 'undefined' && process.env.SEEK) console.log('SEEK x='+c.x.toPrecision(17)+' y='+c.y.toPrecision(17)+' r='+c.radius.toPrecision(17)+' ba='+(c.bornAt||0)+' bx='+bx.toPrecision(17)+' by='+by.toPrecision(17)+' bd='+bestD.toPrecision(17)+' app='+c.g.app.toPrecision(17)+' ms='+c.maxSpeed.toPrecision(17)+' vx0='+c.vx.toPrecision(17)+' vy0='+c.vy.toPrecision(17)+' nx='+nx_.toPrecision(17)+' ny='+ny_.toPrecision(17)); c.vx += nx_; c.vy += ny_; }
+    if (reach && bestD < 1e9) { if (typeof process !== 'undefined' && process.env.SEEK) console.log('SEEK x='+c.x.toPrecision(17)+' y='+c.y.toPrecision(17)+' r='+c.radius.toPrecision(17)+' ba='+(c.bornAt||0)+' bx='+bx.toPrecision(17)+' by='+by.toPrecision(17)+' bd='+bestD.toPrecision(17)+' app='+c.g.app.toPrecision(17)+' ms='+c.maxSpeed.toPrecision(17)+' vx0='+c.vx.toPrecision(17)+' vy0='+c.vy.toPrecision(17)); if (globalThis.CA2_TRIG_MSUN) { var sk_ = 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); c.vx += (bx - c.x) / bestD * sk_; c.vy += (by - c.y) / bestD * sk_; } else { c.vx += (bx - c.x) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); c.vy += (by - c.y) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); } } // CA-40: the served binary pre-multiplies the seek coefficient k = 0.5*app*(maxSpeed*0.1+0.2) and applies direction/bd * k; the shipped left-to-right chain rounds the nudge 1 ulp off on ~half of lattice-seek inputs (45 seeded captures, 90/90 components fit, devtools/evidence). Flag-free path keeps the shipped association bit-identical.
     if (P.divideOn && P.foodGrow && (globalThis.CA2_TRIG_MSUN ? liveCount() + (c.alive ? 0 : 1) : cells.length) < Math.max(60, P.UNIVERSE_SIZE * 4) && c.energy > 1) { // CA-38c: the served binary removes a dead cell immediately, so its divide gate already excludes cells killed earlier this step; JS defers removal to the post-pass splice. liveCount() matches the served count (an O(n) scan only when the other gate terms pass). Flag-free path keeps the shipped cells.length gate. // divideMode 1: age+mass accumulation instead of the radius threshold (architect 21 Oct: the radius gate is structurally dead)
       if (P.divideMode ? (frameT - (c.bornAt || 0) >= P.divideAgeMs && c.energy >= P.divideEnergy) : (c.radius >= P.CELL_RADIUS * P.divideAt)) divide(c);
     }
     if (P.foodGrow && c.radius > P.CELL_RADIUS) c.radius = Math.max(P.CELL_RADIUS, c.radius - P.foodShrink);
-    var SK_ = typeof process !== 'undefined' && process.env.SEEK; if (SK_) console.log('PRE x='+c.x.toPrecision(17)+' vx='+c.vx.toPrecision(17)+' vy='+c.vy.toPrecision(17)+' cr='+(c.crowd||0).toPrecision(17)+' sq='+(c.sqS||0).toPrecision(17)+' r='+c.radius.toPrecision(17));
     if (P.boundAware) keepIn(c);
     else if (c.x < cont.x || c.x > cont.x + cont.w || c.y < cont.y || c.y > cont.y + cont.h) { c.alive = false; c.__dr = 'oob'; ev.oob++; }
-    if (SK_) console.log('END x='+c.x.toPrecision(17)+' vx='+c.vx.toPrecision(17)+' vy='+c.vy.toPrecision(17)+' cr='+(c.crowd||0).toPrecision(17)+' sq='+(c.sqS||0).toPrecision(17));
   }
   // item 64 directive 3: extra keepIn passes along the interpolated wall path (see frame()).
   // Named for testability: t129 drives it directly against JS and wasm cell states.
@@ -464,6 +463,7 @@
     var MS = globalThis.CA2_TRIG_MSUN;
     var bx0 = cont.x + nr, bx1 = cont.x + cont.w - nr, by0 = cont.y + nr, by1 = cont.y + cont.h - nr;
     var kx = bx1 >= bx0 ? clamp(c.x + (MS ? rand2D._msun.cos(ang) : Math.cos(ang)) * nr, bx0, bx1) : (bx0 + bx1) / 2, ky = by1 >= by0 ? clamp(c.y + (MS ? rand2D._msun.sin(ang) : Math.sin(ang)) * nr, bx0, by1) : (by0 + by1) / 2;
+    if (typeof process !== 'undefined' && process.env.DIVLOG) console.log('DIV x='+c.x.toPrecision(17)+' y='+c.y.toPrecision(17)+' r='+c.radius.toPrecision(17)+' en='+c.energy.toPrecision(17)+' pop='+cells.length);
     if (MS) {
       // CA-38: served-binary divide layout (devtools/evidence/oracle-firststep-20261107.md): 12 stream draws - ang, mutation
       // check, rand2D direction, sv, hostility, speedModifier, parent-based mutGenome x6 - with compiled-default constants

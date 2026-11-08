@@ -14,4 +14,13 @@ for FIX in ca2-birth-mutant ca2-radius-mutant ca2-sq-mutant ca2-crowd-mutant ca2
   echo "$FIX: $MUT"
   case "$MUT" in CLEAN*) echo "FAIL: $FIX counted clean - divergence was masked"; exit 1;; SEED*|FAIL*) :;; *) echo "FAIL: $FIX errored or unexpected verdict ($MUT) - a crash does not prove detection"; exit 1;; esac
 done
+# CA-40 residual: on the flagged path the eat-range test must use the loop-entry radius;
+# a live-radius mutant (devtools/ca2-eatrange-mutant.js) must diverge on an eating config.
+ECFG="FEED=24 TRACE2=1 CA2TRIG=1 FULLST=1 STATESEED=1 SET=divideOn=1,divideAt=0.5,interactionRadius=0,foodEatR=8 STEPS=30"
+EBASE=$(env $ECFG CA_JS=test/ca2.js OUT=/tmp/tbm-eat-base.txt ARGV="1 40 160 1" sh devtools/ca2-parity-run.sh)
+echo "eat baseline: $EBASE"
+case "$EBASE" in CLEAN*) :;; *) echo "FAIL: eat baseline not clean"; exit 1;; esac
+EMUT=$(env $ECFG CA_JS=devtools/ca2-eatrange-mutant.js OUT=/tmp/tbm-eat-mut.txt ARGV="1 40 160 1" sh devtools/ca2-parity-run.sh)
+echo "ca2-eatrange-mutant: $EMUT"
+case "$EMUT" in CLEAN*) echo "FAIL: ca2-eatrange-mutant counted clean - divergence was masked"; exit 1;; SEED*|FAIL*) :;; *) echo "FAIL: ca2-eatrange-mutant errored or unexpected verdict ($EMUT) - a crash does not prove detection"; exit 1;; esac
 echo "PASS: all mutations detected"
