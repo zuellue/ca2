@@ -331,3 +331,17 @@ OPEN EDGES: (a) 1g13 (sm.app=0.5) leaves a 2.2448e-3 en residual - the sm.app si
 Matrix after the edit (runner verdicts): fuse seeds 11/1/7/10 (default STEPS=1, FUSEEN unset) CLEAN 0.0000 x4; failclosed suite all pass; selfcheck PASS (deliberate crash -> exit=1, never clean); t-birth-mutation PASS (all mutants + shp guard + failclosed). Flag-free default behavior bit-unchanged: the edit is one env-gated block in the devtools emulation file only. no-eat x45 / eat x20 battery re-run queued next wake (edit is inert without FUSEEN; goreda-rule full battery still owed).
 
 Status: CA-41 REMAINS OPEN. Fuse-zone + fuse-energy rules now solved for single- and two-generation controlled lineages except the two sm.app/big.app=1.0 edges; battery residual classes (rare sqS zone deltas, same-sqS crowd/envV/v, kick-draw interleaving), loci A, C, D open. Next: sm.app sweep 0.35-0.5 to close 1g13; then battery with FUSEEN=1 to reclassify en-only residual class; then the flag-gated product fix in test/ca2.js (default OFF) + 20+ seed gate.
+
+## Round 10b (2026-11-09): fuse-energy formula COMPLETE - both open edges closed by one coupling term
+
+sm.app sweep (0.2/0.35/0.4/0.45/0.6/0.8 exact deltas via DD dump pairs): the sm.app side is linear /120 only while sm.app+big.app <= 1; above, a coupling penalty -max(0, sm.app+big.app-1)/60 applies. This one term closes BOTH round-10 edges: 1g13 (sm.app=0.5: 2.2448e-3 residual -> exact) and big.app=1.0 (the -1.5e-4 "clamp" was -2*(1+0.0905528-1)/120 = -1.50921e-3, exact). No sm-side 0.5 kink (0.6/0.8 fit without it to 5e-10); only the surviving big cell gets the +max(0,app-0.5)/30 bonus.
+
+FINAL: served fuse-en = js (b+s)*0.85 + delta,
+
+  delta = (sm.bnd-big.bnd)/180 + (big.spd-sm.spd)/132 + (sm.app-big.app)/120 + max(0,big.app-0.5)/30 - max(0,sm.app+big.app-1)/60
+
+Fits all 18 controlled points to <=1e-9 (bnd x4, spd x2, sm.app x9, big.app x12 incl. overlaps, gen-2 multi-fuse with 0.85 carry). FUSEEN=1 emulation updated; with FUSEKINB=1 all controlled worlds flat 0.0000: 1gen/1g2/2gen/1g13 x6 steps, sm sweep 0.2-0.8 x3 steps. The step-2 cell-existence desync seen in the sm sweep WITHOUT FUSEEN vanished with correct energy - that whole signature was the en delta feeding a step-2 event gate, not a separate divergence class.
+
+Matrix after the edit (runner verdicts): fuse seeds 11/1/7/10 CLEAN 0.0000 x4 (default, FUSEEN unset); failclosed suite PASS; selfcheck PASS (deliberate crash -> exit=1, never clean); birth-mutation PASS; 0 crashes, 0 unrun. Flag-free default bit-unchanged (env-gated emulation file only). no-eat x45 / eat x20 battery re-run still owed (edit inert without FUSEEN).
+
+Status: CA-41 REMAINS OPEN. Fuse zone + fuse energy both solved for controlled lineages; next: battery reclassification with FUSEEN=1 (en-only class should collapse), then the flag-gated product fix in test/ca2.js (default OFF) + 20+ seed gate; residual battery classes (rare sqS zone, same-sqS crowd/envV/v, kick-draw interleaving) and loci A, C, D open.
