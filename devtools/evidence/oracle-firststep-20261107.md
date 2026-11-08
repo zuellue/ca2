@@ -209,3 +209,26 @@ OPEN - CA-38b: step-1+ divide-count delta (~3 cells/step: 40->70 JS vs 40->73 wa
 ## CA-38b progress (2026-11-08, post-fix)
 
 With the CA-38 fix, step-0 divide counts match across states (6/6 runs equal) and populations track (js [72 136 240 300 ...] vs wasm [72 136 240 300 ...]). Step-1 per-divide stream positions (RCCNT draw counter + BORNC host inversion vs makeRng(1002,5002)): the FIRST divides align exactly, then a single intervening cell update consumes +3/+4 draws in the wasm (run A: aligned 6,43,77,114,137 then js 188 vs wasm 191; run B: aligned 6,43,94 then js 115 vs wasm 119). Ruled out: mutation firing (rnd100 = 93 at the diverging divide), parent shp.t (diverging parent t=0), energy split (child energies exact 0.0), newborn-update skip (26/27 wasm newborns move at step 1), checkSurvival (no draws), shp.t===1 update branch (no draws). Newborns ARE updated by the wasm at step 1 (positions move), and the wasm also processes divides in the same backward order (first divide at pos 6 at step 1 in both engines). The +3/+4 is a conditional draw in the per-cell update path that fires in the served binary but not JS (or vice versa) - organic()/pairing (symbiosis) pass is the prime remaining suspect.
+
+## CA-38b: step-1+ residual — interact() pair loop is the next decode layer (03:55)
+- Step-0 divides bit-exact after CA-38; step-1 diverges mid-step in FULLST BORNTR SET=divideOn=1,divideAt=0.5
+  (30-cell box 220): first 3-4 divides align exactly (run B: rc 6,43,94 both engines), then one cell's
+  processing consumes 9 draws JS vs 13 wasm (+4) before the next aligned divide.
+- FULLST zeroes reproChance/divideOn/eatChance/mergeChance/habitatOn but LEAVES symbiosisOn=1,
+  symbiogenesisOn=1, eatMergeOn=1: the chance values are 0 but the DRAWS still fire when the
+  proximity/gene conditions pass.
+- Draw sequence per cell i (ca2.js:2323-2336): update(c_i) [rand2D + organic(3) + select(1) + gate(1)
+  + possible divide(12)] then `for k=i-1..0: interact(c_i, cells[k])` — the pair loop is INTERLEAVED
+  with the cell loop, so a divider's interact draws sit between its divide and the next cell's update.
+- interact() draw map (per call passing dist < interactionRadius; early-return beyond):
+  eat band (dist<(ra+rb)*eatDistF): ratio>=eatRatio → 1 draw (<eatChance=0); else-if |dgene|<=mergeGene → 1 draw (<mergeChance=0)
+  fuse: dist<(ra+rb)*fuseDistF && |dgene|<=mergeGene → 1 draw (<mergeChance*0.3=0)
+  pair: !a.sym && !b.sym && dist<(ra+rb)*symDistF → 1 draw (<mergeChance*0.5=0)
+  hostility>0.5 block: TBD (lines ~21-24 of interact)
+  reproduce: dist<ra+rb → 1 draw (<reproChance*birthCapF()=0)
+  collision: r1,r2 = rand2D() x2 near the end (conditional structure TBD)
+  → 2..7 draws per qualifying pair depending on bands.
+- Hypothesis: the +3/+4 = cell-A interact loop drawing more in the wasm (different conditional
+  structure/order, or r1/r2 unconditional where JS skips, or vice versa). Next: hook per-interact
+  draw counts in the probe (pair indices + bands + draws), invert the served layout from the
+  delta between aligned divide anchors, same method as the CA-38 divide decode.
