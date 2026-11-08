@@ -496,6 +496,7 @@
   // symbiogenesis: two compatible cells in deep contact fuse into one composite organism - heavier, slower, mixed genome
   function fuseCells(a, b) {
     var big = a.radius >= b.radius ? a : b, sm = big === a ? b : a;
+    if (typeof process !== 'undefined' && process.env.FUSEDBG) console.log('FUSEDBG bigBnd=' + big.g.bnd + ' smBnd=' + sm.g.bnd + ' bigGene=' + big.gene + ' smGene=' + sm.gene + ' bigR=' + big.radius + ' smR=' + sm.radius);
     big.radius = Math.min(Math.sqrt(big.radius * big.radius + sm.radius * sm.radius) * 0.92, P.CELL_RADIUS * P.foodGrowMax * 1.2);
     big.energy = (big.energy + sm.energy) * 0.85;
     big.gene = clamp(Math.round((big.gene + sm.gene) / 2), P.GENE_MIN, P.GENE_MAX);
@@ -503,6 +504,12 @@
     if (typeof process !== 'undefined' && process.env.FUSESHP !== '0') { big.shp = mixShape(big.shp, sm.shp); }
     if (typeof process !== 'undefined' && process.env.FUSESETTLE) { big.sq = (big.sq || 0) * 0.9; big.sqS = (big.sqS || 0) * 0.9; big.crowd = (big.crowd || 0) * 0.9; big.envVx = (big.envVx || 0) * 0.9; big.envVy = (big.envVy || 0) * 0.9; }
     if (typeof process !== 'undefined' && process.env.FUSEINS) for (var __fi = 0; __fi < (+process.env.FUSEINS || 0); __fi++) Math.random();
+    if (typeof process !== 'undefined' && process.env.FUSEKINB) {
+      // served-binary fuse: the grown body's post-pair keepIn this frame uses the raw zone (no genome scale) - marked here, applied at the normal post-pair call site
+      big.__fuseKi = frameT;
+      // served binary: the same-frame post-pair keepIn zone scales by the MIXED bnd (big/sm average, capped at w/2.5) even though the stored genome keeps big's - FUSEMIX=0 assumed here so big.g.bnd is still big's own
+      big.__fuseKiB = ((big.__fuseKiB != null ? big.__fuseKiB : big.g.bnd) + (sm.__fuseKiB != null ? sm.__fuseKiB : sm.g.bnd)) / 2;
+    }
     if (typeof process !== 'undefined' && process.env.FUSEV) {
       var __mb = big.radius * big.radius, __ms = sm.radius * sm.radius;
       if (process.env.FUSEV === 'mom') { big.vx = (big.vx * __mb + sm.vx * __ms) / (__mb + __ms); big.vy = (big.vy * __mb + sm.vy * __ms) / (__mb + __ms); }
