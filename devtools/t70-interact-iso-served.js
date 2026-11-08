@@ -301,7 +301,7 @@ const J_ev=()=>[J.ev.birth,J.ev.divide||0,J.ev.eaten||0,J.ev.merge||0,J.ev.fuse|
 const nStates=+process.argv[5]||10; let S2j=new Array(8).fill(0),S2w=new Array(8).fill(0);
 let gMax=0,gSum=0,gN=0,gPressed=0;
 const CH=['sq','sqS','crowd','envVx','envVy'],chJ={},chW={};CH.forEach(k=>{chJ[k]=[];chW[k]=[];});let popJ=0,popW=0; // FULLST channel distributions
-for(let s=0;s<nStates;s++){const base=mkState();tj.fill(0);tw.fill(0);let sMax=0;
+for(let s=0;s<nStates;s++){if(process.env.STATESEED){const __rs=makeRng(1000+2*(+process.env.STATESEED),5000+2*(+process.env.STATESEED));Math.random=__rs;}const base=mkState();if(process.env.STATESEED){/* state now deterministic per STATESEED */}tj.fill(0);tw.fill(0);let sMax=0;
  for(let t=0;t<trials;t++){
   if(FULLST){const nSteps=+process.env.STEPS||1;
    J.cells=clone(base);J.seq=SEQ;J.frameT=0;for(const c of J.cells)c.bornAt=0;for(const k of Object.keys(J.ev))J.ev[k]=0;J.ev.birth=0;J.ev.death=0;J.ev.hit=0;if(FEED)J.food=FL.map(f=>({x:f.x,y:f.y,r:0}));
