@@ -23,35 +23,29 @@ def find_pos(val, lo=0, hi=None):
     return None
 
 def parse(path):
-    evs = []  # (kind, dict)
+    # Segment by step boundaries: each jframe's first update logs UPD rc=0 (RCCNT resets __rc per step).
+    # State 0 layout: [step0 events][BORN st=0][step1 events][BORN st=1] then state 1 begins at the next UPD rc=0.
+    # Analyze state 0's step-1 segment only (between the 2nd and 3rd UPD rc=0).
+    raw = []
     with open(path) as f:
         for line in f:
             line = line.strip()
             if line.startswith('UPD '):
-                evs.append(('UPD', {'rc': int(re.search(r'rc=(\d+)', line).group(1))}))
+                raw.append(('UPD', {'rc': int(re.search(r'rc=(\d+)', line).group(1))}))
             elif line.startswith('INTR '):
-                d = dict(re.findall(r'(\w+)=([-+\d.e]+)', line))
-                evs.append(('INTR', d))
+                raw.append(('INTR', dict(re.findall(r'(\w+)=([-+\d.e]+)', line))))
             elif line.startswith('INTE '):
-                evs.append(('INTE', {'rc': int(re.search(r'rc=(\d+)', line).group(1))}))
+                raw.append(('INTE', {'rc': int(re.search(r'rc=(\d+)', line).group(1))}))
             elif line.startswith('DIVP '):
-                d = dict(re.findall(r'(\w+)=([-+\d.e]+)', line))
-                evs.append(('DIVP', d))
+                raw.append(('DIVP', dict(re.findall(r'(\w+)=([-+\d.e]+)', line))))
             elif line.startswith('DIVEND '):
-                evs.append(('DIVEND', {'rc': int(re.search(r'rc=(\d+)', line).group(1))}))
+                raw.append(('DIVEND', {'rc': int(re.search(r'rc=(\d+)', line).group(1))}))
             elif line.startswith('BORNC st=1 '):
-                d = dict(re.findall(r'(\w+)=([-\d.e,]+)', line))
-                evs.append(('BORNC', d))
-    # step 0 = first 30 UPDs (initial population 30)
-    upd_seen = 0
-    step1 = []
-    for kind, d in evs:
-        if kind == 'UPD':
-            upd_seen += 1
-        if upd_seen <= 30:
-            continue
-        step1.append((kind, d))
-    return step1
+                raw.append(('BORNC', dict(re.findall(r'(\w+)=([-+\d.e,]+)', line))))
+    bounds = [i for i, (k, d) in enumerate(raw) if k == 'UPD' and d['rc'] == 0]
+    if len(bounds) < 3:
+        return []
+    return raw[bounds[1]:bounds[2]]
 
 for path in sys.argv[1:]:
     print('====', path)
