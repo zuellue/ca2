@@ -136,3 +136,52 @@ Non-event proofs: ir=20 x10 seeds + ir=40 x1 heavy config, 11/0/0, all
 CLEAN. Event-family probes: all-events x1, A x1, B x1, C x3
 (incl. habitatOn=1 and reproMinAgeMs=0 variants), 6/0/0, all SEED by
 design (discovery runs, not gates). Runner selfcheck: PASS (see report).
+
+## Round 3 (2026-11-08 late morning): stream-position analysis, false-clean correction, new locus D (food path)
+
+### Corrections to round-2 hypotheses
+
+- The earlier fb10 "FUSEBREAK: CLEAN" result was a FALSE CLEAN: the eval that
+  produced it ran with an empty CFG (a failed && chain swallowed the variable),
+  so no FULLST/STATESEED/TR2 ran at all. Re-run properly, break-after-fuse does
+  NOT align the seed-10 world (SEED step 0 unchanged). H-dead (dead-cell roll
+  consumption, any subset: gate rolls only, tail rolls, fuse-roll inserts K=1..3,
+  pair-loop break, pair-loop restart) is REFUTED by emulation: every variant
+  changes the outcome signature away from the served one (fuse counts 1,3,4 vs
+  the served 2, pops 274/278/280 vs 278).
+
+### Stream-position analysis of the locus-B second-fuse flip
+
+The TR2 per-step stream is exactly reproducible offline (makeRng port). At
+locus B step 2: js's first fuse roll sits at stream index 2276 (roll
+0.003689085720500307), the second at 2337 (roll 0.005832443672270093, offset
++61). Sub-0.009 draws in the window +1..+250 exist ONLY at +61 and +81
+(0.0012576508670320008). The served binary's second fuse (product at
+(147.8812,55.3051), radius bit-exact 13.010764773832475) therefore used one of:
+(a) the +61 draw - identical roll consumption between the fuses, so the served
+engine gated a DIFFERENT PAIR at the same stream position (pair-set/order
+difference after the mid-step kill, not a roll-count difference); or
+(b) the +81 draw - the served engine consumed exactly 20 more rolls than the js
+frame between the fuses. All constant-offset emulations tested (dead-a gate
+rolls, break, restart, break+dead-a, break+fuse-draw) land on neither. The
+discriminating probe is a food-free single-fuse micro-world (below).
+
+### NEW LOCUS D: food-eat path (seed-10 microscope)
+
+FEED=24 worlds with interactionRadius=20 host a food-path divergence, isolated
+in the STATESEED=10, 14-cell, divideOn=0, mergeChance=0.1 world, step 0: one
+fuse each side, fused product BIT-EXACT (position + radius
+22.55697919103689), then sorted cell 10 diverges: js r=5.158670920258665 /
+en=19.492568488277215 vs served r=4.558670920258665 / en=14.492568488277213 -
+EXACTLY one food eat (foodGrowAmt 0.6, foodEnergyValue 5) at fd=5.63 with
+eatR0_ = 4.5587+8 = 12.56. The js frame consumed the eat roll (rc-logged); the
+served binary consumed no roll for that cell's food scan (one-cell downstream
+draw shift; the fused product, processed earlier, stays bit-exact). So the
+served eat gate is narrower than r+foodEatR under this config's conditions,
+even though the CA-40 eat config (interactionRadius=0, divideOn=1, 20 seeds x
+30 steps) eats in lockstep at the hoisted range. What differs (range basis,
+hunger gate, scan position) is open. In the locus-B 40-cell world, all step-2
+FOODEAT events sit at rc 3974+ - AFTER the second fuse (rc 2338) - so the food
+path does NOT explain the locus-B flip; it contaminates only later stream
+positions and the FEED=24 micro-worlds. Micro-world probes for locus B must
+run FEED=0 (or verify no FOODEAT lines in the window).
