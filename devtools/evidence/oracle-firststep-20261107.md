@@ -330,3 +330,20 @@ CA-38c wider verification (828467b): nir STEPS=10 x30 seeds 0/30 (baseline 12/20
 - Divide gate: added c.alive to the flagged gate (served does not divide cells killed earlier in the step).
 - REJECTED by experiment: the energy0 pre-check (skip a doomed cell's 5 update draws) made seeds WORSE (12/30 with it vs 6/30 without after the phantom fix was not yet in; reverted - evidence: /tmp/v1.txt step-0 energy-only divergence).
 - OPEN residual: 6/30 seeds at steps 2 and 9 (mid/late-step stream desync, structural |dp| 5-300). Next: RCJ per-step draw accounting + DIVKNF knife-edge analysis on a step-2 seed.
+
+## CA-38c RESOLVED (2026-11-08): multi-step residual = dead-cell removal timing at the divide cap
+Unified model, confirmed by three independent captures (selkrun, seed3b, m12seed):
+the served wasm keeps shipped update order (select-kill chk -> divide gate -> divide),
+counts the just-killed cell at its OWN gate, but removes dead cells BEFORE the next
+cell's update, so subsequent gates see count-1. Flagged gate:
+`liveCount() + (c.alive ? 0 : 1) < max(60, UNIVERSE_SIZE*4)`, no alive-guard.
+- selkrun/m12seed (low count): wasm divided the select-killed cell; child energy and
+  position matched the killed parent's halved post-drain energy to 17 digits (m12seed:
+  slot 106 en 0.84941435332372117 == (1.7679402277186951-drain)/2 exact, d=nr exact).
+- seed3b (cap-edge): wasm did NOT divide the killed cell (count incl. itself = cap),
+  and divided the NEXT living cell (count-1 after removal).
+- Harness artifact fixed earlier this round: BORNTR readback must zero tail alive-flags
+  (slots >= pack.n) before E.sim_step; the wasm reuses truncated slots for births.
+Results (strict runner, crash-accounted): nir STEPS=10 x60 0 seeds/0 errors;
+nir STEPS=30 x20 0/0; ON ORACLE=800 0/800 (0 crashed/0 unrun); OFF battery
+default/EAT/BOUND/FULLST10/LOGCHK 200x4 all PASS. Runner --selfcheck PASS.
