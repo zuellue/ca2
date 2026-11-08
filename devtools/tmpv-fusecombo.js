@@ -496,7 +496,7 @@
   // symbiogenesis: two compatible cells in deep contact fuse into one composite organism - heavier, slower, mixed genome
   function fuseCells(a, b) {
     var big = a.radius >= b.radius ? a : b, sm = big === a ? b : a;
-    if (typeof process !== 'undefined' && process.env.FUSEDBG) console.log('FUSEDBG bigBnd=' + big.g.bnd + ' smBnd=' + sm.g.bnd + ' bigGene=' + big.gene + ' smGene=' + sm.gene + ' bigR=' + big.radius + ' smR=' + sm.radius);
+    if (typeof process !== 'undefined' && process.env.FUSEDBG) console.log('FUSEDBG t=' + frameT + ' x=' + big.x.toFixed(4) + ' y=' + big.y.toFixed(4) + ' bigBnd=' + big.g.bnd + ' smBnd=' + sm.g.bnd + ' bigZb=' + (big.__fuseKiB != null ? big.__fuseKiB : big.g.bnd) + ' smZb=' + (sm.__fuseKiB != null ? sm.__fuseKiB : sm.g.bnd) + ' bigGene=' + big.gene + ' bigR=' + big.radius);
     big.radius = Math.min(Math.sqrt(big.radius * big.radius + sm.radius * sm.radius) * 0.92, P.CELL_RADIUS * P.foodGrowMax * 1.2);
     big.energy = (big.energy + sm.energy) * 0.85;
     big.gene = clamp(Math.round((big.gene + sm.gene) / 2), P.GENE_MIN, P.GENE_MAX);
@@ -507,6 +507,8 @@
     if (typeof process !== 'undefined' && process.env.FUSEKINB) {
       // served-binary fuse: the grown body's post-pair keepIn this frame uses the raw zone (no genome scale) - marked here, applied at the normal post-pair call site
       big.__fuseKi = frameT;
+      // served binary: the fuse FRAME's keepIn zone uses the parents' stored-bnd average; the persistent re-averaged zb below applies from the next frame
+      big.__fuseKiBF = (big.g.bnd + sm.g.bnd) / 2;
       // served binary: the same-frame post-pair keepIn zone scales by the MIXED bnd (big/sm average, capped at w/2.5) even though the stored genome keeps big's - FUSEMIX=0 assumed here so big.g.bnd is still big's own
       big.__fuseKiB = ((big.__fuseKiB != null ? big.__fuseKiB : big.g.bnd) + (sm.__fuseKiB != null ? sm.__fuseKiB : sm.g.bnd)) / 2;
     }
