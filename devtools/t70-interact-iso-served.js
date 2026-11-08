@@ -191,6 +191,8 @@ function makeRng(s0,s1){const M=0xFFFFFFFFFFFFFFFFn;let X=((BigInt(s0)<<32n)|0x9
 const snap=c=>({x:c.x,y:c.y,vx:c.vx,vy:c.vy,ex:c.envVx||0,ey:c.envVy||0,cr:c.crowd||0,sq:c.sq||0,r:c.radius,en:c.energy,g:c.gene,age:J.frameT-(c.bornAt||0),spd:c.g.spd,app:c.g.app,bnd:c.g.bnd,ms:c.maxSpeed,sm:c.speedModifier,hst:c.hostility||0,sv:c.sv||0,mr:c.mutationRate||0,c0:(c.g.col&&c.g.col[0])||0,c1:(c.g.col&&c.g.col[1])||0,c2:(c.g.col&&c.g.col[2])||0});globalThis.__DJ={nx:0,sx:0,ny:0,sy:0};const DJ=globalThis.__DJ;// top-level init: the frame template increments __CT in every mode, the FULLST trial loop re-inits it per trial
 globalThis.__CT={n:0};
 globalThis.__FUSEROLLS=+(process.env.FUSEROLLS||0);
+globalThis.__MERGEROLLS=+(process.env.MERGEROLLS||0);
+globalThis.__SYMROLLS=+(process.env.SYMROLLS||0);
 function meanEnv(cs){let s=0,n=0;for(const c of cs){if(!c.alive)continue;s+=Math.abs(c.envVx||0)+Math.abs(c.envVy||0);n++;}return n?s/n:0;}function meanKey(cs,k){let s=0,n=0;for(const c of cs){if(!c.alive)continue;s+=c[k]||0;n++;}return n?s/n:0;}function liveN(cs){let n=0;for(const c of cs)if(c.alive)n++;return n;}
 // CA-33: modern FreeBSD-msun cos/sin bit-exact port (r = z*(C1+z*(C2+z*C3)) + w*w*(C4+z*(C5+z*C6)), no-qx kcos,
 // direct 1..4 x pio2_1 splits) - the served binary's trig family (40/40 uniquely-attributed CA-32 cells).

@@ -185,3 +185,18 @@ FOODEAT events sit at rc 3974+ - AFTER the second fuse (rc 2338) - so the food
 path does NOT explain the locus-B flip; it contaminates only later stream
 positions and the FEED=24 micro-worlds. Micro-world probes for locus B must
 run FEED=0 (or verify no FOODEAT lines in the window).
+
+### Runner fail-closed contract (R2AH review of 0c5edb6, resolved)
+
+devtools/ca2-parity-run.sh now refuses vacuous probes: REQUIRE=comma-list
+(each named env key must be non-empty), REQUIRE=SEEDED-FULLST (FULLST=1 without
+STATESEED is refused - the empty-CFG false-clean class), NEEDCOUNT=comma-list
+(each named counter must be nonzero on some side in the TR2CH lines - an
+all-zero event gate proves nothing). All violations exit 2 ERROR, never clean.
+Negative test devtools/t-runner-failclosed.sh (6 checks incl. the exact
+empty-CFG shape of the false clean) is wired into the battery tail. Unseeded
+FULLST verdict comparisons (the birth-mutation battery mode) remain allowed
+without REQUIRE. Full matrix re-verified through runner verdicts with
+REQUIRE=SEEDED-FULLST + NEEDCOUNT=divide: eat x20 20/20 CLEAN, no-eat x45
+45/45, ir=0 x20 20/20, boundAware=0 x10 10/10 TR2-exact (runner ERROR = known
+pressed-cells artifact), battery + trace smoke + selfcheck PASS.

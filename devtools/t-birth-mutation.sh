@@ -40,4 +40,7 @@ grep -q '^SHPGUARD FAIL' /tmp/tbm-shp.txt || { echo "FAIL: SHPGUARD line missing
 TRC=$(TRACE=1 FULLST=1 STEPS=3 node devtools/t70-interact-iso-served.js 2 30 220 1 2>&1)
 echo "$TRC" | grep -q '^TRACE per-step' || { echo "FAIL: TRACE=1 FULLST run produced no TRACE marker line (helper declarations swallowed?)"; echo "$TRC" | tail -3; exit 1; }
 echo "trace smoke: PASS"
+# runner fail-closed contract (R2AH review of 0c5edb6): missing required keys, unseeded
+# gated FULLST and all-zero required counters must ERROR, never read as clean.
+sh "$(dirname "$0")/t-runner-failclosed.sh" || exit 1
 echo "PASS: all mutations detected"
