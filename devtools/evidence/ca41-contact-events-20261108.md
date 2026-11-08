@@ -39,11 +39,44 @@ population flip. Config: ...SET=...,eatChance=0.15,mergeChance=0,reproChance=0.
 
 ### Locus B - merge family (mergeChance=0.03 -> merge/fuse/pair)
 
-SEED step=1, population js 148 wasm 146: a two-cell event-decision flip
-(one merge/fuse/pair decision differs). Counters fire on the JS side
-(merge=167, fuse=42, pair=113 in the all-events config).
-Config: ...SET=...,eatChance=0,mergeChance=0.03,reproChance=0.
-Attribution queued: pair-level draw assignment and the fuse gate arithmetic.
+Was: SEED step=1, population js 148 wasm 146. First attribution round:
+
+1. HARNESS ARTIFACT found and fixed (same commit as this note): the harness
+   never round-tripped sym links. The app wasm-mode frame packs the sym
+   partner's slot index (ca2.js:1063 slot 14) and restores it after the step
+   (ca2.js:1094); the harness packed -1 and never read slot 14 back, so every
+   pair event's sym link vanished on the wasm side at the next pack and the
+   sym gate (short-circuit on !a.sym) consumed rolls the JS side skipped.
+   The readback now restores sym via a slot->cell map (1:1 the app), the pack
+   sends the identity-checked partner index, and the comp slot (21) is
+   mirrored for existing cells too (comp is write-only in ca2.js: fuse
+   accumulation + a display stat, proven inert by source read and by an
+   unchanged signature after the fix).
+   After the fix: steps 0-1 bit-exact, SEED moves to step 2 (POP js 279 wasm
+   278, per-step EVCHK counters: births js 133 wasm 132, merge js+10 wasm+11,
+   fuse 2=2, hit js+514 wasm+518).
+2. The residual is in the FUSE path: symbiogenesisOn=0 makes the config
+   CLEAN for 10 steps; symbiosisOn=0 still SEEDs; both off: CLEAN.
+3. The first fuse is bit-exact (same pair, product radius
+   13.010764773832475 both sides) - gate distance uses the RAW radius
+   (effR variant REJECTED: flips the signature to js 270 wasm 278) and the
+   product arithmetic matches.
+4. The second fuse fires on different pairs (js: (68.94,116.51)x(63.13,115.90)
+   roll 0.00583; wasm: product at (147.88,55.31) - js never fuse-gated that
+   coordinate). Roll stream aligned through the first fuse, then one gate
+   evaluation's worth of consumption differs.
+5. REJECTED hypotheses (variants in devtools/, all one-line): V1 skip the eat
+   roll at eatChance=0 (SEED step 0 - the served binary DOES consume
+   zero-chance event rolls); V3 no sym partner clearing on fuse (unchanged
+   279/278; fuse-1 participants were sym-linked to EACH OTHER, no third-party
+   clearing ran); V4 no re-fuse of composite cells (js 274 wasm 278).
+6. Probe variants committed: ca2-mergeprobe-v1/v2/v3/v4.js, ca2-fuselog.js,
+   ca2-fuselog2.js (js-side step-2 fuse/divide gate logs). Harness: EVCHK=1
+   prints per-step wasm sim_out counters vs js; FUSECHK=1 prints r>12 cells
+   at step 2 on both sides.
+Next probes: per-pair roll-consumption reconciliation in the window between
+the two fuses (fuse-gate condition set for the grown product's later pairs,
+pair-iteration order after a mid-loop kill), then a flag-gated product fix.
 
 ### Locus C - reproduce (contact birth): served binary never fires under FULLST pack
 
