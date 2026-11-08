@@ -63,8 +63,12 @@ keeps the shipped live-radius test bit-identical.
   CLEAN 30 steps, devtools/ca2-eatrange-mutant.js (live radius under the flag)
   SEED step=5 - the residual signature reproduced as a negative test
 - runner selfcheck: PASS
-- OFF battery (flag-free): default 4x200 PASS, FULLST10 PASS (17933 live cells,
-  16983 pressed) - default behavior bit-unchanged
+- OFF battery (flag-free): default 4x200 PASS, FULLST10 PASS - default
+  behavior bit-unchanged. NOTE (goreda round14): the OFF battery and FULLST10
+  invocations use UNSEEDED mkState (no STATESEED), so live/pressed counts vary
+  per run (observed 17932-17942 live, 16983-17477 pressed across rounds) -
+  the PASS verdict reproduces, exact counts do not. Earlier versions of this
+  file quoted single-run counts (17933/16983, 17932/17354) as if stable.
 - ORACLE=800 CA2TRIG=1: 0 raw / 0 post-stepSquash mismatched states
 
 ## Coverage widening 2026-11-08 (same commit series)
@@ -91,7 +95,8 @@ the mutation battery requires both the non-clean verdict and the SHPGUARD line.
 Non-vacuousness markers per TR2 run: TR2CH js divide=<n> birth=<n> shpStrings=<n>
 (divide=0 prints a not-exercised warning) and the existing FEED eats=<n> line.
 Measured: eat 30-step config 459-469 divides/run, no-eat 10-step 261 divides/run,
-sqS exercised (17354 pressed in FULLST10), SHPGUARD silent on every legit config.
+sqS exercised (pressed cells in every FULLST10 run, count varies - see the
+OFF-battery note above), SHPGUARD silent on every legit config.
 
 Negative tests: devtools/ca2-sqs-mutant.js (press x1.001) SEEDs at step 0 and is in
 the mutation battery list; ca2-eatrange-mutant.js stays as the residual regression;
@@ -111,7 +116,7 @@ Matrix after widening (completed/crashed/unrun): eat x20 STEPS=30 20/0/0 CLEAN;
 no-eat x45 STEPS=10 45/0/0 CLEAN; no-eat interactionRadius=0 x20 STEPS=30 20/0/0
 CLEAN; eat boundAware=0 x10 TR2-exact (runner ERROR = pressed-cells gate artifact);
 mutation battery baseline CLEAN + 8/8 fixtures SEED (birth, birthchan, radius, sq, sqs, crowd, envv, age - the count was mis-stated as 7/7 here before goreda round13) + eat stanza CLEAN/SEED; selfcheck PASS;
-OFF battery 4x200 PASS + FULLST10 PASS (17932 live cells, 17354 pressed);
+OFF battery 4x200 PASS + FULLST10 PASS (counts vary per run, see note above);
 ORACLE=800 CA2TRIG=1: 0 raw / 0 post-stepSquash mismatches.
 
 ## CA verifier limits

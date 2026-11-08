@@ -33,6 +33,10 @@ grep -q '^SHPGUARD FAIL' /tmp/tbm-shp.txt || { echo "FAIL: SHPGUARD line missing
 # swallowed the meanEnv/meanKey/liveN declarations; the TRACE=1 FULLST branch calls
 # all three (liveN is not defined). Require the TRACE marker line on a TRACE=1
 # FULLST run - a crash or a silent miss fails the battery.
+# SCOPE LABEL (goreda round14): this proves the TRACE branch RUNS and the marker
+# PRINTS. It does NOT assert traced-value parity: TRACE mode has no aligned RNG,
+# so js/wasm trace values legitimately differ (crowd .128 vs .127 observed).
+# Traced-value parity is covered only by the TR2 aligned-RNG compare.
 TRC=$(TRACE=1 FULLST=1 STEPS=3 node devtools/t70-interact-iso-served.js 2 30 220 1 2>&1)
 echo "$TRC" | grep -q '^TRACE per-step' || { echo "FAIL: TRACE=1 FULLST run produced no TRACE marker line (helper declarations swallowed?)"; echo "$TRC" | tail -3; exit 1; }
 echo "trace smoke: PASS"

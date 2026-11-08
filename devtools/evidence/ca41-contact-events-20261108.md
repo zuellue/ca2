@@ -103,6 +103,10 @@ engines (identical gate), which previously read as vacuous CLEAN.
 - POP-mismatch branch prints a greedy sorted-walk pop-diff with ONLY-JS /
   ONLY-WASM rows (first-attribution aid; near-miss cells appear on both
   sides by design).
+- Trace smoke (battery): proves the TRACE=1 FULLST branch runs and prints
+  its marker only; it does NOT assert traced-value parity (TRACE mode has no
+  aligned RNG; js/wasm trace values legitimately differ). Traced-value parity
+  is covered only by the TR2 aligned-RNG compare. (goreda round14)
 - TR2CH wording fixed: cl/comp inertness is NOT universal; it holds only
   when merge=fuse=0 for that run. The CA-40 'CA verifier limits' section is
   amended by reference: cl/comp inertness is proven per run with
