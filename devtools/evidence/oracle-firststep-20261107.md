@@ -312,3 +312,10 @@ Residual (CA-38c): rare step-9 velocity-channel divergence (|dp|~6, envV ~0.5%
 off, energy exact) - maxSpeed-genome aligned, suspect a second late-blooming
 channel (candidate: genome-channel draw order inside mutGenome visible only via
 behavior, or a limit()/cap edge).
+CA-38b follow-up: the genome-multiplier fix (798b7fb) moved runs from 0/8 past step 1 to 4/5 fully bit-exact over 10 steps. The rare remaining failure (CA-38c) has a distinct signature, now measured:
+
+- With nir config (divideOn, divideAt 0.5, interactionRadius 0, STEPS 10, DD=-1 all-steps dump), the first divergence appears at a late step (observed 4,7,8,9 across unseeded runs) with |dp| ~5.46, then explodes next step (|dp| > 300) once a divide/death gate flips.
+- Seed-step signature: ~88% of cells (253/288) show small velocity-only diffs (|dv| ~0.1-0.5) with energy/radius/gene EXACT and arrays aligned (no death mismatch). Genome channels (spd/app/bnd), maxSpeed and speedModifier were added to the snapshot: ALL bit-identical across engines for diverging cells. Clean cells appear in scattered gaps (32,40,47,51,59,72,90,95,98 clean while neighbors diverge).
+- At the seed step, exactly one divide occurred (pack.n 288->289). Small |dv| with identical inputs says the draws are the same magnitude class but shifted: consistent with a draw-consumption difference during the step-5 divide (the previously falsified "+2 mutation-gate draws" theory is not dead for these rare steps: chk in [5,70) is only reachable when a mutation actually fires, which needs chk<5 in JS terms... under investigation).
+- The scattered clean gaps and small |dv| also admit a wasm slot-reuse/order explanation (readback order diverging from splice order after a birth into a freed slot); discriminating via the step-5 divide's DIVP rc and stream positions next.
+- Tooling: snap() now captures genome channels + maxSpeed + speedModifier; DD=-1 dumps all steps. Mutation-gate threshold probes (SET=boundZone=20/100, STEPS=3) fully aligned: the served divide mutation gate matches JS rnd(100) < c.mutationRate with no threshold quirk at default scale.
