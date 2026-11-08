@@ -347,3 +347,8 @@ cell's update, so subsequent gates see count-1. Flagged gate:
 Results (strict runner, crash-accounted): nir STEPS=10 x60 0 seeds/0 errors;
 nir STEPS=30 x20 0/0; ON ORACLE=800 0/800 (0 crashed/0 unrun); OFF battery
 default/EAT/BOUND/FULLST10/LOGCHK 200x4 all PASS. Runner --selfcheck PASS.
+
+## CA-38c confirmation sweeps (2026-11-08, all strict runner, 0 crashed/0 unrun)
+- UNIVERSE_SIZE 25/50/100 nir STEPS=10 x20 each: 0 seeds.
+- nir STEPS=50 x10: 0 seeds (long-horizon divide/death stream).
+- interactions-on (no interactionRadius override) STEPS=10 x20: 0 seeds.
