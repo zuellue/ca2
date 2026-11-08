@@ -170,3 +170,17 @@ energy 3-15/cell (mkState) starves the population between steps ~200 and 250 ("n
 cells" precondition), and STEPS=1000 runs stay bit-exact through the collapse. A longer
 horizon needs fed/longer-lived FULLST states (mkState energy or a food-enabled aligned mode),
 not further engine work.
+
+## CA-38 divide() draw-stream attribution (2026-11-08, state-seeded run)
+
+Aligned TRACE2 run (CA2TRIG=1, BORNTR=1, per-step seeds 1000/5000), FULLST mode with SET=divideOn=1,divideAt=0.5, 37 divides at step 0. Stream positions are draws from makeRng(1000,5000) replayed in node; JS values from DIVP/DIVG/DIVC hooks (devtools/ca2-div-probe.js), wasm child slots from BORN dump.
+
+Findings:
+1. First divide fully aligned in BOTH engines at stream pos 5 (angle = st[5]*6.2832, placement err 3.3e-16, trig-ulp only). Desync starts at the SECOND divide.
+2. JS divide #1 consumes positions 5..53 = 49 draws (JS 2nd ang at 54): ang, rnd(100) mutation check, Cell constructor (rand2D v, popD, sv, hostility, speedModifier, 6-draw genome init, newShape, life), mutGenome(6), newShape-parent ph/ph2 (2).
+3. Wasm divide #1 consumes positions 5..33 = 29 draws: child0 host=st[9], smod=0.7+1.6*st[10] exact; child1 host=st[38] exact => pattern ang(k), rnd100(k+1), v(k+2), ONE draw (k+3), host(k+4), smod(k+5) - the served binary skips ONE of JS's constructor draws between v and hostility (popD is UI-only: popD = UI_END + rnd*(CELL_END-UI_END), the likely skip).
+4. Wasm child genome is parent-based mutGenome with amplitude 0.12 (the compiled default), NOT the packed genomeMut=0.5: child app channel = clamp(papp + (2*st[12]-1)*0.12) matched EXACTLY (2.4e-8); spd/bnd channels near st[11]/st[13] with residual ~1e-4 (formula detail still open; col channels did not match any consecutive triple - open).
+5. Wasm per-divide consumption VARIES (host positions 9,38,61,78,111,139,156,179 => deltas 29,23,17,33,28,17,23) - mutation (rnd100<5) and newShape/life branch draws; not yet decomposed.
+6. Wasm child placement angles for children past the first do NOT invert against st[k]*6.2832 with any parent's divide-time position (best mixed-axis err ~1e-4..1e-1) - placement-angle source for later divides is still unattributed (possible pre-vs-post-update parent positions or interleaved divide/update pass in the served binary).
+
+Next: decode wasm per-divide draw layout (29 vs JS 49: popD + constructor-genome 6 + ? ), verify the genomeMut=0.12 pack-override, then implement flagged divide() alignment (skip popD, drop constructor genome init in favor of parent-based mutGenome at 0.12-from-pack semantics, port placement trig via rand2D._msun keeping 6.2832).
