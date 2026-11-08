@@ -185,7 +185,7 @@
     var q = rand2D(); c.vx = lerp(c.vx, q.x * c.maxSpeed, 0.04); c.vy = lerp(c.vy, q.y * c.maxSpeed, 0.04);
     limit(c, c.maxSpeed * (resizeDrag ? 1 + P.restless * 1.5 : 1));
   }
-  function update(c) {
+  function update(c) { if(globalThis.__rc!==undefined) console.log("UPD rc="+globalThis.__rc);
     if (!c.alive) return;
     var dm = (Math.sqrt((c.x - mouse.x)*(c.x - mouse.x)+(c.y - mouse.y)*(c.y - mouse.y))), sm = dm < P.slowDownRadius ? P.speedReductionFactor : 1;
     var r = rand2D(); c.vx += r.x * 0.2 * sm; c.vy += r.y * 0.2 * sm;
@@ -456,12 +456,32 @@
     }
   }
   function divide(c) {
-    var ang = Math.random() * 6.2832, nr = Math.max(P.CELL_RADIUS, c.radius * 0.62); console.log("DIVP px="+c.x.toPrecision(17)+" py="+c.y.toPrecision(17)+" pr="+c.radius.toPrecision(17)+" nr="+nr.toPrecision(17)+" ang="+ang.toPrecision(17));
+    var ang = Math.random() * 6.2832, nr = Math.max(P.CELL_RADIUS, c.radius * 0.62);
     c.radius = nr; c.energy /= 2;
+    var MS = globalThis.CA2_TRIG_MSUN;
     var bx0 = cont.x + nr, bx1 = cont.x + cont.w - nr, by0 = cont.y + nr, by1 = cont.y + cont.h - nr;
-    var kx = bx1 >= bx0 ? clamp(c.x + Math.cos(ang) * nr, bx0, bx1) : (bx0 + bx1) / 2, ky = by1 >= by0 ? clamp(c.y + Math.sin(ang) * nr, by0, by1) : (by0 + by1) / 2;
+    var kx = bx1 >= bx0 ? clamp(c.x + (MS ? rand2D._msun.cos(ang) : Math.cos(ang)) * nr, bx0, bx1) : (bx0 + bx1) / 2, ky = by1 >= by0 ? clamp(c.y + (MS ? rand2D._msun.sin(ang) : Math.sin(ang)) * nr, bx0, by1) : (by0 + by1) / 2;
+    if (MS) {
+      // CA-38: served-binary divide layout (devtools/evidence/oracle-firststep-20261107.md): 12 stream draws - ang, mutation
+      // check, rand2D direction, sv, hostility, speedModifier, parent-based mutGenome x6 - with compiled-default constants
+      // (baseMaxSpeed 10, maxSpeedVariation 15, genomeMut 0.12; the packed P values for those are ignored by the served
+      // divide path), no Cell-constructor genome/newShape/life/popD draws, and no genomeOn multiplier on child maxSpeed.
+      console.log("DIVP rc="+globalThis.__rc+" px="+c.x.toPrecision(17)+" py="+c.y.toPrecision(17)+" pr="+(nr/0.62).toPrecision(17)+" nr="+nr.toPrecision(17)+" ang="+ang.toPrecision(17)); var cg = rnd(100) < c.mutationRate ? mutateGene(c.gene) : c.gene;
+      var cv = rand2D(), csv = rnd(-1, 1), chost = Math.random(), csmod = rnd(0.7, 2.3);
+      var cgm = mutGenome(c.g, 0.12);
+      var cms = Math.max(0, 10 + csv * 15);
+      var cch = {
+        x: kx, y: ky, vx: cv.x * cms, vy: cv.y * cms, popD: UI_END, sv: csv, maxSpeed: cms,
+        gene: cg, alive: true, radius: nr, energy: c.energy, mutationRate: c.mutationRate,
+        hostility: chost, speedModifier: csmod, envVx: 0, envVy: 0,
+        g: cgm, cl: c.cl, shp: c.shp ? Object.assign({}, c.shp) : c.shp, bornAt: frameT || 0,
+        age: 0, life: P.cellLife > 0 ? Math.max(1, P.cellLife) : 0
+      };
+      ev.birth++; ev.divide = (ev.divide || 0) + 1; cells.push(cch);
+      return;
+    }
     var ch = new Cell(kx, ky, rnd(100) < c.mutationRate ? mutateGene(c.gene) : c.gene, c.mutationRate);
-    console.log("DIVG pspd="+c.g.spd.toPrecision(17)+" papp="+c.g.app.toPrecision(17)+" pbnd="+c.g.bnd.toPrecision(17)+" pcol="+c.g.col.map(v=>v.toPrecision(17)).join(",")+" pgene="+c.gene+" pmr="+c.mutationRate);console.log("DIVC host="+ch.hostility.toPrecision(17)+" smod="+ch.speedModifier.toPrecision(17)+" gene="+ch.gene+" spd="+ch.g.spd.toPrecision(17)+" app="+ch.g.app.toPrecision(17)+" bnd="+ch.g.bnd.toPrecision(17)+" col="+ch.g.col.map(v=>v.toPrecision(17)).join(",")); ch.radius = nr; ch.energy = c.energy; ch.g = mutGenome(c.g, P.genomeMut); ch.shp = newShape(c.shp); ch.maxSpeed = speedOf(ch); ch.cl = c.cl; ev.birth++; ev.divide = (ev.divide || 0) + 1; cells.push(ch);
+    ch.radius = nr; ch.energy = c.energy; ch.g = mutGenome(c.g, P.genomeMut); ch.shp = newShape(c.shp); ch.maxSpeed = speedOf(ch); ch.cl = c.cl; ev.birth++; ev.divide = (ev.divide || 0) + 1; cells.push(ch);
   }
   function clusterSize(id) { var n = 0; for (var i = 0; i < cells.length; i++) if (cells[i].cl === id && (cells[i].alive || cells[i].absorbed)) n++; return n; } // 1:1 sim.rs count_slots REM window: pair-killed (absorbed) cells still count until the post-pass removes them; survival-killed cells do not (CA-13)
   function joinCluster(a, b) {

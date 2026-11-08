@@ -458,8 +458,28 @@
   function divide(c) {
     var ang = Math.random() * 6.2832, nr = Math.max(P.CELL_RADIUS, c.radius * 0.62);
     c.radius = nr; c.energy /= 2;
+    var MS = globalThis.CA2_TRIG_MSUN;
     var bx0 = cont.x + nr, bx1 = cont.x + cont.w - nr, by0 = cont.y + nr, by1 = cont.y + cont.h - nr;
-    var kx = bx1 >= bx0 ? clamp(c.x + Math.cos(ang) * nr, bx0, bx1) : (bx0 + bx1) / 2, ky = by1 >= by0 ? clamp(c.y + Math.sin(ang) * nr, by0, by1) : (by0 + by1) / 2;
+    var kx = bx1 >= bx0 ? clamp(c.x + (MS ? rand2D._msun.cos(ang) : Math.cos(ang)) * nr, bx0, bx1) : (bx0 + bx1) / 2, ky = by1 >= by0 ? clamp(c.y + (MS ? rand2D._msun.sin(ang) : Math.sin(ang)) * nr, bx0, by1) : (by0 + by1) / 2;
+    if (MS) {
+      // CA-38: served-binary divide layout (devtools/evidence/oracle-firststep-20261107.md): 12 stream draws - ang, mutation
+      // check, rand2D direction, sv, hostility, speedModifier, parent-based mutGenome x6 - with compiled-default constants
+      // (baseMaxSpeed 10, maxSpeedVariation 15, genomeMut 0.12; the packed P values for those are ignored by the served
+      // divide path), no Cell-constructor genome/newShape/life/popD draws, and no genomeOn multiplier on child maxSpeed.
+      var cg = rnd(100) < c.mutationRate ? mutateGene(c.gene) : c.gene;
+      var cv = rand2D(), csv = rnd(-1, 1), chost = Math.random(), csmod = rnd(0.7, 2.3);
+      var cgm = mutGenome(c.g, 0.12);
+      var cms = Math.max(0, 10 + csv * 15);
+      var cch = {
+        x: kx, y: ky, vx: cv.x * cms, vy: cv.y * cms, popD: UI_END, sv: csv, maxSpeed: cms,
+        gene: cg, alive: true, radius: nr, energy: c.energy, mutationRate: c.mutationRate,
+        hostility: chost, speedModifier: csmod, envVx: 0, envVy: 0,
+        g: cgm, cl: c.cl, shp: c.shp ? Object.assign({}, c.shp) : c.shp, bornAt: frameT || 0,
+        age: 0, life: P.cellLife > 0 ? Math.max(1, P.cellLife) : 0
+      };
+      ev.birth++; ev.divide = (ev.divide || 0) + 1; cells.push(cch);
+      return;
+    }
     var ch = new Cell(kx, ky, rnd(100) < c.mutationRate ? mutateGene(c.gene) : c.gene, c.mutationRate);
     ch.radius = nr; ch.energy = c.energy; ch.g = mutGenome(c.g, P.genomeMut); ch.shp = newShape(c.shp); ch.maxSpeed = speedOf(ch); ch.cl = c.cl; ev.birth++; ev.divide = (ev.divide || 0) + 1; cells.push(ch);
   }

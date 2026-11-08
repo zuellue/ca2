@@ -184,3 +184,24 @@ Findings:
 6. Wasm child placement angles for children past the first do NOT invert against st[k]*6.2832 with any parent's divide-time position (best mixed-axis err ~1e-4..1e-1) - placement-angle source for later divides is still unattributed (possible pre-vs-post-update parent positions or interleaved divide/update pass in the served binary).
 
 Next: decode wasm per-divide draw layout (29 vs JS 49: popD + constructor-genome 6 + ? ), verify the genomeMut=0.12 pack-override, then implement flagged divide() alignment (skip popD, drop constructor genome init in favor of parent-based mutGenome at 0.12-from-pack semantics, port placement trig via rand2D._msun keeping 6.2832).
+
+## CA-38 RESOLVED (core) + fix landed (2026-11-08)
+
+Full decode of the served divide() draw layout (stream = makeRng(1000,5000) replay; wasm child slots via BORN/BORNP dumps; JS via devtools/ca2-div-probe.js hooks + RCCNT draw counter):
+
+Served divide consumes exactly 12 draws per divide (JS consumed 30-32):
+1. ang = rnd*6.2832; placement with nr = max(packed CELL_RADIUS, parent.r*0.62), msun cos/sin
+2. rnd(100) mutation check (vs parent mutationRate)
+3. v = rand2D (child velocity direction)
+4. sv = rnd(-1,1)
+5. hostility = rnd
+6. speedModifier = rnd(0.7,2.3)
+7-12. mutGenome(parent.g, 0.12): spd/app/bnd/col x3 - parent-based, amplitude 0.12 (COMPILED DEFAULT; packed genomeMut ignored by the served divide path)
+
+Child init: vx,vy = v * max(0, 10 + sv*15) - COMPILED DEFAULTS baseMaxSpeed=10, maxSpeedVariation=15 (packed 2/30 ignored), NO genomeOn*g.spd multiplier. Verified 36/36 children bit-exact velocity (|v| err <= 4e-15) and 3/3 spd/app/bnd exact (0.0); col = served mutGenome col formula max(0.001, c + rnd(-a,a)*0.5) = JS's own mutGenome col. No Cell-constructor genome init (JS wasted 6 draws), no newShape draws (child shp = parent clone), no life-jitter draw, no popD draw.
+
+Fix (test/ca2.js divide(), behind globalThis.CA2_TRIG_MSUN): flagged branch replicates the 12-draw layout exactly + placement trig via rand2D._msun (angle constant kept at 6.2832). Flag-free path byte-identical.
+
+Results: aligned TRACE2 run (FULLST+BORNTR+SET=divideOn=1,divideAt=0.5) step-0 max|dpos| = 0.0000 (was 211+). Flag-free battery: default PASS, BOUND PASS, FULLST10 PASS, BIRTH=1 LOGCHK 200x4 PASS, BIRTH 800x4 PASS, EAT 800x4 PASS (EAT/BIRTH small-sample 2x2 counter FAILs reproduce identically on the pre-edit baseline = unseeded-mkState noise, not the fix).
+
+OPEN - CA-38b: step-1+ divide-count delta (~3 cells/step: 40->70 JS vs 40->73 wasm). The JS gate (update() line 241) requires P.foodGrow && cells.length < max(60, UNIVERSE_SIZE*4) && c.energy > 1; the served binary divided ~all cells every step up to the 300-slot pack cap (40->73->139->250->300) - served gate lacks the energy>1 condition and the 223.8 population cap at minimum. Also: mutateGene firing case (rnd100 < mutationRate, ~5%) draw pattern unverified (no firing case observed in 36 divides).
