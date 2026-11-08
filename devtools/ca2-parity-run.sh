@@ -30,14 +30,14 @@ fi
 
 node devtools/t70-interact-iso-served.js $ARGV > "$OUT" 2>&1
 rc=$?
-if [ "$rc" -ne 0 ]; then echo "ERROR exit=$rc"; exit 2; fi
-V=$(grep -m1 "$MARKER" "$OUT" || true)
-if [ -z "$V" ]; then echo "ERROR no-verdict (marker '$MARKER' missing)"; exit 2; fi
 if grep -q 'TR2 FIRST DIVERGENCE' "$OUT"; then
   ST=$(grep -m1 'TR2 FIRST DIVERGENCE' "$OUT" | sed -n 's/.*step \([0-9]*\).*/\1/p')
   echo "SEED step=$ST"
   exit 1
 fi
+if [ "$rc" -ne 0 ]; then echo "ERROR exit=$rc"; exit 2; fi
+V=$(grep -m1 "$MARKER" "$OUT" || true)
+if [ -z "$V" ]; then echo "ERROR no-verdict (marker '$MARKER' missing)"; exit 2; fi
 if echo "$V" | grep -q FAIL; then echo "FAIL: $V"; exit 1; fi
 if echo "$V" | grep -q PASS; then echo "CLEAN: $V"; exit 0; fi
 if echo "$MARKER" | grep -q ORACLE; then
