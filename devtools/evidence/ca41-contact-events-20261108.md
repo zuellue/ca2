@@ -315,3 +315,19 @@ Fuse-energy delta (served fuse-en vs js (b+s)*0.85), measured exactly via DDFORC
 Probe worlds: /tmp/1g2..1g10.json (+zb03 forced-divergence variants for DD reads).
 
 Matrix re-run after the footgun fix: fuse seeds 11/1/7/10 CLEAN 0.0000; controlled 1g2/1gen/2gen flat at en floor (0.0026/0.0015/0.0014 x6 steps); failclosed PASS; selfcheck PASS; birth-mutation PASS; no-eat 45/45 CLEAN; eat 20/20 CLEAN. Flag-free default bit-unchanged (all edits env-gated).
+
+## Round 10 (2026-11-09): fuse-energy delta SOLVED - genome-keyed closed form, exact on 12/13 controlled worlds
+
+Served fuse-en = js (b.en+s.en)*0.85 + delta, with delta genome-keyed (radius-, en-sum-, col-independent; proven by 1g10 r8+r4 vs base r10+r5 bit-equal, en-sum sweeps, 1g8 col):
+
+  delta = (sm.bnd-big.bnd)/180 + (big.spd-sm.spd)/132 + (sm.app-big.app)/120 + max(0, big.app-0.5)/30
+
+Denominators are 120 x mutGenome clamp range (bnd 1.5 -> 180, spd 1.1 -> 132, app 1 -> 120); the big.app term is piecewise with a kink at app=0.5 (slope -1/120 below, +3/120 above; root at 2/3). All 12 sweep/probe points fit to 1e-9 or better (exact 1/120 multiples; earlier "C0 + k_ba" linear attempt falsified by the app sweep). Multi-fuse: the delta rides inside big.en and is scaled by 0.85 at the next fuse - gen-2 measured 1.396518463e-3 = 0.85*1.486793267e-3 + 0.132744186e-3, and 0.132744186e-3 matches the single-fuse formula on the gen-2 inputs (product keeps big's stored genome) to 10 digits.
+
+Emulation: FUSEEN=1 env gate in devtools/tmpv-fusecombo.js fuseCells (default OFF). With FUSEEN=1 + FUSEKINB=1 the controlled worlds 1gen/1g2/2gen/1g3/1g4/1g5/1g6/1g7/1g8/1g9/1g10/1g11/1g12 all run 6 steps at max|dpos| = 0.0000 true zero (previously flat at the en floor).
+
+OPEN EDGES: (a) 1g13 (sm.app=0.5) leaves a 2.2448e-3 en residual - the sm.app side also has threshold structure (linear /120 confirmed up to 0.3 by 1g6, overshoot by 0.5; kink between, est. near 0.41); needs sm.app sweep points 0.35/0.4/0.45. (b) big.app=1.0 deviates from the piecewise form by -1.5e-4 (probable clamp boundary; mutGenome clamps app to [0,1]).
+
+Matrix after the edit (runner verdicts): fuse seeds 11/1/7/10 (default STEPS=1, FUSEEN unset) CLEAN 0.0000 x4; failclosed suite all pass; selfcheck PASS (deliberate crash -> exit=1, never clean); t-birth-mutation PASS (all mutants + shp guard + failclosed). Flag-free default behavior bit-unchanged: the edit is one env-gated block in the devtools emulation file only. no-eat x45 / eat x20 battery re-run queued next wake (edit is inert without FUSEEN; goreda-rule full battery still owed).
+
+Status: CA-41 REMAINS OPEN. Fuse-zone + fuse-energy rules now solved for single- and two-generation controlled lineages except the two sm.app/big.app=1.0 edges; battery residual classes (rare sqS zone deltas, same-sqS crowd/envV/v, kick-draw interleaving), loci A, C, D open. Next: sm.app sweep 0.35-0.5 to close 1g13; then battery with FUSEEN=1 to reclassify en-only residual class; then the flag-gated product fix in test/ca2.js (default OFF) + 20+ seed gate.

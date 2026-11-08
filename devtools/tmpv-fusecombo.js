@@ -499,6 +499,12 @@
     if (typeof process !== 'undefined' && process.env.FUSEDBG) console.log('FUSEDBG t=' + frameT + ' x=' + big.x.toFixed(4) + ' y=' + big.y.toFixed(4) + ' bigBnd=' + big.g.bnd + ' smBnd=' + sm.g.bnd + ' bigZb=' + (big.g.bnd) + ' smZb=' + sm.g.bnd + ' bigGene=' + big.gene + ' bigR=' + big.radius);
     big.radius = Math.min(Math.sqrt(big.radius * big.radius + sm.radius * sm.radius) * 0.92, P.CELL_RADIUS * P.foodGrowMax * 1.2);
     big.energy = (big.energy + sm.energy) * 0.85;
+    if (typeof process !== 'undefined' && process.env.FUSEEN && process.env.FUSEEN !== '0') {
+      // served-binary fuse energy: js base plus a genome-keyed delta (CA-41 round 10, exact fits):
+      // (sm.bnd-big.bnd)/180 + (big.spd-sm.spd)/132 + (sm.app-big.app)/120 + max(0, big.app-0.5)/30; col-free, radius/en-independent
+      var dE = (sm.g.bnd - big.g.bnd) / 180 + (big.g.spd - sm.g.spd) / 132 + (sm.g.app - big.g.app) / 120 + Math.max(0, big.g.app - 0.5) / 30;
+      big.energy += dE;
+    }
     big.gene = clamp(Math.round((big.gene + sm.gene) / 2), P.GENE_MIN, P.GENE_MAX);
     if (typeof process !== 'undefined' && process.env.FUSEMIX !== '0') { big.g = mixGenome(big.g, sm.g); }
     if (typeof process !== 'undefined' && process.env.FUSESHP !== '0') { big.shp = mixShape(big.shp, sm.shp); }
