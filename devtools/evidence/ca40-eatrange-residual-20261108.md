@@ -113,3 +113,14 @@ CLEAN; eat boundAware=0 x10 TR2-exact (runner ERROR = pressed-cells gate artifac
 mutation battery baseline CLEAN + 7/7 SEED + eat stanza CLEAN/SEED; selfcheck PASS;
 OFF battery 4x200 PASS + FULLST10 PASS (17932 live cells, 17354 pressed);
 ORACLE=800 CA2TRIG=1: 0 raw / 0 post-stepSquash mismatches.
+
+## Stated limits (goreda review of 13440af, kept verbatim)
+
+- The TR2 snapshot is 25 fields; that is the compared state, nothing more.
+- Birth-carried channels (hst/sv/mr/col) are tested via the DIVIDE path only -
+  not merge/fuse/contact-birth or any other birth path.
+- cl/comp inertness is proven only at interactionRadius=0 (459 divides, 0 merge/fuse
+  per eat run; the counters are printed per run).
+- Sorted-state pairing is not lineage identity.
+- All parity claims are flagged CA2TRIG=1 configs only.
+- No served-shp comparison and no whole-simulation parity is claimed.
