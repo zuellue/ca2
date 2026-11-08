@@ -11,4 +11,4 @@ MUT=$(eval env $CFG CA_JS=devtools/ca2-birth-mutant.js OUT=/tmp/tbm-mut.txt sh d
 echo "baseline: $BASE"
 echo "mutant:   $MUT"
 case "$BASE" in CLEAN*) :;; *) echo "FAIL: baseline not clean"; exit 1;; esac
-case "$MUT" in CLEAN*) echo "FAIL: mutant counted clean - readback is masking real birth differences"; exit 1;; SEED*|FAIL*|ERROR*) echo "PASS: birth mutation detected ($MUT)"; exit 0;; *) echo "FAIL: unexpected verdict"; exit 1;; esac
+case "$MUT" in CLEAN*) echo "FAIL: mutant counted clean - readback is masking real birth differences"; exit 1;; SEED*|FAIL*) echo "PASS: birth mutation detected ($MUT)"; exit 0;; *) echo "FAIL: mutant run errored or unexpected verdict ($MUT) - a crash does not prove detection"; exit 1;; esac
