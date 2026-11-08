@@ -226,3 +226,16 @@ interact() returns undefined on every path (bare returns). The template probes `
 
 ### New lead: fuse-formula difference (no stream shift required)
 The fuser's own state diverges. interact(a,b) writes BOTH cells, so a wrong fused product propagates kicks down the processing chain (turn 9's post-fuse pairs kick cells 8..0) with NO draw-count difference. Consistent with: all counters matched, quiet-turn 5 draws matched, TURNINS/DEADROLLS/no-roll all refuted, 40-cell world bit-exact through step 1 (its step-1 fuse pair-set matched; seed 11's may not). Next: reconstruct big/sm pre-fuse state, solve which blend maps inputs to the wasm's exact product (radius/velocity/energy), then emulate.
+
+## Round 5 (2026-11-08): locus B fuse residual solved at step-0 level (3 ingredients), keepIn zone sub-locus opened
+
+Microscope: N=4 micro-worlds (SET=divideOn=0,interactionRadius=200,eatDistF=0.85,fuseDistF=20,mergeGene=100,symDistF=1.1,reproMinAgeMs=100,eatChance=0,mergeChance=1,reproChance=0, ARGV="1 4 160 1", EAT=1 REQUIRED - the wasm pack only receives the SET factors with EAT=1; sweeps without it compared js-fused vs wasm-UNFUSED worlds and are void). In 10 of 19 firing worlds the fuse turn's own cell is the internal big, so nothing touches the product after the fuse and the wasm end-state reads its at-fuse writes directly. New probes: ITRACE (per-interact rc/positions/velocities), KWRAP (per-call keepIn in/out), VPROBE (synthetic-cell keepIn oracle), RAWALL/PRESTEP dumps.
+
+CONFIRMED served-binary fuseCells behavior (emulation CLEAN 0.0000 on N=4 seeds 11 and 1, plain ca2.js SEED 3.9px):
+1. ZERO stream draws (js: 8 = mixShape newShape 7 + coin flip 1). Proven by stream-localization: the post-fuse kick/organic/select draws sit at seed-independent stream positions; only draw-shift Kw=0 reproduces the wasm cell-0 trajectory (err 0.048 vs >=0.34 for Kw 1..24; js-side chain validated to 1e-9).
+2. Keeps the internal big's genome bit-exact (js mixGenome per-channel average; 0 draws both sides).
+3. Writes NO velocity: at-fuse product v = big.v exactly (recovered wasm at-fuse v = big.v + the subsequent pair's hostility push to 5e-6).
+
+NEW SUB-LOCUS (keepIn zone, previously masked): the served binary's keepIn zone z behaves bnd-SCALED (z=min(70*bnd, cont.w/2.5)) at the update-internal call but UNSCALED at the post-pair call for the fused product (effective z=64 at bnd=0.906988: sqS/envV/crowd reproduced to <1e-9 by the two-pass asymmetric model; symmetric bnd-scaled and symmetric unscaled both fail). OPEN: a seed-7 corner cell (bnd=0.851822 at (50.014,41.562)) gives wasm sqS=0.307618 implying effective z=60.028 - neither 70*bnd (59.6275) nor 64. Zone rule needs one more constraint (candidates: position at pass time, per-side terms, radius terms). Emulation vehicle: devtools/tmpv-fusecombo.js (FUSEMIX=0 drops mixGenome, FUSESHP=0 drops mixShape) + harness ZNOBND2=1 (keepInNB unscaled post-pair clone, env-gated).
+
+Status: CA-41 REMAINS OPEN. Seeds 7/10 step-0 and seed-11 step-1 residuals (~0.1px, corner/wall-press family) under investigation; loci A (eat step-5 cascade), C (reproduce), D (food gate) untouched this round.
