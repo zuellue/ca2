@@ -74,6 +74,24 @@ Was: SEED step=1, population js 148 wasm 146. First attribution round:
    ca2-fuselog2.js (js-side step-2 fuse/divide gate logs). Harness: EVCHK=1
    prints per-step wasm sim_out counters vs js; FUSECHK=1 prints r>12 cells
    at step 2 on both sides.
+7. SYMCHK=1 (harness): sym mirrors verified IDENTICAL at steps 0-1 (indices,
+   coordinates, partners - 3 links each side). The step-2 flip is not a
+   sym-state difference at step start. Full ordered gate log (ca2-gatelog.js,
+   step 2, every roll-consuming gate): between the two fuses js consumed 14
+   rolls (EAT/FUSE/SYM x2 pairs of the grown product, EAT+SYM on a third
+   pair - no fuse roll there because dist 17.27 > (13.01+10)*0.6 fails the
+   gate - then SYM/MERGE/SYM/MERGE/SYM/MERGE/FUSE on the next cell's pairs).
+8. LEAD HYPOTHESIS for the second-fuse flip (H-dead): fuse 1 is the FIRST
+   kill in the run (no deaths/eats/fuses at steps 0-1: pop arithmetic
+   40+36=76, 76+72=148, 148+133-2=279 exact). The js frame has no alive
+   check before the pair loop - interact() early-returns on !a.alive before
+   any roll. If the served binary does not early-return the same way for
+   pairs whose outer cell was killed mid-step (its turn comes later), it
+   consumes rolls js skips, the stream shifts by one, and the next passing
+   fuse roll lands on a different pair (js (68.94,63.13) roll 0.00583 vs
+   wasm product at (147.88,55.31)). Next probes: dead-cell pair-consumption
+   micro-config (2-3 cells, forced step-0 fuse, a distant witness cell whose
+   wander draws reveal the stream position), then the flag-gated product fix.
 Next probes: per-pair roll-consumption reconciliation in the window between
 the two fuses (fuse-gate condition set for the grown product's later pairs,
 pair-iteration order after a mid-loop kill), then a flag-gated product fix.
