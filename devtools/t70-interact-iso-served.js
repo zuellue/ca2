@@ -17,7 +17,7 @@ ${vr('P')}
 var cells=[],food=[],ev={birth:0,death:0,hit:0,oob:0},clusterSeq=0,cmean={},cont={x:0,y:0,w:0,h:0,wvx0:0,wvx1:0,wvy0:0,wvy1:0},mouse={x:-1e9,y:-1e9,over:false},resizeDrag=false,env={spd:1,app:0.5,bnd:1,col:null};
 function habAte(){}function habReap(){}
 ${names.map(fn).join('\n')}
-return {P:P,Cell:Cell,cont:cont,get cells(){return cells;},set cells(v){cells=v;},ev:ev,get seq(){return clusterSeq;},set seq(v){clusterSeq=v;},stepSquash:stepSquash,get frameT(){return frameT;},set frameT(v){frameT=v;},
+return {P:P,Cell:Cell,cont:cont,get cells(){return cells;},set cells(v){cells=v;},get food(){return food;},set food(v){food=v;},ev:ev,get seq(){return clusterSeq;},set seq(v){clusterSeq=v;},stepSquash:stepSquash,get frameT(){return frameT;},set frameT(v){frameT=v;},
  frame:function(){frameT+=frameDtf;for(var i=cells.length-1;i>=0;i--){var c=cells[i];${process.env.DRAWLOG?'globalThis.__CM.push([i,globalThis.DRAWS.length]);':''}if(${FULL}){update(c);checkSurvival(c);}if(!${BOUND}){for(var k=i-1;k>=0;k--)interact(c,cells[k]);}if((${FULL}||${BOUND})&&P.boundAware&&c.alive){var ev0x=c.envVx,ev0y=c.envVy;keepIn(c);var dInx=Math.abs(c.envVx-ev0x),dIny=Math.abs(c.envVy-ev0y);if(dInx>1e-12){globalThis.__DJ.nx++;globalThis.__DJ.sx+=dInx;}if(dIny>1e-12){globalThis.__DJ.ny++;globalThis.__DJ.sy+=dIny;}}if(${FULL}&&c.alive)limit(c,c.maxSpeed*c.speedModifier);if(!c.alive)ev.death++;}for(var i2=cells.length-1;i2>=0;i2--)if(!cells[i2].alive)cells.splice(i2,1);}};`; // 1:1 sim.rs step() + the CA-13 JS loop: deaths counted in-pass, removal deferred to a post-pass (a mid-pass splice was the eaten/death drift); f10 limit() closes the step like the app (mouse far away, resizeDrag off -> factors 1)
 
 // CA-30: bit-exact JS port of rust-lang/libm pow (FreeBSD e_pow.c) - the served wasm32
@@ -145,6 +145,13 @@ function rustPow(x,y){ // rust-lang/libm src/math/pow.rs 1:1
 if(process.env.POWRUST)Math.pow=rustPow; // CA-30 probe
 if(process.env.HYSQRT)Math.hypot=(a,b)=>Math.sqrt(a*a+b*b); // CA-29 probe: Rust hyp() is (a*a+b*b).sqrt() (sim.rs:67), Math.hypot scales and rounds differently ~37% of draws
 const J=new Function(code)();
+// CA-40 FEED=<spacing>: deterministic food lattice refilled every step so fed aligned states
+// survive past the ~200-step starvation horizon; lattice order fixed, refill identical on both
+// engines, eating consumes aligned-stream draws symmetrically (JS iterates backward, wasm forward:
+// same in-range set -> same roll count -> same per-cell energy/radius effect; food state is rebuilt
+// each step so which dot was taken never persists).
+const FEED=+process.env.FEED||0,FL=[];
+
 const P=J.P;
 if(process.env.EAT){P.eatMergeOn=1;P.symbiosisOn=1;P.symbiogenesisOn=1;P.divideOn=1;P.eatChance=1;P.mergeChance=1;P.reproChance=1;P.clusterCohesion=1;P.eatDistF=0.85;P.fuseDistF=0.6;P.symDistF=1.1;}
 if(FULL||BOUND){if(P.wallCarry===undefined)P.wallCarry=1;if(P.wallSpread===undefined)P.wallSpread=0.5;if(P.squashMax===undefined)P.squashMax=0.18;if(P.squashIn===undefined)P.squashIn=0.45;if(P.squashOut===undefined)P.squashOut=0.08;if(P.senseR===undefined)P.senseR=1.6;if(P.senseSlow===undefined)P.senseSlow=0.25;if(P.senseTurn===undefined)P.senseTurn=0.12;if(P.senseDelay===undefined)P.senseDelay=0.5;if(P.crowdGain===undefined)P.crowdGain=0.12;if(P.crowdRel===undefined)P.crowdRel=0.02;if(P.crowdSlow===undefined)P.crowdSlow=0.5;if(P.crowdPush===undefined)P.crowdPush=0.3;}
@@ -154,6 +161,7 @@ if(process.env.ZERO){process.env.ZERO.split(',').forEach(k=>{P[k]=0;});}
 if(process.env.SET){process.env.SET.split(',').forEach(kv=>{const a=kv.split('=');P[a[0]]=+a[1];});} // symmetric override for bisection // symmetric gate: zero a P key on BOTH engines (JS reads J.P===P, wasm pack reads P) to bisect a drift to one subpath
 const BORNTR=!!process.env.BORNTR||(FULLST&&!!P.divideOn); // CA-38c reconciliation: births MUST be read back whenever divides can fire (goreda's no-BORNTR divideOn=1 runs diverged at step 1 - the harness never saw wasm children; false divergence, not an engine mismatch)
 const [trials,N,BOX]=[+process.argv[2]||3000,+process.argv[3]||75,+process.argv[4]||160];
+if(FEED){for(let fy=FEED/2;fy<BOX;fy+=FEED)for(let fx=FEED/2;fx<BOX;fx+=FEED)FL.push({x:fx,y:fy});} // lattice lives past argv parsing (BOX)
 J.cont.w=BOX;J.cont.h=BOX;
 const wasm=fs.readFileSync(path.join(__dirname,'..',process.env.WASM||'test/ca2core.wasm'));
 (async()=>{
@@ -164,10 +172,10 @@ let SEQ=0;function mkState(){const cs=[];for(let i=0;i<N;i++){const c=new J.Cell
    if(side===0){c.x=dd;c.y=Math.random()*BOX}else if(side===1){c.x=BOX-dd;c.y=Math.random()*BOX}else if(side===2){c.y=dd;c.x=Math.random()*BOX}else{c.y=BOX-dd;c.x=Math.random()*BOX}
    const sp2=Math.random()*12,an=Math.random()*6.2832;c.vx=Math.cos(an)*sp2;c.vy=Math.sin(an)*sp2;if(i%3===0)c.radius=P.CELL_RADIUS*(1+Math.random()*1.5);}cs.push(c);}if(process.env.CL){let id=0;for(let i=0;i<N;){const sz=1+Math.floor(Math.random()*4);if(sz>1){id++;for(let k=0;k<sz&&i+k<N;k++)cs[i+k].cl=id;}i+=sz;}SEQ=id;}return cs;}
 function clone(cs){return cs.map(c=>{const d=Object.create(Object.getPrototypeOf(c));Object.assign(d,c);d.g=JSON.parse(JSON.stringify(c.g));d.shp=JSON.parse(JSON.stringify(c.shp));d.sym=null;return d;});}
-function pack(cs){const n=cs.length,cap=n+256;pack.cap=cap;E.sim_cells(cap);E.sim_food(2);E.sim_cm(2);const cp=E.sim_cells(cap);E.sim_food(2);const pp=E.sim_params();
+function pack(cs){const n=cs.length,cap=n+256;pack.cap=cap;const nf=FEED?FL.length:0;E.sim_cells(cap);E.sim_food(Math.max(2,nf+1));E.sim_cm(2);const cp=E.sim_cells(cap);const fxp=E.sim_food(Math.max(2,nf+1)),fyp=E.sim_food_y();const pp=E.sim_params();if(FEED){const buf0=E.memory.buffer,fx0=new Float64Array(buf0,fxp,nf+1),fy0=new Float64Array(buf0,fyp,nf+1);for(let fi=0;fi<nf;fi++){fx0[fi]=FL[fi].x;fy0[fi]=FL[fi].y;}}
  const buf=E.memory.buffer,cf=new Float64Array(buf,cp,cap*ST),p=new Float64Array(buf,pp,97); // 97 like the live pack: p[80-96] carry wall-carry/squash/sensing/crowd (an 80-wide view silently dropped them)
  cs.forEach((c,i)=>{const b=i*ST,g=c.g;cf.set([c.x,c.y,c.vx,c.vy,c.radius,c.energy,c.gene,1,c.maxSpeed,c.speedModifier,c.hostility,c.mutationRate,c.sv,c.cl||0,-1,g.spd,g.app,g.bnd,g.col[0],g.col[1],g.col[2],c.comp||0,0,J.frameT-(c.bornAt||0)],b);if(ST>=30)cf.set([c.sq||0,c.crowd||0,c.envVx||0,c.envVy||0,0,0],b+24);}); // slots 24-27 carry squash/crowd/envV state per frame (1:1 with the live pack); leaving them stale leaks state across trials
- E.sim_set_n(n);E.sim_set_nf(0);E.sim_cm_count(0);pack.n=n;
+ E.sim_set_n(n);E.sim_set_nf(nf);E.sim_cm_count(0);pack.n=n;
  PI.forEach((k,i)=>{let v=P[k];p[i]=typeof v==='boolean'?(v?1:0):v;});p[39]=1;p[40]=0.5;p[41]=1;p[42]=0;p[46]=-1e9;p[47]=-1e9;p[48]=0;p[49]=0;p[50]=0;p[51]=1e9;p[52]=1e9;p[53]=0;p[54]=SEQ;p[56]=1;if(process.env.EAT){p[70]=P.eatDistF;p[71]=P.fuseDistF;p[72]=P.symDistF;}
  if(FULL||BOUND){p[80]=0;p[81]=0;p[82]=0;p[83]=0;p[84]=P.wallCarry;p[85]=P.wallSpread;p[86]=P.squashMax;p[87]=P.squashIn;p[88]=P.squashOut;p[89]=P.senseR;p[90]=P.senseSlow;p[91]=P.senseTurn;p[92]=P.senseDelay;p[93]=P.crowdGain;p[94]=P.crowdRel;p[95]=P.crowdSlow;p[96]=P.crowdPush;}
  if(BOUND){p[51]=BOX;p[52]=BOX;p[56]=2;p[78]=16.7;}
@@ -296,9 +304,9 @@ const CH=['sq','sqS','crowd','envVx','envVy'],chJ={},chW={};CH.forEach(k=>{chJ[k
 for(let s=0;s<nStates;s++){const base=mkState();tj.fill(0);tw.fill(0);let sMax=0;
  for(let t=0;t<trials;t++){
   if(FULLST){const nSteps=+process.env.STEPS||1;
-   J.cells=clone(base);J.seq=SEQ;J.frameT=0;for(const c of J.cells)c.bornAt=0;for(const k of Object.keys(J.ev))J.ev[k]=0;J.ev.birth=0;J.ev.death=0;J.ev.hit=0;
+   J.cells=clone(base);J.seq=SEQ;J.frameT=0;for(const c of J.cells)c.bornAt=0;for(const k of Object.keys(J.ev))J.ev[k]=0;J.ev.birth=0;J.ev.death=0;J.ev.hit=0;if(FEED)J.food=FL.map(f=>({x:f.x,y:f.y,r:0}));
    const snJ=[],snW=[];
-   for(let st=0;st<nSteps;st++){globalThis.__step=st;if(TR2){const r2=makeRng(1000+st*2,5000+st*2);Math.random=process.env.TRIGCNT?()=>{const v=r2();const a=v*6.283185307;const dc=MSUN.cos(a)!==Math.cos(a)?1:0,ds=MSUN.sin(a)!==Math.sin(a)?1:0;TC.c+=dc;TC.s+=ds;TC.n++;TC.byStep[st]=(TC.byStep[st]||[0,0]);TC.byStep[st][0]+=dc;TC.byStep[st][1]+=ds;return v;}:r2;}if(process.env.RCCNT){globalThis.__rc=0;const __b2=Math.random;Math.random=()=>{globalThis.__rc++;return __b2();};}jframe();if(process.env.RCCNT)console.log('RCJ st='+st+' rc='+globalThis.__rc);J.stepSquash();if(TR2)snJ.push(J.cells.map(snap));if(TR)trJ.push(liveN(J.cells)+':'+meanEnv(J.cells).toFixed(3)+'/'+meanKey(J.cells,'maxSpeed').toFixed(2)+'/'+meanKey(J.cells,'crowd').toFixed(3)+'/'+meanKey(J.cells,'sq').toFixed(3));} // app JS-mode order: cell loop, then the squash post-pass (ca2.js:2302)
+   for(let st=0;st<nSteps;st++){globalThis.__step=st;if(TR2){const r2=makeRng(1000+st*2,5000+st*2);Math.random=process.env.TRIGCNT?()=>{const v=r2();const a=v*6.283185307;const dc=MSUN.cos(a)!==Math.cos(a)?1:0,ds=MSUN.sin(a)!==Math.sin(a)?1:0;TC.c+=dc;TC.s+=ds;TC.n++;TC.byStep[st]=(TC.byStep[st]||[0,0]);TC.byStep[st][0]+=dc;TC.byStep[st][1]+=ds;return v;}:r2;}if(process.env.RCCNT){globalThis.__rc=0;const __b2=Math.random;Math.random=()=>{globalThis.__rc++;return __b2();};}jframe();if(process.env.RCCNT)console.log('RCJ st='+st+' rc='+globalThis.__rc);if(FEED)J.food=FL.map(f=>({x:f.x,y:f.y,r:0}));J.stepSquash();if(TR2)snJ.push(J.cells.map(snap));if(TR)trJ.push(liveN(J.cells)+':'+meanEnv(J.cells).toFixed(3)+'/'+meanKey(J.cells,'maxSpeed').toFixed(2)+'/'+meanKey(J.cells,'crowd').toFixed(3)+'/'+meanKey(J.cells,'sq').toFixed(3));} // app JS-mode order: cell loop, then the squash post-pass (ca2.js:2302)
    let nj=0;for(const c of J.cells){if(!c.alive)continue;nj++;chJ.sq.push(c.sq||0);chJ.crowd.push(c.crowd||0);chJ.envVx.push(c.envVx||0);chJ.envVy.push(c.envVy||0);chJ.sqS.push(c.sqS||0);if((c.sq||0)>0.001)gPressed++;} // post-stepSquash sqS is 0 by design; the eased sq carries the press
    popJ+=nj;
    J.cells=clone(base);J.seq=SEQ;J.frameT=0;for(const c of J.cells)c.bornAt=0;

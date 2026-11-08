@@ -41,6 +41,11 @@ if echo "$MARKER" | grep -q ORACLE; then
   if [ "${RAW:-x}" = "0" ] && [ "${POST:-x}" = "0" ]; then echo "CLEAN: $V"; exit 0; fi
   echo "SEED raw-mismatched=${RAW:-?} post-squash=${POST:-?}: $V"; exit 1
 fi
+if grep -q 'TR2 FIRST DIVERGENCE' "$OUT"; then
+  ST=$(grep -m1 'TR2 FIRST DIVERGENCE' "$OUT" | sed -n 's/.*step \([0-9]*\).*/\1/p')
+  echo "SEED step=$ST"
+  exit 1
+fi
 FIRST=$(echo "$V" | grep -o '[0-9][0-9]*\.[0-9][0-9]*' | grep -vn '^0\.0000$' | head -1 | cut -d: -f1 || true)
 if [ -n "$FIRST" ]; then echo "SEED step=$((FIRST-1))"; exit 1; fi
 echo "CLEAN: $V"; exit 0
