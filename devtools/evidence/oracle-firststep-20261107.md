@@ -252,3 +252,26 @@ With the CA-38 fix, step-0 divide counts match across states (6/6 runs equal) an
   maxSpeed==0 or exact-edge contact - never fires at step 0 (originals: maxSpeed>=2, positions
   off-clamp), fires ~per-cell at step 1. Next: 20-run correlation of firing vs (cms==0, exact-edge)
   computed from the replayed stream, then implement behind CA2_TRIG_MSUN.
+
+## CA-38b attribution update (2026-11-08 ~05:22)
+
+Confirmed harness builds J from `vr('P')` = ca2.js DEFAULTS only; the line-64
+Object.assign preset is NOT loaded. Runtime P = pristine defaults + SET overrides,
+so packed p[23]=boundZone=70, CELL_RADIUS=10 (matches observed child nr=10).
+
+- 20-run correlation (nir config, /tmp/cor1..20.txt): with selectOn=1 every run
+  diverges at fb=1; divide#0 chk = S1[ang0+1]*100 = 64.97 always. With selectOn=0,
+  divides at chk 81.96/94.84/73.87/90.46 stay aligned; +2 then appears on a
+  maxSpeed==0 cell's own update. Window: threshold in (64.97, 73.87), consistent
+  with 70 (the packed boundZone value; literal-70 vs p[23] indistinguishable
+  because boundZone is load-bearing in keepIn - SET=boundZone=20/100 probes are
+  contaminated: populations explode js 1068 / wasm 2685 via the death channel).
+- BORNP age probe (new slot-23 dump): wasm parent age at step 1 = 0, so a
+  5+age-style threshold is dead; the threshold is constant ~70 within a step.
+- Model: mechanism A: served divide() mutation check fires at rnd(100) < ~70 in
+  the step-1+ stream (step 0 unaffected - likely gate or origin difference still
+  under investigation); mechanism B: served update path draws +2 for
+  maxSpeed==0 cells (velocity channels only, energy/radius untouched).
+- Next: pin whether A is p[23]-bound or literal via a keepIn-decoupled probe
+  (e.g. BOUND=1 mode or boundAware=0), then implement both behind
+  CA2_TRIG_MSUN and run the battery.
