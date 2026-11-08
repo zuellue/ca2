@@ -200,3 +200,29 @@ without REQUIRE. Full matrix re-verified through runner verdicts with
 REQUIRE=SEEDED-FULLST + NEEDCOUNT=divide: eat x20 20/20 CLEAN, no-eat x45
 45/45, ir=0 x20 20/20, boundAware=0 x10 10/10 TR2-exact (runner ERROR = known
 pressed-cells artifact), battery + trace smoke + selfcheck PASS.
+
+## Round 4 (2026-11-08, on 9ccf63b): seed-11 turn structure, probe vacuity found, emulations refuted
+
+### Runner (R2AH on 9ccf63b)
+- Header fixed: fail-closed gates are OPT-IN (REQUIRE/NEEDCOUNT supplied); default unseeded FULLST stays allowed verdict-only. The broad "FULLST without STATESEED is refused" wording was wrong.
+- REQUIRE keys are allowlist-validated as env identifiers before eval; SEEDED-FULLST is a pseudo-key, never evaluated (was passing the generic eval as a variable fallback).
+- Header notes: NEEDCOUNT proves non-vacuity (one side >0), NOT parity; the verdict path still catches event divergence. The 95-run matrix is a writer result, not independently rerun. The roll-offset remains a hypothesis, not a fix.
+
+### Seed-11 FEED=0 microscope (SET divideOn=0,ir=20,eatDistF=.85,fuseDistF=.6,symDistF=1.1, eatChance=0,mergeChance=0.15,reproChance=0; ARGV "1 20 160 1"; STATESEED=11)
+- New probes (env-gated, inert when unset): TURNRC (per-turn alive+rc at turn start), TURNINS (insert 1 draw at end of turn N), DEADROLLS (insert K draws for a dead cell's turn), EVT (wrap fuseCells/joinCluster: event, rc, cell indices), DDI (index-aligned pre-sort per-cell |dx|+|dy| dump).
+- Step 0 event map: MERGED rc=71 pair (a=12,b=9) [joinCluster: clustering, NO death]; FUSED rc=98 big=9 sm=3 (one gate roll consumed at rc=98); pop 20->19 both sides; all counters match (merge=1 fuse=1 hit=6 birth=0).
+- Quiet turn = 5 draws (envNoise x2, wander rand2D, select roll, crowd death roll). Merge turn=12, fuse turn=9.
+- DDI: post-splice idx 9-18 EXACT (pre-splice 10-19), idx 0-8 diverge (0.058-2.13) = pre-splice {0,1,2,4,5,6,7,8,9} - the fuser (post-splice 8 = pre-splice 9) DIVERGES. The desync begins AT the fuser's own state, not after it.
+- SYMCHK: no sym links at steps 0-2 in seed 11 (sym-link roll hypotheses dead here).
+
+### VACUITY FOUND: FUSEBREAK / FUSERESTART probes never fire
+interact() returns undefined on every path (bare returns). The template probes `if(interact(c,ck2))break` / `{k=i;continue;}` are VACUOUS - the round-3 "refuted: pair-loop break after fuse" and "pair-loop restart" conclusions are VOID and must be redone with a working event signal. The EVT wrapper (fuseCells/joinCluster) is the non-vacuous signal. NOTE the earlier fb10 false clean was a separate empty-CFG defect; this is a second, distinct vacuity in the same family.
+
+### Emulations refuted this round (all seed-11 step-0, runner verdict, TR2 FIRST quoted)
+- TURNINS=7,8,9,10,11,12 (+1 draw at end of turn N): no CLEAN; T>=10 kills the fuse (pop js 20 vs wasm 19). Insert-at-turn-end at any single turn is not the desync.
+- DEADROLLS=1,2,3 (wasm consumes K draws in the dead cell's turn; js update() early-returns on !c.alive, confirmed by inspection): all |dp| 4.09 (worse than baseline 3.15). REFUTED at the exact position.
+- fuse-no-roll (fuse gate roll removed, constant-true): js over-fuses massively (pop 14-17 vs wasm 19-20 across 12 seeds). The served binary DOES chance-gate the fuse. REFUTED. (Seed 4 passed identically under both - single qualifying pair worlds can't distinguish; multi-pair worlds can.)
+- Screening bug caught: grepping logs for 'TR2 FIRST' with a CLEAN fallback masks ERROR verdicts (a crashed harness read as "CLEAN" 13 times). Seed sweeps must read the runner verdict line (PASS/FAIL/ERROR), never grep the log. This is exactly the vacuous-clean class the runner now guards; the guard applies only when the verdict is read.
+
+### New lead: fuse-formula difference (no stream shift required)
+The fuser's own state diverges. interact(a,b) writes BOTH cells, so a wrong fused product propagates kicks down the processing chain (turn 9's post-fuse pairs kick cells 8..0) with NO draw-count difference. Consistent with: all counters matched, quiet-turn 5 draws matched, TURNINS/DEADROLLS/no-roll all refuted, 40-cell world bit-exact through step 1 (its step-1 fuse pair-set matched; seed 11's may not). Next: reconstruct big/sm pre-fuse state, solve which blend maps inputs to the wasm's exact product (radius/velocity/energy), then emulate.

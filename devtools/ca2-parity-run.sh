@@ -9,9 +9,11 @@
 #   Prints CLEAN | SEED step=<n> | FAIL | ERROR <why>; exit 0/1/1/2.
 # --selfcheck: runs devtools/ca2-selfcheck-crash.js (deliberate crash); the run
 #   MUST be reported as a failure. Prints SELFCHECK PASS/FAIL; exit 0/1.
-# Fail-closed: REQUIRE=comma-list of env keys that must be non-empty; FULLST=1 without
-#   STATESEED is refused; NEEDCOUNT=comma-list of counters that must be nonzero on some
-#   side (per-state 'counter js x wasm y' lines). Violations: ERROR, exit 2, never clean.
+# Fail-closed (opt-in): REQUIRE=comma-list of env keys that must be non-empty (pseudo-key
+#   SEEDED-FULLST also refuses FULLST=1 without STATESEED); NEEDCOUNT=comma-list of TR2CH
+#   counters that must be nonzero on some side. Gates apply only when supplied; a default
+#   unseeded FULLST run stays allowed verdict-only. NEEDCOUNT proves non-vacuity, not
+#   parity - the verdict path still catches event divergence. Violations: ERROR exit 2.
 set -u
 cd "$(dirname "$0")/.."
 OUT="${OUT:-/tmp/ca2-parity-run-out.txt}"
@@ -31,14 +33,23 @@ if [ "${1:-}" = "--selfcheck" ]; then
   exit 1
 fi
 
-# fail-closed probe contract (R2AH 2026-11-08): a parity run must declare what makes it
-# non-vacuous. REQUIRE=a,b: each named env var must be set non-empty. FULLST parity without
-# STATESEED is unseeded and nondeterministic - verdict-only, never a gate. NEEDCOUNT=a,b:
-# each named counter (birth,divide,eaten,merge,fuse,pair,hit,death) must be nonzero on at
-# least one side in the harness's per-state counter line - an all-zero event gate proves
-# nothing. Any violation is ERROR, never clean.
+# fail-closed probe contract (R2AH 2026-11-08, qualified): the gates apply only when the
+# caller supplies REQUIRE/NEEDCOUNT. Without them the runner is unchanged: a default
+# unseeded FULLST comparison stays allowed as a verdict-only run (birth-mutation battery
+# mode), never a seeded gate. REQUIRE=a,b: each named env var must be set non-empty
+# (identifiers are allowlist-validated before evaluation; SEEDED-FULLST is a pseudo-key
+# handled below, never evaluated). REQUIRE=SEEDED-FULLST additionally refuses FULLST=1
+# without STATESEED - the empty-CFG false-clean class. NEEDCOUNT=a,b: each named counter
+# (birth,divide,eaten,merge,fuse,pair,hit,death) must be nonzero on at least one side in
+# the TR2CH lines. NEEDCOUNT proves NON-VACUITY only (the gate fired at least once on
+# some side); it does not prove parity - the verdict path still compares js vs wasm per
+# step and catches event divergence. Any violation is ERROR, never clean.
 if [ "${REQUIRE:-}" ]; then
   for rq in $(echo "$REQUIRE" | tr ',' ' '); do
+    case "$rq" in SEEDED-FULLST) continue ;; esac
+    case "$rq" in [A-Za-z_]*[!A-Za-z0-9_]*|""|[0-9]*)
+      echo "ERROR bad-require-key $rq (not an env identifier)"; exit 2 ;;
+    esac
     eval "rv=\${$rq:-}"
     if [ -z "$rv" ]; then echo "ERROR missing-required-env $rq"; exit 2; fi
   done
