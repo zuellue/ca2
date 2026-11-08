@@ -504,11 +504,11 @@
     if (typeof process !== 'undefined' && process.env.FUSESHP !== '0') { big.shp = mixShape(big.shp, sm.shp); }
     if (typeof process !== 'undefined' && process.env.FUSESETTLE) { big.sq = (big.sq || 0) * 0.9; big.sqS = (big.sqS || 0) * 0.9; big.crowd = (big.crowd || 0) * 0.9; big.envVx = (big.envVx || 0) * 0.9; big.envVy = (big.envVy || 0) * 0.9; }
     if (typeof process !== 'undefined' && process.env.FUSEINS) for (var __fi = 0; __fi < (+process.env.FUSEINS || 0); __fi++) Math.random();
-    if (typeof process !== 'undefined' && process.env.FUSEKINB) {
+    if (typeof process !== 'undefined' && process.env.FUSEKINB&&process.env.FUSEKINB!=='0') {
       // served-binary fuse: the grown body's post-pair keepIn this frame uses the raw zone (no genome scale) - marked here, applied at the normal post-pair call site
       big.__fuseKi = frameT;
       // served binary: the fuse FRAME's keepIn zone uses the parents' stored-bnd average; from the next frame the zone is the stock 70*genome-bnd (big's kept bnd) - the persistent re-averaged zb was falsified on the 1-gen discriminating world (zb_fit 0.6 vs 0.9)
-      big.__fuseKiBF = (big.g.bnd + sm.g.bnd) / 2;
+      big.__fuseKiBF = (process.env.FUSEZB != null ? +process.env.FUSEZB : (big.g.bnd + sm.g.bnd) / 2);
     }
     if (typeof process !== 'undefined' && process.env.FUSEV) {
       var __mb = big.radius * big.radius, __ms = sm.radius * sm.radius;

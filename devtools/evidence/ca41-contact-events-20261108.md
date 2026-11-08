@@ -298,3 +298,20 @@ Harness change: dropped __fuseKiB entirely; the FUSEKINB dispatcher is now a fus
 Result: all three controlled worlds (1g2, 1gen, 2gen) now run 6 steps FLAT at the fuse-energy floor: constant dpos 0.0026 / 0.0015 / 0.0014 = the en-delta only, motion channels bit-exact. Note the 1g2 floor gives a third en-delta data point: (big 0.6, sm 1.2) r10+r5 -> +2.6e-3, vs (0.8, 1.2) r10+r5 -> +1.4868e-3 (two worlds, identical to 1e-9), vs gen-2 (product r10.276 + C r6) -> +1.3965e-3. The constant keys on the bnd/radius pairing, NOT the en sum.
 
 Matrix after the edits (runner verdicts): fuse seeds 11/1/7/10 (default STEPS=1) CLEAN 0.0000 x4; failclosed all pass; selfcheck PASS; t-birth-mutation PASS (all mutants detected); no-eat 45/45 CLEAN; eat 20/20 CLEAN (REQUIRE=SEEDED-FULLST + NEEDCOUNT=divide). Spot-check: STEPS=3 on seeds 11/7 SEEDs identically under the OLD rule - the multi-step residual in random micro-worlds is pre-existing (battery residual classes), not a regression from this fix. Flag-free default behavior bit-unchanged (all edits env-gated).
+
+## Round 9b (2026-11-09): FUSEKINB truthy footgun fixed; fuse-energy delta is genome-keyed (partial linear fit)
+
+HARNESSES ONLY, no product changes:
+- FUSEKINB used a truthy env check, so FUSEKINB=0 still ENABLED the override (unlike FUSEMIX/FUSESHP which test !=='0'). All earlier "FUSEKINB=0" control runs were actually ON runs - harmless (they re-confirmed the rule) but worthless as controls. Fixed in tmpv-fusecombo.js + t70-interact-iso-served.js.
+- New env-gated probes: DDFORCE (DD prints even at |dv|=0), PDUMP (P.boundZone/genomeOn/cont), FUSEZB (override the fuse-frame zb).
+
+Fuse-energy delta (served fuse-en vs js (b+s)*0.85), measured exactly via DDFORCE DD dumps:
+- Genome-only: identical for r10+r5 and r8+r4 (to 1e-9); independent of en sum (39.66 vs 99.78 -> identical); col channel: no effect.
+- (sm.bnd-big.bnd)/180 EXACT: (0.8,1.2) +0.001486793267; (0.6,1.2) +0.002597904378; (0.7,1.1) +0.001486793267; (0.9,0.7) -0.001846540067 (negative delta exists).
+- (big.spd-sm.spd)/132 EXACT: big.spd +0.308268167393906 -> delta moves +0.002335364904; sm.spd +0.2171112208540704 -> -0.001644781976.
+- sm.app term +sm.app/120 EXACT (one point: +0.20944716344291301 -> +0.001745393028).
+- big.app term UNRESOLVED: coefficient 5.0808e-3 (one point, unclean) with an unidentified negative constant C0 ~ -4.024241e-3 in the single-fuse linear model.
+- gen-2 multi-fuse delta +0.001396518463 (exact) does NOT fit the single-fuse linear model - extra structure (product parent? comp?) still open.
+Probe worlds: /tmp/1g2..1g10.json (+zb03 forced-divergence variants for DD reads).
+
+Matrix re-run after the footgun fix: fuse seeds 11/1/7/10 CLEAN 0.0000; controlled 1g2/1gen/2gen flat at en floor (0.0026/0.0015/0.0014 x6 steps); failclosed PASS; selfcheck PASS; birth-mutation PASS; no-eat 45/45 CLEAN; eat 20/20 CLEAN. Flag-free default bit-unchanged (all edits env-gated).
