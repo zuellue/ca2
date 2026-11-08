@@ -275,3 +275,40 @@ so packed p[23]=boundZone=70, CELL_RADIUS=10 (matches observed child nr=10).
 - Next: pin whether A is p[23]-bound or literal via a keepIn-decoupled probe
   (e.g. BOUND=1 mode or boundAware=0), then implement both behind
   CA2_TRIG_MSUN and run the battery.
+
+## CA-38b RESOLVED (2026-11-08 ~05:38): served divide child maxSpeed = max(0, 10+sv*15) * mutated g.spd
+
+The step-1+ desync was NOT a draw-stream shift. It was a value-level difference the
+TR2 |dp| formula (x,y,en,g,vx,vy) could not see at birth: the served binary applies
+the Cell-constructor genome multiplier to the child's maxSpeed
+(ca2.js line 120: `maxSpeed *= genomeOn ? g.spd : 1`), using the MUTATED genome.
+Measured 8/8 exact: wasm child slot-8 maxSpeed == max(0, 10+sv*15) * child g.spd,
+all digits; birth velocity stays on the pre-multiplier value (step-0 was already
+bit-exact, velocities included). From step 1 the maxSpeed enters the update path
+(limit cap, organic lerp target q*maxSpeed, keepIn ms=maxSpeed+1, crowd push), so
+every moving newborn diverged while stationary (maxSpeed==0) newborns, originals
+and the divide draws themselves stayed aligned. This also explains: energy/radius
+untouched (maxSpeed feeds neither), zero extra stream draws (children of diverging
+parents still bit-aligned), the false "chk window (64.97,73.87)" (span analyzer
+misattributed the first diverging CELL to the preceding divide), the v=0 clean
+cells, and why SET= senseR/restless/wallCarry probes could not kill it.
+
+Fix (test/ca2.js, behind globalThis.CA2_TRIG_MSUN, flag-free path untouched):
+cms0 = max(0, 10 + sv*15); child maxSpeed = cms0 * cgm.spd; birth vx,vy = cv*cms0.
+
+Verification (engine = test/ca2.js itself, nir config
+SET=divideOn=1,divideAt=0.5,interactionRadius=0, TRACE2 CA2TRIG FULLST BORNTR BORN
+RCCNT, STEPS=10, nStates=1): 4/5 runs 10/10 steps bit-exact (max|dpos| all
+0.0000); 1/5 diverges at step 9 with |dp|~6 (rare late residual, next target).
+Pre-fix: 8/8 runs diverged at step 1.
+Battery: ON default ORACLE 0.00% (0/800) PASS; OFF battery unchanged:
+default raw 29.88% (known trig baseline), BOUND PASS maxAbsDiff 0.00,
+FULLST10 PASS, BIRTH 800x4 PASS, EAT 800x4 PASS, LOGCHK 200x4 PASS.
+Harness notes: nStates>1 wasm state is NOT reset between states (population
+accumulates) - only state 0 is valid in multi-state BORNTR runs; single-state
+runs: argv[5]=1. New probes: BDEAD (dead slot list), BORNC ms/sv, BORNP ms,
+DD=<step> full js/wasm JSON dump of every velocity-diverging cell at that step.
+Residual (CA-38c): rare step-9 velocity-channel divergence (|dp|~6, envV ~0.5%
+off, energy exact) - maxSpeed-genome aligned, suspect a second late-blooming
+channel (candidate: genome-channel draw order inside mutGenome visible only via
+behavior, or a limit()/cap edge).

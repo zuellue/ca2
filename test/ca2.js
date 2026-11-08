@@ -465,13 +465,14 @@
       // CA-38: served-binary divide layout (devtools/evidence/oracle-firststep-20261107.md): 12 stream draws - ang, mutation
       // check, rand2D direction, sv, hostility, speedModifier, parent-based mutGenome x6 - with compiled-default constants
       // (baseMaxSpeed 10, maxSpeedVariation 15, genomeMut 0.12; the packed P values for those are ignored by the served
-      // divide path), no Cell-constructor genome/newShape/life/popD draws, and no genomeOn multiplier on child maxSpeed.
+      // divide path), no Cell-constructor genome/newShape/life/popD draws. CA-38b: child maxSpeed DOES get the
+      // genome multiplier (max(0, 10 + sv*15) * mutated g.spd, the Cell-constructor pattern); birth velocity stays pre-multiplier.
       var cg = rnd(100) < c.mutationRate ? mutateGene(c.gene) : c.gene;
       var cv = rand2D(), csv = rnd(-1, 1), chost = Math.random(), csmod = rnd(0.7, 2.3);
       var cgm = mutGenome(c.g, 0.12);
-      var cms = Math.max(0, 10 + csv * 15);
+      var cms0 = Math.max(0, 10 + csv * 15), cms = cms0 * cgm.spd; // CA-38b: served multiplies child maxSpeed by the mutated genome spd (Cell-constructor pattern, 8/8 exact fit); birth velocity uses the pre-multiplier value (step-0 bit-exact).
       var cch = {
-        x: kx, y: ky, vx: cv.x * cms, vy: cv.y * cms, popD: UI_END, sv: csv, maxSpeed: cms,
+        x: kx, y: ky, vx: cv.x * cms0, vy: cv.y * cms0, popD: UI_END, sv: csv, maxSpeed: cms,
         gene: cg, alive: true, radius: nr, energy: c.energy, mutationRate: c.mutationRate,
         hostility: chost, speedModifier: csmod, envVx: 0, envVy: 0,
         g: cgm, cl: c.cl, shp: c.shp ? Object.assign({}, c.shp) : c.shp, bornAt: frameT || 0,

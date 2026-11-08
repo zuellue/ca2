@@ -469,9 +469,9 @@
       console.log("DIVP rc="+globalThis.__rc+" px="+c.x.toPrecision(17)+" py="+c.y.toPrecision(17)+" pr="+(nr/0.62).toPrecision(17)+" nr="+nr.toPrecision(17)+" ang="+ang.toPrecision(17)); var cg = rnd(100) < c.mutationRate ? mutateGene(c.gene) : c.gene;
       var cv = rand2D(), csv = rnd(-1, 1), chost = Math.random(), csmod = rnd(0.7, 2.3);
       var cgm = mutGenome(c.g, 0.12);
-      var cms = Math.max(0, 10 + csv * 15);
+      var cms0 = Math.max(0, 10 + csv * 15), cms = cms0 * cgm.spd;
       var cch = {
-        x: kx, y: ky, vx: cv.x * cms, vy: cv.y * cms, popD: UI_END, sv: csv, maxSpeed: cms,
+        x: kx, y: ky, vx: cv.x * cms0, vy: cv.y * cms0, popD: UI_END, sv: csv, maxSpeed: cms,
         gene: cg, alive: true, radius: nr, energy: c.energy, mutationRate: c.mutationRate,
         hostility: chost, speedModifier: csmod, envVx: 0, envVy: 0,
         g: cgm, cl: c.cl, shp: c.shp ? Object.assign({}, c.shp) : c.shp, bornAt: frameT || 0,
