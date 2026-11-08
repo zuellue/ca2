@@ -185,7 +185,8 @@
     var q = rand2D(); c.vx = lerp(c.vx, q.x * c.maxSpeed, 0.04); c.vy = lerp(c.vy, q.y * c.maxSpeed, 0.04);
     limit(c, c.maxSpeed * (resizeDrag ? 1 + P.restless * 1.5 : 1));
   }
-  function update(c) { if(globalThis.__rc!==undefined) console.log("UPD rc="+globalThis.__rc);
+  function update(c) {
+    function liveCount() { var n2 = 0; for (var q2 = 0; q2 < cells.length; q2++) if (cells[q2].alive) n2++; return n2; } // local: harness splices only named top-level functions
     if (!c.alive) return;
     var dm = (Math.sqrt((c.x - mouse.x)*(c.x - mouse.x)+(c.y - mouse.y)*(c.y - mouse.y))), sm = dm < P.slowDownRadius ? P.speedReductionFactor : 1;
     var r = rand2D(); c.vx += r.x * 0.2 * sm; c.vy += r.y * 0.2 * sm;
@@ -238,7 +239,8 @@
       // grazing rate above: a touched dot is taken at foodEatRate dots/s, not in the same frame (measured eat vacuum)
     }
     if (reach && bestD < 1e9) { c.vx += (bx - c.x) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); c.vy += (by - c.y) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); }
-    if (P.divideOn && P.foodGrow && cells.length < Math.max(60, P.UNIVERSE_SIZE * 4) && c.energy > 1) { // divideMode 1: age+mass accumulation instead of the radius threshold (architect 21 Oct: the radius gate is structurally dead)
+    if (globalThis.CA2_TRIG_MSUN && P.divideOn && c.alive && c.energy > 0.85 && c.energy <= 1.25 && c.radius >= P.CELL_RADIUS * P.divideAt) console.log('DIVKNF st='+globalThis.__step+' px='+c.x.toPrecision(12)+' py='+c.y.toPrecision(12)+' en='+c.energy.toPrecision(17)+' r='+c.radius.toPrecision(17)+' thr='+(P.CELL_RADIUS*P.divideAt).toPrecision(17)+' lc='+liveCount());
+    if (P.divideOn && P.foodGrow && (!globalThis.CA2_TRIG_MSUN || c.alive) && (globalThis.CA2_TRIG_MSUN ? liveCount() : cells.length) < Math.max(60, P.UNIVERSE_SIZE * 4) && c.energy > 1) { // CA-38c: the served binary removes a dead cell immediately, so its divide gate already excludes cells killed earlier this step; JS defers removal to the post-pass splice. liveCount() matches the served count (an O(n) scan only when the other gate terms pass). Flag-free path keeps the shipped cells.length gate. // divideMode 1: age+mass accumulation instead of the radius threshold (architect 21 Oct: the radius gate is structurally dead)
       if (P.divideMode ? (frameT - (c.bornAt || 0) >= P.divideAgeMs && c.energy >= P.divideEnergy) : (c.radius >= P.CELL_RADIUS * P.divideAt)) divide(c);
     }
     if (P.foodGrow && c.radius > P.CELL_RADIUS) c.radius = Math.max(P.CELL_RADIUS, c.radius - P.foodShrink);
@@ -465,11 +467,12 @@
       // CA-38: served-binary divide layout (devtools/evidence/oracle-firststep-20261107.md): 12 stream draws - ang, mutation
       // check, rand2D direction, sv, hostility, speedModifier, parent-based mutGenome x6 - with compiled-default constants
       // (baseMaxSpeed 10, maxSpeedVariation 15, genomeMut 0.12; the packed P values for those are ignored by the served
-      // divide path), no Cell-constructor genome/newShape/life/popD draws, and no genomeOn multiplier on child maxSpeed.
-      console.log("DIVP rc="+globalThis.__rc+" px="+c.x.toPrecision(17)+" py="+c.y.toPrecision(17)+" pr="+(nr/0.62).toPrecision(17)+" nr="+nr.toPrecision(17)+" ang="+ang.toPrecision(17)); var cg = rnd(100) < c.mutationRate ? mutateGene(c.gene) : c.gene;
+      // divide path), no Cell-constructor genome/newShape/life/popD draws. CA-38b: child maxSpeed DOES get the
+      // genome multiplier (max(0, 10 + sv*15) * mutated g.spd, the Cell-constructor pattern); birth velocity stays pre-multiplier.
+      console.log("DIVP n="+cells.length+" st="+globalThis.__step+" rc="+globalThis.__rc+" px="+c.x.toPrecision(12)+" py="+c.y.toPrecision(12)+" mr="+c.mutationRate.toPrecision(17)+" alive="+c.alive);       var cg = rnd(100) < c.mutationRate ? mutateGene(c.gene) : c.gene;
       var cv = rand2D(), csv = rnd(-1, 1), chost = Math.random(), csmod = rnd(0.7, 2.3);
       var cgm = mutGenome(c.g, 0.12);
-      var cms0 = Math.max(0, 10 + csv * 15), cms = cms0 * cgm.spd;
+      var cms0 = Math.max(0, 10 + csv * 15), cms = cms0 * cgm.spd; // CA-38b: served multiplies child maxSpeed by the mutated genome spd (Cell-constructor pattern, 8/8 exact fit); birth velocity uses the pre-multiplier value (step-0 bit-exact).
       var cch = {
         x: kx, y: ky, vx: cv.x * cms0, vy: cv.y * cms0, popD: UI_END, sv: csv, maxSpeed: cms,
         gene: cg, alive: true, radius: nr, energy: c.energy, mutationRate: c.mutationRate,
@@ -513,7 +516,6 @@
     if (a === b || !a.alive || !b.alive) return;
     var dx = b.x - a.x, dy = b.y - a.y, dist = (Math.sqrt((dx)*(dx)+(dy)*(dy)));
     if (dist >= P.interactionRadius) return;
-    if(globalThis.__rc!==undefined)console.log("INTR rc="+globalThis.__rc+" ai="+cells.indexOf(a)+" bi="+cells.indexOf(b)+" dist="+dist.toPrecision(17)+" eb="+((P.eatMergeOn&&dist<(a.radius+b.radius)*P.eatDistF)?1:0)+" er="+((a.radius>=b.radius?a.radius:b.radius)/Math.max(0.01,a.radius>=b.radius?b.radius:a.radius)>=P.eatRatio?1:0)+" mg="+((Math.abs(a.gene-b.gene)<=P.mergeGene)?1:0)+" fb="+((P.symbiogenesisOn&&dist<(a.radius+b.radius)*P.fuseDistF)?1:0)+" pb="+((P.symbiosisOn&&!a.sym&&!b.sym&&dist<(a.radius+b.radius)*P.symDistF)?1:0)+" rb="+((dist<a.radius+b.radius)?1:0));
     if (P.eatMergeOn && dist < (a.radius + b.radius) * P.eatDistF) {
       var big = a.radius >= b.radius ? a : b, sm = big === a ? b : a, ratio = big.radius / Math.max(0.01, sm.radius);
       if (ratio >= P.eatRatio) {
@@ -548,7 +550,6 @@
     b.vx = lerp(b.vx, b.vx - nx * 2 * bd, 0.8); b.vy = lerp(b.vy, b.vy - ny * 2 * bd, 0.8);
     var r1 = rand2D(), r2 = rand2D();
     a.vx += r1.x * 0.3; a.vy += r1.y * 0.3; b.vx += r2.x * 0.3; b.vy += r2.y * 0.3;
-    if(globalThis.__rc!==undefined)console.log("INTE rc="+globalThis.__rc);
   }
   function reproduce(a, b) {
     if (cells.length < P.UNIVERSE_SIZE * 4 && a.hostility < 0.6 && b.hostility < 0.6) {
