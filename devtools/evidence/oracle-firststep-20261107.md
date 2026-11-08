@@ -232,3 +232,23 @@ With the CA-38 fix, step-0 divide counts match across states (6/6 runs equal) an
   structure/order, or r1/r2 unconditional where JS skips, or vice versa). Next: hook per-interact
   draw counts in the probe (pair indices + bands + draws), invert the served layout from the
   delta between aligned divide anchors, same method as the CA-38 divide decode.
+
+## CA-38b: step-1 +2 attribution progress (05:16)
+- nir (interactionRadius=0) isolates a +2 per-span wasm extra with interacts dead: span = one cell
+  update (JS 5) vs wasm 7, in 8/8 runs. selectOn=0 -> JS 4 vs wasm 6 (not select). senseR=0,
+  restless=0, wallCarry/wallSpread/squash*=0 do NOT kill it (served likely reads compiled defaults
+  for the v6/v8b channels, same pattern as the CA-38 divide constants).
+- The +2 sits INSIDE the first-diverging cell's own processing (state divergence starts at the
+  highest-index processed cell; energy/radius stay bit-equal -> the shifted draws touch only
+  velocity, consistent with organic-style wander draws).
+- Firing-window data (chk = S[ang_pos+1]*100 of the PREVIOUS divide): nir/sense/rest/wall fire at
+  chk=64.97; sel1 (selectOn=0, shifted positions) aligned through chk=81.96/94.84/73.87/90.46 then
+  fired -> served threshold in (64.97, 73.87); served-child slot 11 measured = 5.0 (inherits) ->
+  the threshold is NOT the cell mutationRate slot. Compiled-default boundZone=70 fits numerically
+  but the step-0 bit-exactness forbids a constant threshold at step 0.
+- Diverging-cell features: wall1 cell52 vx=vy=0 (maxSpeed==0, interior); sel1 cell49 vx=vy=0
+  (maxSpeed==0); nir1 cell54 x==bx0 exactly (edge-clamped by the divide clamp), maxSpeed>0.
+  Working hypothesis: a v6/v8b update channel (stalled/pressed-cell jitter, 2 draws) gated on
+  maxSpeed==0 or exact-edge contact - never fires at step 0 (originals: maxSpeed>=2, positions
+  off-clamp), fires ~per-cell at step 1. Next: 20-run correlation of firing vs (cms==0, exact-edge)
+  computed from the replayed stream, then implement behind CA2_TRIG_MSUN.
