@@ -21,4 +21,13 @@ chk "vacuous required counter errors" 2 "vacuous-counter fuse" \
   env REQUIRE=FULLST,STATESEED,TRACE2 NEEDCOUNT=fuse FEED=24 TRACE2=1 CA2TRIG=1 FULLST=1 STATESEED=1 SET=divideOn=1,divideAt=0.5,interactionRadius=0,foodEatR=8 STEPS=3 ARGV="1 40 160 1" OUT=/tmp/rfc4.txt sh devtools/ca2-parity-run.sh
 chk "positive control: divide counter nonzero, run clean" 0 "CLEAN" \
   env REQUIRE=FULLST,STATESEED,TRACE2 NEEDCOUNT=divide FEED=24 TRACE2=1 CA2TRIG=1 FULLST=1 STATESEED=1 SET=divideOn=1,divideAt=0.5,interactionRadius=0,foodEatR=8 STEPS=3 ARGV="1 40 160 1" OUT=/tmp/rfc5.txt sh devtools/ca2-parity-run.sh
+# hostile REQUIRE keys must be rejected before eval (R2AH on add39a4c: punctuation-leading bypass)
+chk "hostile key: semicolon" 2 "bad-require-key" \
+  env 'REQUIRE=FOO;echo PWNED' TRACE2=1 FULLST=1 OUT=/tmp/rfc6.txt sh devtools/ca2-parity-run.sh
+chk "hostile key: leading dash" 2 "bad-require-key" \
+  env 'REQUIRE=-x' TRACE2=1 FULLST=1 OUT=/tmp/rfc7.txt sh devtools/ca2-parity-run.sh
+chk "hostile key: leading digit" 2 "bad-require-key" \
+  env 'REQUIRE=9BAD' TRACE2=1 FULLST=1 OUT=/tmp/rfc8.txt sh devtools/ca2-parity-run.sh
+chk "hostile key: dollar" 2 "bad-require-key" \
+  env 'REQUIRE=A$B' TRACE2=1 FULLST=1 OUT=/tmp/rfc9.txt sh devtools/ca2-parity-run.sh
 [ $fails = 0 ] && echo "FAILCLOSED: all checks pass" || exit 1

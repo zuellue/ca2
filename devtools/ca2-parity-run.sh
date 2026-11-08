@@ -47,8 +47,9 @@ fi
 if [ "${REQUIRE:-}" ]; then
   for rq in $(echo "$REQUIRE" | tr ',' ' '); do
     case "$rq" in SEEDED-FULLST) continue ;; esac
-    case "$rq" in [A-Za-z_]*[!A-Za-z0-9_]*|""|[0-9]*)
-      echo "ERROR bad-require-key $rq (not an env identifier)"; exit 2 ;;
+    case "$rq" in
+      ""|[0-9]*|*[!A-Za-z0-9_]*)
+        echo "ERROR bad-require-key $rq (not an env identifier)"; exit 2 ;;
     esac
     eval "rv=\${$rq:-}"
     if [ -z "$rv" ]; then echo "ERROR missing-required-env $rq"; exit 2; fi
