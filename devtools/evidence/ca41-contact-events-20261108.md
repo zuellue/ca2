@@ -270,3 +270,13 @@ Controlled two-generation fuse world (CELLSJSON injected: A bnd 0.8 r10, B bnd 1
 5. Statistical battery (10x3000, unseeded) still SEED step 0 with reduced amplitude (~0.11 max): residual classes now (i) rare sub-percent sqS zone deltas on frame-0 products (fuse-pair timing/lineage cases the two-rule model does not cover yet), (ii) same-sqS crowd/envV/v deltas ~1e-2, (iii) en-only deltas. All single-seed fuse worlds clean.
 
 Status: CA-41 REMAINS OPEN. Product-zone rule complete for 1- and 2-generation lineages; fuse energy formula and the residual battery classes open; loci A, C, D open.
+
+## Round 8 (2026-11-08 late wake): fuse-energy delta is constant per fuse, not proportional to en sum
+
+Controlled single-fuse world (/tmp/1gen.json: A r10 bnd0.8 en30 + B r5 bnd1.2 en10, CELLSJSON, STATESEED=1, same harness flags as round 7):
+- js fuse-en = (29.863446606 + 9.794811670)*0.85 = 33.709519534; wasm end-en + metabolism => wasm fuse-en = 33.711006328.
+- delta = +0.001486794 -- IDENTICAL to the 2-gen world gen-1 delta (+0.00148679327) to ~1e-9, despite the en sum being 39.66 vs 99.78. RULES OUT any en-proportional term. delta is a per-fuse additive constant for r10+r5 fuses.
+- gen-2 fuse (product r10.276 + C r6) had delta +0.0013965 -- different, so the constant depends on something other than en (radius pair? comp count? gene pairing?).
+- delta does NOT accumulate: st=3 and st=4 en deltas both exactly +1.4868e-3 (m identical js/ws after fuse). Fuse-time one-off confirmed.
+- New anomaly 1: m_js between fuse log and first DD print = 0.130744118 = exactly 2 x 0.065372059 -- the product was updated twice in that frame window here (fuse fired BEFORE the product's own update slot in the same frame; in the 2-gen world it fired after). Frame-position of the fuse inside the update loop varies with the coin timing.
+- New anomaly 2: 1-gen post-fuse steps diverge on motion channels (st=3: same x/y but js sqS=0.4261 vs ws sqS=0.3442, vx 0.5803 vs 0.4621; st=4 max|dpos| 0.2841). Hypothesis: when the fuse fires before the product's own update slot, the fuse-FRAME stored-bnd zone (__fuseKiBF) must apply at the SAME-frame update too, or the zone emulation's frame boundary is off by one. 2-gen world never exercised this ordering. Open.
