@@ -188,6 +188,7 @@
   function update(c) {
     function liveCount() { var n2 = 0; for (var q2 = 0; q2 < cells.length; q2++) if (cells[q2].alive) n2++; return n2; } // local: harness splices only named top-level functions
     if (!c.alive) return;
+    var __en0 = c.energy;
     var dm = (Math.sqrt((c.x - mouse.x)*(c.x - mouse.x)+(c.y - mouse.y)*(c.y - mouse.y))), sm = dm < P.slowDownRadius ? P.speedReductionFactor : 1;
     var r = rand2D(); c.vx += r.x * 0.2 * sm; c.vy += r.y * 0.2 * sm;
     limit(c, c.maxSpeed * sm * c.speedModifier * (resizeDrag ? 1 + P.restless * 1.5 : 1));
@@ -204,8 +205,8 @@
     }
     var cm = c.cl && P.eatMergeOn ? cmean[c.cl] : null;
     c.energy -= P.energyConsumptionRate * (cm ? 0.85 : 1);
-    if (P.selectOn && P.genomeOn) { var mf = misfit(c); c.energy -= P.selStrength * mf * 0.05; if (Math.random() < P.selStrength * 0.005 * Math.pow(mf, 1.5)) { c.alive = false; c.__dr = 'select'; } }
-    if (c.energy <= 0) { c.alive = false; c.__dr = 'energy0'; }
+    if (P.selectOn && P.genomeOn) { var mf = misfit(c); c.energy -= P.selStrength * mf * 0.05; var __thr = P.selStrength * 0.005 * Math.pow(mf, 1.5); var __chk = Math.random(); if (globalThis.CA2_TRIG_MSUN && (__chk < __thr || Math.abs(__chk - __thr) < 0.002)) console.log('SELK st='+globalThis.__step+' rc='+globalThis.__rc+' px='+c.x.toPrecision(12)+' py='+c.y.toPrecision(12)+' mf='+mf.toPrecision(17)+' chk='+__chk.toPrecision(17)+' thr='+__thr.toPrecision(17)+' kill='+(__chk<__thr)+' en0='+__en0.toPrecision(17)); if (__chk < __thr) { c.alive = false; c.__dr = 'select'; } }
+    if (c.energy <= 0) { if (globalThis.CA2_TRIG_MSUN) console.log('EN0 st='+globalThis.__step+' rc='+globalThis.__rc+' px='+c.x.toPrecision(12)+' py='+c.y.toPrecision(12)+' en0='+__en0.toPrecision(17)+' enP='+c.energy.toPrecision(17)); c.alive = false; c.__dr = 'energy0'; }
     if (cm) {
       // loose following: members keep their own motion (weak velocity alignment) and roam freely inside an area of 3 radii around the
       // cluster centroid; only the part outside the area pulls back, harder the further a straggler lags, so laggards catch up. Energy sharing unchanged.
