@@ -185,6 +185,7 @@
     var q = rand2D(); c.vx = lerp(c.vx, q.x * c.maxSpeed, 0.04); c.vy = lerp(c.vy, q.y * c.maxSpeed, 0.04);
     limit(c, c.maxSpeed * (resizeDrag ? 1 + P.restless * 1.5 : 1));
   }
+  function liveCount() { var n2 = 0; for (var q2 = 0; q2 < cells.length; q2++) if (cells[q2].alive) n2++; return n2; }
   function update(c) {
     if (!c.alive) return;
     var dm = (Math.sqrt((c.x - mouse.x)*(c.x - mouse.x)+(c.y - mouse.y)*(c.y - mouse.y))), sm = dm < P.slowDownRadius ? P.speedReductionFactor : 1;
@@ -238,7 +239,7 @@
       // grazing rate above: a touched dot is taken at foodEatRate dots/s, not in the same frame (measured eat vacuum)
     }
     if (reach && bestD < 1e9) { c.vx += (bx - c.x) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); c.vy += (by - c.y) / bestD * 0.5 * c.g.app * (c.maxSpeed * 0.1 + 0.2); }
-    if (P.divideOn && P.foodGrow && cells.length < Math.max(60, P.UNIVERSE_SIZE * 4) && c.energy > 1) { // divideMode 1: age+mass accumulation instead of the radius threshold (architect 21 Oct: the radius gate is structurally dead)
+    if (P.divideOn && P.foodGrow && (globalThis.CA2_TRIG_MSUN ? liveCount() : cells.length) < Math.max(60, P.UNIVERSE_SIZE * 4) && c.energy > 1) { // CA-38c: the served binary removes a dead cell immediately, so its divide gate already excludes cells killed earlier this step; JS defers removal to the post-pass splice. liveCount() matches the served count (an O(n) scan only when the other gate terms pass). Flag-free path keeps the shipped cells.length gate. // divideMode 1: age+mass accumulation instead of the radius threshold (architect 21 Oct: the radius gate is structurally dead)
       if (P.divideMode ? (frameT - (c.bornAt || 0) >= P.divideAgeMs && c.energy >= P.divideEnergy) : (c.radius >= P.CELL_RADIUS * P.divideAt)) divide(c);
     }
     if (P.foodGrow && c.radius > P.CELL_RADIUS) c.radius = Math.max(P.CELL_RADIUS, c.radius - P.foodShrink);
