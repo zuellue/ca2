@@ -30,20 +30,23 @@ fi
 
 node devtools/t70-interact-iso-served.js $ARGV > "$OUT" 2>&1
 rc=$?
+keep() { cp "$OUT" "$OUT.keep-$(date +%Y%m%d-%H%M%S)-$$"; } # evidence is never overwritten: non-CLEAN runs leave a timestamped copy
 if grep -q 'TR2 FIRST DIVERGENCE' "$OUT"; then
   ST=$(grep -m1 'TR2 FIRST DIVERGENCE' "$OUT" | sed -n 's/.*step \([0-9]*\).*/\1/p')
+  keep
   echo "SEED step=$ST"
   exit 1
 fi
-if [ "$rc" -ne 0 ]; then echo "ERROR exit=$rc"; exit 2; fi
+if [ "$rc" -ne 0 ]; then keep; echo "ERROR exit=$rc"; exit 2; fi
 V=$(grep -m1 "$MARKER" "$OUT" || true)
-if [ -z "$V" ]; then echo "ERROR no-verdict (marker '$MARKER' missing)"; exit 2; fi
-if echo "$V" | grep -q FAIL; then echo "FAIL: $V"; exit 1; fi
+if [ -z "$V" ]; then keep; echo "ERROR no-verdict (marker '$MARKER' missing)"; exit 2; fi
+if echo "$V" | grep -q FAIL; then keep; echo "FAIL: $V"; exit 1; fi
 if echo "$V" | grep -q PASS; then echo "CLEAN: $V"; exit 0; fi
 if echo "$MARKER" | grep -q ORACLE; then
   RAW=$(echo "$V" | sed -n 's/.*raw mismatched states \([0-9]*\).*/\1/p')
   POST=$(echo "$V" | sed -n 's/.*post-stepSquash \([0-9]*\).*/\1/p')
   if [ "${RAW:-x}" = "0" ] && [ "${POST:-x}" = "0" ]; then echo "CLEAN: $V"; exit 0; fi
+  keep
   echo "SEED raw-mismatched=${RAW:-?} post-squash=${POST:-?}: $V"; exit 1
 fi
 FIRST=$(echo "$V" | grep -o '[0-9][0-9]*\.[0-9][0-9]*' | grep -vn '^0\.0000$' | head -1 | cut -d: -f1 || true)

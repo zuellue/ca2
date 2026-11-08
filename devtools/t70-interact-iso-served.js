@@ -341,7 +341,8 @@ for(let s=0;s<nStates;s++){const base=mkState();tj.fill(0);tw.fill(0);let sMax=0
       console.log('  wasm '+JSON.stringify(b));
       const dvs=sJ.map((c2,i2)=>{const w=sW[i2];return w?i2+':'+(Math.abs(c2.vx-w.vx)+Math.abs(c2.vy-w.vy)).toFixed(2):'?';});
       console.log('  per-cell |dv|: '+dvs.join(' '));}}
-    console.log('TR2 per-step max|dpos|: '+seq.join(' '));}
+    if(FEED)console.log('FEED eats js='+(J.ev.ate||0)+(J.ev.ate?'':' = the eat path was NOT exercised: P.foodEatR is undefined without the app preset, set it via SET=foodEatR=<px>'));
+   console.log('TR2 per-step max|dpos|: '+seq.join(' '));}
    if(process.env.TRIGCNT){const bs=Object.keys(TC.byStep).map(k=>k+':'+TC.byStep[k][0]+'/'+TC.byStep[k][1]);console.log('TRIGCNT draws='+TC.n+' cos-mism='+TC.c+' ('+(100*TC.c/TC.n).toFixed(3)+'%) sin-mism='+TC.s+' ('+(100*TC.s/TC.n).toFixed(3)+'%)');console.log('TRIGCNT per-step cos/sin: '+bs.join(' '));}
    for(const c of J.cells){chW.sq.push(c.sq||0);chW.crowd.push(c.crowd||0);chW.envVx.push(c.envVx||0);chW.envVy.push(c.envVy||0);chW.sqS.push(c.sqS||0);}
    popW+=J.cells.length;
