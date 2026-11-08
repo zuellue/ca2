@@ -23,4 +23,10 @@ case "$EBASE" in CLEAN*) :;; *) echo "FAIL: eat baseline not clean"; exit 1;; es
 EMUT=$(env $ECFG CA_JS=devtools/ca2-eatrange-mutant.js OUT=/tmp/tbm-eat-mut.txt ARGV="1 40 160 1" sh devtools/ca2-parity-run.sh)
 echo "ca2-eatrange-mutant: $EMUT"
 case "$EMUT" in CLEAN*) echo "FAIL: ca2-eatrange-mutant counted clean - divergence was masked"; exit 1;; SEED*|FAIL*) :;; *) echo "FAIL: ca2-eatrange-mutant errored or unexpected verdict ($EMUT) - a crash does not prove detection"; exit 1;; esac
+# shp guard: a flagged-path fixture creating t=1 string cells must trip SHPGUARD; the
+# guard line must be present - a non-clean verdict alone does not prove the guard fired.
+SMUT=$(env $ECFG CA_JS=devtools/ca2-shpstring-mutant.js OUT=/tmp/tbm-shp.txt ARGV="1 40 160 1" sh devtools/ca2-parity-run.sh)
+echo "ca2-shpstring-mutant: $SMUT"
+case "$SMUT" in CLEAN*) echo "FAIL: shpstring mutant counted clean"; exit 1;; *) :;; esac
+grep -q '^SHPGUARD FAIL' /tmp/tbm-shp.txt || { echo "FAIL: SHPGUARD line missing - the non-clean verdict did not come from the guard"; exit 1; }
 echo "PASS: all mutations detected"

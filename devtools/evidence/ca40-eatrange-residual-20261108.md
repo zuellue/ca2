@@ -78,15 +78,20 @@ gains the same fields so identical-key ties cannot cross-pair. Before this, a
 channel-only divergence on those fields read as mx=0 (masked).
 
 shp (JS-only): the served binary has no shape slots. Coverage is by construction
-plus guard: mkState and every birth path seed shp.t=0, and newShape/mixShape never
-produce t=1 from non-1 parents (body-plan jumps flip 0<->2 only), so the string-swim
-block (shp.t===1) is unreachable in compared configs. The harness prints
-TR2CH shpStrings=<n> per run and flags any n>0 as not served-comparable.
+plus a failing per-step guard: mkState and every birth path seed shp.t=0, the
+flagged divide path copies the parent's shp verbatim (newShape is never called on
+the flagged path), and newShape/mixShape never produce t=1 from non-1 parents
+(body-plan jumps flip 0<->2 only), so the string-swim block (shp.t===1) is
+unreachable in compared configs. The harness checks every compared cell on both
+sides at every step: any shp.t===1 prints 'SHPGUARD FAIL step <st> side <js|wasm>'
+and exits 3 (runner: never clean). Negative test: devtools/ca2-shpstring-mutant.js
+(flags divide children t=1 on the flagged path) trips the guard at step 0 side js;
+the mutation battery requires both the non-clean verdict and the SHPGUARD line.
 
 Non-vacuousness markers per TR2 run: TR2CH js divide=<n> birth=<n> shpStrings=<n>
 (divide=0 prints a not-exercised warning) and the existing FEED eats=<n> line.
 Measured: eat 30-step config 459-469 divides/run, no-eat 10-step 261 divides/run,
-sqS exercised (17354 pressed in FULLST10), shpStrings=0 everywhere.
+sqS exercised (17354 pressed in FULLST10), SHPGUARD silent on every legit config.
 
 Negative tests: devtools/ca2-sqs-mutant.js (press x1.001) SEEDs at step 0 and is in
 the mutation battery list; ca2-eatrange-mutant.js stays as the residual regression.
