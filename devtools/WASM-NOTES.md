@@ -62,15 +62,15 @@ worms food step 1.27 (542 food), spores 1.88 (517 food), axis+tally 1.5-2.0 (dra
 6. body-plan distribution comparison (frozen parameters) + f32 metaball difference (~500-700 bytes / 1.8M, max 198 levels): decide f64 path.
 Tools: devtools/t70 (interact iso), t71 (CDP profiler, node devtools/t71-prof.js "?perf=1" secs name [preJS]), t72 (keepIn iso), t73 (swarm bench), t74 (full-frame iso: A exact RNG-lockstep, B statistical, C birth-pressure, D debug flags), t81 (living-food boot check), t82 (simOff-toggle A/B, confounded - see above), t82b (clean A/B via ?nofoodwasm=1 + history.replaceState - no reload, sim wasm stays on).
 
-## 2026-10-21 11:45 — yatay eksen örüntüsü + hücre dizileri (KAPANDI, 151eeb6)
-- Kök neden: planComposition nokta üretecinin per-eksen hard clamp'ı. Geniş plakada y-clamp %5.4 vs x-clamp %0.8 (offline 500k nokta, 6.7x) → hedefler üst/alt kenarda yatay çizgi; kalabalıkta akış bu çizgilere → görünür yatay sıralar. Sim numeriği TEMİZ: t99c dense node (224 hücre, 5 varyant) banding yok; t115 canlı kontrol (kalabalık, trans yok): row 10.5-12.1/1k ≈ col 9.9-12.2/1k.
-- Ölçüm (canlı, trans açık kalabalık, before): rowPer1k 275.8/139.6/280.7/308 vs colPer1k 9-21 (26x worst). Her iki motor (?nowasm=1 dahil) aynı → wasm regresyonu değil.
-- Fix: 151eeb6 ca2.js planComposition — 12 denemeli rejection-resample, clamp yalnız floor. Offline after: edge nokta %0.00.
-- Canlı after (t114 rerun): worst row/col 5.6x, çoğu kare 1-3x ≈ izotropik. Kalan hafif yataylık = geniş plaka geometrisi (akış hatları yatay daha uzun) — amaçlanan morf akışının doğası, artefakt değil.
-- "Hücre dizileri" cevabı: (a) string gövde planı (shp.t=1) disk dizisi olarak çizilir — gerçek body-plan, yeni etkileşim değil; (b) kalabalık sıralar = yukarıdaki kompozisyon artefaktı (fix'li). COH=0/SYM=0 kapatınca sıralar kaybolmuyordu (308/1k) → etkileşim kaynaklı değil.
-- stringFrac boot-to-boot 0.09-0.77 salınımı = founder effect (kalıtım ~%80 sadakat); shape-atama semantiği wasm-log kd=1/2/3 vs JS divide/reproduce/fuse satır-satır aynı — motor farkı YOK.
-- Testler: devtools/t113-crowd-live.js, t114-rows-live.js (before/after), /tmp/t115-notrans.js (kontrol). Perf: sim loop wasm 1.35ms vs js 11.6ms (8.6x); mb:field headless wasm-simd 73.9ms.
-- Sonraki iş (sıradaki run): panel/HUD desktop ekibinde; TODO listesi yukarıda. t99/t99c node harnessleri /tmp'de (kaybolabilir, gerekirse t114 pattern'inden yeniden yaz).
+## 2026-10-21 11:45 — horizontal axis pattern + cell rows (CLOSED, 151eeb6)
+- Root cause: the per-axis hard clamp in the planComposition point generator. On wide plates y-clamp 5.4% vs x-clamp 0.8% (offline 500k points, 6.7x) → targets form a horizontal line at the top/bottom edge; in crowds the flow follows these lines → visible horizontal rows. Sim numerics CLEAN: t99c dense node (224 cells, 5 variants) no banding; t115 live control (crowded, no trans): row 10.5-12.1/1k ≈ col 9.9-12.2/1k.
+- Measurement (live, trans-on crowd, before): rowPer1k 275.8/139.6/280.7/308 vs colPer1k 9-21 (26x worst). Both engines (incl. ?nowasm=1) identical → not a wasm regression.
+- Fix: 151eeb6 ca2.js planComposition — 12-try rejection-resample, clamp floor only. Offline after: edge points 0.00%.
+- Live after (t114 rerun): worst row/col 5.6x, most frames 1-3x ≈ isotropic. The remaining slight horizontal bias = wide-plate geometry (flow lines run longer horizontally) — the nature of the intended morph flow, not an artifact.
+- "Cell rows" answer: (a) the string body plan (shp.t=1) renders as a disk array — a real body-plan, not a new interaction; (b) crowded rows = the composition artifact above (fixed). Rows did not vanish with COH=0/SYM=0 (308/1k) → not interaction-driven.
+- stringFrac boot-to-boot swing 0.09-0.77 = founder effect (inheritance ~80% fidelity); shape-assignment semantics wasm-log kd=1/2/3 vs JS divide/reproduce/fuse line-for-line identical — NO engine difference.
+- Tests: devtools/t113-crowd-live.js, t114-rows-live.js (before/after), /tmp/t115-notrans.js (control). Perf: sim loop wasm 1.35ms vs js 11.6ms (8.6x); mb:field headless wasm-simd 73.9ms.
+- Next work (next run): panel/HUD with the desktop team; TODO list above. The t99/t99c node harnesses live in /tmp (may vanish; rewrite from the t114 pattern if needed).
 
 ## 2026-10-21 — biology constants -> p[58..70], absorbed flag, habitat scaling (t74/t118/t119)
 - sim.rs: 13 hardcoded biology constants moved to params p[58..70] (crowdTol, orgLifeDie/orgLifeGrow/orgBirth/orgDead/orgBrain/orgR90, symEnergy/symBreak/symBreakDist, eatDistF/fuseDistF/symDistF); cell slot 23 (ABS) flags eaten/fused cells so habitat reaps only true corpses. Defaults byte-identical to the old constants.
@@ -84,13 +84,13 @@ Tools: devtools/t70 (interact iso), t71 (CDP profiler, node devtools/t71-prof.js
 - t74 A 300 after rebuild: 16/300 diverged, counts identical to the pre-cap run (habitat off => capf = 1 in both engines).
 - t120 (two viewports, 45 s series): desktop niches+drift quadrant hue spread 0.231 vs control (niches=1, drift=0) 0.164, fluctuation sd/mean 0.386 vs 0.317. Mobile 390x844 with aggressive feeding (sun=5, conv=5): population band 11-74 cells (max 1.5x US 49) vs 204 cells (5.7x US) before the caps. Instantaneous mean velocities are small-n cluster noise; habitat adds no forces, t116's EMA isotropy result stands.
 
-## 2026-10-23 10:18 — CPU 95°C termal görevi: ilk tur (300f3ff)
-- Ölçüm (t116, HEAD f4d401e, headless CPU path, res=1, autoQuality off): mb:field 42.2ms@73h → 66.5@208 → 79.7@375 → 107.1@709 → 135.5@1107. wasm sim loop aynı aralıkta 0.1-0.66ms (O(n²) henüz darboğaz değil). Saf-JS field (?nowasm=1) wasm field'ın ~8-10 katı. Frame süreleri headless artifact (yazılım raster); stage ms'ler sinyal.
-- Termal zincir (kanıt sırası): plaka büyür/kalabalıklaşır → (a) sources >384 (buildSources allowance floor 1 → N>384 hücrede SRC_MAX aşılır) → drawMetaballs GPU'dan CPU'ya düşer (n=-1 bail, watchdog değil); (b) pixelRatio=2 + büyük plaka → field pikselleri alan×4 büyür → wasm field 100ms+/frame → CPU %100 → ısı. Kullanıcı cihazı uzaktan ölçülmedi; bu kod-yolu analizi + headless ölçüm.
-- FIX 1 (300f3ff): GPU field tiled draw — 256px tile, per-tile Rc-bbox culling (shader'ın per-pixel culling'iyle aynı kare), scissored draw. Piksel-birebir: cmp bad 66/2.0M maxd 17 (önce: 391/2.17M maxd 17). swiftshader toplam GPU-path wall 1447→747ms @~230 hücre (yazılım raster, sadece yön kanıtı; tGPUms async GL yüzünden maliyet ölçümü drawImage/glFinish üzerinden yapılmalı — harness notu).
-- KALAN (sonraki run, sıralı): (1) GMAX device-adaptive (MAX_FRAGMENT_UNIFORM_VECTORS/2, link-fail → 384 fallback) + tile başına >GMAX durumunda multi-draw; crowd GPU bail'i kapatır. (2) SRC_MAX 384→ yükseltme GÖRSEL DEĞİŞİKLİK (kalabalıkta string/lobed şekiller geri gelir) — owner'a önce/sonra screenshot ile sunulacak, sessiz yapma. (3) grain texImage2D fullscene maliyeti ayrı ölçülecek. (4) sim O(n²) grid/spatial hash: RNG/order paritesi + hover sınırsız gather kısıtı yüzünden ancak harness lockstep'iyle; öncelik düşük (sim 0.66ms@1107).
-- Harness: devtools/t116-scaling.js (backend-kayıtlı scaling), t117-gpu-tile.js (GPU engagement + cmp fidelity), harness.js '--gpu-ok' bayrağı. js-cpu boot çok yavaş (5.3s/frame, res autoQuality düşüşü confounder — autoQuality=0 boot'tan ÖNCE set edilmeli).
-- Rebase akışı: f4d401e → cbfe360 desktop commitleri üzerine rebase edilip push'landı (300f3ff).
+## 2026-10-23 10:18 — CPU 95°C thermal task: first round (300f3ff)
+- Measurement (t116, HEAD f4d401e, headless CPU path, res=1, autoQuality off): mb:field 42.2ms@73h → 66.5@208 → 79.7@375 → 107.1@709 → 135.5@1107. wasm sim loop 0.1-0.66ms over the same range (O(n^2) not yet the bottleneck). Pure-JS field (?nowasm=1) ~8-10x the wasm field. Frame times are a headless artifact (software raster); stage ms are the signal.
+- Thermal chain (evidence order): plate grows/crowds → (a) sources >384 (buildSources allowance floor 1 → SRC_MAX exceeded at N>384 cells) → drawMetaballs falls from GPU to CPU (n=-1 bail, not the watchdog); (b) pixelRatio=2 + large plate → field pixels grow area x4 → wasm field 100ms+/frame → CPU 100% → heat. The user device was not measured remotely; this is code-path analysis + headless measurement.
+- FIX 1 (300f3ff): GPU field tiled draw — 256px tiles, per-tile Rc-bbox culling (same frame as the shader's per-pixel culling), scissored draw. Pixel-exact: cmp bad 66/2.0M maxd 17 (before: 391/2.17M maxd 17). swiftshader total GPU-path wall 1447→747ms @~230 cells (software raster, direction-of-travel evidence only; because of async GL the tGPUms cost must be measured via drawImage/glFinish — harness note).
+- REMAINING (next run, in order): (1) device-adaptive GMAX (MAX_FRAGMENT_UNIFORM_VECTORS/2, link-fail → 384 fallback) + multi-draw when a tile exceeds GMAX; disables the crowd GPU bail. (2) Raising SRC_MAX past 384 is a VISUAL CHANGE (string/lobed shapes return in crowds) — present to the owner with before/after screenshots, do not do it silently. (3) grain texImage2D fullscene cost to be measured separately. (4) sim O(n^2) grid/spatial hash: only with harness lockstep because of RNG/order parity + the hover unlimited-gather constraint; low priority (sim 0.66ms@1107).
+- Harness: devtools/t116-scaling.js (backend-logged scaling), t117-gpu-tile.js (GPU engagement + cmp fidelity), harness.js '--gpu-ok' flag. js-cpu boot very slow (5.3s/frame; the res autoQuality drop is a confounder — autoQuality=0 must be set BEFORE boot).
+- Rebase flow: f4d401e → rebased onto the cbfe360 desktop commits and pushed (300f3ff).
 
 ## 2026-10-23 round 2 (perf/thermal, WIP on origin/wip-gpu-tiling d5afdc6 — NOT on main)
 - Adaptive GMAX (device MAX_FRAGMENT_UNIFORM_VECTORS, halve-on-link-fail, floor 384, ceil 2048): swiftshader picks 2040. N=1000 (847 sources) GPU stays ON (was: silent CPU bail >384). GPU-vs-CPU cmp N=1000: bad=1119/1.9M maxd=23. Thermal chain GMAX link root-fixed (sandbox evidence only).
@@ -134,14 +134,14 @@ All results stamped commit 0cc5add, one page session, swiftshader, gl.readPixels
 - Perf (frozen same scene n=970, 1680x506, 1px readPixels forced completion, interleaved 40s passes t/f/f/t): tiled 17 frames p50 5136/5029ms, full 8 frames p50 11408/11068ms -> ~2.2x swiftshader wall direction ONLY; no Mac/general claim.
 - Visual: /tmp shots t120-tiled.png (wip default tiled live) and t120-full.png (forced full) both show the normal field, no seams/banding; HUD "metaball field: GPU" confirms GPU path live.
 
-## Round 8 (2026-10-23) — live artifact sorusu kapandı (kanıt: capture yöntemi + sayfa UI'ı)
-- Soru: t123 live screenshot'ta (800×357, rAF-freeze) siyah kare bloklar / büyük siyah diskler / kesik field bölgeleri → parent temiz kanıt saymadı.
-- Bulgular:
-  - Siyah disk/kareler sayfanın kendi config-lane UI'ı: aynı deployed byte'larla (3cac619) localhost res=1, 800×357, autoQuality off capture'da (t125) birebir aynı düzen.
-  - Canlı doğal-frame capture (t124, dondurma yok): tiled vs full yapısal aynı, dark-pixel %6.8 / %6.8, field her iki modda düzgün.
-  - t123'teki kareli/noktalı doku yalnız freeze shot'ta → capture yöntemi artifact'ı (mid-composite frame).
-  - Live readback 0-diff korunuyor: cmpGpuPaths 0/4.17M, cmpGmax384 0/5.07M, t119cluster candVsFullDiff=0.
-  - Kaba görünüm nedeni (çıkarım, HUD destekli): autoQuality swiftshader'da res'i 0.35–0.40'a düşürüyor; res=1 local capture temiz.
-- Sonuç: gerçek defect yok, rollback yok. origin/main = 3cac619. Toggle dry-run hazır (drawMetaballs default false, 1 satır).
-- Capture scriptleri repo'ya alındı: devtools/t124-live-natural-shots.js (live tiled/full/doğal frame), devtools/t125-local-res1-shot.js (localhost res=1, autoQuality off).
-- Parent closeout 13:06: kullanıcıya "optimizasyon yayında + aynı-girdi 0-diff + Mac hız/sıcaklık ölçülmedi" iletildi. Rollback yok, yeni capture döngüsü yok. Execution tamam.
+## Round 8 (2026-10-23) — live artifact question closed (evidence: capture method + page UI)
+- Question: the t123 live screenshot (800×357, rAF-freeze) showed black square blocks / large black disks / broken field regions → parent did not accept it as clean evidence.
+- Findings:
+  - The black disks/squares are the page's own config-lane UI: with the same deployed bytes (3cac619), a localhost res=1, 800×357, autoQuality off capture (t125) shows the identical layout.
+  - Live natural-frame capture (t124, no freeze): tiled vs full structurally identical, dark-pixel 6.8% / 6.8%, field healthy in both modes.
+  - The checkered/dotted texture in t123 appears only in the freeze shot → an artifact of the capture method (mid-composite frame).
+  - Live readback 0-diff preserved: cmpGpuPaths 0/4.17M, cmpGmax384 0/5.07M, t119cluster candVsFullDiff=0.
+  - Cause of the coarse look (inference, HUD-supported): autoQuality drops res to 0.35-0.40 under swiftshader; the res=1 local capture is clean.
+- Conclusion: no real defect, no rollback. origin/main = 3cac619. Toggle dry-run ready (drawMetaballs default false, 1 line).
+- Capture scripts moved into the repo: devtools/t124-live-natural-shots.js (live tiled/full/natural frame), devtools/t125-local-res1-shot.js (localhost res=1, autoQuality off).
+- Parent closeout 13:06: the user was told "optimization is live + same-input 0-diff + Mac speed/temperature not measured". No rollback, no new capture loop. Execution complete.
