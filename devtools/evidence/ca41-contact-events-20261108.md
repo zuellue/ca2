@@ -345,3 +345,18 @@ Fits all 18 controlled points to <=1e-9 (bnd x4, spd x2, sm.app x9, big.app x12 
 Matrix after the edit (runner verdicts): fuse seeds 11/1/7/10 CLEAN 0.0000 x4 (default, FUSEEN unset); failclosed suite PASS; selfcheck PASS (deliberate crash -> exit=1, never clean); birth-mutation PASS; 0 crashes, 0 unrun. Flag-free default bit-unchanged (env-gated emulation file only). no-eat x45 / eat x20 battery re-run still owed (edit inert without FUSEEN).
 
 Status: CA-41 REMAINS OPEN. Fuse zone + fuse energy both solved for controlled lineages; next: battery reclassification with FUSEEN=1 (en-only class should collapse), then the flag-gated product fix in test/ca2.js (default OFF) + 20+ seed gate; residual battery classes (rare sqS zone, same-sqS crowd/envV/v, kick-draw interleaving) and loci A, C, D open.
+
+## Round 11 (2026-11-09): flag-gated PRODUCT fix in test/ca2.js (CA2_FUSE_FIX, default OFF)
+
+The solved fuse behavior is now ported into the product engine behind globalThis.CA2_FUSE_FIX (undefined = off, flag-free bit-unchanged):
+- fuseCells: energy += the round-10b genome-keyed delta; the product KEEPS the bigger parent's genome and shape bit-exact (mixGenome/mixShape skipped under the flag, 1:1 with the served binary); stashes __fuseKi (fuse frame) and __fuseKiBF (parents' bnd average).
+- keepIn: the zone reads ((CA2_FUSE_FIX && c.__fuseKi === frameT) ? c.__fuseKiBF : c.g.bnd) inline; flag-free evaluates to c.g.bnd exactly as before. Multi-fuse lineages need no stash chain because the genome is never mixed (big's bnd stays the stored bnd).
+- Harness (devtools/t70-interact-iso-served.js): CA2FUSEFIX env bridge mirrors the product flag; the two keepIn string-needles (keepInNB/keepInFB) updated to the new z-line so the FUSEKINB emulation path is unchanged; devtools/tmpv-fusecombo.js keepIn z-line kept in sync.
+
+Validation: PRODUCT path (CA_JS unset = test/ca2.js, CA2FUSEFIX=1): controlled worlds 1gen/1g2/2gen/1g13 all flat 0.0000 x6 steps (single-fuse, bnd variants, TWO-generation lineage, sm.app=0.5 threshold case). tmpv emulation path still 0.0000 (needle sync verified). Flag-free default still SEEDs 1gen at step 2 |dp| 2.55 (bit-unchanged default). Negative test: /181 coefficient mutant under the flag is SEED step=2 (detected, never clean).
+
+OPEN (gate boundary): the 24-seed random micro-world gate (micro SET, STATESEED 1..24, STEPS=1, product path) is 1/24 CLEAN, 23 SEED step=0 - the inspected case (seed 1) has ALL motion channels bit-exact (x/y/vx/vy/ex/ey/cr/sq/r/sqS) and an en-only multiset residual (+1.83e-3, js above wasm): the delta formula overshoots on random genome combos outside the controlled sweeps (random bnd spans 0.5-2.0, spd 0.5-1.6 vs validated bnd 0.6-1.2 / spd 1.09-1.5). The delta needs bnd/spd structure sweeps over the full mutGenome ranges (threshold/saturation terms, by analogy with the app piecewise terms found in rounds 10/10b). This is the same en-only battery residual class, now isolated to the fuse-energy formula's untested domain. One RAWALL run hinted at a second divergence shape (non-product cell en delta ~1e-2) - unverified, needs a clean repro.
+
+Matrix after the edits (runner verdicts): fuse seeds 11/1/7/10 CLEAN 0.0000 x4 (tmpv path); failclosed PASS; selfcheck PASS; birth-mutation PASS; no-eat 45/45 CLEAN; eat 20/20 CLEAN; 0 crashes, 0 unrun. Flag-free default behavior bit-unchanged (product edit gated; harness edits are needle/bridge only).
+
+Status: CA-41 REMAINS OPEN. Product fix landed behind CA2_FUSE_FIX and exact on the controlled domain; the random-domain fuse-energy structure (bnd/spd full-range sweeps) is the next item, then re-run the 24-seed product gate; residual battery classes and loci A, C, D open.

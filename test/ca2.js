@@ -311,7 +311,7 @@
   function keepIn(c) {
     // the wall acts on the cell's edge, not its centre: the radius inset is automatic. The zone is the boundary distance knob only, independent of cell radius (owner 20 Oct)
     var gap = Math.max(0, P.boundGap || 0), r = 0; // zone/sensing geometry stays centre-based and radius-independent (owner 20 Oct); the contact clamp (wallPull below) uses the eased squashed radius effR - architect finding (c)
-    var z = Math.max(0, Math.min(P.boundZone * (P.genomeOn ? c.g.bnd : 1), cont.w / 2.5, cont.h / 2.5)), F = P.boundForce, ms = c.maxSpeed + 1;
+    var z = Math.max(0, Math.min(P.boundZone * (P.genomeOn ? ((globalThis.CA2_FUSE_FIX && c.__fuseKi === frameT) ? c.__fuseKiBF : c.g.bnd) : 1), cont.w / 2.5, cont.h / 2.5)), F = P.boundForce, ms = c.maxSpeed + 1;
     var x0 = cont.x + r + gap, x1 = cont.x + cont.w - r - gap, y0 = cont.y + r + gap, y1 = cont.y + cont.h - r - gap, d, t, press = 0;
     d = c.x - x0; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vx += F * t * t * ms * 0.25; if (c.vx < 0) c.vx *= 1 - 0.25 * t; if (t > press) press = t; }
     d = x1 - c.x; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vx -= F * t * t * ms * 0.25; if (c.vx > 0) c.vx *= 1 - 0.25 * t; if (t > press) press = t; }
@@ -498,8 +498,17 @@
     var big = a.radius >= b.radius ? a : b, sm = big === a ? b : a;
     big.radius = Math.min(Math.sqrt(big.radius * big.radius + sm.radius * sm.radius) * 0.92, P.CELL_RADIUS * P.foodGrowMax * 1.2);
     big.energy = (big.energy + sm.energy) * 0.85;
+    if (globalThis.CA2_FUSE_FIX) {
+      // CA-41 served-binary fuse behavior (devtools/evidence/ca41-contact-events-20261108.md rounds 9-10b): the fuse
+      // energy adds a genome-keyed delta (exact fits); the product keeps the bigger parent's genome and shape
+      // bit-exact (no mix); __fuseKi/__fuseKiBF give the fuse-frame keepIn zone (parents' bnd average) - from the
+      // next frame the stock genome-bnd zone (which is big's kept bnd). Flag-free default below is bit-unchanged.
+      big.energy += (sm.g.bnd - big.g.bnd) / 180 + (big.g.spd - sm.g.spd) / 132 + (sm.g.app - big.g.app) / 120 + Math.max(0, big.g.app - 0.5) / 30 - Math.max(0, sm.g.app + big.g.app - 1) / 60;
+      big.__fuseKi = frameT;
+      big.__fuseKiBF = (big.g.bnd + sm.g.bnd) / 2;
+    }
     big.gene = clamp(Math.round((big.gene + sm.gene) / 2), P.GENE_MIN, P.GENE_MAX);
-    big.g = mixGenome(big.g, sm.g); big.shp = mixShape(big.shp, sm.shp);
+    if (!globalThis.CA2_FUSE_FIX) { big.g = mixGenome(big.g, sm.g); big.shp = mixShape(big.shp, sm.shp); }
     big.comp = (big.comp || 1) + (sm.comp || 1);
     big.speedModifier = clamp(big.speedModifier / 1.25, 0.2, 3);
     if (big.sym && big.sym !== sm) big.sym.sym = null;

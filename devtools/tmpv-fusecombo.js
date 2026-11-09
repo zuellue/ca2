@@ -311,7 +311,7 @@
   function keepIn(c) {
     // the wall acts on the cell's edge, not its centre: the radius inset is automatic. The zone is the boundary distance knob only, independent of cell radius (owner 20 Oct)
     var gap = Math.max(0, P.boundGap || 0), r = 0; // zone/sensing geometry stays centre-based and radius-independent (owner 20 Oct); the contact clamp (wallPull below) uses the eased squashed radius effR - architect finding (c)
-    var z = Math.max(0, Math.min(P.boundZone * (P.genomeOn ? c.g.bnd : 1), cont.w / 2.5, cont.h / 2.5)), F = P.boundForce, ms = c.maxSpeed + 1;
+    var z = Math.max(0, Math.min(P.boundZone * (P.genomeOn ? ((globalThis.CA2_FUSE_FIX && c.__fuseKi === frameT) ? c.__fuseKiBF : c.g.bnd) : 1), cont.w / 2.5, cont.h / 2.5)), F = P.boundForce, ms = c.maxSpeed + 1;
     var x0 = cont.x + r + gap, x1 = cont.x + cont.w - r - gap, y0 = cont.y + r + gap, y1 = cont.y + cont.h - r - gap, d, t, press = 0;
     d = c.x - x0; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vx += F * t * t * ms * 0.25; if (c.vx < 0) c.vx *= 1 - 0.25 * t; if (t > press) press = t; }
     d = x1 - c.x; if (d < z) { t = clamp(1 - d / z, 0, 1); c.vx -= F * t * t * ms * 0.25; if (c.vx > 0) c.vx *= 1 - 0.25 * t; if (t > press) press = t; }
