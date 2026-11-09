@@ -508,7 +508,9 @@
       // index); a big-parent caller fuses with the plain 0.85 carry. Mapped on the 3-cell permutation
       // battery (devtools/evidence/ca41-contact-events-20261108.md): B+S/B+C match the formula exactly
       // with big=callee; every big=caller fuse is 0.
-      if (big === b) big.energy += fuseT(sm.g.bnd, big.g.bnd) / 180 + fuseT(sm.g.spd, big.g.spd) / 132 + (sm.g.app - big.g.app) / 120 + Math.max(0, big.g.app - 0.5) / 30 - Math.max(0, sm.g.app + big.g.app - 1) / 60;
+      // round 13: the whole bracket scales with P.selStrength (3-point proof: selStrength 0/0.5/1
+      // gives 0, half, full delta on identical controlled worlds; bit-exact at selStrength=1).
+      if (big === b) big.energy += P.selStrength * (fuseT(sm.g.bnd, big.g.bnd) / 180 + fuseT(sm.g.spd, big.g.spd) / 132 + (sm.g.app - big.g.app) / 120 + Math.max(0, big.g.app - 0.5) / 30 - Math.max(0, sm.g.app + big.g.app - 1) / 60);
       big.__fuseKi = frameT;
       big.__fuseKiBF = (big.g.bnd + sm.g.bnd) / 2;
     }

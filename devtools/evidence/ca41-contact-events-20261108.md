@@ -421,3 +421,19 @@ Side finding: the TR2 lockstep assigns fuse-gate roll values by world geometry,
 not by raw stream position - the same pair at the same sequence index rolls
 0.79 vs 0.14 for two bystander offsets; roll-count parity reasoning must go
 through the lockstep, not a single shared stream.
+
+## round 13 - fuse-energy selStrength scaling + ULP residual map (gate 20/24)
+
+*   **selStrength scaling proven (3 points)**: on identical controlled worlds the fuse dE is 0 at
+    selStrength=0, exactly half at 0.5 (ratio 0.5000000000), and full at 1 -> dE = P.selStrength x bracket.
+    energyConsumptionRate=0 does NOT zero dE. Applied `* P.selStrength` in ca2.js fuseCells and
+    devtools/tmpv-fusecombo.js.
+*   **Drain chain**: post-fuse the product keeps moving through the frame - et transfers with remaining
+    pairs, then its own update() drain (consumption 0.058, then selStrength*mf*0.05). JS forward model
+    drain((be+se)*0.85 + dE) bit-exact vs enJS on 10 controlled worlds.
+*   **Residual class**: remaining gate SEEDs 4/8/14/16 are ALL one class - fuse-product energy 1 ULP
+    (|dp| 1.78e-15..3.55e-15), every other channel identical. Wasm-side fuse-time parent energies are
+    unobservable (parents absorbed); a +-1 ULP association difference at fuse time is the likely residue.
+*   **Gate count correction**: round 12 recorded "21/24, SEEDs 4/8/16"; re-measured today on the same
+    env the pre-edit baseline is **20/24, SEEDs 4/8/14/16** - identical after the selStrength edit
+    (multiply by 1.0 is IEEE-exact), so the edit is bit-neutral and the round-12 count was misrecorded.
