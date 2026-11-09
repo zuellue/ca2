@@ -503,7 +503,8 @@
       // energy adds a genome-keyed delta (exact fits); the product keeps the bigger parent's genome and shape
       // bit-exact (no mix); __fuseKi/__fuseKiBF give the fuse-frame keepIn zone (parents' bnd average) - from the
       // next frame the stock genome-bnd zone (which is big's kept bnd). Flag-free default below is bit-unchanged.
-      big.energy += (sm.g.bnd - big.g.bnd) / 180 + (big.g.spd - sm.g.spd) / 132 + (sm.g.app - big.g.app) / 120 + Math.max(0, big.g.app - 0.5) / 30 - Math.max(0, sm.g.app + big.g.app - 1) / 60;
+      var fuseT = function (v, x) { var L = v < 1 ? 1 : 2 - v, U = v < 1 ? 2 - v : 1; if (x <= L) return v - x; if (x >= U) return x - v; return (v - L) + 3 * (v < 1 ? 1 : -1) * (x - L); };
+      big.energy += fuseT(sm.g.bnd, big.g.bnd) / 180 + fuseT(sm.g.spd, big.g.spd) / 132 + (sm.g.app - big.g.app) / 120 + Math.max(0, big.g.app - 0.5) / 30 - Math.max(0, sm.g.app + big.g.app - 1) / 60;
       big.__fuseKi = frameT;
       big.__fuseKiBF = (big.g.bnd + sm.g.bnd) / 2;
     }

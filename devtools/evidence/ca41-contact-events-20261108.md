@@ -370,3 +370,34 @@ Per-unit slopes of the implied bnd term: -1/180 on [0.5,0.8], -3/180 on [0.8,1.0
 big.bnd sweep at sm.bnd=0.7: 0.5:+3.756821556e-4, 0.9:-1.846540067e-3 (reproduces 1g4), 1.0:-2.402095622e-3, 1.3:+2.597904378e-3. Implied slopes: -1/180 on [0.5,1.0], +3/180 on [1.0,1.3] - the steep segment sits on the OTHER side of 1.0 than in the sm.bnd=1.2 sweep, so the breakpoints move with sm.bnd.
 
 Reading: the signed (sm.bnd-big.bnd)/180 of rounds 9-10 is exact only on the originally swept pairs (big.bnd in {0.6..0.9} x sm.bnd in {0.7..1.2}, all with |big.bnd-1.0| small); the true bnd term is piecewise with breakpoints tied to both bnds (candidates: |bnd-1.0| branches, bnd-product or ratio couplings). The spd term may have analogous structure (validated only at 3 points). This is the structure behind the round-11 random-gate en-only residuals (random bnd spans 0.5-2.0). NEXT: dense 2D bnd grid (big x sm in {0.5,0.65,...,2.0}) + spd sweep 0.5-1.6, refit, then update the FUSEEN emulation + CA2_FUSE_FIX product flag and re-run the 24-seed product gate.
+
+## Round 11c - piecewise fuseT solve for bnd and spd channels
+
+The round-10 signed linear bnd/spd terms are replaced by a piecewise channel rule,
+exact on all 46 probed grid points (bnd grid sm in {0.7,1.0,1.6} x big in 0.5..2.0,
+36 pts; spd sweep big in 0.5..1.6, 12 pts; controlled worlds 1gen/1g2/2gen/1g13
+still 0.0000 x6):
+
+    fuseT(v, x): L = v<1 ? 1 : 2-v; U = v<1 ? 2-v : 1
+      x <= L: v - x
+      x >= U: x - v
+      else:   (v - L) + 3*sign(1-v)*(x - L)
+
+Knots at 1.0 and 2-v (v = sm's channel value), middle slope +/-3, continuous.
+delta = fuseT(sm.bnd,big.bnd)/180 + fuseT(sm.spd,big.spd)/132
+      + (sm.app-big.app)/120 + max(0,big.app-0.5)/30 - max(0,sm.app+big.app-1)/60
+
+Applied identically behind CA2_FUSE_FIX in test/ca2.js and FUSEEN in
+devtools/tmpv-fusecombo.js. Flag-free default behavior is untouched (the formula
+lives only inside the flag-gated blocks).
+
+Product 24-seed random micro-world gate (CA2FUSEFIX=1, STEPS=1): 7/24 CLEAN
+(up from 1/24 with the round-10 linear terms). Remaining 17 SEEDs: the first
+divergence is NOT the fuse product - it is a bystander cell (genome and radius
+bit-equal to its initial state, motion bit-exact) whose energy differs at step 0
+(e.g. seed 1: js en exactly initial 30.687666, wasm 30.684204, delta -3.46e-3;
+wasm-side value reproduced identically across product and tmpv paths, so the
+wasm world is seed-stable and the js side is the one missing an energy update).
+Open hypothesis: an interaction/et energy channel the js side skips on the fuse
+frame, or a fuse event-gate desync. RAWALL=1 probe perturbs world spawn (do not
+use); FUSEDBG now dumps full parent genomes+energies per fuse.

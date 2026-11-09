@@ -496,13 +496,16 @@
   // symbiogenesis: two compatible cells in deep contact fuse into one composite organism - heavier, slower, mixed genome
   function fuseCells(a, b) {
     var big = a.radius >= b.radius ? a : b, sm = big === a ? b : a;
-    if (typeof process !== 'undefined' && process.env.FUSEDBG) console.log('FUSEDBG t=' + frameT + ' x=' + big.x.toFixed(4) + ' y=' + big.y.toFixed(4) + ' bigBnd=' + big.g.bnd + ' smBnd=' + sm.g.bnd + ' bigZb=' + (big.g.bnd) + ' smZb=' + sm.g.bnd + ' bigGene=' + big.gene + ' bigR=' + big.radius);
+    if (typeof process !== 'undefined' && process.env.FUSEDBG) console.log('FUSEDBG t=' + frameT + ' bigG=' + JSON.stringify(big.g) + ' smG=' + JSON.stringify(sm.g) + ' bigEn=' + big.energy + ' smEn=' + sm.energy + ' bigR=' + big.radius + ' smR=' + sm.radius);
     big.radius = Math.min(Math.sqrt(big.radius * big.radius + sm.radius * sm.radius) * 0.92, P.CELL_RADIUS * P.foodGrowMax * 1.2);
     big.energy = (big.energy + sm.energy) * 0.85;
     if (typeof process !== 'undefined' && process.env.FUSEEN && process.env.FUSEEN !== '0') {
       // served-binary fuse energy: js base plus a genome-keyed delta (CA-41 round 10, exact fits):
       // (sm.bnd-big.bnd)/180 + (big.spd-sm.spd)/132 + (sm.app-big.app)/120 + max(0, big.app-0.5)/30; col-free, radius/en-independent
-      var dE = (sm.g.bnd - big.g.bnd) / 180 + (big.g.spd - sm.g.spd) / 132 + (sm.g.app - big.g.app) / 120 + Math.max(0, big.g.app - 0.5) / 30 - Math.max(0, sm.g.app + big.g.app - 1) / 60;
+      // round 11c: bnd/spd channels are piecewise with knots at 1.0 and 2-v (middle slope +-3) - the
+      // round-10 signed linear form was exact only on the originally swept pairs; app terms unchanged.
+      var fuseT = function (v, x) { var L = v < 1 ? 1 : 2 - v, U = v < 1 ? 2 - v : 1; if (x <= L) return v - x; if (x >= U) return x - v; return (v - L) + 3 * (v < 1 ? 1 : -1) * (x - L); };
+      var dE = fuseT(sm.g.bnd, big.g.bnd) / 180 + fuseT(sm.g.spd, big.g.spd) / 132 + (sm.g.app - big.g.app) / 120 + Math.max(0, big.g.app - 0.5) / 30 - Math.max(0, sm.g.app + big.g.app - 1) / 60;
       big.energy += dE;
     }
     big.gene = clamp(Math.round((big.gene + sm.gene) / 2), P.GENE_MIN, P.GENE_MAX);
