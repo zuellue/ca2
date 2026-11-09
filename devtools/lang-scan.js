@@ -1,21 +1,26 @@
-// language guard (owner 21 Oct): every user-facing string and every repo comment is English only.
-// Scans the shipped files for Turkish-specific characters and known Turkish UI words; exits 1 with file:line on any hit.
+// Repo text guard (repo rule, owner 9 Nov 2026 relayed S12): every repo file is English
+// and ASCII only (allowlist: math symbols, arrows, degree sign, em dash, ellipsis).
+// Scans the shipped files for non-ASCII characters outside the allowlist; exits 1
+// with file:line on any hit.
 // Run: node devtools/lang-scan.js
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..');
 const FILES = ['index.html', 'ca2.js', 'device.html', 'audio.js', 'grain.js', 'favicon.js'].concat(process.argv.includes('--all')?require('fs').readdirSync(path.join(ROOT,'devtools')).filter(f=>/\.js$/.test(f)&&f!=='lang-scan.js').map(f=>'devtools/'+f).concat(['plan/QUEUE.md']):[]).concat(process.argv.includes('--test') ? ['test/index.html', 'test/ca2.js', 'test/audio.js', 'test/grain.js', 'test/favicon.js'] : []);
-const TR_CHARS = /[çğıöşüÇĞİÖŞÜ]/;
-const TR_WORDS = ['kilitli', 'kilit', 'kaydet', 'kayıt', 'tamam', 'iptal', 'şifre', 'parola', 'çıkış', 'dokun', 'dokunma', 'sürükle', 'sıfırla', 'rastgele', 'bekleyin', 'yükleniyor', 'kapat', 'kapalı', 'açık', 'giriş', 'icin', 'tavan', 'kullanici', 'ayni', 'yukseklik', 'gecerli', 'genisletme', 'boyutu', 'degil', 'gibi', 'yok', 'cok', 'diye', 'simdi', 'nasil', 'hangi', 'hepsi', 'sadece', 'böyle', 'şöyle', 'olarak', 'bölünme', 'ayarlar', 'ayarları', 'göster', 'gizle', 'buton', 'sayfa', 'ekran', 'ayar', 'seç', 'sil', 'yeni', 'eski', 'üst', 'alt', 'sağ', 'sol', 'orta', 'geri', 'ileri', 'devre', 'etkin', 'pasif', 'çizgi', 'nokta', 'kenar', 'köşe', 'merkez', 'ölçek', 'oran', 'boyut', 'renk', 'ses', 'dil'];
-const TR_RE = new RegExp('(^|[^a-zA-Z])(' + TR_WORDS.join('|') + ')([^a-zA-Z]|$)', 'i');
+const ALLOWED_EXTRA = new Set(['\u00B0', '\u2014', '\u2026']);
+const ALLOWED_RE = /[\p{Sm}\u2190-\u21FF]/u;
 let hits = 0;
 for (const f of FILES) {
   const p = path.join(ROOT, f);
   if (!fs.existsSync(p)) continue;
   fs.readFileSync(p, 'utf8').split('\n').forEach((line, i) => {
-    if (TR_CHARS.test(line)) { hits++; console.log(f + ':' + (i + 1) + ': Turkish character: ' + line.trim().slice(0, 120)); }
-    const m = line.match(TR_RE);
-    if (m) { hits++; console.log(f + ':' + (i + 1) + ': Turkish word "' + m[2] + '": ' + line.trim().slice(0, 120)); }
+    for (const ch of line) {
+      if (ch.codePointAt(0) > 127 && !ALLOWED_EXTRA.has(ch) && !ALLOWED_RE.test(ch)) {
+        hits++;
+        console.log(f + ':' + (i + 1) + ': non-allowlisted character U+' + ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0') + ': ' + line.trim().slice(0, 120));
+        break;
+      }
+    }
   });
 }
-console.log(hits ? 'lang-scan: ' + hits + ' hit(s) - UI text and comments are English only (owner 21 Oct)' : 'lang-scan: clean');
+console.log(hits ? 'lang-scan: ' + hits + ' hit(s) - repo text is English and ASCII only (repo rule, owner 9 Nov 2026)' : 'lang-scan: clean');
 process.exit(hits ? 1 : 0);
