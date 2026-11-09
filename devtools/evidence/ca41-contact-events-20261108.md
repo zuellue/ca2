@@ -360,3 +360,13 @@ OPEN (gate boundary): the 24-seed random micro-world gate (micro SET, STATESEED 
 Matrix after the edits (runner verdicts): fuse seeds 11/1/7/10 CLEAN 0.0000 x4 (tmpv path); failclosed PASS; selfcheck PASS; birth-mutation PASS; no-eat 45/45 CLEAN; eat 20/20 CLEAN; 0 crashes, 0 unrun. Flag-free default behavior bit-unchanged (product edit gated; harness edits are needle/bridge only).
 
 Status: CA-41 REMAINS OPEN. Product fix landed behind CA2_FUSE_FIX and exact on the controlled domain; the random-domain fuse-energy structure (bnd/spd full-range sweeps) is the next item, then re-run the 24-seed product gate; residual battery classes and loci A, C, D open.
+
+## Round 11b (2026-11-09): bnd full-range sweeps - the bnd term is NOT globally linear (raw data)
+
+big.bnd sweep at sm.bnd=1.2 (other genome = template; delta_true = ws.en - js.en, js default (b+s)*0.85):
+0.5:+3.153459933e-3, 0.8(1gen):+1.486793267e-3, 0.9:-1.798734000e-4, 1.0:-1.846540067e-3, 1.1:-1.290984511e-3, 1.2:-7.354289555e-4, 1.3:-1.798734000e-4, 1.6:+1.486793267e-3, 1.9:+3.153459933e-3, 2.0:+3.709015489e-3.
+Per-unit slopes of the implied bnd term: -1/180 on [0.5,0.8], -3/180 on [0.8,1.0], +1/180 on [1.0,2.0] (breakpoints 0.8 and 1.0 at sm.bnd=1.2).
+
+big.bnd sweep at sm.bnd=0.7: 0.5:+3.756821556e-4, 0.9:-1.846540067e-3 (reproduces 1g4), 1.0:-2.402095622e-3, 1.3:+2.597904378e-3. Implied slopes: -1/180 on [0.5,1.0], +3/180 on [1.0,1.3] - the steep segment sits on the OTHER side of 1.0 than in the sm.bnd=1.2 sweep, so the breakpoints move with sm.bnd.
+
+Reading: the signed (sm.bnd-big.bnd)/180 of rounds 9-10 is exact only on the originally swept pairs (big.bnd in {0.6..0.9} x sm.bnd in {0.7..1.2}, all with |big.bnd-1.0| small); the true bnd term is piecewise with breakpoints tied to both bnds (candidates: |bnd-1.0| branches, bnd-product or ratio couplings). The spd term may have analogous structure (validated only at 3 points). This is the structure behind the round-11 random-gate en-only residuals (random bnd spans 0.5-2.0). NEXT: dense 2D bnd grid (big x sm in {0.5,0.65,...,2.0}) + spd sweep 0.5-1.6, refit, then update the FUSEEN emulation + CA2_FUSE_FIX product flag and re-run the 24-seed product gate.
