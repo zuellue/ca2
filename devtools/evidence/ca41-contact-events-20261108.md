@@ -401,3 +401,23 @@ wasm world is seed-stable and the js side is the one missing an energy update).
 Open hypothesis: an interaction/et energy channel the js side skips on the fuse
 frame, or a fuse event-gate desync. RAWALL=1 probe perturbs world spawn (do not
 use); FUSEDBG now dumps full parent genomes+energies per fuse.
+
+## Round 12 - the fuse-energy delta is slot-gated (big parent must be the pair callee)
+
+The round-11c formula was exact on every 2-cell controlled world (46 grid points)
+but the random 24-seed gate stuck at 7/24. Cause found with a 3-cell permutation
+battery (big B r6, sm S r4, bystander C r5; six spawn orders, FUSEDBG parent dumps
+plus product-pair en readback): the served binary applies the genome-keyed energy
+delta ONLY when the radius-bigger parent is the pair callee (lower array index).
+When the big parent is the caller, the fuse energy is the plain (b+s)*0.85 carry,
+delta exactly 0. B+S (big=callee) matches the formula at +5.2665e-3; B+C
+(big=callee) at +4.5872e-3; every big=caller fuse (C+S in [S,C,B], B+C in [C,B,S])
+is 0. All 46 round-11c grid points had big=callee by construction, which is why
+the formula fit there. Product 24-seed gate (CA2FUSEFIX=1, STEPS=1) with the slot
+gate: 21/24 CLEAN (was 7/24); SEEDs 4, 8, 16 remain. Permutation battery 6/6
+CLEAN; controlled worlds 1gen/1g2/2gen flat at 0.0000 x6; 1g13 carries a
+pre-existing last-bit (1.42e-14) en readback difference, unchanged by this edit.
+Side finding: the TR2 lockstep assigns fuse-gate roll values by world geometry,
+not by raw stream position - the same pair at the same sequence index rolls
+0.79 vs 0.14 for two bystander offsets; roll-count parity reasoning must go
+through the lockstep, not a single shared stream.

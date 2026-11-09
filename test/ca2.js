@@ -504,7 +504,11 @@
       // bit-exact (no mix); __fuseKi/__fuseKiBF give the fuse-frame keepIn zone (parents' bnd average) - from the
       // next frame the stock genome-bnd zone (which is big's kept bnd). Flag-free default below is bit-unchanged.
       var fuseT = function (v, x) { var L = v < 1 ? 1 : 2 - v, U = v < 1 ? 2 - v : 1; if (x <= L) return v - x; if (x >= U) return x - v; return (v - L) + 3 * (v < 1 ? 1 : -1) * (x - L); };
-      big.energy += fuseT(sm.g.bnd, big.g.bnd) / 180 + fuseT(sm.g.spd, big.g.spd) / 132 + (sm.g.app - big.g.app) / 120 + Math.max(0, big.g.app - 0.5) / 30 - Math.max(0, sm.g.app + big.g.app - 1) / 60;
+      // round 12: the delta applies only when the radius-bigger parent is the pair callee (lower array
+      // index); a big-parent caller fuses with the plain 0.85 carry. Mapped on the 3-cell permutation
+      // battery (devtools/evidence/ca41-contact-events-20261108.md): B+S/B+C match the formula exactly
+      // with big=callee; every big=caller fuse is 0.
+      if (big === b) big.energy += fuseT(sm.g.bnd, big.g.bnd) / 180 + fuseT(sm.g.spd, big.g.spd) / 132 + (sm.g.app - big.g.app) / 120 + Math.max(0, big.g.app - 0.5) / 30 - Math.max(0, sm.g.app + big.g.app - 1) / 60;
       big.__fuseKi = frameT;
       big.__fuseKiBF = (big.g.bnd + sm.g.bnd) / 2;
     }

@@ -506,7 +506,10 @@
       // round-10 signed linear form was exact only on the originally swept pairs; app terms unchanged.
       var fuseT = function (v, x) { var L = v < 1 ? 1 : 2 - v, U = v < 1 ? 2 - v : 1; if (x <= L) return v - x; if (x >= U) return x - v; return (v - L) + 3 * (v < 1 ? 1 : -1) * (x - L); };
       var dE = fuseT(sm.g.bnd, big.g.bnd) / 180 + fuseT(sm.g.spd, big.g.spd) / 132 + (sm.g.app - big.g.app) / 120 + Math.max(0, big.g.app - 0.5) / 30 - Math.max(0, sm.g.app + big.g.app - 1) / 60;
-      big.energy += dE;
+      // round 12: the delta applies only when the radius-bigger parent is the pair callee (lower array
+      // index); when big is the caller the served binary adds nothing. Mapped on the 3-cell permutation
+      // battery: B+S and B+C fuses match the formula exactly with big=callee, all big=caller fuses are 0.
+      if (big === b) big.energy += dE;
     }
     big.gene = clamp(Math.round((big.gene + sm.gene) / 2), P.GENE_MIN, P.GENE_MAX);
     if (typeof process !== 'undefined' && process.env.FUSEMIX !== '0') { big.g = mixGenome(big.g, sm.g); }
